@@ -45,7 +45,7 @@ The ML2 part of the driver implementation is responsible for creating and managi
                                                                          + +
 ```
 ### Neutron Network to IOS config Mapping
-######Example Network:
+###### Example Network:
 
 ```json
 {
@@ -89,7 +89,7 @@ The ML2 part of the driver implementation is responsible for creating and managi
     }
 }
 ```
-######Example Ports in Network:
+###### Example Ports in Network:
 
 ```json
 {
@@ -190,7 +190,7 @@ interface Port-channel3
   bridge-domain 5002
 ```
 
-######Configuration Limits for resources:
+###### Configuration Limits for resources:
 
 | Resource | ID Space | ID Sope | Specific Limit | Global Limit | Requirements |
 | ------------- |:-------------:|:----:| -----:|-----:|:-----|
@@ -199,14 +199,14 @@ interface Port-channel3
 | dot1q | 1-4096 | global | 4096 | ??? |  External Interface: One Per Network<br /> Loopback Interface: One per network |
 | second-dot1q | 1-4096 | local | 4096 | ??? |  External Interface: - <br /> Loopback Interface: One per Port |
 
-######Conventions:
+###### Conventions:
 
   * **Bridge Domain**: <br />ID's 1-4096 are reserved for usage on the external interface, bridge-domain ID matches VLAN id of neutron segment ID<br /> Allocaton on internal side ID > 4097 mapping TBD<br /> Port-channel1.BD-ID == Port-channel2.BD-ID != Port-channel3.BD-ID.
   * **dot1q**: First VLAN Tag on loopback interfaces match the associated neutron network segment VLAN ID.
   * **second-dot1q**: Secondary tag on loopbacks need to be unique per Port per primary dot1q, allocation TBD.
   * **Service instance ID**:<br /> External Portchannel: instanceID == dot1q <br /> Loopback Portchannel: TBD
 
-######Resulting Scale Limitations
+###### Resulting Scale Limitations
   * **Neutron Networks**: 4096 Neutron Networks per device
   * **Neutron Ports**: 8000 Neutron Ports per device, 4096 Ports per Network
 
@@ -426,7 +426,7 @@ Internal Port
 
 ```
 
-######VRF Definition per Router
+###### VRF Definition per Router
 ```
 vrf definition f8a44de0fc8e45df93c7f79bf3b01c95
  description HCP Example Project Router1
@@ -436,7 +436,7 @@ vrf definition f8a44de0fc8e45df93c7f79bf3b01c95
 !
 ```
 
-######External Router Port
+###### External Router Port
 Router with SNAT=false
 
 ```
@@ -496,7 +496,7 @@ ip nat inside source list f8a44de0fc8e45df93c7f79bf3b01c95 pool redundancy 1 map
 
 ```
 
-######Internal Router Port
+###### Internal Router Port
 Router with Address scope External != Address scope internal
 
 ```
@@ -526,7 +526,7 @@ interface BDI4502
  ip address 172.24.5.1 255.255.255.0
 ```
 
-######Floating IP
+###### Floating IP
 
 ```json
 {
@@ -570,14 +570,14 @@ ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79b
 
 ```
 
-######Open Architecture Topics:
+###### Open Architecture Topics:
 
  * Can we assign interfacce routes inside a vrf?
  * Does arp alias work for off-subnet ip's?
  * Do we need rii on interfaces or is mapping-id sufficient on nat statements ?
  * should/must all mapping-id's be the same or different for a given neutron router ? 
 
-######Configuration Limits for resources:
+###### Configuration Limits for resources:
 
 | Resource | ID Space | ID Sope | Specific Limit | Global Limit | Requirements |
 | ------------- |:-------------:|:----:| -----:|-----:|:-----|
@@ -595,11 +595,11 @@ ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79b
 
 
 
-######Conventions:
+###### Conventions:
 
   * **vrf name**: must match neutron router id, "-" must be removed from router id fit string length restrictions
   * **description**: Either neutron name, neutron description or name+description TBD??
 
-######Resulting Scale Limitations
+###### Resulting Scale Limitations
   * **Neutron Networks**: 8000 Neutron Routers per device
 
