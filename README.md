@@ -603,3 +603,96 @@ ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79b
 ###### Resulting Scale Limitations
   * **Neutron Networks**: 8000 Neutron Routers per device
 
+## L3 extraroute and host_routes
+
+###### Conventions:
+ * Implementation must support extraroutes on Neutron Routers
+ * Implementation must support host_routes on Subnets associated to a router
+
+```json
+{
+    "router": 
+        {
+             "routes": [
+                {
+                    "destination": "179.24.1.0/24",
+                    "nexthop": "172.24.0.32"
+                }
+            ]
+        }
+}
+
+{
+    "subnet": [
+        {
+            "host_routes": [
+              {
+                    "destination": "179.24.10.0/24",
+                    "nexthop": "172.24.0.99"
+                }
+            ],
+        },
+}
+```
+
+Resulting ASR Config
+
+```json
+ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 179.24.1.0 0.0.0.255 172.24.0.32
+ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 179.24.10.0 0.0.0.255 172.24.0.99
+```
+
+## BGP/MPLS VPN Interconnection
+
+###### Conventions:
+ * Implementation must support type L3, type L2 is out of scope
+ * Implementation must support route_destinguisher auto generation
+ * Implementation should support local_pref extension
+ * Implementation must implement advertise_extra_routes
+
+```json
+{
+  "bgpvpns": [
+    {
+      "export_targets": [
+        "64512:1666"
+      ],
+      "name": "",
+      "routers": [],
+      "route_distinguishers": [
+        "64512:1777",
+        "64512:1888",
+        "64512:1999"
+      ],
+      "tenant_id": "b7549121395844bea941bb92feb3fad9",
+      "project_id": "b7549121395844bea941bb92feb3fad9",
+      "import_targets": [
+        "64512:1555"
+      ],
+      "route_targets": [
+        "64512:1444"
+      ],
+      "type": "l3",
+      "id": "0f9d472a-908f-40f5-8574-b4e8a63ccbf0",
+      "networks": [],
+      "local_pref": null,
+      "vni": 1000
+    }
+  ]
+}
+
+{
+  "router_associations": [
+    {
+      "router_id": "f8a44de0fc8e45df93c7f79bf3b01c95",
+      "id": "0f9d472a-908f-40f5-8574-b4e8a63ccbf0",
+      "advertise_extra_routes": true
+    }
+  ]
+}
+```
+
+Resulting ASR Config
+
+```json
+```
