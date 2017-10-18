@@ -695,6 +695,26 @@ ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 179.24.10.0 0.0.0.255 172.24.0.99
 Resulting ASR Config
 
 ```json
+vrf definition f8a44de0fc8e45df93c7f79bf3b01c95
+ rd 64512:1888
+ !
+ address-family ipv4
+  export map GLOBAL
+  route-target export 64512:1444
+  route-target export 64512:1666
+  route-target import 64512:1555
+  route-target import 64512:1444
+ exit-address-family
+
+!Router pre-configured only vrf specific config managed
+router bgp 65117
+ address-family ipv4 vrf f8a44de0fc8e45df93c7f79bf3b01c95
+   !Internal Interfaces
+   network 10.180.0.0 mask 255.255.255.0
+   !Extra-Routes
+   network 179.24.1.0 mask 255.255.255.0
+   network 179.24.10.0 mask 255.255.255.0
+ exit-address-family
 ```
 
 ## HA and BoxToBox Failover
