@@ -696,3 +696,60 @@ Resulting ASR Config
 
 ```json
 ```
+
+## HA and BoxToBox Failover
+Resources need to be scheduled among multiple routers (2 at least) to allow for High Availability.
+
+### Requirements
+
+  * Failover of individual Neutron Routers on localized failures is considered ideal
+  * Failover of Groups of routers (one active on each device with mutual failover of the entire group) is preferd
+  * Global failover from an active Box to an standby box is acceptable initially
+  * NAT entries should be transfered on failover
+  * Firewall states should be transfered on failover
+  * Failover implementation must not require additional resources (MAC / IP Adresses)
+
+### Global Failover
+
+###### Conventions:
+ * Redundancy State (Active/Passive) is determined by out of band protocol (Redundancy Group)
+ * Passive Router keeps port-channel3 interface in *shutdown* mode to disconnect all neutron ports
+ * When the router transitions to active state a EEM script is triggered putting port-channel3 in *no shutdown*
+
+Resulting ASR Config
+
+```json
+interface Port-channel3
+ mtu 9000
+ no ip address
+ shutdown
+ service instance 5 ethernet
+ ...
+ 
+event manager applet rg_standby 
+ event track 1 state down
+ action 1.0 cli command "enable"
+ action 1.5 syslog msg "Router is going into standby state"
+ action 2.0 cli command "conf t"
+ action 3.0 cli command "interface Port-channel3"
+ action 4.0 cli command "shutdown"
+ action 5.0 syslog msg "shutdown Port-channel3"
+ action 5.1 cli command "end"
+
+event manager applet rg_active 
+ event track 1 state up
+ action 1.0 cli command "enable"
+ action 1.5 syslog msg "Router is going into active state"
+ action 2.0 cli command "conf t"
+ action 3.0 cli command "interface Port-channel3"
+ action 4.0 cli command "shutdown"
+ action 5.0 syslog msg "enabled Port-channel3"
+ action 5.1 cli command "end"
+
+```
+
+###### Open Architecture Topics:
+ * Which event can we use to react on RG changes in EEM
+ * Is it possible to have a interface directly follow a RG state
+
+ 
