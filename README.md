@@ -477,7 +477,7 @@ ip nat inside source list nat-all pool redundancy 1 mapping-id 10 vrf f8a44de0fc
 Router with SNAT=true with address scope support
 
 ```
-ip access-list extended f8a44de0fc8e45df93c7f79bf3b01c95
+ip access-list extended NAT-f8a44de0fc8e45df93c7f79bf3b01c95
  permit ip any any
 
 interface BDI4501
@@ -492,7 +492,7 @@ interface BDI4501
 ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 0.0.0.0 0.0.0.0 172.24.4.1
 
 ip nat pool f8a44de0fc8e45df93c7f79bf3b01c95 172.24.4.6 172.24.4.6 netmask 255.255.255.0
-ip nat inside source list f8a44de0fc8e45df93c7f79bf3b01c95 pool redundancy 1 mapping-id 10 vrf f8a44de0fc8e45df93c7f79bf3b01c95 overload
+ip nat inside source list NAT-f8a44de0fc8e45df93c7f79bf3b01c95 pool redundancy 1 mapping-id 10 vrf f8a44de0fc8e45df93c7f79bf3b01c95 overload
 
 ```
 
@@ -513,7 +513,7 @@ interface BDI4502
 Router with Address scope External == Address scope internal
 
 ```
-ip access-list extended f8a44de0fc8e45df93c7f79bf3b01c95
+ip access-list extended NAT-f8a44de0fc8e45df93c7f79bf3b01c95
  deny   ip 172.24.5.0 0.0.0.255 any
  permit ip any any
 
@@ -642,6 +642,180 @@ ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 179.24.1.0 0.0.0.255 172.24.0.32
 ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 179.24.10.0 0.0.0.255 172.24.0.99
 ```
 
+## FWaaS v2.0
+
+###### Conventions:
+
+###### Policy:
+
+```json
+{
+    "firewall_group": {
+        "admin_state_up": true,
+        "description": "",
+        "egress_firewall_policy_id": "4566D00F-21B6-4673-8260-72049F7FA497",
+        "ingress_firewall_policy_id": "c69933c1-b472-44f9-8226-30dc4ffd454c",
+        "id": "3b0ef8f4-82c7-44d4-a4fb-6177f9a21977",
+        "name": "",
+        "ports": [
+            "46d4bfb9-b26e-41f3-bd2e-e6dcc1ccedb2"
+        ],
+        "shared": true,
+        "status": "PENDING_UPDATE"
+    }
+}
+
+{
+    "firewall_policy": {
+        "audited": true,
+        "description": "",
+        "firewall_rules": [
+            "8722e0e0-9cc9-4490-9660-8c9a5732fbb0"
+        ],
+        "id": "4566D00F-21B6-4673-8260-72049F7FA497",
+        "name": "test-policy",
+        "project_id": "45977fa2dbd7482098dd68d0d8970117",
+        "shared": false,
+        "tenant_id": "45977fa2dbd7482098dd68d0d8970117"
+    }
+}
+{
+    "firewall_policy": {
+        "audited": true,
+        "description": "",
+        "firewall_rules": [
+            "EAE6652F-7AEF-4F3D-A595-7045D0FC2F6D"
+        ],
+        "id": "c69933c1-b472-44f9-8226-30dc4ffd454c",
+        "name": "test-policy",
+        "project_id": "45977fa2dbd7482098dd68d0d8970117",
+        "shared": false,
+        "tenant_id": "45977fa2dbd7482098dd68d0d8970117"
+    }
+}
+{
+    "firewall_rule": {
+        "action": "allow",
+        "description": "",
+        "destination_ip_address": "0.0.0.0/0",
+        "destination_port": "8",
+        "enabled": true,
+        "firewall_policy_id": 4566D00F-21B6-4673-8260-72049F7FA497,
+        "id": "8722e0e0-9cc9-4490-9660-8c9a5732fbb0",
+        "ip_version": 4,
+        "name": "ALLOW_ICMP_ECHO_REQ",
+        "position": 1,
+        "project_id": "45977fa2dbd7482098dd68d0d8970117",
+        "protocol": "icmp",
+        "shared": false,
+        "source_ip_address": 0.0.0.0/0,
+        "source_port": null,
+        "tenant_id": "45977fa2dbd7482098dd68d0d8970117"
+    }
+}
+{
+    "firewall_rule": {
+        "action": "allow",
+        "description": "",
+        "destination_ip_address": "0.0.0.0/0",
+        "destination_port": "0",
+        "enabled": true,
+        "firewall_policy_id": c69933c1-b472-44f9-8226-30dc4ffd454c,
+        "id": "EAE6652F-7AEF-4F3D-A595-7045D0FC2F6D",
+        "ip_version": 4,
+        "name": "ALLOW_ICMP_ECHO_REP",
+        "position": 1,
+        "project_id": "45977fa2dbd7482098dd68d0d8970117",
+        "protocol": "icmp",
+        "shared": false,
+        "source_ip_address": 0.0.0.0/0,
+        "source_port": null,
+        "tenant_id": "45977fa2dbd7482098dd68d0d8970117"
+    }
+}
+{
+    "firewall_rule": {
+        "action": "allow",
+        "description": "",
+        "destination_ip_address": "10.180.0.92",
+        "destination_port": "53",
+        "enabled": true,
+        "firewall_policy_id": c69933c1-b472-44f9-8226-30dc4ffd454c,
+        "id": "EAE6652F-7AEF-4F3D-A595-7045D0FC2F6D",
+        "ip_version": 4,
+        "name": "ALLOW_DNS",
+        "position": 2,
+        "project_id": "45977fa2dbd7482098dd68d0d8970117",
+        "protocol": "udp",
+        "shared": false,
+        "source_ip_address": 0.0.0.0/0,
+        "source_port": null,
+        "tenant_id": "45977fa2dbd7482098dd68d0d8970117"
+    }
+}
+
+{
+    "firewall_rule": {
+        "action": "allow",
+        "description": "",
+        "destination_ip_address": "10.180.0.0/24",
+        "destination_port": "22",
+        "enabled": true,
+        "firewall_policy_id": c69933c1-b472-44f9-8226-30dc4ffd454c,
+        "id": "EAE6652F-7AEF-4F3D-A595-7045D0FC2F6D",
+        "ip_version": 4,
+        "name": "ALLOW_DNS",
+        "position": 3,
+        "project_id": "45977fa2dbd7482098dd68d0d8970117",
+        "protocol": "TCP",
+        "shared": false,
+        "source_ip_address": 0.0.0.0/0,
+        "source_port": null,
+        "tenant_id": "45977fa2dbd7482098dd68d0d8970117"
+    }
+}
+```
+
+###### ASR Config Standard ACL:
+```json
+ip access-list extended IN-46d4bfb9-b26e-41f3-bd2e-e6dcc1ccedb2
+ permit tcp any any established
+ permit icmp any any echo-reply
+ permit tcp any 10.180.0.0 0.0.0.255 eq 22
+ permit udp any host 10.180.0.92 eq domain
+ deny   ip any any
+
+ip access-list extended OUT-46d4bfb9-b26e-41f3-bd2e-e6dcc1ccedb2
+ permit tcp any any established
+ permit udp host 10.180.0.92 eq domain any
+ deny   ip any any
+ 
+interface BDI4501
+ description 46d4bfb9-b26e-41f3-bd2e-e6dcc1ccedb2
+ mac-address fa16.3e23.fdd7
+ mtu 8950
+ vrf forwarding f8a44de0fc8e45df93c7f79bf3b01c95
+ ip nat outside
+ ip address 172.24.4.6 255.255.255.0
+ ip address 172.24.5.228 255.255.255.0 secondary
+ ip access-group IN-46d4bfb9-b26e-41f3-bd2e-e6dcc1ccedb2 in
+ ip access-group OUT-46d4bfb9-b26e-41f3-bd2e-e6dcc1ccedb2 out
+ redundancy rii 10
+```
+
+###### ASR Config Zone Based Firewall:
+```json
+
+```
+
+###### Open Architecture Topics:
+ * Can we use ZBF with a standard ACL functionality
+ * Redundancy in ZBF
+ * FWaaS why is the protocol field string and not number (only icmp,tcp,udp not esp/ah?)
+ * FWaaS whats the convention on icmp message type, use dst port?
+ * Is the relationship firewall_group <-> Neutron Port really n:1, how is ordering determined?
+
+
 ## BGP/MPLS VPN Interconnection
 
 ###### Conventions:
@@ -649,6 +823,7 @@ ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 179.24.10.0 0.0.0.255 172.24.0.99
  * Implementation must support route_destinguisher auto generation
  * Implementation should support local_pref extension
  * Implementation must implement advertise_extra_routes
+ * Implementation must choose one RD on association and stick with that
 
 ```json
 {
@@ -716,6 +891,20 @@ router bgp 65117
    network 179.24.10.0 mask 255.255.255.0
  exit-address-family
 ```
+
+###### Open Architecture Topics:
+
+ * Driver needs a wait cycle on RD removal / changes since device is blocking VRF until finished.
+ * How do we implement security on RT and RD assignment?
+ * Can a router be associated with multiple bgpvpns's
+ * Should it be possible to have a network association which is currently connected to a router? 
+
+###### Configuration Limits for resources:
+
+| Resource | ID Space | ID Sope | Specific Limit | Global Limit | Requirements |
+| ------------- |:-------------:|:----:| -----:|-----:|:-----|
+| route-map | string | global | ??? | ??? |  maybe one per bgpvpn association |
+| route-target | ASN:ID | global | ??? | ??? |  How Many RT's per Prefix / VRF? |
 
 ## HA and BoxToBox Failover
 Resources need to be scheduled among multiple routers (2 at least) to allow for High Availability.
