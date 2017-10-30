@@ -196,8 +196,8 @@ interface Port-channel3
 | ------------- |:-------------:|:----:| -----:|-----:|:-----|
 | Service Instance | 1-8000 | local | ??? | ??? |  External Interface: One Per Network<br /> Loopback Interface: One per Port | 
 | Bridge-Domain | 1-16000 | global | 16000 | 16000 |  External Interface: One Per Network<br /> Loopback Interface: One per Port | 
-| dot1q | 1-4096 | global | 4096 | ??? |  External Interface: One Per Network<br /> Loopback Interface: One per network |
-| second-dot1q | 1-4096 | local | 4096 | ??? |  External Interface: - <br /> Loopback Interface: One per Port |
+| dot1q | 1-4096 | global | 4096 | 4096 | 16000 External Interface: One Per Network<br /> Loopback Interface: One per network |
+| second-dot1q | 1-4096 | local | 4096 | 16000 |  External Interface: - <br /> Loopback Interface: One per Port |
 
 ###### Conventions:
 
