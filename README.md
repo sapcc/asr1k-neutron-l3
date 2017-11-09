@@ -961,4 +961,41 @@ event manager applet rg_active
  * Which event can we use to react on RG changes in EEM
  * Is it possible to have a interface directly follow a RG state
 
+## Device Base Configuration
+
+### Interfaces
+
+```
+interface Port-channel1
+ description external interface
+ mtu 9000
+ no ip address
  
+interface Port-channel2
+ description loopback external
+ mtu 9000
+ no ip address
+
+interface Port-channel1
+ description loopback internal
+ mtu 9000
+ no ip address
+```
+
+### NAT
+
+```
+!Disable DNS Doctoring
+no ip nat service dns tcp
+no ip nat service dns udp
+```
+
+### AAA
+
+### Control Plane Policing
+```
+! ensure the router does not enable management protocols on customer interfaces
+
+control-plane host
+ management-interface GigabitEthernet0/0/7 allow ftp http https ssh tftp snmp telnet
+```
