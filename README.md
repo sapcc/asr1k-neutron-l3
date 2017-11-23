@@ -934,27 +934,35 @@ interface Port-channel3
  shutdown
  service instance 5 ethernet
  ...
+
+interface Port-channel1
+ service instance 3 ethernet
+  description RG-Tracking
+  encapsulation dot1q 3
+  bridge-domain 3
+
+interface BDI3
+ ip address 1.1.3.1 255.255.255.0
+ redundancy rii 3
+ redundancy group 1 ip 1.1.3.3 exclusive decrement 10
  
-event manager applet rg_standby 
- event track 1 state down
+event manager applet rg1_active
+ event routing network 1.1.3.3/32 type add protocol connected maxrun 10
  action 1.0 cli command "enable"
- action 1.5 syslog msg "Router is going into standby state"
- action 2.0 cli command "conf t"
- action 3.0 cli command "interface Port-channel3"
- action 4.0 cli command "shutdown"
- action 5.0 syslog msg "shutdown Port-channel3"
- action 5.1 cli command "end"
-
-event manager applet rg_active 
- event track 1 state up
+ action 1.5 cli command "config t"
+ action 2.0 cli command "interface po3"
+ action 2.5 cli command "no shutdown"
+ action 3.0 syslog msg "Neutron Router became active activating po3"
+ action 3.5 cli command "end"
+ 
+event manager applet rg1_inactive
+ event routing network 1.1.3.3/32 type remove protocol connected maxrun 10
  action 1.0 cli command "enable"
- action 1.5 syslog msg "Router is going into active state"
- action 2.0 cli command "conf t"
- action 3.0 cli command "interface Port-channel3"
- action 4.0 cli command "shutdown"
- action 5.0 syslog msg "enabled Port-channel3"
- action 5.1 cli command "end"
-
+ action 1.5 cli command "config t"
+ action 2.0 cli command "interface po3"
+ action 2.5 cli command "shutdown"
+ action 3.0 syslog msg "Neutron Router became standby deactivating po3"
+ action 3.5 cli command "end"
 ```
 
 ###### Open Architecture Topics:
