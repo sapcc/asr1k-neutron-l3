@@ -12,6 +12,8 @@ provide the following Openstack extensions:
 Documentation is split into two sections one mapping [Openstack Neutron entities to device configuration](DEVICE_README.md), the other 
 describing the [design principles of the software components](DRIVER_README.md).  
 
+**The current state in development/alpha and it is not intended for productove use in iits current state**
+
 When not explicity specified any intellectual property manifested in this repository is subject to the following:  
 
     Copyright 2017 SAP SE
