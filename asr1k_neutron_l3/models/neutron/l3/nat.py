@@ -59,8 +59,10 @@ class DynamicNAT(BaseNAT):
         nat_pool = rest_nat.NatPool.get(context, self.router_id)
         dyanmic_nat = rest_nat.DynamicNat.get(context, self.id)
 
-        nat_pool.delete()
-        dyanmic_nat.delete()
+        if nat_pool is not None:
+            nat_pool.delete()
+        if dyanmic_nat is not None:
+            dyanmic_nat.delete()
 
 
 class FloatingIp(BaseNAT):
