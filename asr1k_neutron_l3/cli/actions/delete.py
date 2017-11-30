@@ -18,6 +18,8 @@ from oslo_log import log as logging
 
 import base_action
 
+from asr1k_neutron_l3.models.neutron.l3.router import Router
+
 LOG = logging.getLogger(__name__)
 
 
@@ -27,4 +29,8 @@ class Delete(base_action.BaseAction):
         super(Delete, self).__init__(namespace)
 
     def execute(self):
-        pass
+        ri =  self.get_router_info()
+        if ri :
+            router = Router(ri)
+
+            router.delete()

@@ -19,6 +19,10 @@ import argparse
 
 from oslo_utils import importutils
 
+from neutron.common import eventlet_utils
+
+eventlet_utils.monkey_patch()
+
 ACTION_MODULE = 'asr1k_neutron_l3.cli.actions.'
 
 
@@ -44,8 +48,6 @@ def main():
     parser.add_argument('--router-id', dest='router_id',
                         help='router id', action='store')
 
-    parser.add_argument('--port-id', dest='port_id',
-                        help='Port of global router to sync')
 
     parser.add_argument('--confirm', dest='confirm', action='store_true',
                         help='Confirm high risk action')

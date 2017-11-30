@@ -27,4 +27,4 @@ class Validate(base_action.BaseAction):
         super(Validate, self).__init__(namespace)
 
     def execute(self):
-        print("Validate")
+        pass

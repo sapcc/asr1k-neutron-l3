@@ -36,7 +36,7 @@ class RouteCollection(base.Base):
 
     @base.excute_on_pair
     def delete(self, context=None):
-        rc = l3_route.RouteCollection.get(context, self.router_id)
+        rc = l3_route.RouteCollection(context, vrf=self.router_id)
         rc.delete()
 
 

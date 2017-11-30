@@ -65,6 +65,11 @@ class Interface(base.Base):
             if subnet.get('id') == self._primary_subnet_id:
                 return subnet
 
+    @base.excute_on_pair
+    def delete(self, context=None):
+        bdi_interface = l3_interface.BdiInterface(context, name=self.bridge_domain)
+        bdi_interface.delete()
+
 
 class GatewayInterface(Interface):
 
@@ -82,6 +87,7 @@ class GatewayInterface(Interface):
             bdi.update()
 
 
+
 class InternalInterface(Interface):
 
     def __init__(self, router_id, router_port, extra_atts):
@@ -96,6 +102,8 @@ class InternalInterface(Interface):
         bdi.update()
 
 
+
+
 class OrphanedInterface(Interface):
 
     def __init__(self, router_id, router_port, extra_atts):
@@ -103,7 +111,4 @@ class OrphanedInterface(Interface):
 
     @base.excute_on_pair
     def update(self, context=None):
-        # this is going to be a delete we need to remove the intrerface, nat pool and dynamic nat entry
-        bdi_interface = l3_interface.BdiInterface.get(context, self.bridge_domain)
-        if bdi_interface is not None:
-            bdi_interface.delete()
+        self.delete()

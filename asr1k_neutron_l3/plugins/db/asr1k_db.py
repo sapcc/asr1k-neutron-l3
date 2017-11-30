@@ -28,7 +28,7 @@ from sqlalchemy import and_
 
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
 
-MIN_SERVICE_INSTANCE = 1
+MIN_SERVICE_INSTANCE = 100
 MAX_SERVICE_INSTANCE = 8000
 MIN_BRIDGE_DOMAIN = 4097
 MAX_BRIDGE_DOMAIN = 16000
@@ -119,9 +119,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 updates = {}
                 if l2: updates['deleted_l2'] = l2
                 if l3: updates['deleted_l3'] = l3
-
-                LOG.debug("*********")
-                LOG.debug(updates)
 
                 extra_att.update(updates)
                 extra_att.save(context.session)

@@ -182,19 +182,18 @@ class Router(Base):
         for floating_ip in self.floating_ips:
             floating_ip.update()
 
-    # @log_helpers.log_method_call
-    # def delete(self):
-    #     self.routes.delete()
-    #     self.dynamic_nat.delete()
-    #     self.nat_acl.delete()
-    #
-    #     for floating_ip in self.floating_ips:
-    #         floating_ip.delete()
-    #
-    #     nat.FloatingIp.clean_floating_ips(self)
-    #
-    #
-    #     for interface in self.interfaces:
-    #         interface_result = interface.delete()
-    #
-    #     self.vrf.delete()
+    @log_helpers.log_method_call
+    def delete(self):
+        self.routes.delete()
+        self.dynamic_nat.delete()
+        self.nat_acl.delete()
+
+        for floating_ip in self.floating_ips:
+            floating_ip.delete()
+
+        nat.FloatingIp.clean_floating_ips(self)
+
+        for interface in self.interfaces:
+            interface_result = interface.delete()
+
+        self.vrf.delete()
