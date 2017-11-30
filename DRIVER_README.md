@@ -134,7 +134,7 @@ In general the following sequence of calls a made for an configuration update :
 
 1. HEAD for entity id
 2. If 404 POST to create
-3  If 200 PATCH to apply configuration change
+3. If 200 PATCH to apply configuration change
 
 The PUT method is used in some cased to replace entire entites, for example in the case of a route update an entire
  VRF's route list can be updated in a single API call. Further optimisation by 'batching' list updates via PUT needs 
