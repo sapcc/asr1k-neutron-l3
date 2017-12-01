@@ -29,7 +29,7 @@ class Update(base_action.BaseAction):
         super(Update, self).__init__(namespace)
 
     def execute(self):
-        ri =  self.get_router_info()
+        ri = self.get_router_info()
         if ri :
             router = Router(ri)
 

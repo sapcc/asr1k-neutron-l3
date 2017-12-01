@@ -23,6 +23,31 @@ from asr1k_neutron_l3.plugins.common import utils
 
 LOG = logging.getLogger(__name__)
 
+class InterfaceList(object):
+
+    def __init__(self):
+        self.internal_interfaces = []
+        self.gateway_interface  = None
+        self.orphaned_interfaces = []
+
+
+    def append(self,interface):
+        if isinstance(interface,InternalInterface):
+            self.internal_interfaces.append(interface)
+        elif isinstance(interface,GatewayInterface):
+            self.gateway_interface = interface
+        elif isinstance(interface,OrphanedInterface):
+            self.orphaned_interfaces.append(interface)
+        else:
+            LOG.warning("Attempt add unknown interface tye {} to interface list".format(interface.__class__.__name__))
+    @property
+    def all_interfaces(self):
+        result = []
+
+        if self.gateway_interface is not None:
+            result.append(self.gateway_interface)
+
+        return result+self.internal_interfaces+self.orphaned_interfaces
 
 class Interface(base.Base):
 
@@ -40,11 +65,12 @@ class Interface(base.Base):
         self.secondary_ip_addresses = []
         self.primary_subnet = self._primary_subnet()
         self.primary_gateway_ip = None
-        if self.primary_subnet:
+        if self.primary_subnet is not None:
             self.primary_gateway_ip = self.primary_subnet.get('gateway_ip')
 
         self.mac_address = utils.to_cisco_mac(self.router_port.get('mac_address'))
         self.mtu = self.router_port.get('mtu')
+        self.address_scope = router_port.get('address_scopes',{}).get('4')
 
     def update(self):
         pass
@@ -78,13 +104,13 @@ class GatewayInterface(Interface):
 
     @base.excute_on_pair
     def update(self, context=None):
-        for context in self.contexts:
-            bdi = l3_interface.BdiInterface(context, name=self.bridge_domain, description=self.router_id,
-                                            mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
-                                            ip_address=self.ip_address,
-                                            secondary_ip_addresses=self.secondary_ip_addresses, nat_mode="outside",
-                                            redundancy_group=None)
-            bdi.update()
+
+        bdi = l3_interface.BdiInterface(context, name=self.bridge_domain, description=self.router_id,
+                                        mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
+                                        ip_address=self.ip_address,
+                                        secondary_ip_addresses=self.secondary_ip_addresses, nat_mode="outside",
+                                        redundancy_group=None)
+        bdi.update()
 
 
 

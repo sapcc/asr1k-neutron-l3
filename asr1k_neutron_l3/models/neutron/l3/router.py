@@ -74,7 +74,7 @@ class Router(Base):
         self.nat_acl = self._build_nat_acl()
 
     def _build_interfaces(self):
-        interfaces = []
+        interfaces = l3_interface.InterfaceList()
 
         gw_port = self.router_info.get('gw_port')
         if gw_port is not None:
@@ -111,6 +111,20 @@ class Router(Base):
 
     def _build_nat_acl(self):
         acl = access_list.AccessList("NAT-{}".format(utils.uuid_to_vrf_id(self.router_id)))
+
+        # Check address scope and deny any where internal interface matches externel
+        gateway = self.interfaces.gateway_interface
+        if gateway is not None:
+            for interface in self.interfaces.internal_interfaces:
+                if interface.address_scope == gateway.address_scope:
+                    subnet = interface.primary_subnet
+
+                    if subnet.get('cidr') is not None:
+                        ip, netmask = utils.from_cidr(subnet.get('cidr'))
+                        wildcard = utils.to_wildcard_mask(netmask)
+                        rule = access_list.Rule(action='deny',source=ip,source_mask=wildcard)
+                        acl.append_rule(rule)
+
         acl.append_rule(access_list.Rule())
         return acl
 
@@ -159,7 +173,7 @@ class Router(Base):
 
         vrf_result = self.vrf.update()
 
-        for interface in self.interfaces:
+        for interface in self.interfaces.all_interfaces:
             interface_result = interface.update()
 
         if self.nat_acl:
@@ -193,7 +207,7 @@ class Router(Base):
 
         nat.FloatingIp.clean_floating_ips(self)
 
-        for interface in self.interfaces:
+        for interface in self.interfaces.all_interfaces:
             interface_result = interface.delete()
 
         self.vrf.delete()

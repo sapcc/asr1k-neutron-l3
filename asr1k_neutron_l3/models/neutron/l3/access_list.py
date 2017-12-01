@@ -30,13 +30,13 @@ class AccessList(base.Base):
         acl = access_list.AccessList(context, name=self.id)
         for i, rule in enumerate(self.rules):
             rule = access_list.ACLRule(context, access_list=self.id, sequence=(i + 1) * 10, action=rule.action,
-                                       protocol=rule.protocol, source=rule.source, destination=rule.destination)
+                                       protocol=rule.protocol, ipv4_address=rule.source, mask=rule.source_mask ,dest_ipv4_address=rule.destination, dest_mask = rule.destination_mask)
             acl.add_rule(rule)
         acl.update()
 
     @base.excute_on_pair
     def delete(self, context=None):
-        acl = access_list.AccessList.get(context, self.id)
+        acl = access_list.AccessList(context, name=self.id)
         acl.delete()
 
     def append_rule(self, rule):
@@ -45,8 +45,10 @@ class AccessList(base.Base):
 
 class Rule(object):
 
-    def __init__(self, action='permit', protocol='ip', source='any', destination='any'):
+    def __init__(self, action='permit', protocol='ip', source=None, source_mask=None, destination=None,destination_mask=None):
         self.action = action
         self.protocol = protocol
         self.source = source
+        self.source_mask = source_mask
         self.destination = destination
+        self.destination_mask  = destination_mask

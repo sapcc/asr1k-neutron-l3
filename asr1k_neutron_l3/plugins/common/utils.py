@@ -79,6 +79,16 @@ def from_cidr(cidr):
 
     return ip, netmask
 
+def to_wildcard_mask(prefix_len):
+
+    if isinstance(prefix_len, (int, long)):
+        netmask = to_netmask(prefix_len)
+    else:
+        netmask = prefix_len
+
+    wildcard = ".".join([str(255- int(octect)) for octect in netmask.split(".")])
+
+    return wildcard
 
 def ip_in_network(ip, net):
     return IPAddress(ip) in IPNetwork(net)

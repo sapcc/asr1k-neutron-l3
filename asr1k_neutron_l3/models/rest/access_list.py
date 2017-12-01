@@ -23,7 +23,7 @@ from asr1k_neutron_l3.models.rest.rest_base import RestBase
 class ACLConstants(object):
     EXTENDED = "Cisco-IOS-XE-acl:extended"
     NAME = "name"
-    RULE = "access-list-seq-rule"
+    RULES = "access-list-seq-rule"
     SEQUENCE = "sequence"
     ACE_RULE = "ace-rule"
     ACTION = 'action'
@@ -33,6 +33,10 @@ class ACLConstants(object):
     DENY = 'deny'
     ANY = 'any'
     DST_ANY = 'dst-any'
+    SOURCE_IP = 'ipv4-address'
+    SOURCE_MASK ='mask'
+    DEST_IP = 'dest-ipv4-address'
+    DEST_MASK ='dest-mask'
 
 
 class AccessList(RestBase):
@@ -58,28 +62,35 @@ class AccessList(RestBase):
         entry = OrderedDict()
         entry[ACLConstants.NAME] = self.name
         # entry[ACLConstants.RULE]=self.rules
-        entry[ACLConstants.RULE] = []
+        entry[ACLConstants.RULES] = []
         for rule in self.rules:
-            entry[ACLConstants.RULE].append(rule.to_child_dict())
+            entry[ACLConstants.RULES].append(rule.to_child_dict())
 
         result = OrderedDict()
         result[ACLConstants.EXTENDED] = entry
 
         return dict(result)
 
+    def update(self):
+        super(AccessList, self).update(method='put')
 
 class ACLRule(RestBase):
     list_path = "/Cisco-IOS-XE-native:native/ip/access-list/extended={access_list}"
     item_path = list_path + "/access-list-seq-rule"
 
-    def __parameters__(self):
+    @classmethod
+    def __parameters__(cls):
         return [
             {"key": "sequence", "id": True},
             {'key': 'access_list', 'mandatory': True},
             {'key': 'action'},
             {'key': 'protocol'},
-            {'key': 'source'},
-            {'key': 'destination'}
+            {'key': 'any'},
+            {'key': 'ipv4_address'},
+            {'key': 'mask'},
+            {'key': 'dst_any'},
+            {'key': 'dest_ipv4_address'},
+            {'key': 'dest_mask'}
 
         ]
 
@@ -96,15 +107,17 @@ class ACLRule(RestBase):
         entry[ACLConstants.ACE_RULE][ACLConstants.ACTION] = self.action
         entry[ACLConstants.ACE_RULE][ACLConstants.PROTOCOL] = self.protocol
 
-        if self.source == ACLConstants.ANY:
+        if self.ipv4_address is None:
             entry[ACLConstants.ACE_RULE][ACLConstants.ANY] = "[null]"
         else:
-            pass
+            entry[ACLConstants.ACE_RULE][ACLConstants.SOURCE_IP] = self.ipv4_address
+            entry[ACLConstants.ACE_RULE][ACLConstants.SOURCE_MASK] = self.mask
 
-        if self.destination == ACLConstants.ANY:
+        if self.dest_ipv4_address is None:
             entry[ACLConstants.ACE_RULE][ACLConstants.DST_ANY] = "[null]"
         else:
-            pass
+            entry[ACLConstants.ACE_RULE][ACLConstants.DEST_IP] = self.dest_ipv4_address
+            entry[ACLConstants.ACE_RULE][ACLConstants.DEST_MASK] = self.dest_mask
 
         return entry
 
