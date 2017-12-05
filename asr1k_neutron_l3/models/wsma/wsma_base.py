@@ -32,14 +32,14 @@ class WSMABase(object):
         return '{protocol}://{host}:{port}/wsma'.format(
             **{'protocol': context.protocol, 'host': context.host, 'port': str(context.port)})
 
-    def __init__(self, context, base):
+    def __init__(self, base):
         self.base = base
-        self.context = context
 
-    def create(self):
+
+    def create(self,context):
         LOG.debug(self.to_data())
-        return requests.post(self._make_url(self.context), auth=self._get_auth(self.context), data=self.to_data(),
-                             headers=self.context.headers, verify=not self.context.insecure)
+        return requests.post(self._make_url(context), auth=self._get_auth(context), data=self.to_data(),
+                             headers=context.headers, verify=not context.insecure)
 
     def to_data(self):
         pass

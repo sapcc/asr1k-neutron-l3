@@ -58,8 +58,8 @@ class NatPool(RestBase):
             {'key': 'ip_address'}
         ]
 
-    def __init__(self, context, **kwargs):
-        super(NatPool, self).__init__(context, **kwargs)
+    def __init__(self, **kwargs):
+        super(NatPool, self).__init__(**kwargs)
 
     def to_dict(self):
         pool = OrderedDict()
@@ -78,8 +78,8 @@ class NatPool(RestBase):
 
 class NatBase(RestBase):
 
-    def __init__(self, context, **kwargs):
-        super(NatBase, self).__init__(context, **kwargs)
+    def __init__(self, **kwargs):
+        super(NatBase, self).__init__(**kwargs)
 
         # if self.mapping_id is None:
         #     self.mapping_id = randint(1, 2147483647)
@@ -100,8 +100,8 @@ class DynamicNat(NatBase):
             {'key': 'mapping_id'}
         ]
 
-    def __init__(self, context, **kwargs):
-        super(DynamicNat, self).__init__(context, **kwargs)
+    def __init__(self, **kwargs):
+        super(DynamicNat, self).__init__(**kwargs)
         self.mapping_id = utils.uuid_to_mapping_id(self.vrf)
 
     def to_dict(self):
@@ -140,8 +140,8 @@ class StaticNat(NatBase):
             {'key': 'mapping_id'}
         ]
 
-    def __init__(self, context, **kwargs):
-        super(StaticNat, self).__init__(context, **kwargs)
+    def __init__(self, **kwargs):
+        super(StaticNat, self).__init__(**kwargs)
 
         local_ip_as_int = utils.ip_to_int(self.local_ip)
         global_ip_as_int = utils.ip_to_int(self.local_ip)

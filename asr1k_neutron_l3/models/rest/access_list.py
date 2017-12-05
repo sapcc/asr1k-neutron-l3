@@ -18,7 +18,7 @@ import urllib
 from collections import OrderedDict
 
 from asr1k_neutron_l3.models.rest.rest_base import RestBase
-
+from asr1k_neutron_l3.models.rest.rest_base import execute_on_pair
 
 class ACLConstants(object):
     EXTENDED = "Cisco-IOS-XE-acl:extended"
@@ -52,8 +52,8 @@ class AccessList(RestBase):
             {'key': 'rules', 'default': []}
         ]
 
-    def __init__(self, context, **kwargs):
-        super(AccessList, self).__init__(context, **kwargs)
+    def __init__(self, **kwargs):
+        super(AccessList, self).__init__(**kwargs)
 
     def add_rule(self, rule):
         self.rules.append(rule)
@@ -71,8 +71,11 @@ class AccessList(RestBase):
 
         return dict(result)
 
-    def update(self):
-        super(AccessList, self).update(method='put')
+    @execute_on_pair()
+    def update(self,context=None):
+        super(AccessList, self).delete(context=context)
+        super(AccessList, self).update(context=context)
+
 
 class ACLRule(RestBase):
     list_path = "/Cisco-IOS-XE-native:native/ip/access-list/extended={access_list}"
@@ -94,8 +97,8 @@ class ACLRule(RestBase):
 
         ]
 
-    def __init__(self, context, **kwargs):
-        super(ACLRule, self).__init__(context, **kwargs)
+    def __init__(self, **kwargs):
+        super(ACLRule, self).__init__( **kwargs)
 
         self.list_path = ACLRule.list_path.format(**{'access_list': urllib.quote(self.access_list)})
         self.item_path = ACLRule.item_path.format(**{'access_list': urllib.quote(self.access_list)})

@@ -19,6 +19,7 @@ from oslo_log import log as logging
 from asr1k_neutron_l3.models import types
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.rest import l3_interface
+from asr1k_neutron_l3.models.rest.rest_base import execute_on_pair
 from asr1k_neutron_l3.plugins.common import utils
 
 LOG = logging.getLogger(__name__)
@@ -72,8 +73,6 @@ class Interface(base.Base):
         self.mtu = self.router_port.get('mtu')
         self.address_scope = router_port.get('address_scopes',{}).get('4')
 
-    def update(self):
-        pass
 
     def add_secondary_ip_address(self, ip_address, netmask):
         self.secondary_ip_addresses.append(types.Address(ip_address, netmask))
@@ -91,10 +90,10 @@ class Interface(base.Base):
             if subnet.get('id') == self._primary_subnet_id:
                 return subnet
 
-    @base.excute_on_pair
-    def delete(self, context=None):
-        bdi_interface = l3_interface.BdiInterface(context, name=self.bridge_domain)
-        bdi_interface.delete()
+
+    def delete(self):
+        bdi_interface = l3_interface.BdiInterface(name=self.bridge_domain)
+        return  bdi_interface.delete()
 
 
 class GatewayInterface(Interface):
@@ -102,15 +101,15 @@ class GatewayInterface(Interface):
     def __init__(self, router_id, router_port, extra_atts):
         super(GatewayInterface, self).__init__(router_id, router_port, extra_atts)
 
-    @base.excute_on_pair
-    def update(self, context=None):
 
-        bdi = l3_interface.BdiInterface(context, name=self.bridge_domain, description=self.router_id,
+    def update(self):
+
+        bdi = l3_interface.BdiInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address,
                                         secondary_ip_addresses=self.secondary_ip_addresses, nat_mode="outside",
                                         redundancy_group=None)
-        bdi.update()
+        return  bdi.update()
 
 
 
@@ -119,13 +118,13 @@ class InternalInterface(Interface):
     def __init__(self, router_id, router_port, extra_atts):
         super(InternalInterface, self).__init__(router_id, router_port, extra_atts)
 
-    @base.excute_on_pair
-    def update(self, context=None):
-        bdi = l3_interface.BdiInterface(context, name=self.bridge_domain, description=self.router_id,
+
+    def update(self):
+        bdi = l3_interface.BdiInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
                                         nat_mode="inside", redundancy_group=None)
-        bdi.update()
+        return bdi.update()
 
 
 
@@ -135,6 +134,6 @@ class OrphanedInterface(Interface):
     def __init__(self, router_id, router_port, extra_atts):
         super(OrphanedInterface, self).__init__(router_id, router_port, extra_atts)
 
-    @base.excute_on_pair
-    def update(self, context=None):
-        self.delete()
+
+    def update(self):
+        return  self.delete()

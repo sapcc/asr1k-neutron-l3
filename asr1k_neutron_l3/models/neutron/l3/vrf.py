@@ -25,23 +25,23 @@ class Vrf(base.Base):
         self.id = utils.uuid_to_vrf_id(id)
         self.description = description
 
-    @base.excute_on_pair
+
     def purge(cls, context, id):
         vrf_definition = vrf.VrfDefinition.get(context, utils.uuid_to_vrf_id(id))
         if vrf_definition is not None:
             vrf_definition.delete()
 
-    @base.excute_on_pair
+
     def update(self, context=None):
         vrf_definition = vrf.VrfDefinition(context, id=self.id, description=self.description)
-        vrf_definition.update()
+        return vrf_definition.update()
 
-    @base.excute_on_pair
+
     def delete(self, context=None):
         vrf_definition = vrf.VrfDefinition(context, id=self.id, description=self.description)
-        vrf_definition.delete()
+        return vrf_definition.delete()
 
-    @base.excute_on_pair
+
     def purge(self, context=None):
         vrf_definition = vrf.VrfDefinition(context, id=self.id, description=self.description)
-        vrf_definition.delete()
+        return vrf_definition.delete()

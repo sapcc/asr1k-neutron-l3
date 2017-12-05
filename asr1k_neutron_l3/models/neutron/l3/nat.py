@@ -21,6 +21,7 @@ from asr1k_neutron_l3.models.rest import l3_interface
 from asr1k_neutron_l3.models.rest import nat as rest_nat
 from asr1k_neutron_l3.plugins.common import utils
 
+
 LOG = logging.getLogger(__name__)
 
 
@@ -45,19 +46,19 @@ class DynamicNAT(BaseNAT):
 
         self.id = utils.vrf_to_access_list_id(self.router_id)
 
-    @base.excute_on_pair
-    def update(self, context=None):
-        nat_pool = rest_nat.NatPool(context, id=self.router_id, ip_address=self.gateway_interface.ip_address)
-        dyanmic_nat = rest_nat.DynamicNat(context, id=self.id, vrf=self.router_id, redundancy=self.redundancy,
+
+    def update(self):
+        nat_pool = rest_nat.NatPool(id=self.router_id, ip_address=self.gateway_interface.ip_address)
+        dyanmic_nat = rest_nat.DynamicNat(id=self.id, vrf=self.router_id, redundancy=self.redundancy,
                                           mapping_id=self.mapping_id)
 
         nat_pool.update()
         dyanmic_nat.update()
 
-    @base.excute_on_pair
-    def delete(self, context=None):
-        nat_pool = rest_nat.NatPool.get(context, self.router_id)
-        dyanmic_nat = rest_nat.DynamicNat.get(context, self.id)
+
+    def delete(self):
+        nat_pool = rest_nat.NatPool.get(self.router_id)
+        dyanmic_nat = rest_nat.DynamicNat.get(self.id)
 
         if nat_pool is not None:
             nat_pool.delete()
@@ -68,8 +69,7 @@ class DynamicNAT(BaseNAT):
 class FloatingIp(BaseNAT):
 
     @classmethod
-    @base.excute_on_pair
-    def clean_floating_ips(cls, router, context=None):
+    def clean_floating_ips(cls, router):
         result = []
         vrf = router.vrf.id
         fips = router.floating_ips
@@ -78,7 +78,7 @@ class FloatingIp(BaseNAT):
         for fip in fips:
             ids.append(fip.id)
 
-        nat_entries = rest_nat.StaticNat.get_all(context, {rest_nat.NATConstants.VRF: vrf})
+        nat_entries = rest_nat.StaticNat.get_all(filters={rest_nat.NATConstants.VRF: vrf})
 
         LOG.debug(nat_entries)
         LOG.debug(ids)
@@ -102,21 +102,21 @@ class FloatingIp(BaseNAT):
         self.bridge_domain = gateway_interface.bridge_domain
         self.id = "{},{}".format(self.local_ip, self.global_ip)
 
-    @base.excute_on_pair
-    def update(self, context=None):
-        static_nat = rest_nat.StaticNat(context, vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
-                                        global_ip_netmask=self.global_ip_mask, bridge_domain=self.bridge_domain,
-                                        redundancy=self.redundancy, mapping_id=self.mapping_id)
+    def update(self):
+
+        static_nat = rest_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
+                                    global_ip_netmask=self.global_ip_mask, bridge_domain=self.bridge_domain,
+                                    redundancy=self.redundancy, mapping_id=self.mapping_id)
         static_nat.update()
 
-        secondary = l3_interface.BDISecondaryIpAddress(context, self.bridge_domain, address=self.global_ip,
-                                                       mask=utils.to_netmask(self.global_ip_mask))
-        secondary.update()
+        secondary = l3_interface.BDISecondaryIpAddress(self.bridge_domain, address=self.global_ip,
+                                                   mask=utils.to_netmask(self.global_ip_mask))
+        return secondary.update(), static_nat.update()
 
-    @base.excute_on_pair
-    def delete(self, context=None):
-        static_nat = rest_nat.StaticNat(context, vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip)
-        static_nat.delete()
 
-        secondary = l3_interface.BDISecondaryIpAddress(context, self.bridge_domain, address=self.global_ip)
-        secondary.delete()
+    def delete(self):
+        static_nat = rest_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip)
+
+
+        secondary = l3_interface.BDISecondaryIpAddress(self.bridge_domain, address=self.global_ip)
+        return secondary.delete(), static_nat.delete()

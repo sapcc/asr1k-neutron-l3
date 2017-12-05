@@ -18,7 +18,10 @@ import json
 import requests
 import six
 import time
+import pprint
 from oslo_log import log as logging
+from asr1k_neutron_l3.models import asr1k_pair
+
 
 LOG = logging.getLogger(__name__)
 
@@ -27,28 +30,122 @@ class JSONDict(dict):
     def __str__(self):
         return json.dumps(self, sort_keys=False)
 
+class execute_on_pair(object):
 
-class RestStatus(object):
+    def __init__(self, return_raw=False):
+        self.return_raw = return_raw
 
-    def __init__(self, response):
-        self.response = response
-        if response is None:
-            raise Exception("A valid 'requests' http response must be provided")
+    def __call__(self, method):
+        @six.wraps(method)
+        def wrapper(*args, **kwargs):
+
+            result = PairResult()
+            if not self.return_raw:
+                for context in asr1k_pair.ASR1KPair().contexts:
+                    kwargs['context'] = context
+                    try:
+                         response = method(*args, **kwargs)
+                         result.append(context,response)
+
+                    except Exception as e:
+                        LOG.exception(e)
+                        raise e
+            else:
+                # Context passed explitly execute once and return
+                # base result
+                if  kwargs.get('context') is None:
+                    kwargs['context'] = asr1k_pair.ASR1KPair().contexts[0]
+
+                try:
+                    response = method(*args, **kwargs)
+                    result = response
+
+                except Exception as e:
+                    LOG.exception(e)
+
+            LOG.debug(str(result))
+
+            return result
+
+        return wrapper
+
+
+class PairResult(object,):
+
+    def __init__(self,success_statuses=list(range(200,299))):
+
+        self.success_statuses = success_statuses
+
+        self.result = {}
+        self.is_http_response= True
+
+    def append(self, context, response):
+
+        if isinstance(response,requests.Response):
+            response = RestResponse(response)
+            self.result[context.host] = response
+        elif isinstance(response, list):
+            for r in response:
+                if isinstance(r,requests.Response):
+                    self.result[context.host] = r
+        else:
+            self.is_http_response= False
+            self.result[context.host] = response
 
     @property
-    def status(self):
-        return self.response.status_code
+    def succeeded(self):
+        return len(self.errors) > 0
 
     @property
-    def response_as_json(self):
+    def errors(self):
+        copy = self.result.copy()
+        for key in copy.keys():
+            response = self.result.get(key)
+            if response.status_code  in self.success_statuses:
+                copy.pop(key,None)
+        return copy
+
+    @property
+    def successful(self):
+        copy = self.result.copy()
+        for key in copy.keys():
+            response = self.result.get(key)
+            if response.status_code  not in self.success_statuses:
+                copy.pop(key,None)
+        return copy
+
+    def __str__(self):
+        if self.is_http_response:
+            json = {}
+            for key in self.result.keys():
+                response = self.result.get(key)
+
+                json[key]={"status":response.status_code,"json":response.json}
+
+            return pprint.pformat(json)
+        else:
+            return str(self.result)
+
+class RestResponse(object):
+
+    def __init__(self, raw_response):
+        self.raw_response = raw_response
+
+    @property
+    def status_code(self):
+        return self.raw_response.status_code
+
+    @property
+    def json(self):
         try:
-            return self.response.json()
+            json = self.raw_response.json()
         except:
-            return None
+            json = {}
+        return json
 
-    @property
-    def response_as_text(self):
-        return self.response.text
+    def __str__(self):
+        return pprint.pformat(self.json)
+
 
 
 class wrap_rest_retry_on_lock(object):
@@ -100,8 +197,7 @@ class RestBase(object):
     def __parameters__(self):
         return {}
 
-    def __init__(self, context, **kwargs):
-        self.context = context
+    def __init__(self, **kwargs):
         id_field = "id"
         if self.__parameters__():
             for param in self.__parameters__():
@@ -131,14 +227,14 @@ class RestBase(object):
         return self.to_data()
 
     @classmethod
-    def from_json(cls, context, json):
+    def from_json(cls, json):
         params = {}
         for param in cls.__parameters__():
             key = param.get('key', "")
             cisco_key = key.replace("_", "-")
             params[key] = json.get(cisco_key)
 
-        return cls(context, **params)
+        return cls(**params)
 
     @classmethod
     def _get_auth(cls, context):
@@ -151,7 +247,8 @@ class RestBase(object):
                'base': RestBase.base_path, 'path': path})
 
     @classmethod
-    def get_all(cls, context, filters={}):
+    @execute_on_pair(return_raw=True)
+    def get_all(cls, context=None, filters={}):
         result = []
 
         response = requests.get(cls._make_url(context, cls.item_path), auth=cls._get_auth(context),
@@ -174,13 +271,14 @@ class RestBase(object):
                     keep = keep and filters.get(key) == item.get(key)
 
                 if keep:
-                    result.append(cls.from_json(context, item))
+                    result.append(cls.from_json(item))
             else:
-                result.append(cls.from_json(context, item))
+                result.append(cls.from_json( item))
         return result
 
     @classmethod
-    def get(cls, context, id):
+    @execute_on_pair(return_raw=True)
+    def get(cls, id,context=None):
         result = requests.get(cls._make_url(context, cls.item_path) + "=" + str(id), auth=cls._get_auth(context),
                               headers=context.headers, verify=not context.insecure)
 
@@ -188,16 +286,11 @@ class RestBase(object):
             return None
             # raise result.raise_for_status()
 
-        return cls.from_json(context, result.json().get(cls.LIST_KEY, {}))
-
-    # @classmethod
-    # def delete(cls,context,id):
-    #     if cls.exists(context,id):
-    #         result = requests.delete(cls._make_url(context,cls.item_path)+"="+str(id), auth=cls._get_auth(context),headers=context.headers,verify=not context.insecure)
-    #         return RestStatus(result)
+        return cls.from_json(result.json().get(cls.LIST_KEY, {}))
 
     @classmethod
-    def exists(cls, context, id, **kwargs):
+    @execute_on_pair(return_raw=True)
+    def exists(cls, id, context=None, **kwargs):
         result = requests.head(cls._make_url(context, cls.item_path.format(**kwargs)) + "=" + str(id),
                                auth=cls._get_auth(context), headers=context.headers, verify=not context.insecure)
         return result.status_code == 200
@@ -208,20 +301,23 @@ class RestBase(object):
 
         return JSONDict(dict).__str__().replace("\"[null]\"", "[null]")
 
-    def _exists(self):
-        result = requests.head(self._make_url(self.context, self.item_path) + "=" + str(self.id),
-                               auth=self._get_auth(self.context), headers=self.context.headers,
-                               verify=not self.context.insecure)
+
+    def _exists(self,context=None):
+        result = requests.head(self._make_url(context, self.item_path) + "=" + str(self.id),
+                               auth=self._get_auth(context), headers=context.headers,
+                               verify=not context.insecure)
         return result.status_code == 200
 
-    def create(self):
+    @execute_on_pair()
+    def create(self,context=None):
         LOG.debug(self.to_data())
-        return requests.post(self._make_url(self.context, self.list_path), auth=self._get_auth(self.context),
-                             data=self.to_data(), headers=self.context.headers, verify=not self.context.insecure)
+        return requests.post(self._make_url(context, self.list_path), auth=self._get_auth(context),
+                             data=self.to_data(), headers=context.headers, verify=not context.insecure)
 
-    def update(self, method='patch'):
+    @execute_on_pair()
+    def update(self, context=None,method='patch'):
 
-        if not self._exists():
+        if not self._exists(context):
             return self.create()
         else:
             if method not in ['patch', 'put']:
@@ -230,19 +326,20 @@ class RestBase(object):
             LOG.debug(self.to_data())
             request_method = getattr(requests, method)
             if callable(request_method):
-                return request_method(self._make_url(self.context, self.item_path) + "=" + str(self.id),
-                                      auth=self._get_auth(self.context), data=self.to_data(),
-                                      headers=self.context.headers, verify=not self.context.insecure)
+                return request_method(self._make_url(context, self.item_path) + "=" + str(self.id),
+                                      auth=self._get_auth(context), data=self.to_data(),
+                                      headers=context.headers, verify=not context.insecure)
             else:
                 raise Exception(
                     'put | patch not callable, this should not happen if you have installed pythoin requests properly')
 
+    @execute_on_pair()
     @wrap_rest_retry_on_lock()
-    def delete(self):
-        if self._exists():
-            return requests.delete(self._make_url(self.context, self.item_path) + "=" + str(self.id),
-                                   auth=self._get_auth(self.context), headers=self.context.headers,
-                                   verify=not self.context.insecure)
+    def delete(self,context=None):
+        if self._exists(context):
+            return requests.delete(self._make_url(context, self.item_path) + "=" + str(self.id),
+                                   auth=self._get_auth(context), headers=context.headers,
+                                   verify=not context.insecure)
 
     # @property
     # def _type_safe_id(self):

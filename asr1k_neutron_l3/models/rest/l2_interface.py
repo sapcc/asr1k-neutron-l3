@@ -46,12 +46,6 @@ class ServiceInstance(RestBase):
     list_path = "/Cisco-IOS-XE-native:native/interface/Port-channel={port_channel}/service"
     item_path = list_path + "/instance"
 
-    @classmethod
-    def get(cls, context, port_channel, id):
-        service = cls(port_channel, id)
-        service.context = context
-        return service._get(context)
-
     def __parameters__(self):
         return [
             {"key": "port_channel", "mandatory": True},
@@ -62,8 +56,8 @@ class ServiceInstance(RestBase):
             {"key": "second_dot1q"}
         ]
 
-    def __init__(self, context, **kwargs):
-        super(ServiceInstance, self).__init__(context, **kwargs)
+    def __init__(self, **kwargs):
+        super(ServiceInstance, self).__init__(**kwargs)
 
         self.list_path = ServiceInstance.list_path.format(**{'port_channel': self.port_channel})
         self.item_path = ServiceInstance.item_path.format(**{'port_channel': self.port_channel})
@@ -124,22 +118,22 @@ class ServiceInstance(RestBase):
 class ExternalInterface(ServiceInstance):
     REWRITE_INGRESS_TAG_POP_WAY = 1
 
-    def __init__(self, context, port_channel, id, description=None):
-        super(ExternalInterface, self).__init__(context, port_channel=port_channel, id=id, description=description,
+    def __init__(self, port_channel, id, description=None):
+        super(ExternalInterface, self).__init__(port_channel=port_channel, id=id, description=description,
                                                 bridge_domain=id, dot1q=id)
 
 
 class LoopbackExternalInterface(ServiceInstance):
 
-    def __init__(self, context, port_channel, id, description=None, dot1q=None, second_dot1q=None):
-        super(LoopbackExternalInterface, self).__init__(context, port_channel=port_channel, id=id,
+    def __init__(self, port_channel, id, description=None, dot1q=None, second_dot1q=None):
+        super(LoopbackExternalInterface, self).__init__(port_channel=port_channel, id=id,
                                                         description=description, bridge_domain=dot1q, dot1q=dot1q,
                                                         second_dot1q=second_dot1q)
 
 
 class LoopbackInternalInterface(ServiceInstance):
 
-    def __init__(self, context, port_channel, id, description=None, bridge_domain=None, dot1q=None, second_dot1q=None):
-        super(LoopbackInternalInterface, self).__init__(context, port_channel=port_channel, id=id,
+    def __init__(self, port_channel, id, description=None, bridge_domain=None, dot1q=None, second_dot1q=None):
+        super(LoopbackInternalInterface, self).__init__(port_channel=port_channel, id=id,
                                                         description=description, bridge_domain=bridge_domain,
                                                         dot1q=dot1q, second_dot1q=second_dot1q)

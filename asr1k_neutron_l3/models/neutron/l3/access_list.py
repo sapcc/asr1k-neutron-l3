@@ -18,6 +18,7 @@ from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.rest import access_list
 
 
+
 class AccessList(base.Base):
 
     def __init__(self, id):
@@ -25,19 +26,19 @@ class AccessList(base.Base):
         self.id = id
         self.rules = []
 
-    @base.excute_on_pair
-    def update(self, context=None):
-        acl = access_list.AccessList(context, name=self.id)
+
+    def update(self, ):
+        acl = access_list.AccessList(name=self.id)
         for i, rule in enumerate(self.rules):
-            rule = access_list.ACLRule(context, access_list=self.id, sequence=(i + 1) * 10, action=rule.action,
+            rule = access_list.ACLRule(access_list=self.id, sequence=(i + 1) * 10, action=rule.action,
                                        protocol=rule.protocol, ipv4_address=rule.source, mask=rule.source_mask ,dest_ipv4_address=rule.destination, dest_mask = rule.destination_mask)
             acl.add_rule(rule)
-        acl.update()
+        return acl.update()
 
-    @base.excute_on_pair
-    def delete(self, context=None):
-        acl = access_list.AccessList(context, name=self.id)
-        acl.delete()
+
+    def delete(self):
+        acl = access_list.AccessList(name=self.id)
+        return  acl.delete()
 
     def append_rule(self, rule):
         self.rules.append(rule)

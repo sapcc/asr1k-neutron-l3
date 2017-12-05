@@ -16,11 +16,11 @@
 
 from collections import OrderedDict
 
-from oslo_log import log as logging
-
 from asr1k_neutron_l3.models.netconf import l3_interface as nc_l3_interface
 from asr1k_neutron_l3.models.rest.rest_base import RestBase
+from asr1k_neutron_l3.models.rest.rest_base import execute_on_pair
 from asr1k_neutron_l3.models.wsma import l3_interface as wsma_l3_interface
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
@@ -68,17 +68,18 @@ class BdiInterface(RestBase):
 
         ]
 
-    def __init__(self, context, **kwargs):
+    def __init__(self, **kwargs):
         LOG.debug(kwargs)
 
-        super(BdiInterface, self).__init__(context, **kwargs)
+        super(BdiInterface, self).__init__(**kwargs)
         self.ncc = nc_l3_interface.BDIInterface(self)
-        self.wsma = wsma_l3_interface.BDIInterface(context, self)
+        self.wsma = wsma_l3_interface.BDIInterface(self)
 
-    def update(self):
-        result = super(BdiInterface, self).update()
-        self.ncc.update(self.context)
-        # self.wsma.create()
+    @execute_on_pair()
+    def update(self,context=None):
+        result = super(BdiInterface, self).update(context=context)
+        self.ncc.update(context)
+        # self.wsma.create(context)
 
         return result
 
@@ -122,8 +123,8 @@ class BDISecondaryIpAddress(RestBase):
 
         ]
 
-    def __init__(self, context, bridge_domain, **kwargs):
-        super(BDISecondaryIpAddress, self).__init__(context, **kwargs)
+    def __init__(self, bridge_domain, **kwargs):
+        super(BDISecondaryIpAddress, self).__init__(**kwargs)
         self.bridge_domain = bridge_domain
 
         self.list_path = BDISecondaryIpAddress.list_path.format(**{'bridge_domain': self.bridge_domain})

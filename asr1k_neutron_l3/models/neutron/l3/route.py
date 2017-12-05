@@ -19,6 +19,7 @@ from asr1k_neutron_l3.models.rest import route as l3_route
 from asr1k_neutron_l3.plugins.common import utils
 
 
+
 class RouteCollection(base.Base):
 
     def __init__(self, router_id):
@@ -29,15 +30,15 @@ class RouteCollection(base.Base):
     def append(self, route):
         self.routes.append(route)
 
-    @base.excute_on_pair
-    def update(self, context=None):
-        rc = l3_route.RouteCollection(context, vrf=self.router_id, routes=self.routes)
-        rc.update()
+    def update(self):
+        rc = l3_route.RouteCollection(vrf=self.router_id, routes=self.routes)
+        return rc.update()
 
-    @base.excute_on_pair
-    def delete(self, context=None):
-        rc = l3_route.RouteCollection(context, vrf=self.router_id)
-        rc.delete()
+    def delete(self):
+        rc = l3_route.RouteCollection(vrf=self.router_id)
+
+        return rc.delete()
+
 
 
 class Route(object):

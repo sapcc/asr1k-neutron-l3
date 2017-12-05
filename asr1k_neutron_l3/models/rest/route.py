@@ -43,8 +43,8 @@ class RouteCollection(RestBase):
             {'key': 'routes', 'default': []}
         ]
 
-    def __init__(self, context, **kwargs):
-        super(RouteCollection, self).__init__(context, **kwargs)
+    def __init__(self, **kwargs):
+        super(RouteCollection, self).__init__( **kwargs)
 
     def update(self):
 

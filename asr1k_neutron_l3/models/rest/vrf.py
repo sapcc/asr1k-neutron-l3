@@ -45,7 +45,7 @@ class VrfDefinition(RestBase):
         ]
 
     def __init__(self, context, **kwargs):
-        super(VrfDefinition, self).__init__(context, **kwargs)
+        super(VrfDefinition, self).__init__(**kwargs)
 
         if isinstance(self.address_families, list):
             self.address_families = self.address_families
