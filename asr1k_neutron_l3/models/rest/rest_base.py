@@ -202,6 +202,7 @@ class RestBase(object):
         if self.__parameters__():
             for param in self.__parameters__():
                 key = param.get('key')
+                yang_key = param.get('yang-key',key)
                 default = param.get('default')
                 mandatory = param.get('mandatory', False)
 
@@ -209,14 +210,37 @@ class RestBase(object):
                 if param.get('id', False) and id_field == 'id':
                     id_field = key
 
-                value = kwargs.get(key, default)
+                value = kwargs.get(key)
+
+                if value is None:
+                    value = kwargs.get(yang_key, default)
 
                 if mandatory and value is None:
                     raise Exception("Missing mandatory paramter {}".format(key))
                 else:
-                    setattr(self, key, value)
+                    if isinstance(value,list):
+                       new_value = []
+                       for item in value:
+                           item = self._get_value(param,item)
+
+                           new_value.append(item)
+                       value = new_value
+                    else:
+                        value = self._get_value(param, value)
+
+                setattr(self, key, value)
 
             self.__id_function__(id_field, **kwargs)
+
+
+    def _get_value(self,param,item):
+        type = param.get('type')
+        if type is not None and not isinstance(item,type):
+
+            return type(**item)
+
+        return item
+
 
     def __id_function__(self, id_field, **kwargs):
         self.id = kwargs.get(id_field)
@@ -224,15 +248,43 @@ class RestBase(object):
             raise Exception("ID field {} is None".format(id_field))
 
     def __str__(self):
-        return self.to_data()
+        value = self.to_data()
+        if value is None:
+            value =""
+        return value
+
+    def __eq__(self, other):
+        eq = True
+        diff = self._diff(other)
+        for key in diff.keys():
+             eq = eq and diff.get(key).get('valid')
+        return eq
+
+    def _diff(self,other):
+        diff = {}
+        for param in self.__parameters__():
+             key = param.get('key')
+             self_value = getattr(self, key)
+
+             other_value=""
+
+             if other is not None:
+                other_value = getattr(other, key)
+
+             diff[key] = {"self":self_value,"other":other_value,"valid": self_value==other_value}
+
+        return diff
 
     @classmethod
     def from_json(cls, json):
         params = {}
         for param in cls.__parameters__():
             key = param.get('key', "")
+
             cisco_key = key.replace("_", "-")
-            params[key] = json.get(cisco_key)
+            yang_key = param.get("yang-key",cisco_key)
+
+            params[key] = json.get(yang_key)
 
         return cls(**params)
 
@@ -299,7 +351,8 @@ class RestBase(object):
 
         dict = self.to_dict()
 
-        return JSONDict(dict).__str__().replace("\"[null]\"", "[null]")
+        if dict is not None:
+            return JSONDict(dict).__str__().replace("\"[null]\"", "[null]")
 
 
     def _exists(self,context=None):

@@ -53,7 +53,7 @@ def main():
                         help='Confirm high risk action')
 
     parser.add_argument('--config-file', dest='config', action='append',
-                        default=["/etc/neutron/asr1k_devices.conf", "/etc/neutron/neutron.conf"],
+                        default=["/etc/neutron/asr1k.conf", "/etc/neutron/neutron.conf"],
                         help='Configuration files')
 
     parser.parse_args()

@@ -20,28 +20,35 @@ from asr1k_neutron_l3.plugins.common import utils
 
 
 class Vrf(base.Base):
-    def __init__(self, id, description=None):
+    def __init__(self, name, description=None):
         super(Vrf, self).__init__()
-        self.id = utils.uuid_to_vrf_id(id)
+        self.name = utils.uuid_to_vrf_id(name)
         self.description = description
 
 
-    def purge(cls, context, id):
-        vrf_definition = vrf.VrfDefinition.get(context, utils.uuid_to_vrf_id(id))
-        if vrf_definition is not None:
-            vrf_definition.delete()
+
+    @property
+    def _rest_definition(self):
+         return vrf.VrfDefinition(name=self.name, description=self.description)
 
 
-    def update(self, context=None):
-        vrf_definition = vrf.VrfDefinition(context, id=self.id, description=self.description)
-        return vrf_definition.update()
+    def get(self):
+        return vrf.VrfDefinition.get(self.name)
 
 
-    def delete(self, context=None):
-        vrf_definition = vrf.VrfDefinition(context, id=self.id, description=self.description)
-        return vrf_definition.delete()
+    def update(self):
+
+        return self._rest_definition.update()
 
 
-    def purge(self, context=None):
-        vrf_definition = vrf.VrfDefinition(context, id=self.id, description=self.description)
-        return vrf_definition.delete()
+    def delete(self):
+
+        return self._rest_definition.delete()
+
+
+    def purge(self):
+        return self._rest_definition.delete()
+
+    def valid(self):
+        return self._rest_definition == self.get()
+

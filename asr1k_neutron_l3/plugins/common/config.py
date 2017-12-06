@@ -29,3 +29,7 @@ DEVICE_OPTS = [
     cfg.StrOpt('loopback_internal_interface', default=('Port-channel3'), help=(''))
 
 ]
+
+ASR1K_OPTS = [
+    cfg.StrOpt('monitor', default=('asr1k_neutron_l3.plugins.common.prometheus_monitor.PrometheusMonitor'), help=(''))
+]

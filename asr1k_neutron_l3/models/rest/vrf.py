@@ -39,26 +39,28 @@ class VrfDefinition(RestBase):
     @classmethod
     def __parameters__(cls):
         return [
-            {'key': 'id', 'mandatory': True},
+            {'key': 'name', 'id': True},
             {'key': 'description'},
-            {'key': 'address_families', 'default': [VrfConstants.IPV4]}
+            {'key': 'address_family', 'default': {VrfConstants.IPV4:{}}}
         ]
 
-    def __init__(self, context, **kwargs):
+    def __init__(self,**kwargs):
         super(VrfDefinition, self).__init__(**kwargs)
 
-        if isinstance(self.address_families, list):
-            self.address_families = self.address_families
+        if isinstance(self.address_family, dict):
+            self.address_family = self.address_family
         else:
-            self.address_families = [self.address_families]
+            self.address_family = {self.address_family:{}}
+
+
 
     def to_dict(self):
 
         definition = OrderedDict()
-        definition[VrfConstants.NAME] = self.id
+        definition[VrfConstants.NAME] = self.name
         definition[VrfConstants.DESCRIPTION] = self.description
         definition[VrfConstants.ADDRESS_FAMILY] = OrderedDict()
-        for address_family in self.address_families:
+        for address_family in self.address_family.keys():
             definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
 
         result = OrderedDict()
@@ -66,8 +68,9 @@ class VrfDefinition(RestBase):
 
         return dict(result)
 
-    def from_json(self, json):
-        blob = json.get(VrfConstants.DEFINITION)
-        self.description = blob.get(VrfConstants.DESCRIPTION, None)
-        self.address_families = blob.get(VrfConstants.ADDRESS_FAMILY, {}).keys()
-        return self
+    # def from_json(self, json):
+    #     blob = json.get(VrfConstants.DEFINITION)
+    #     self.description = blob.get(VrfConstants.DESCRIPTION, None)
+    #     self.address_families = blob.get(VrfConstants.ADDRESS_FAMILY, {}).keys()
+    #     return self
+

@@ -25,6 +25,7 @@ import sys
 
 from oslo_service import service
 from oslo_utils import timeutils
+from oslo_utils import importutils
 
 from neutron.agent.common import config
 from neutron.agent.l3 import config as l3_config
@@ -94,6 +95,7 @@ def register_opts(conf):
 def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWithStateReport'):
     register_opts(cfg.CONF)
     cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
+    cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
     common_config.init(sys.argv[1:])
     config.setup_logging()
     server = neutron_service.Service.create(
@@ -282,9 +284,24 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
 
         self.target_ex_net_id = None
         self.use_ipv6 = ipv6_utils.is_enabled()
-        #
+
+        self.monitor = self._initialize_monitor()
 
         super(L3ASRAgent, self).__init__(conf=self.conf)
+
+    def _initialize_monitor(self):
+        try:
+            monitor = importutils.import_object(
+                self.conf.asr1k.monitor)
+            monitor.start()
+            return monitor
+        except ImportError as e:
+            print("Error in loading monitor. Class "
+                  "specified is %(class)s. Reason:%(reason)s",
+                  {'class': self.conf.asr1k.monitor,
+                   'reason': e})
+            raise e
+
 
     @log_helpers.log_method_call
     def router_deleted(self, context, router_id):

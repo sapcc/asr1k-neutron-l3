@@ -15,6 +15,7 @@
 #    under the License.
 
 from oslo_log import log as logging
+from asr1k_neutron_l3.models.neutron.l3.router import Router
 
 import base_action
 
@@ -27,4 +28,7 @@ class Validate(base_action.BaseAction):
         super(Validate, self).__init__(namespace)
 
     def execute(self):
-        pass
+        ri = self.get_router_info()
+        if ri :
+            router = Router(ri)
+            print(router.valid())

@@ -28,7 +28,9 @@ from oslo_log import log as logging
 from oslo_log import helpers as log_helpers
 from oslo_config import cfg
 from oslo_utils import timeutils
+from oslo_utils import importutils
 from oslo_service import loopingcall
+
 import neutron.context
 from neutron.i18n import _LI, _LE
 from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
@@ -89,7 +91,25 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         heartbeat = loopingcall.FixedIntervalLoopingCall(self._report_state)
         heartbeat.start(interval=report_interval, stop_on_exception=False)
 
+        self.monitor  = self._initialize_monitor()
+
+
         self.connection.consume_in_threads()
+
+
+    def _initialize_monitor(self):
+        try:
+            monitor = importutils.import_object(
+                self.conf.asr1k.monitor)
+            monitor.start()
+            return monitor
+        except ImportError as e:
+            print("Error in loading monitor. Class "
+                  "specified is %(class)s. Reason:%(reason)s",
+                  {'class': self.conf.asr1k.monitor,
+                   'reason': e})
+            raise e
+
 
     def port_update(self, context, **kwargs):
         port = kwargs.get('port')
@@ -277,6 +297,7 @@ def main():
     import sys
     conf = cfg.CONF
     conf.register_opts(config.DEVICE_OPTS, "asr1k_devices")
+    conf.register_opts(config.ASR1K_OPTS, "asr1k")
 
     common_config.init(sys.argv[1:])
     common_config.setup_logging()

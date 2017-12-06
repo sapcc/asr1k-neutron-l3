@@ -71,7 +71,7 @@ class FloatingIp(BaseNAT):
     @classmethod
     def clean_floating_ips(cls, router):
         result = []
-        vrf = router.vrf.id
+        vrf = router.vrf.name
         fips = router.floating_ips
 
         ids = []

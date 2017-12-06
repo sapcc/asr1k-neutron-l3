@@ -27,24 +27,42 @@ class RouteCollection(base.Base):
         self.router_id = utils.uuid_to_vrf_id(router_id)
         self.routes = []
 
+    @property
+    def _rest_definition(self):
+         rest_routes = []
+         for route in self.routes:
+             rest_routes.append(route._rest_definition)
+
+
+         return l3_route.VrfRoute(name=self.router_id, routes=rest_routes)
+
+    def get(self):
+        return l3_route.VrfRoute.get(self.router_id)
+
     def append(self, route):
         self.routes.append(route)
 
+    def valid(self):
+        return self._rest_definition == self.get()
+
     def update(self):
-        rc = l3_route.RouteCollection(vrf=self.router_id, routes=self.routes)
-        return rc.update()
+        return self._rest_definition.update()
 
     def delete(self):
-        rc = l3_route.RouteCollection(vrf=self.router_id)
+        rc = l3_route.VrfRoute(name=self.router_id)
 
         return rc.delete()
 
 
 
-class Route(object):
+class Route(base.Base):
 
     def __init__(self, router_id, destination, mask, nexthop):
         self.router_id = router_id
         self.destination = destination
         self.mask = mask
         self.nexthop = nexthop
+
+    @property
+    def _rest_definition(self):
+         return l3_route.IpRoute(vrf=self.router_id,prefix=self.destination,mask=self.mask,fwd_list=[{"fwd":self.nexthop}])

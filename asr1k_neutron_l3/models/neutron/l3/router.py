@@ -44,7 +44,6 @@ class Router(Base):
         neutron_vrf = vrf.Vrf(router_id)
         neutron_vrf.purge()
 
-    @log_helpers.log_method_call
     def __init__(self, router_info):
         super(Router, self).__init__()
 
@@ -164,39 +163,35 @@ class Router(Base):
     def _port_extra_atts(self, port):
         return self.extra_atts.get(port.get('id'))
 
-    @log_helpers.log_method_call
+
     def create(self):
         self.update()
 
-    @log_helpers.log_method_call
+
     def update(self):
 
         vrf_result = self.vrf.update()
 
         for interface in self.interfaces.all_interfaces:
             interface_result = interface.update()
-
         if self.nat_acl:
             if self.enable_snat and self.gateway_interface is not None:
                 self.nat_acl.update()
             else:
                 self.nat_acl.delete()
-
         if self.enable_snat and self.gateway_interface is not None:
             self.dynamic_nat.update()
         else:
             self.dynamic_nat.delete()
 
             # Clean up static nat
-
         self.routes.update()
-
         nat.FloatingIp.clean_floating_ips(self)
 
         for floating_ip in self.floating_ips:
             floating_ip.update()
 
-    @log_helpers.log_method_call
+
     def delete(self):
         self.routes.delete()
         self.dynamic_nat.delete()
@@ -211,3 +206,8 @@ class Router(Base):
             interface_result = interface.delete()
 
         self.vrf.delete()
+
+
+    def valid(self):
+        print(self.vrf.valid())
+        print(self.routes.valid())
