@@ -31,4 +31,4 @@ class Validate(base_action.BaseAction):
         ri = self.get_router_info()
         if ri :
             router = Router(ri)
-            print(router.valid())
+            router.valid()

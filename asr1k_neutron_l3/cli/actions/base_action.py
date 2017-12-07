@@ -45,7 +45,8 @@ class BaseAction(object):
         self.conf.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
         self.host = socket.gethostname()
         common_config.init(("--config-file " + s for s in self.config_files),default_config_files=self.config_files)
-        config.setup_logging()
+        if namespace.log:
+            config.setup_logging()
         self.asr1k_pair = asr1k_pair.ASR1KPair(self.conf)
         self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, self.host)
         self.context = n_context.get_admin_context_without_session()

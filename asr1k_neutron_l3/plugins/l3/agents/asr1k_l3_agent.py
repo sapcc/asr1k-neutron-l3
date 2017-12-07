@@ -351,8 +351,6 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
     @log_helpers.log_method_call
     def _process_router_update(self):
 
-        LOG.debug("************ process router update")
-
         for rp, update in self._queue.each_update_to_next_router():
             LOG.debug("Starting router update for %s, action %s, priority %s",
                       update.id, update.action, update.priority)
@@ -382,8 +380,6 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
                 continue
 
             if self._extra_atts_complete(router):
-                LOG.debug("******* Processing device update router update for %s",
-                          router.get(constants.ASR1K_EXTRA_ATTS_KEY))
                 r = l3_router.Router(router)
                 r.update()
                 # set L3 deleted for all ports on the router that have disappeared
@@ -394,7 +390,6 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
                 LOG.debug("Finished a router update for %s", update.id)
 
             else:
-                LOG.debug("******* Resync")
                 self._resync_router(update)
 
     def _extra_atts_complete(self, router):
@@ -459,7 +454,7 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
             'agent_type': constants.AGENT_TYPE_ASR1K_L3}
         report_interval = self.conf.AGENT.report_interval
 
-        LOG.debug("*****************")
+
         LOG.debug(report_interval)
         if report_interval:
             self.heartbeat = loopingcall.FixedIntervalLoopingCall(
@@ -467,7 +462,6 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
             self.heartbeat.start(interval=report_interval)
 
     def _report_state(self):
-        LOG.debug("***************** Reporting state")
         num_ex_gw_ports = 0
         num_interfaces = 0
         num_floating_ips = 0

@@ -56,4 +56,7 @@ def main():
                         default=["/etc/neutron/asr1k.conf", "/etc/neutron/neutron.conf"],
                         help='Configuration files')
 
+    parser.add_argument('--log',dest='log', action='store_true',
+                       help='Enable openstack log output')
+
     parser.parse_args()

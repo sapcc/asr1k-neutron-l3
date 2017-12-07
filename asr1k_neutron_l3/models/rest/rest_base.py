@@ -277,7 +277,10 @@ class RestBase(object):
                  other_value=""
 
                  if other is not None:
-                    other_value = getattr(other, key)
+                    try :
+                        other_value = getattr(other, key)
+                    except AttributeError:
+                        other_value = None
 
                  diff[key] = {"self":self_value,"other":other_value,"valid": self_value==other_value}
 
@@ -366,9 +369,6 @@ class RestBase(object):
         if result.status_code != 200:
             return None
             # raise result.raise_for_status()
-        print("*****")
-        print(result.json())
-
         return cls.from_json(result.json().get(cls.LIST_KEY, {}))
 
     @classmethod
@@ -424,15 +424,3 @@ class RestBase(object):
             return requests.delete(self._make_url(context, self.item_path) + "=" + str(self.id),
                                    auth=self._get_auth(context), headers=context.headers,
                                    verify=not context.insecure)
-
-    # @property
-    # def _type_safe_id(self):
-    #     _id = self.id
-    #
-    #     LOG.debug("******* id ")
-    #     LOG.debug(_id)
-    #
-    #     if self.id is None:
-    #         _id = ""
-    #
-    #     return urllib.quote(str(_id))
