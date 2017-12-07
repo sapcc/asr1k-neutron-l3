@@ -23,7 +23,7 @@ from asr1k_neutron_l3.models.rest.rest_base import execute_on_pair
 class ACLConstants(object):
     EXTENDED = "Cisco-IOS-XE-acl:extended"
     NAME = "name"
-    RULES = "access-list-seq-rule"
+    ACL_RULE = "access-list-seq-rule"
     SEQUENCE = "sequence"
     ACE_RULE = "ace-rule"
     ACTION = 'action'
@@ -49,7 +49,7 @@ class AccessList(RestBase):
     def __parameters__(cls):
         return [
             {"key": "name", "id": True},
-            {'key': 'rules', 'default': []}
+            {'key': 'rules','yang-key':"access-list-seq-rule", 'type':ACLRule,'default': []}
         ]
 
     def __init__(self, **kwargs):
@@ -61,10 +61,10 @@ class AccessList(RestBase):
     def to_dict(self):
         entry = OrderedDict()
         entry[ACLConstants.NAME] = self.name
-        # entry[ACLConstants.RULE]=self.rules
-        entry[ACLConstants.RULES] = []
+        # entry[ACLConstants.ACL_RULE]=self.rules
+        entry[ACLConstants.ACL_RULE] = []
         for rule in self.rules:
-            entry[ACLConstants.RULES].append(rule.to_child_dict())
+            entry[ACLConstants.ACL_RULE].append(rule.to_child_dict())
 
         result = OrderedDict()
         result[ACLConstants.EXTENDED] = entry
@@ -78,27 +78,26 @@ class AccessList(RestBase):
 
 
 class ACLRule(RestBase):
+    LIST_KEY = ACLConstants.ACL_RULE
     list_path = "/Cisco-IOS-XE-native:native/ip/access-list/extended={access_list}"
-    item_path = list_path + "/access-list-seq-rule"
+    item_path = "{}/{}".format(list_path, ACLConstants.ACL_RULE)
 
     @classmethod
     def __parameters__(cls):
         return [
             {"key": "sequence", "id": True},
-            {'key': 'access_list', 'mandatory': True},
-            {'key': 'action'},
-            {'key': 'protocol'},
-            {'key': 'any'},
-            {'key': 'ipv4_address'},
-            {'key': 'mask'},
-            {'key': 'dst_any'},
-            {'key': 'dest_ipv4_address'},
-            {'key': 'dest_mask'}
+            {'key': 'access_list','validate':False,'default':""},
+            {'key': 'ace_rule','type':ACERule},
 
         ]
 
+    @classmethod
+    def get(cls, access_list,id):
+        item_path = ACLRule.item_path.format(**{'access_list': access_list})
+        return super(ACLRule,cls).get(id,item_path=item_path)
+
     def __init__(self, **kwargs):
-        super(ACLRule, self).__init__( **kwargs)
+        super(ACLRule, self).__init__(**kwargs)
 
         self.list_path = ACLRule.list_path.format(**{'access_list': urllib.quote(self.access_list)})
         self.item_path = ACLRule.item_path.format(**{'access_list': urllib.quote(self.access_list)})
@@ -106,27 +105,74 @@ class ACLRule(RestBase):
     def to_child_dict(self):
         entry = OrderedDict()
         entry[ACLConstants.SEQUENCE] = self.id
-        entry[ACLConstants.ACE_RULE] = OrderedDict()
-        entry[ACLConstants.ACE_RULE][ACLConstants.ACTION] = self.action
-        entry[ACLConstants.ACE_RULE][ACLConstants.PROTOCOL] = self.protocol
 
-        if self.ipv4_address is None:
-            entry[ACLConstants.ACE_RULE][ACLConstants.ANY] = "[null]"
-        else:
-            entry[ACLConstants.ACE_RULE][ACLConstants.SOURCE_IP] = self.ipv4_address
-            entry[ACLConstants.ACE_RULE][ACLConstants.SOURCE_MASK] = self.mask
-
-        if self.dest_ipv4_address is None:
-            entry[ACLConstants.ACE_RULE][ACLConstants.DST_ANY] = "[null]"
-        else:
-            entry[ACLConstants.ACE_RULE][ACLConstants.DEST_IP] = self.dest_ipv4_address
-            entry[ACLConstants.ACE_RULE][ACLConstants.DEST_MASK] = self.dest_mask
+        entry[ACLConstants.ACE_RULE] = self.ace_rule.to_child_dict()
 
         return entry
 
     def to_dict(self):
 
         result = OrderedDict()
-        result[ACLConstants.RULE] = self.to_child_dict()
+        result[ACLConstants.ACL_RULE] = self.to_child_dict()
+
+        return dict(result)
+
+
+class ACERule(RestBase):
+    LIST_KEY = ACLConstants.ACE_RULE
+    list_path = "/Cisco-IOS-XE-native:native/ip/access-list/extended={access_list}/access-list-seq-rule={acl_sequence}"
+    item_path = "{}/{}".format(list_path, ACLConstants.ACE_RULE)
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+
+            {'key': 'access_list', 'validate': False,'default':""},
+            {'key': 'acl_rule', 'validate':False,'default':""},
+            {'key': 'action','id':True},
+            {'key': 'protocol'},
+            {'key': 'any','default':[None]},
+            {'key': 'ipv4_address'},
+            {'key': 'mask'},
+            {'key': 'dst_any', 'default':[None]},
+            {'key': 'dest_ipv4_address'},
+            {'key': 'dest_mask'}
+
+        ]
+
+    @classmethod
+    def get(cls, access_list,acl_rule,id):
+        item_path = ACERule.item_path.format(**{'access_list': access_list,'acl_sequence':acl_rule})
+        return super(ACERule,cls).get(id,item_path=item_path)
+
+    def __init__(self, **kwargs):
+        super(ACERule, self).__init__( **kwargs)
+
+        self.list_path = ACERule.list_path.format(**{'access_list': urllib.quote(self.access_list),'acl_sequence':self.acl_rule})
+        self.item_path = ACERule.item_path.format(**{'access_list': urllib.quote(self.access_list),'acl_sequence':self.acl_rule})
+
+    def to_child_dict(self):
+        ace_rule = OrderedDict()
+        ace_rule[ACLConstants.ACTION] = self.action
+        ace_rule[ACLConstants.PROTOCOL] = self.protocol
+
+        if self.ipv4_address is None:
+            ace_rule[ACLConstants.ANY] = "[null]"
+        else:
+            ace_rule[ACLConstants.SOURCE_IP] = self.ipv4_address
+            ace_rule[ACLConstants.SOURCE_MASK] = self.mask
+
+        if self.dest_ipv4_address is None:
+            ace_rule[ACLConstants.DST_ANY] = "[null]"
+        else:
+            ace_rule[ACLConstants.DEST_IP] = self.dest_ipv4_address
+            ace_rule[ACLConstants.DEST_MASK] = self.dest_mask
+
+        return ace_rule
+
+    def to_dict(self):
+
+        result = OrderedDict()
+        result[ACLConstants.ACE_RULE] = self.to_child_dict()
 
         return dict(result)

@@ -39,7 +39,7 @@ class NATConstants(object):
     OVERLOAD = "overload"
 
     TRANSPORT_LIST = "Cisco-IOS-XE-nat:nat-static-transport-list"
-    STATIC = "static"
+    STATIC = "Cisco-IOS-XE-nat:static"
 
     LOCAL_IP = "local-ip"
     GLOBAL_IP = "global-ip"
@@ -55,7 +55,9 @@ class NatPool(RestBase):
     def __parameters__(cls):
         return [
             {'key': 'id', 'mandatory': True},
-            {'key': 'ip_address'}
+            {'key': 'start_address'},
+            {'key': 'end_address'},
+            {'key': 'netmask'}
         ]
 
     def __init__(self, **kwargs):
@@ -65,10 +67,9 @@ class NatPool(RestBase):
         pool = OrderedDict()
         pool[NATConstants.ID] = self.id
 
-        if self.ip_address.address:
-            pool[NATConstants.START_ADDRESS] = self.ip_address.address
-            pool[NATConstants.END_ADDRESS] = self.ip_address.address
-            pool[NATConstants.NETMASK] = self.ip_address.netmask
+        pool[NATConstants.START_ADDRESS] = self.start_address
+        pool[NATConstants.END_ADDRESS] = self.end_address
+        pool[NATConstants.NETMASK] = self.netmask
 
         result = OrderedDict()
         result[NATConstants.POOL] = pool
@@ -89,7 +90,7 @@ class DynamicNat(NatBase):
     LIST_KEY = NATConstants.LIST
 
     list_path = "/Cisco-IOS-XE-native:native/ip/nat/inside/source"
-    item_path = item_path = "{}/{}".format(list_path, NATConstants.LIST)
+    item_path = "{}/{}".format(list_path, NATConstants.LIST)
 
     @classmethod
     def __parameters__(cls):
@@ -97,7 +98,8 @@ class DynamicNat(NatBase):
             {"key": "id", "mandatory": True},
             {'key': 'vrf'},
             {'key': 'redundancy'},
-            {'key': 'mapping_id'}
+            {'key': 'mapping_id'},
+            {'key': 'overload','default':False}
         ]
 
     def __init__(self, **kwargs):
@@ -113,8 +115,8 @@ class DynamicNat(NatBase):
         if self.redundancy is not None:
             entry[NATConstants.REDUNDANCY] = self.redundancy
             entry[NATConstants.MAPPING_ID] = self.mapping_id
-
-        entry[NATConstants.OVERLOAD] = "[null]"
+        if self.overload:
+            entry[NATConstants.OVERLOAD] = "[null]"
 
         result = OrderedDict()
         result[NATConstants.LIST] = []
@@ -135,14 +137,13 @@ class StaticNat(NatBase):
             {"key": "local_ip", "mandatory": True},
             {"key": "global_ip", "mandatory": True},
             {'key': 'vrf'},
-            {"key": "bridge_domain"},
             {'key': 'redundancy'},
             {'key': 'mapping_id'}
         ]
 
     def __init__(self, **kwargs):
         super(StaticNat, self).__init__(**kwargs)
-
+        self.bridge_domain = kwargs.get("bridge_domain")
         local_ip_as_int = utils.ip_to_int(self.local_ip)
         global_ip_as_int = utils.ip_to_int(self.local_ip)
 

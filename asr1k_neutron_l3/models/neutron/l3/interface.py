@@ -75,7 +75,7 @@ class Interface(base.Base):
 
 
     def add_secondary_ip_address(self, ip_address, netmask):
-        self.secondary_ip_addresses.append(types.Address(ip_address, netmask))
+        self.secondary_ip_addresses.append(l3_interface.BDISecondaryIpAddress(address=ip_address, mask=utils.to_netmask(netmask)))
 
     def _ip_address(self):
         if self.router_port.get('fixed_ips'):
@@ -83,7 +83,7 @@ class Interface(base.Base):
 
             self._primary_subnet_id = n_fixed_ip.get('subnet_id')
 
-            return types.IpAddress(n_fixed_ip.get('ip_address'), n_fixed_ip.get('prefixlen'))
+            return l3_interface.BDIPrimaryIpAddress(address=n_fixed_ip.get('ip_address'), mask = utils.to_netmask(n_fixed_ip.get('prefixlen')))
 
     def _primary_subnet(self):
         for subnet in self.router_port.get('subnets', []):
@@ -91,9 +91,28 @@ class Interface(base.Base):
                 return subnet
 
 
+    @property
+    def _rest_definition(self):
+        pass
+
+    def valid(self):
+        device_bdi = self.get()
+        bdi = self._rest_definition
+
+        return bdi == device_bdi
+
+    def get(self):
+        bdi = l3_interface.BdiInterface.get(self.bridge_domain)
+        return bdi
+
+    def update(self):
+        return  self._rest_definition.update()
+
+
     def delete(self):
         bdi_interface = l3_interface.BdiInterface(name=self.bridge_domain)
         return  bdi_interface.delete()
+
 
 
 class GatewayInterface(Interface):
@@ -101,16 +120,13 @@ class GatewayInterface(Interface):
     def __init__(self, router_id, router_port, extra_atts):
         super(GatewayInterface, self).__init__(router_id, router_port, extra_atts)
 
-
-    def update(self):
-
-        bdi = l3_interface.BdiInterface(name=self.bridge_domain, description=self.router_id,
+    @property
+    def _rest_definition(self):
+        return l3_interface.BdiInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address,
                                         secondary_ip_addresses=self.secondary_ip_addresses, nat_mode="outside",
                                         redundancy_group=None)
-        return  bdi.update()
-
 
 
 class InternalInterface(Interface):
@@ -118,13 +134,14 @@ class InternalInterface(Interface):
     def __init__(self, router_id, router_port, extra_atts):
         super(InternalInterface, self).__init__(router_id, router_port, extra_atts)
 
-
-    def update(self):
-        bdi = l3_interface.BdiInterface(name=self.bridge_domain, description=self.router_id,
+    @property
+    def _rest_definition(self):
+        return l3_interface.BdiInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
                                         nat_mode="inside", redundancy_group=None)
-        return bdi.update()
+
+
 
 
 

@@ -30,6 +30,10 @@ class JSONDict(dict):
     def __str__(self):
         return json.dumps(self, sort_keys=False)
 
+class classproperty(property):
+    def __get__(self, cls, owner):
+        return self.fget.__get__(None, owner)()
+
 class execute_on_pair(object):
 
     def __init__(self, return_raw=False):
@@ -203,6 +207,7 @@ class RestBase(object):
             for param in self.__parameters__():
                 key = param.get('key')
                 yang_key = param.get('yang-key',key)
+
                 default = param.get('default')
                 mandatory = param.get('mandatory', False)
 
@@ -213,7 +218,9 @@ class RestBase(object):
                 value = kwargs.get(key)
 
                 if value is None:
-                    value = kwargs.get(yang_key, default)
+                    value = kwargs.get(yang_key)
+                if value is None:
+                    value = kwargs.get(yang_key.replace("_", "-"), default)
 
                 if mandatory and value is None:
                     raise Exception("Missing mandatory paramter {}".format(key))
@@ -235,8 +242,7 @@ class RestBase(object):
 
     def _get_value(self,param,item):
         type = param.get('type')
-        if type is not None and not isinstance(item,type):
-
+        if type is not None and item is not None and not isinstance(item,type):
             return type(**item)
 
         return item
@@ -256,6 +262,7 @@ class RestBase(object):
     def __eq__(self, other):
         eq = True
         diff = self._diff(other)
+        print(diff)
         for key in diff.keys():
              eq = eq and diff.get(key).get('valid')
         return eq
@@ -263,15 +270,16 @@ class RestBase(object):
     def _diff(self,other):
         diff = {}
         for param in self.__parameters__():
-             key = param.get('key')
-             self_value = getattr(self, key)
+             if param.get('validate',True):
+                 key = param.get('key')
+                 self_value = getattr(self, key)
 
-             other_value=""
+                 other_value=""
 
-             if other is not None:
-                other_value = getattr(other, key)
+                 if other is not None:
+                    other_value = getattr(other, key)
 
-             diff[key] = {"self":self_value,"other":other_value,"valid": self_value==other_value}
+                 diff[key] = {"self":self_value,"other":other_value,"valid": self_value==other_value}
 
         return diff
 
@@ -283,8 +291,24 @@ class RestBase(object):
 
             cisco_key = key.replace("_", "-")
             yang_key = param.get("yang-key",cisco_key)
+            yang_path = param.get("yang-path")
 
-            params[key] = json.get(yang_key)
+            values = json
+            if yang_path is not None:
+                path = yang_path.split("/")
+                for path_item in path:
+                    values = values.get(path_item)
+                    if values is None:
+                        raise Exception("Invalid yang segment {} in {} please check against yang model. Values: {}".format(path_item,yang_path,values))
+
+
+            value = values.get(yang_key)
+
+
+            if value == [None]:
+                value = True
+
+            params[key] = value
 
         return cls(**params)
 
@@ -300,10 +324,13 @@ class RestBase(object):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get_all(cls, context=None, filters={}):
+    def get_all(cls, context=None, filters={}, item_path=None):
         result = []
 
-        response = requests.get(cls._make_url(context, cls.item_path), auth=cls._get_auth(context),
+        if item_path is None:
+            item_path = cls.item_path
+
+        response = requests.get(cls._make_url(context, item_path), auth=cls._get_auth(context),
                                 headers=context.headers, verify=not context.insecure)
 
         try:
@@ -330,13 +357,17 @@ class RestBase(object):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, id,context=None):
-        result = requests.get(cls._make_url(context, cls.item_path) + "=" + str(id), auth=cls._get_auth(context),
+    def get(cls, id,context=None, item_path=None):
+        if item_path is None:
+            item_path = cls.item_path
+        result = requests.get(cls._make_url(context, item_path) + "=" + str(id), auth=cls._get_auth(context),
                               headers=context.headers, verify=not context.insecure)
 
         if result.status_code != 200:
             return None
             # raise result.raise_for_status()
+        print("*****")
+        print(result.json())
 
         return cls.from_json(result.json().get(cls.LIST_KEY, {}))
 

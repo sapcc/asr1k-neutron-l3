@@ -46,24 +46,39 @@ class DynamicNAT(BaseNAT):
 
         self.id = utils.vrf_to_access_list_id(self.router_id)
 
+    @property
+    def _rest_definition(self):
+        pool = rest_nat.NatPool(id=self.router_id, start_address=self.gateway_interface.ip_address.address,end_address=self.gateway_interface.ip_address.address,netmask=self.gateway_interface.ip_address.mask)
+        nat = rest_nat.DynamicNat(id=self.id, vrf=self.router_id, redundancy=self.redundancy,
+                                          mapping_id=self.mapping_id, overload=True)
+        return pool,nat
+
+
+    def valid(self):
+        device_pool,device_nat = self.get()
+        pool, nat = self._rest_definition
+
+        return pool == device_pool and nat == device_nat
+
+
+    def get(self):
+        pool =  rest_nat.NatPool.get(self.router_id)
+        nat = rest_nat.DynamicNat.get(self.id)
+
+        return pool,nat
+
 
     def update(self):
-        nat_pool = rest_nat.NatPool(id=self.router_id, ip_address=self.gateway_interface.ip_address)
-        dyanmic_nat = rest_nat.DynamicNat(id=self.id, vrf=self.router_id, redundancy=self.redundancy,
-                                          mapping_id=self.mapping_id)
+        pool, nat = self._rest_definition
 
-        nat_pool.update()
-        dyanmic_nat.update()
+        pool.update()
+        nat.update()
 
 
     def delete(self):
-        nat_pool = rest_nat.NatPool.get(self.router_id)
-        dyanmic_nat = rest_nat.DynamicNat.get(self.id)
-
-        if nat_pool is not None:
-            nat_pool.delete()
-        if dyanmic_nat is not None:
-            dyanmic_nat.delete()
+        pool, nat = self._rest_definition
+        pool.delete()
+        nat.delete()
 
 
 class FloatingIp(BaseNAT):
@@ -98,25 +113,36 @@ class FloatingIp(BaseNAT):
         self.floating_ip = floating_ip
         self.local_ip = floating_ip.get("fixed_ip_address")
         self.global_ip = floating_ip.get("floating_ip_address")
-        self.global_ip_mask = gateway_interface.ip_address.netmask
+        self.global_ip_mask = gateway_interface.ip_address.mask
         self.bridge_domain = gateway_interface.bridge_domain
         self.id = "{},{}".format(self.local_ip, self.global_ip)
 
-    def update(self):
-
+    def _rest_definition(self):
         static_nat = rest_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
-                                    global_ip_netmask=self.global_ip_mask, bridge_domain=self.bridge_domain,
-                                    redundancy=self.redundancy, mapping_id=self.mapping_id)
-        static_nat.update()
+                                        mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
+                                        redundancy=self.redundancy, mapping_id=self.mapping_id)
+        secondary_ip = l3_interface.BDISecondaryIpAddress(bridge_domain=self.bridge_domain, address=self.global_ip,mask=self.global_ip_mask)
 
-        secondary = l3_interface.BDISecondaryIpAddress(self.bridge_domain, address=self.global_ip,
-                                                   mask=utils.to_netmask(self.global_ip_mask))
-        return secondary.update(), static_nat.update()
+        return static_nat,secondary_ip
 
+    def valid(self):
+        device_nat,device_secondary = self.get()
+        static_nat, secondary_ip = self._rest_definition()
+
+        return static_nat == device_nat and secondary_ip == device_secondary
+
+    def get(self):
+        static_nat =  rest_nat.StaticNat.get("{},{}".format(self.local_ip,self.global_ip))
+        secondary_ip = l3_interface.BDISecondaryIpAddress.get(self.bridge_domain,self.global_ip)
+
+        return static_nat,secondary_ip
+
+    def update(self):
+        static_nat,secondary_ip = self._rest_definition()
+
+        return secondary_ip.update(), static_nat.update()
 
     def delete(self):
-        static_nat = rest_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip)
+        static_nat, secondary_ip = self._rest_definition()
 
-
-        secondary = l3_interface.BDISecondaryIpAddress(self.bridge_domain, address=self.global_ip)
-        return secondary.delete(), static_nat.delete()
+        return secondary_ip.delete(), static_nat.delete()

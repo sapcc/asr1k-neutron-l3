@@ -211,3 +211,14 @@ class Router(Base):
     def valid(self):
         print(self.vrf.valid())
         print(self.routes.valid())
+        print(self.dynamic_nat.valid())
+        for floating_ip in self.floating_ips:
+            print(floating_ip.valid())
+
+        for interface in self.interfaces.internal_interfaces:
+            print(interface.valid())
+
+        if self.interfaces.gateway_interface:
+            print(self.interfaces.gateway_interface.valid())
+
+        print (self.nat_acl.valid())
