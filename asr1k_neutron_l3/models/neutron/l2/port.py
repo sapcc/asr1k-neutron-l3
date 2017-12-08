@@ -16,16 +16,17 @@
 
 from oslo_log import log as logging
 
+from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.rest import l2_interface
-from asr1k_neutron_l3.models.rest.rest_base import execute_on_pair
+
 
 LOG = logging.getLogger(__name__)
 
 
-def create_ports(asr_pair, ports, callback=None):
+def create_ports(ports, callback=None):
     succeeded_ports = []
     for port in ports:
-        l2_port = Port(asr_pair, port)
+        l2_port = Port(port)
         result = l2_port.create()
         succeeded_ports.append(l2_port.id)
 
@@ -33,11 +34,11 @@ def create_ports(asr_pair, ports, callback=None):
         callback(succeeded_ports, [])
 
 
-def delete_ports(asr_pair, port_extra_atts, callback=None):
+def delete_ports(port_extra_atts, callback=None):
     succeeded_ports = []
 
     for port in port_extra_atts:
-        l2_port = Port(asr_pair, port)
+        l2_port = Port(port)
         result = l2_port.delete()
         succeeded_ports.append(l2_port.id)
 
@@ -48,11 +49,17 @@ def delete_ports(asr_pair, port_extra_atts, callback=None):
 
 class Port:
 
-    def __init__(self, asr_pair, port_info):
+    def __init__(self, port_info):
 
         self.port_info = port_info
-        self.config = asr_pair.config
+        self.config = asr1k_pair.ASR1KPair().config
         self.id = self.port_info.get('port_id')
+        self.service_instance = self.port_info.get('service_instance')
+        self.bridge_domain = self.port_info.get('bridge_domain')
+        self.second_dot1q = self.port_info.get('second_dot1q')
+        self.segmentation_id = self.port_info.get('segmentation_id')
+        self.network_id = self.port_info.get('network_id')
+
 
     @property
     def ext_portchannel(self):
@@ -65,6 +72,43 @@ class Port:
     @property
     def lb_int_portchannel(self):
         return self.config.asr1k_devices.loopback_internal_interface
+
+    @property
+    def _rest_definition(self):
+        ext_interface = l2_interface.ExternalInterface(port_channel=self.ext_portchannel,
+                                                       id=self.segmentation_id, description=self.network_id)
+        lb_ext_interface = l2_interface.LoopbackExternalInterface(port_channel=self.lb_ext_portchannel,
+                                                                  id=self.service_instance, description=self.id,
+                                                                  dot1q=self.segmentation_id, second_dot1q=self.second_dot1q)
+        lb_int_interface = l2_interface.LoopbackInternalInterface(port_channel=self.lb_int_portchannel,
+                                                                  id=self.service_instance, description=self.id,
+                                                                  bridge_domain=self.bridge_domain,
+                                                                  dot1q=self.segmentation_id, second_dot1q=self.second_dot1q)
+
+        return ext_interface, lb_ext_interface, lb_int_interface
+
+    def valid(self):
+        device_ext_interface, device_lb_ext_interface, device_lb_int_interface = self.get()
+        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition
+
+        return (ext_interface == device_ext_interface) and (lb_ext_interface == device_lb_ext_interface) and (lb_int_interface== device_lb_int_interface)
+
+    def get(self):
+
+        ext_interface = l2_interface.ExternalInterface.get(self.ext_portchannel,self.segmentation_id)
+        lb_ext_interface = l2_interface.LoopbackExternalInterface.get(self.lb_ext_portchannel, self.service_instance)
+        lb_int_interface = l2_interface.LoopbackInternalInterface.get(self.lb_int_portchannel, self.service_instance)
+
+
+        return ext_interface,lb_ext_interface,lb_int_interface
+
+
+    def update(self):
+        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition
+
+        ext_interface.update()
+        lb_ext_interface.update()
+        lb_int_interface.update()
 
 
     def create(self,callback=None):
@@ -79,24 +123,9 @@ class Port:
 
     def _create(self):
 
-
-        service_instance = self.port_info.get('service_instance')
-        bridge_domain = self.port_info.get('bridge_domain')
-        second_dot1q = self.port_info.get('second_dot1q')
-        segmentation_id = self.port_info.get('segmentation_id')
-        network_id = self.port_info.get('network_id')
+        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
         # ideally this bit would be transcational
-
-        ext_interface = l2_interface.ExternalInterface(port_channel=self.ext_portchannel,
-                                                       id=segmentation_id, description=network_id)
-        lb_ext_interface = l2_interface.LoopbackExternalInterface(port_channel=self.lb_ext_portchannel,
-                                                                  id=service_instance, description=self.id,
-                                                                  dot1q=segmentation_id, second_dot1q=second_dot1q)
-        lb_int_interface = l2_interface.LoopbackInternalInterface(port_channel=self.lb_int_portchannel,
-                                                                  id=service_instance, description=self.id,
-                                                                  bridge_domain=bridge_domain,
-                                                                  dot1q=segmentation_id, second_dot1q=second_dot1q)
 
         ext_interface.create()
         lb_ext_interface.create()
@@ -116,17 +145,7 @@ class Port:
 
     def _delete(self):
 
-
-        segmentation_id = self.port_info.get('segmentation_id')
-        service_instance = self.port_info.get('service_instance')
-
-
-        ext_interface = l2_interface.ExternalInterface(port_channel=self.ext_portchannel,
-                                                       id=segmentation_id)
-        lb_ext_interface = l2_interface.LoopbackExternalInterface(port_channel=self.lb_ext_portchannel,
-                                                                  id=service_instance)
-        lb_int_interface = l2_interface.LoopbackInternalInterface(port_channel=self.lb_int_portchannel,
-                                                                  id=service_instance)
+        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
         # TODO only on last port on network
         ext_result = ext_interface.delete()

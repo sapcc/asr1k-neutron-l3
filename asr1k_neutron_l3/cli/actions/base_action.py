@@ -24,6 +24,7 @@ from neutron.agent.common import config
 from neutron import context as n_context
 from asr1k_neutron_l3.plugins.common import config as asr1k_config
 from asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent import L3PluginApi
+from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k.rpc_api import ASR1KPluginApi
 from asr1k_neutron_l3.models import asr1k_pair
 
 # from neutron.common import eventlet_utils
@@ -47,9 +48,11 @@ class BaseAction(object):
         common_config.init(("--config-file " + s for s in self.config_files),default_config_files=self.config_files)
         if namespace.log:
             config.setup_logging()
+        self.context = n_context.get_admin_context_without_session()
         self.asr1k_pair = asr1k_pair.ASR1KPair(self.conf)
         self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, self.host)
-        self.context = n_context.get_admin_context_without_session()
+        self.l2_plugin_rpc = ASR1KPluginApi(self.context)
+
 
 
     def get_router_info(self):

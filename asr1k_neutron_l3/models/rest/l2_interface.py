@@ -39,22 +39,34 @@ class L2Constants(object):
     REWRITE_MODE = "mode"
     SYMMETRIC = "symmetric"
 
+class BridgeDomain(RestBase):
+    pass
+
 
 class ServiceInstance(RestBase):
     REWRITE_INGRESS_TAG_POP_WAY = 2
 
+    LIST_KEY = L2Constants.SERVICE_INSTANCE
+
     list_path = "/Cisco-IOS-XE-native:native/interface/Port-channel={port_channel}/service"
     item_path = list_path + "/instance"
 
-    def __parameters__(self):
+    @classmethod
+    def __parameters__(cls):
         return [
-            {"key": "port_channel", "mandatory": True},
+            {"key": "port_channel", 'validate':False},
             {"key": "id", "mandatory": True},
             {"key": "description"},
-            {"key": "bridge_domain"},
-            {"key": "dot1q"},
-            {"key": "second_dot1q"}
+            {"key": "bridge_domain",'yang-path':'bridge-domain','yang-key':'bridge-id'},
+            {"key": "dot1q",'yang-path':'encapsulation/dot1q','yang-key':'id'},
+            {"key": "second_dot1q",'yang-path':'encapsulation/dot1q','yang-key':'second-dot1q'}
         ]
+
+    @classmethod
+    def get(cls, port_channel,id):
+        item_path = ServiceInstance.item_path.format(**{'port_channel': port_channel})
+        return super(ServiceInstance,cls).get(id,item_path=item_path)
+
 
     def __init__(self, **kwargs):
         super(ServiceInstance, self).__init__(**kwargs)
@@ -66,9 +78,9 @@ class ServiceInstance(RestBase):
 
         dot1q = dict(OrderedDict())
 
-        dot1q[L2Constants.ID] = self.dot1q
+        dot1q[L2Constants.ID] = [str(self.dot1q)]
         if self.second_dot1q is not None:
-            dot1q[L2Constants.SECOND_DOT1Q] = self.second_dot1q
+            dot1q[L2Constants.SECOND_DOT1Q] = [str(self.second_dot1q)]
 
         bridge_domain = OrderedDict()
         bridge_domain[L2Constants.BRIDGE_ID] = self.bridge_domain
@@ -96,44 +108,45 @@ class ServiceInstance(RestBase):
 
         return dict(result)
 
-    def from_json(self, json):
-        blob = json.get(L2Constants.SERVICE_INSTANCE, None)
-
-        self.description = blob.get(L2Constants.DESCRIPTION, None)
-
-        dot1q = blob.get(L2Constants.ENCAPSULATION, {}).get(L2Constants.DOT1Q, {}).get(L2Constants.ID, [])
-        if len(dot1q) > 0:
-            self.dot1q = dot1q.pop()
-
-        second_dot1q = blob.get(L2Constants.ENCAPSULATION, {}).get(L2Constants.DOT1Q, {}).get(L2Constants.SECOND_DOT1Q,
-                                                                                              [])
-        if len(second_dot1q) > 0:
-            self.second_dot1q = second_dot1q.pop()
-
-        self.bridge_domain = blob.get(L2Constants.BRIDGE_DOMAIN, {}).get(L2Constants.BRIDGE_ID, None)
-
-        return self
+    # def from_json(self, json):
+    #     blob = json.get(L2Constants.SERVICE_INSTANCE, None)
+    #
+    #     self.description = blob.get(L2Constants.DESCRIPTION, None)
+    #
+    #     dot1q = blob.get(L2Constants.ENCAPSULATION, {}).get(L2Constants.DOT1Q, {}).get(L2Constants.ID, [])
+    #     if len(dot1q) > 0:
+    #         self.dot1q = dot1q.pop()
+    #
+    #     second_dot1q = blob.get(L2Constants.ENCAPSULATION, {}).get(L2Constants.DOT1Q, {}).get(L2Constants.SECOND_DOT1Q,
+    #                                                                                           [])
+    #     if len(second_dot1q) > 0:
+    #         self.second_dot1q = second_dot1q.pop()
+    #
+    #     self.bridge_domain = blob.get(L2Constants.BRIDGE_DOMAIN, {}).get(L2Constants.BRIDGE_ID, None)
+    #
+    #     return self
 
 
 class ExternalInterface(ServiceInstance):
     REWRITE_INGRESS_TAG_POP_WAY = 1
 
-    def __init__(self, port_channel, id, description=None):
-        super(ExternalInterface, self).__init__(port_channel=port_channel, id=id, description=description,
-                                                bridge_domain=id, dot1q=id)
+    def __init__(self, **kwargs):
 
+        kwargs['bridge_domain'] = kwargs.get('id')
+        kwargs['dot1q'] = kwargs.get('id')
+
+        super(ExternalInterface, self).__init__(**kwargs)
 
 class LoopbackExternalInterface(ServiceInstance):
 
-    def __init__(self, port_channel, id, description=None, dot1q=None, second_dot1q=None):
-        super(LoopbackExternalInterface, self).__init__(port_channel=port_channel, id=id,
-                                                        description=description, bridge_domain=dot1q, dot1q=dot1q,
-                                                        second_dot1q=second_dot1q)
+    def __init__(self, **kwargs):
+        kwargs['bridge_domain'] = kwargs.get('dot1q')
+        kwargs['dot1q'] = kwargs.get('dot1q')
+
+        super(LoopbackExternalInterface, self).__init__(**kwargs)
 
 
 class LoopbackInternalInterface(ServiceInstance):
 
-    def __init__(self, port_channel, id, description=None, bridge_domain=None, dot1q=None, second_dot1q=None):
-        super(LoopbackInternalInterface, self).__init__(port_channel=port_channel, id=id,
-                                                        description=description, bridge_domain=bridge_domain,
-                                                        dot1q=dot1q, second_dot1q=second_dot1q)
+    def __init__(self, **kwargs):
+        super(LoopbackInternalInterface, self).__init__(**kwargs)

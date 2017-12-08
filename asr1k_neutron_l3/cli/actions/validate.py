@@ -16,6 +16,7 @@
 
 from oslo_log import log as logging
 from asr1k_neutron_l3.models.neutron.l3.router import Router
+from asr1k_neutron_l3.models.neutron.l2.port import Port
 
 import base_action
 
@@ -29,6 +30,26 @@ class Validate(base_action.BaseAction):
 
     def execute(self):
         ri = self.get_router_info()
+        port_ids = []
         if ri :
             router = Router(ri)
+
+            gateway_interface = router.interfaces.gateway_interface
+            if gateway_interface:
+                port_ids.append(gateway_interface.id)
+
+
+            for interface in router.interfaces.internal_interfaces:
+                port_ids.append(gateway_interface.id)
+
+
             router.valid()
+
+        ports = self.l2_plugin_rpc.get_ports_with_extra_atts(self.context,port_ids)
+
+        for port in ports:
+            l2_port = Port(port)
+
+            print(l2_port.valid())
+
+

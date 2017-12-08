@@ -220,7 +220,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                 router_ports = self.agent_rpc.get_ports_with_extra_atts(self.context, ports_to_bind, self.agent_id,
                                                                         self.conf.host)
 
-                l2_port.create_ports(self.asr1k_pair, router_ports, callback=self._bound_ports)
+                l2_port.create_ports(router_ports, callback=self._bound_ports)
                 self.updated_ports = {}
             except Exception as err:
                 LOG.exception(err)
@@ -232,7 +232,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             try:
                 extra_atts = self.agent_rpc.get_extra_atts(self.context, ports_to_delete, self.agent_id, self.conf.host)
 
-                l2_port.delete_ports(self.asr1k_pair, extra_atts, callback=self._deleted_ports)
+                l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
                 self.deleted_ports = {}
             except Exception as err:
                 LOG.exception(err)
