@@ -15,7 +15,7 @@
 #    under the License.
 
 from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.rest import access_list
+from asr1k_neutron_l3.models.netconf_yang import access_list
 
 
 
@@ -33,7 +33,7 @@ class AccessList(base.Base):
             sequence = (i + 1) * 10
             ace_rule =  access_list.ACERule(access_list=self.id, acl_rule =sequence, action=rule.action,
                                        protocol=rule.protocol, ipv4_address=rule.source, mask=rule.source_mask ,dest_ipv4_address=rule.destination, dest_mask = rule.destination_mask)
-            acl_rule = access_list.ACLRule(access_list=self.id, sequence=sequence,ace_rule=ace_rule)
+            acl_rule = access_list.ACLRule(access_list=self.id, sequence=sequence,ace_rule=[ace_rule])
             acl.add_rule(acl_rule)
 
         return acl

@@ -17,8 +17,8 @@
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.rest import l3_interface
-from asr1k_neutron_l3.models.rest import nat as rest_nat
+from asr1k_neutron_l3.models.netconf_yang import l3_interface
+from asr1k_neutron_l3.models.netconf_yang import nat as l3_nat
 from asr1k_neutron_l3.plugins.common import utils
 
 
@@ -41,15 +41,18 @@ class BaseNAT(base.Base):
 
 class DynamicNAT(BaseNAT):
 
-    def __init__(self, router_id, gateway_interface=None, redundancy=None, mapping_id=None):
-        super(DynamicNAT, self).__init__(router_id, gateway_interface, redundancy, mapping_id)
+    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None):
+        super(DynamicNAT, self).__init__(router_id, gateway_interface,redundancy, mapping_id)
+
+
+        self.interfaces = interfaces
 
         self.id = utils.vrf_to_access_list_id(self.router_id)
 
     @property
     def _rest_definition(self):
-        pool = rest_nat.NatPool(id=self.router_id, start_address=self.gateway_interface.ip_address.address,end_address=self.gateway_interface.ip_address.address,netmask=self.gateway_interface.ip_address.mask)
-        nat = rest_nat.DynamicNat(id=self.id, vrf=self.router_id, redundancy=self.redundancy,
+        pool = l3_nat.NatPool(id=self.router_id, start_address=self.gateway_interface.ip_address.address,end_address=self.gateway_interface.ip_address.address,netmask=self.gateway_interface.ip_address.mask)
+        nat = l3_nat.DynamicNat(id=self.id, vrf=self.router_id, redundancy=self.redundancy,
                                           mapping_id=self.mapping_id, overload=True)
         return pool,nat
 
@@ -62,8 +65,8 @@ class DynamicNAT(BaseNAT):
 
 
     def get(self):
-        pool =  rest_nat.NatPool.get(self.router_id)
-        nat = rest_nat.DynamicNat.get(self.id)
+        pool =  l3_nat.NatPool.get(self.router_id)
+        nat = l3_nat.DynamicNat.get(self.id)
 
         return pool,nat
 
@@ -77,8 +80,17 @@ class DynamicNAT(BaseNAT):
 
     def delete(self):
         pool, nat = self._rest_definition
-        pool.delete()
+
+        # for interface in self.interfaces:
+        #     interface.disable_nat()
+
         nat.delete()
+        pool.delete()
+
+        # for interface in self.interfaces:
+        #     interface.enable_nat()
+
+
 
 
 class FloatingIp(BaseNAT):
@@ -93,10 +105,7 @@ class FloatingIp(BaseNAT):
         for fip in fips:
             ids.append(fip.id)
 
-        nat_entries = rest_nat.StaticNat.get_all(filters={rest_nat.NATConstants.VRF: vrf})
-
-        LOG.debug(nat_entries)
-        LOG.debug(ids)
+        nat_entries = l3_nat.StaticNat.get_all(filter={l3_nat.NATConstants.VRF: vrf})
 
         for nat_entry in nat_entries:
             if not nat_entry.id in ids:
@@ -118,10 +127,12 @@ class FloatingIp(BaseNAT):
         self.id = "{},{}".format(self.local_ip, self.global_ip)
 
     def _rest_definition(self):
-        static_nat = rest_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
+        static_nat = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
                                         mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
                                         redundancy=self.redundancy, mapping_id=self.mapping_id)
         secondary_ip = l3_interface.BDISecondaryIpAddress(bridge_domain=self.bridge_domain, address=self.global_ip,mask=self.global_ip_mask)
+
+
 
         return static_nat,secondary_ip
 
@@ -132,7 +143,7 @@ class FloatingIp(BaseNAT):
         return static_nat == device_nat and secondary_ip == device_secondary
 
     def get(self):
-        static_nat =  rest_nat.StaticNat.get("{},{}".format(self.local_ip,self.global_ip))
+        static_nat =  l3_nat.StaticNat.get(self.local_ip,self.global_ip)
         secondary_ip = l3_interface.BDISecondaryIpAddress.get(self.bridge_domain,self.global_ip)
 
         return static_nat,secondary_ip

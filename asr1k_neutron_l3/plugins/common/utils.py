@@ -50,6 +50,9 @@ def vrf_to_access_list_id(vrf_id):
 
 
 def uuid_to_mapping_id(uuid):
+    if uuid is None:
+        return None
+
     numbers = [int(s) for s in uuid if s.isdigit()]
     number = ("".join(str(x) for x in numbers))
     if (len(number) < 10):

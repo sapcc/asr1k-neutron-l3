@@ -15,7 +15,7 @@
 #    under the License.
 
 from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.rest import route as l3_route
+from asr1k_neutron_l3.models.netconf_yang import route as l3_route
 from asr1k_neutron_l3.plugins.common import utils
 
 

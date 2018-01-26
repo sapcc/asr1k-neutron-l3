@@ -43,7 +43,7 @@ class Update(base_action.BaseAction):
 
 
             for interface in router.interfaces.internal_interfaces:
-                port_ids.append(gateway_interface.id)
+                port_ids.append(interface.id)
 
 
         ports = self.l2_plugin_rpc.get_ports_with_extra_atts(self.context,port_ids)

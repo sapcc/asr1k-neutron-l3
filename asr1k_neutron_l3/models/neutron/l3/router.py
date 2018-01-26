@@ -26,6 +26,7 @@ from asr1k_neutron_l3.models.neutron.l3 import vrf
 from asr1k_neutron_l3.models.neutron.l3.base import Base
 from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
 from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.plugins.common.instrument import instrument
 
 LOG = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ class Router(Base):
         return False
 
     def _build_dynamic_nat(self):
-        return nat.DynamicNAT(self.router_id, self.gateway_interface)
+        return nat.DynamicNAT(self.router_id, self.gateway_interface, self.interfaces.all_interfaces)
 
     def _build_floating_ips(self):
         floating_ips = []
@@ -167,7 +168,7 @@ class Router(Base):
     def create(self):
         self.update()
 
-
+    @instrument()
     def update(self):
 
         vrf_result = self.vrf.update()
@@ -191,23 +192,24 @@ class Router(Base):
         for floating_ip in self.floating_ips:
             floating_ip.update()
 
-
+    @instrument()
     def delete(self):
-        self.routes.delete()
-        self.dynamic_nat.delete()
-        self.nat_acl.delete()
 
         for floating_ip in self.floating_ips:
             floating_ip.delete()
 
         nat.FloatingIp.clean_floating_ips(self)
 
+        self.routes.delete()
+        self.dynamic_nat.delete()
+        self.nat_acl.delete()
+
         for interface in self.interfaces.all_interfaces:
             interface_result = interface.delete()
 
         self.vrf.delete()
 
-
+    @instrument()
     def valid(self):
         print(self.vrf.valid())
         print(self.routes.valid())

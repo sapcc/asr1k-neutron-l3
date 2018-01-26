@@ -20,6 +20,7 @@ DEVICE_OPTS = [
     cfg.ListOpt('hosts', default=('10.0.0.1'), help=('')),
     cfg.StrOpt('protocol', default=('https'), help=('')),
     cfg.IntOpt('port', default=(443), help=('')),
+    cfg.IntOpt('ncy_port', default=(830), help=('')),
     cfg.IntOpt('nc_port', default=(22), help=('')),
     cfg.IntOpt('nc_timeout', default=(5), help=('')),
     cfg.StrOpt('user_name', default=('admin'), help=('')),

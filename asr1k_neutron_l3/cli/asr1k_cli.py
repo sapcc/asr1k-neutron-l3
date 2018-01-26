@@ -29,7 +29,7 @@ ACTION_MODULE = 'asr1k_neutron_l3.cli.actions.'
 class Execute(argparse.Action):
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         super(Execute, self).__init__(option_strings, dest, **kwargs)
-        self.actions = {"validate": "validate.Validate", "update": "update.Update", "delete": "delete.Delete"}
+        self.actions = {"validate": "validate.Validate", "update": "update.Update", "delete": "delete.Delete","netconf": "netconf.Netconf"}
 
     def __call__(self, parser, namespace, values, option_string=None):
         action = self.actions.get(values)
@@ -43,7 +43,7 @@ def main():
     parser = argparse.ArgumentParser(prog='asr1k_utils', description='Operations utilities for ASR1k driver.')
 
     parser.add_argument('command',
-                        help='command to execute', action=Execute, choices=["validate", "update", "delete"])
+                        help='command to execute', action=Execute, choices=["validate", "update", "delete", "netconf"])
 
     parser.add_argument('--router-id', dest='router_id',
                         help='router id', action='store')

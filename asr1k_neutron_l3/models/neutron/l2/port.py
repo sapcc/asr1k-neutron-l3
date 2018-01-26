@@ -17,7 +17,7 @@
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.models import asr1k_pair
-from asr1k_neutron_l3.models.rest import l2_interface
+from asr1k_neutron_l3.models.netconf_yang import l2_interface
 
 
 LOG = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def delete_ports(port_extra_atts, callback=None):
         callback(succeeded_ports, [])
 
 
-class Port:
+class Port(object):
 
     def __init__(self, port_info):
 
@@ -73,7 +73,7 @@ class Port:
     def lb_int_portchannel(self):
         return self.config.asr1k_devices.loopback_internal_interface
 
-    @property
+
     def _rest_definition(self):
         ext_interface = l2_interface.ExternalInterface(port_channel=self.ext_portchannel,
                                                        id=self.segmentation_id, description=self.network_id)
@@ -84,12 +84,11 @@ class Port:
                                                                   id=self.service_instance, description=self.id,
                                                                   bridge_domain=self.bridge_domain,
                                                                   dot1q=self.segmentation_id, second_dot1q=self.second_dot1q)
-
         return ext_interface, lb_ext_interface, lb_int_interface
 
     def valid(self):
         device_ext_interface, device_lb_ext_interface, device_lb_int_interface = self.get()
-        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition
+        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
         return (ext_interface == device_ext_interface) and (lb_ext_interface == device_lb_ext_interface) and (lb_int_interface== device_lb_int_interface)
 
@@ -104,7 +103,7 @@ class Port:
 
 
     def update(self):
-        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition
+        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
         ext_interface.update()
         lb_ext_interface.update()

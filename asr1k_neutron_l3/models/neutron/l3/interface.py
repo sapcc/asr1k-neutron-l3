@@ -18,8 +18,8 @@ from oslo_log import log as logging
 
 from asr1k_neutron_l3.models import types
 from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.rest import l3_interface
-from asr1k_neutron_l3.models.rest.rest_base import execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang import l3_interface
+
 from asr1k_neutron_l3.plugins.common import utils
 
 LOG = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ class Interface(base.Base):
         return bdi == device_bdi
 
     def get(self):
-        bdi = l3_interface.BdiInterface.get(self.bridge_domain)
+        bdi = l3_interface.BDIInterface.get(self.bridge_domain)
         return bdi
 
     def update(self):
@@ -110,9 +110,16 @@ class Interface(base.Base):
 
 
     def delete(self):
-        bdi_interface = l3_interface.BdiInterface(name=self.bridge_domain)
+        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain)
         return  bdi_interface.delete()
 
+    def disable_nat(self):
+        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain)
+        return  bdi_interface.disable_nat()
+
+    def enable_nat(self):
+        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain)
+        return  bdi_interface.enable_nat()
 
 
 class GatewayInterface(Interface):
@@ -122,7 +129,7 @@ class GatewayInterface(Interface):
 
     @property
     def _rest_definition(self):
-        return l3_interface.BdiInterface(name=self.bridge_domain, description=self.router_id,
+        return l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address,
                                         secondary_ip_addresses=self.secondary_ip_addresses, nat_mode="outside",
@@ -136,7 +143,7 @@ class InternalInterface(Interface):
 
     @property
     def _rest_definition(self):
-        return l3_interface.BdiInterface(name=self.bridge_domain, description=self.router_id,
+        return l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
                                         nat_mode="inside", redundancy_group=None)

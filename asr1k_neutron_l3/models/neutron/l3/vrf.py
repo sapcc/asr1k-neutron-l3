@@ -15,7 +15,7 @@
 #    under the License.
 
 from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.rest import vrf
+from asr1k_neutron_l3.models.netconf_yang import vrf
 from asr1k_neutron_l3.plugins.common import utils
 
 
@@ -31,20 +31,14 @@ class Vrf(base.Base):
     def _rest_definition(self):
          return vrf.VrfDefinition(name=self.name, description=self.description)
 
-
     def get(self):
         return vrf.VrfDefinition.get(self.name)
 
-
     def update(self):
-
         return self._rest_definition.update()
 
-
     def delete(self):
-
         return self._rest_definition.delete()
-
 
     def purge(self):
         return self._rest_definition.delete()
