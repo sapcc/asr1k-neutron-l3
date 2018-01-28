@@ -430,10 +430,24 @@ Internal Port
 ```
 vrf definition f8a44de0fc8e45df93c7f79bf3b01c95
  description HCP Example Project Router1
+ rd 65192:1
  !
  address-family ipv4
+  export map exp-f8a44de0fc8e45df93c7f79bf3b01c95
  exit-address-family
 !
+route-map exp-f8a44de0fc8e45df93c7f79bf3b01c95 permit 10
+ match ip address prefix-list snat-f8a44de0fc8e45df93c7f79bf3b01c95
+ set extcommunity rt 65126:101 additive
+route-map exp-f8a44de0fc8e45df93c7f79bf3b01c95 deny 20
+ match ip address prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95
+!
+
+router bgp 65192
+ address-family ipv4 vrf f8a44de0fc8e45df93c7f79bf3b01c95
+  redistribute connected
+  redistribute static
+ exit-address-family
 ```
 
 ###### External Router Port
@@ -450,6 +464,8 @@ interface BDI4501
  redundancy rii 10
  
 ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 0.0.0.0 0.0.0.0 172.24.4.1
+
+ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 5 permit 172.24.4.0/24
 ```
 
 Router with SNAT=true
@@ -472,6 +488,7 @@ ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 0.0.0.0 0.0.0.0 172.24.4.1
 ip nat pool f8a44de0fc8e45df93c7f79bf3b01c95 172.24.4.6 172.24.4.6 netmask 255.255.255.0
 ip nat inside source list nat-all pool redundancy 1 mapping-id 10 vrf f8a44de0fc8e45df93c7f79bf3b01c95 overload
 
+ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 5 permit 172.24.4.0/24
 ```
 
 Router with SNAT=true with address scope support
@@ -494,6 +511,7 @@ ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 0.0.0.0 0.0.0.0 172.24.4.1
 ip nat pool f8a44de0fc8e45df93c7f79bf3b01c95 172.24.4.6 172.24.4.6 netmask 255.255.255.0
 ip nat inside source list NAT-f8a44de0fc8e45df93c7f79bf3b01c95 pool redundancy 1 mapping-id 10 vrf f8a44de0fc8e45df93c7f79bf3b01c95 overload
 
+ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 5 permit 172.24.4.0/24
 ```
 
 ###### Internal Router Port
@@ -513,6 +531,8 @@ interface BDI4502
 Router with Address scope External == Address scope internal
 
 ```
+ip prefix-list snat-f8a44de0fc8e45df93c7f79bf3b01c95 seq 5 permit 172.24.5.0/24
+
 ip access-list extended NAT-f8a44de0fc8e45df93c7f79bf3b01c95
  deny   ip 172.24.5.0 0.0.0.255 any
  permit ip any any
@@ -559,6 +579,8 @@ interface BDI4501
 
 ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79bf3b01c95 redundancy 1 mapping-id 112
 
+ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 5 permit 172.24.4.0/24
+ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 10 permit 172.24.5.0/24
 ```
 
 Option assigned as arp-alias
@@ -572,7 +594,7 @@ ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79b
 
 ###### Open Architecture Topics:
 
- * Can we assign interfacce routes inside a vrf?
+ * Can we assign interfacce routes inside a vrf? NO
  * Does arp alias work for off-subnet ip's?
  * Do we need rii on interfaces or is mapping-id sufficient on nat statements ?
  * should/must all mapping-id's be the same or different for a given neutron router ? 
@@ -582,6 +604,9 @@ ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79b
 | Resource | ID Space | ID Sope | Specific Limit | Global Limit | Requirements |
 | ------------- |:-------------:|:----:| -----:|-----:|:-----|
 | vrf | string | global | 8.000 | ??? |  one per Neutron virtual router | 
+| rd | ASN:1-65535 | global | ??? | ??? |  one per Neutron virtual router UNIQUE PER REGION | 
+| route-map | string | global | ??? | ??? |  one per Neutron virtual router | 
+| prefix-list | string | global | ??? | ??? |  one per Neutron virtual router | 
 | secondary IP's | - | - | ??? | ??? |  one per Floating IP | 
 | static NAT | - | - | ??? | ??? |  one per Floating IP |
 | NAT Pool | string | global | ??? | ??? |  one per Neutron virtual router |
@@ -593,6 +618,20 @@ ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79b
 | access-lists | string | global | 4.000 | ??? |  one per Neutron virtual router |
 | access-list entries | - | - | 400.000 | ??? |  one per Neutron virtual router + One Per Subnet in the same scope |
 
+
+###### Configuration Options:
+
+ * **ASN**: BGP AS number same as ACI ASN in Region
+ * **RT**: Lookup Table: Address Scope -> RT:ASN:XX
+
+    | Scope | RT |
+|--------|------|
+|CC-CLOUD01| 65126:101 |
+|CC-CLOUD02| 65126:102 |
+|CC-CLOUD03| 65126:103 |
+|CC-CLOUD04| 65126:104 |
+|CC-CLOUD05| 65126:105 |
+|CC-CLOUD06| 65126:106 |
 
 
 ###### Conventions:
