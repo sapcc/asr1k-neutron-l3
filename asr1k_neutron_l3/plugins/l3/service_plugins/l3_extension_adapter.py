@@ -66,15 +66,26 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                       dns_db.DNSDbMixin, L3RpcNotifierMixin):
 
     @log_helpers.log_method_call
+    def _get_address_scope_config(self):
+
+        cfg
+
+
+    @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None):
 
         extra_atts = self._get_extra_atts(context, router_ids)
+        router_atts = self._get_router_atts(context, router_ids)
 
         routers = super(ASR1KPluginBase, self).get_sync_data(context, router_ids=router_ids, active=active)
 
         for router in routers:
             extra_att = extra_atts.get(router['id'], {})
             router[constants.ASR1K_EXTRA_ATTS_KEY] = extra_att
+
+            router_att = router_atts.get(router['id'], {})
+            router[constants.ASR1K_ROUTER_ATTS_KEY] = router_att
+
 
         return routers
 
@@ -91,10 +102,32 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
             return_dict[extra_att.get('router_id')][extra_att.get('port_id')] = extra_att
 
         return return_dict
-    #
-    # @log_helpers.log_method_call
-    # def create_router(self, context, router):
-    #     return self.base.create_router( context, router)
+
+    def _get_router_atts(self, context, router_ids):
+        db = asr1k_db.DBPlugin()
+        router_atts = db.get_router_atts_for_routers(context, router_ids)
+
+        return_dict = {}
+
+        for router_att in router_atts:
+            if return_dict.get(router_att.get('router_id')) is None:
+                return_dict[router_att.get('router_id')] = {}
+
+            return_dict[router_att.get('router_id')] = router_att
+
+        return return_dict
+
+
+    @log_helpers.log_method_call
+    def create_router(self, context, router):
+        result = super(ASR1KPluginBase, self).create_router(context, router)
+        router_atts_db = asr1k_db.RouterAttsDb(result.get('id'), context)
+        router_atts_db.update_router_atts()
+
+        LOG.error(result)
+
+        return result
+
     #
     # @log_helpers.log_method_call
     # def update_router(self, context, id, router):

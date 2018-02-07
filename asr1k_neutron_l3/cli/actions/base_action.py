@@ -23,6 +23,8 @@ from neutron.common import topics
 from neutron.agent.common import config
 from neutron import context as n_context
 from asr1k_neutron_l3.plugins.common import config as asr1k_config
+from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
 from asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent import L3PluginApi
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k.rpc_api import ASR1KPluginApi
 from asr1k_neutron_l3.models import asr1k_pair
@@ -44,6 +46,7 @@ class BaseAction(object):
         #cfg.CONF(default_config_files=self.config_files)
         self.conf = cfg.CONF
         self.conf.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
+        self.conf.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
         self.host = socket.gethostname()
         common_config.init(("--config-file " + s for s in self.config_files),default_config_files=self.config_files)
         if namespace.log:
@@ -59,4 +62,7 @@ class BaseAction(object):
         routers = self.plugin_rpc.get_routers(self.context, [self.router_id])
 
         if routers:
+            address_scopes = utils.get_address_scope_config(self.plugin_rpc, self.context)
+            routers[0][constants.ADDRESS_SCOPE_CONFIG] = address_scopes
+
             return  routers[0]

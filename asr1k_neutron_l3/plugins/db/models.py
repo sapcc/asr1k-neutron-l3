@@ -26,6 +26,10 @@ LOG = log.getLogger(__name__)
 class ASR1KExtraAttsModel(model_base.BASEV2):
     __tablename__ = 'asr1k_extra_atts'
 
+    def set_external_deletable(self, value):
+        self.external_deletable = value
+
+
     router_id = sa.Column(sa.String(length=36), sa.ForeignKey('routers.id', ondelete='CASCADE'), nullable=False,
                           primary_key=True)
     agent_host = sa.Column(sa.String(length=36), nullable=False, primary_key=True)
@@ -37,3 +41,13 @@ class ASR1KExtraAttsModel(model_base.BASEV2):
     second_dot1q = sa.Column(sa.BigInteger(), nullable=False)
     deleted_l2 = sa.Column('deleted_l2', sa.Boolean())
     deleted_l3 = sa.Column('deleted_l3', sa.Boolean())
+
+
+
+class ASR1KRouterAttsModel(model_base.BASEV2):
+    __tablename__ = 'asr1k_router_atts'
+
+    router_id = sa.Column(sa.String(length=36), sa.ForeignKey('routers.id', ondelete='CASCADE'), nullable=False,
+                          primary_key=True)
+    rd = sa.Column(sa.Integer(), nullable=False)
+3

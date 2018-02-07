@@ -42,7 +42,7 @@ class ASR1KPluginApi(object):
         return cctxt.call(context, 'get_ports_with_extra_atts', ports=ports,
                           agent_id=agent_id, host=host)
 
-    def get_extra_atts(self, context, ports, agent_id=None, host=None):
+    def get_extra_atts(self, context, ports, deleteable= False, agent_id=None, host=None):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_extra_atts', ports=ports,
                           agent_id=agent_id, host=host)

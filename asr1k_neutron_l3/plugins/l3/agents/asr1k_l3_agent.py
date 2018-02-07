@@ -218,6 +218,12 @@ class L3PluginApi(object):
         return cctxt.call(context, 'delete_extra_atts_l3',
                           host=self.host, ports=ports)
 
+    def get_address_scopes(self, context, scopes):
+        """Get address scopes with names """
+        cctxt = self.client.prepare(version='1.7')
+        return cctxt.call(context, 'get_address_scopes',
+                          host=self.host, scopes=scopes)
+
 
 class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
     """Manager for L3 ASR Agent
@@ -324,7 +330,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
         pass
 
     @log_helpers.log_method_call
-    def router_added_to_agent(self, context, router):
+    def router_added_to_agent(self, context, payload):
         pass
 
     @periodic_task.periodic_task(spacing=1, run_immediately=True)
@@ -341,6 +347,18 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
         LOG.info(_LI("L3 agent started"))
         # Do the report state before we do the first full sync.
         self._report_state()
+
+
+    @periodic_task.periodic_task(spacing=1, run_immediately=True)
+    def periodic_refresh_address_scope_config(self, context):
+        LOG.info('Refreshing address scope configuration dict')
+        self.address_scopes = utils.get_address_scope_config(self.plugin_rpc, context)
+
+
+
+
+
+
 
     @log_helpers.log_method_call
     def agent_updated(self, context, payload):
@@ -380,6 +398,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
                 continue
 
             if self._extra_atts_complete(router):
+                router[constants.ADDRESS_SCOPE_CONFIG] = self.address_scopes
                 r = l3_router.Router(router)
                 r.update()
                 # set L3 deleted for all ports on the router that have disappeared
@@ -425,7 +444,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
         registry.notify(resources.ROUTER, events.BEFORE_DELETE,
                         self, router=router_id)
 
-        l3_router.Router.purge(router_id)
+        # l3_router.Router.purge(router_id)
 
         registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router_id)
 

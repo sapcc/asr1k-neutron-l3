@@ -17,7 +17,7 @@
 from collections import OrderedDict
 
 from oslo_log import log as logging
-from asr1k_neutron_l3.models.netconf import nat as nc_nat
+from asr1k_neutron_l3.models.netconf_legacy import nat as nc_nat
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.plugins.common import utils
@@ -141,6 +141,7 @@ class DynamicNat(NatBase):
                           <ios-nat:source>
                             <ios-nat:list>
                               <ios-nat:id>{id}</ios-nat:id>
+                              <vrf>{vrf}</vrf>
                             </ios-nat:list>
                           </ios-nat:source>
                         </ios-nat:inside>
@@ -163,6 +164,10 @@ class DynamicNat(NatBase):
             {'key': 'overload','default':False}
         ]
 
+
+    @classmethod
+    def get_primary_filter(cls,**kwargs):
+        return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'vrf':kwargs.get('vrf')})
 
     @classmethod
     def remove_wrapper(cls,dict):
@@ -210,15 +215,25 @@ class DynamicNat(NatBase):
 
         return dict(result)
 
+    def to_delete_dict(self):
+        entry = OrderedDict()
+        entry[NATConstants.ID] = self.id
+        entry[NATConstants.VRF] = self.vrf
+        result = OrderedDict()
+        result[NATConstants.LIST] = []
+        result[NATConstants.LIST].append(entry)
+
+        return dict(result)
+
+
 
     @execute_on_pair()
     def delete(self,context=None):
 
         if self.internal_exists(context):
-            return self.ncc.delete(context)
-
-        # result = super(DynamicNat, self).delete(context=context)
-        # return result
+            self.ncc.delete(context)
+            result = super(DynamicNat, self).delete(context=context)
+            return result
 
 
 class StaticNat(NatBase):

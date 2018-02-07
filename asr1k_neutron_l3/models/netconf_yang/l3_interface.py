@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure
-from asr1k_neutron_l3.models.netconf import l3_interface as nc_l3_interface
+from asr1k_neutron_l3.models.netconf_legacy import l3_interface as nc_l3_interface
 
 class L3Constants(object):
     INTERFACE = "interface"

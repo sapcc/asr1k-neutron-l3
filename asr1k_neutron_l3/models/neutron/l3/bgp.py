@@ -15,27 +15,28 @@
 #    under the License.
 
 from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.netconf_yang import vrf
+from asr1k_neutron_l3.models.netconf_yang import bgp
+
 from asr1k_neutron_l3.plugins.common import utils
 
 
-class Vrf(base.Base):
-    def __init__(self, name, description=None,asn=None,rd=None):
-        super(Vrf, self).__init__()
-        self.name = utils.uuid_to_vrf_id(name)
-        self.description = description
+class AddressFamily(base.Base):
+    def __init__(self, id, asn=None):
+        super(AddressFamily, self).__init__()
+        self.id = utils.uuid_to_vrf_id(id)
+
         self.asn = asn
-        self.rd = utils.to_rd(self.asn,rd)
+
 
 
 
     @property
     def _rest_definition(self):
-         return vrf.VrfDefinition(name=self.name, description=self.description, rd=self.rd)
+         return bgp.AddressFamiliy(id=self.id,asn=self.asn)
 
 
     def get(self):
-        return vrf.VrfDefinition.get(self.name)
+        return  bgp.AddressFamiliy.get(self.id)
 
 
 

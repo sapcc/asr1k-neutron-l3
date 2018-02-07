@@ -27,8 +27,11 @@ class VrfConstants(object):
     NAME = "name"
     DESCRIPTION = "description"
     ADDRESS_FAMILY = "address-family"
+    EXPORT = "export"
+    MAP = "map"
     IPV4 = "ipv4"
     IPV6 = "ipv6"
+    RD = "rd"
 
 
 class VrfDefinition(NyBase):
@@ -50,7 +53,8 @@ class VrfDefinition(NyBase):
         return [
             {'key': 'name', 'id': True},
             {'key': 'description'},
-            {'key': 'address_family', 'default': {VrfConstants.IPV4:{}}}
+            {'key': 'address_family', 'default': {VrfConstants.IPV4:{}}},
+            {'key': 'rd'}
         ]
 
     def __init__(self,**kwargs):
@@ -72,6 +76,11 @@ class VrfDefinition(NyBase):
         definition[VrfConstants.ADDRESS_FAMILY] = OrderedDict()
         for address_family in self.address_family.keys():
             definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
+            definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
+
+        if self.rd is not None:
+            definition[VrfConstants.RD] = self.rd
+
 
         result = OrderedDict()
         result[VrfConstants.DEFINITION] = definition

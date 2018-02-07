@@ -21,13 +21,13 @@ LOG = logging.getLogger(__name__)
 
 class ASR1KContext(object):
 
-    def __init__(self, host, port, nc_port,ncy_port, nc_timeout, username, password, protocol='https', insecure=False,
+    def __init__(self, host, http_port, legacy_port,yang_port, nc_timeout, username, password, protocol='https', insecure=False,
                  headers={}):
         self.protocol = protocol
         self.host = host
-        self.port = port
-        self.nc_port = nc_port
-        self.ncy_port = ncy_port
+        self.http_port = http_port
+        self.legacy_port = legacy_port
+        self.yang_port = yang_port
         self.nc_timeout = nc_timeout
         self.username = username
         self.password = password
@@ -42,7 +42,7 @@ class ASR1KPair(object):
     def __new__(cls, config=None):
 
         if not hasattr(cls, 'instance'):
-            cls.instance = super(ASR1KPair, cls).__new__(cls, config=None)
+            cls.instance = super(ASR1KPair, cls).__new__(cls, config=config)
 
         return cls.instance
 
@@ -51,7 +51,7 @@ class ASR1KPair(object):
             self.config = config
         self.contexts = []
         for host in self.config.asr1k_devices.hosts:
-            self.contexts.append(ASR1KContext(host, self.config.asr1k_devices.port, self.config.asr1k_devices.nc_port,self.config.asr1k_devices.ncy_port,
+            self.contexts.append(ASR1KContext(host, self.config.asr1k_devices.http_port, self.config.asr1k_devices.legacy_port,self.config.asr1k_devices.yang_port,
                                               self.config.asr1k_devices.nc_timeout, self.config.asr1k_devices.user_name,
                                               self.config.asr1k_devices.password,
                                               protocol=self.config.asr1k_devices.protocol, insecure=True))

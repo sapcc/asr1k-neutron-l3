@@ -19,8 +19,12 @@ import struct
 
 from netaddr import IPNetwork, IPAddress
 
-from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
+from oslo_log import log as logging
 
+from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
+from asr1k_neutron_l3.plugins.common import config as asr1k_config
+
+LOG = logging.getLogger(__name__)
 
 def calculate_deleted_ports(router):
     extra_atts = router.get(constants.ASR1K_EXTRA_ATTS_KEY)
@@ -80,7 +84,18 @@ def from_cidr(cidr):
 
     netmask = to_netmask(int(split[1]))
 
-    return ip, netmask
+    return ip, netmask\
+
+def to_cidr(ip,netmask):
+    if isinstance(netmask,str):
+        nm = IPAddress(netmask)
+        cidr = nm.netmask_bits()
+    else:
+        cidr = netmask
+
+    return '{}/{}'.format(ip,netmask)
+
+
 
 def to_wildcard_mask(prefix_len):
 
@@ -104,3 +119,27 @@ def to_netmask(prefix_len):
     else:
         netmask = prefix_len
     return netmask
+
+
+
+def to_rd(asn,rd):
+        if asn is None or rd is None:
+            return
+        return "{}:{}".format(asn,rd)
+
+
+def get_address_scope_config(plugin_rpc,context):
+    scope_config = asr1k_config.create_address_scope_dict()
+
+    db_scopes = plugin_rpc.get_address_scopes(context, scope_config.keys())
+
+    result = {}
+    for name in scope_config.keys():
+        if name in db_scopes.keys():
+            id = db_scopes.get(name, {}).get("id")
+            result[id] = scope_config.get(name)
+        else:
+            LOG.warning('Could not find DB config for configured scope {}'.format(name))
+
+
+    return result

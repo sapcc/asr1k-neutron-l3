@@ -18,7 +18,7 @@ from oslo_log import log as logging
 from oslo_utils import importutils
 
 import ncclient
-from ncclient import manager
+from asr1k_neutron_l3.models.netconf import ConnectionPool
 from ncclient.operations.rpc import RPCError
 
 
@@ -33,10 +33,10 @@ class NccBase(object):
         self._ncc_connection = None
 
     def _edit_running_config(self, context, conf_str, snippet):
-        conn = self._get_connection(context)
+        connection = self._get_connection(context)
 
         try:
-            rpc_obj = conn.edit_config(target='running', config=conf_str)
+            rpc_obj = connection.edit_config(config=conf_str)
 
             return rpc_obj
 
@@ -47,18 +47,7 @@ class NccBase(object):
             raise e
 
     def _get_connection(self, context):
-        try:
-            if not (self._ncc_connection and self._ncc_connection.connected):
-                self._ncc_connection = manager.connect(
-                    host=context.host, port=context.nc_port,
-                    username=context.username, password=context.password,
-                    device_params={'name': "csr"}, timeout=context.nc_timeout)
-
-
-        except Exception as e:
-            raise e
-
-        return self._ncc_connection
+        return ConnectionPool().get_connection(context.host,legacy=True)
 
     def _check_response(self, rpc_obj, snippet_name, conf_str=None):
         LOG.debug("RPCReply for %(snippet_name)s is %(rpc_obj)s",

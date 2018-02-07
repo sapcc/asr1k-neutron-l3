@@ -38,6 +38,7 @@ def delete_ports(port_extra_atts, callback=None):
     succeeded_ports = []
 
     for port in port_extra_atts:
+
         l2_port = Port(port)
         result = l2_port.delete()
         succeeded_ports.append(l2_port.id)
@@ -59,6 +60,9 @@ class Port(object):
         self.second_dot1q = self.port_info.get('second_dot1q')
         self.segmentation_id = self.port_info.get('segmentation_id')
         self.network_id = self.port_info.get('network_id')
+        self.external_deletable = self.port_info.get('external_deletable')
+
+        print ("*************** Network from L2 port {}".format(self.network_id))
 
 
     @property
@@ -147,7 +151,8 @@ class Port(object):
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
         # TODO only on last port on network
-        ext_result = ext_interface.delete()
+        if self.external_deletable:
+            ext_result = ext_interface.delete()
 
         # For every port deletion
         lb_ext_result = lb_ext_interface.delete()

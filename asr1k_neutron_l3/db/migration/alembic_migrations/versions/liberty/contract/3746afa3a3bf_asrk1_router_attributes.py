@@ -14,13 +14,29 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-AGENT_TYPE_ASR1K_L3 = 'ASR1K L3 Agent'
-AGENT_BINARY_ASR1K_L3 = 'asr1k-neutron-l3-agent'
-AGENT_TYPE_ASR1K_ML2 = 'ASR1K ML2 Agent'
+"""ASRK1 BOOKKEEPING
 
-ASR1K_TOPIC = 'ASR1K-TOPIC'
+Revision ID: 3746afa3a3bd
+Revises: 56f6afdea3be
+Create Date: 2017-11-13 14:25:39.157776
 
-ASR1K_EXTRA_ATTS_KEY = 'ars1k_extra_atts'
-ASR1K_ROUTER_ATTS_KEY = 'ars1k_router_atts'
+"""
 
-ADDRESS_SCOPE_CONFIG = 'address_scope_config'
+import sqlalchemy as sa
+from alembic import op
+
+# revision identifiers, used by Alembic.
+revision = '3746afa3a3bd'
+down_revision = '56f6afdea3be'
+
+
+def upgrade():
+    op.create_table(
+        'asr1k_router_atts',
+        sa.Column('router_id', sa.String(length=36), nullable=False),
+        sa.Column('rd', sa.Integer(), nullable=False),
+
+        sa.ForeignKeyConstraint(['router_id'], ['routers.id'],
+                                ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint("router_id"),
+    )

@@ -91,7 +91,7 @@ class VrfRoute(NyBase):
         if len(self.routes) > 0:
             return super(VrfRoute, self)._update(context=context,method='put')
         else:
-            return self._delete()
+            return self._delete(context=context)
 
     def to_dict(self):
 

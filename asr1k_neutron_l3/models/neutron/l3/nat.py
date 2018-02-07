@@ -41,17 +41,32 @@ class BaseNAT(base.Base):
 
 class DynamicNAT(BaseNAT):
 
-    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None):
+    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None,nat_all=False):
         super(DynamicNAT, self).__init__(router_id, gateway_interface,redundancy, mapping_id)
 
 
         self.interfaces = interfaces
 
-        self.id = utils.vrf_to_access_list_id(self.router_id)
+        self.id = 'nat-all'
+
+        if gateway_interface is not None:
+            for interface in self.interfaces.internal_interfaces:
+                if interface.address_scope == gateway_interface.address_scope:
+                    self.id = utils.vrf_to_access_list_id(self.router_id)
 
     @property
     def _rest_definition(self):
-        pool = l3_nat.NatPool(id=self.router_id, start_address=self.gateway_interface.ip_address.address,end_address=self.gateway_interface.ip_address.address,netmask=self.gateway_interface.ip_address.mask)
+
+        gateway_ip, gateway_netmask = [None, None]
+
+        if self.gateway_interface is not None:
+            gateway_ip = self.gateway_interface.ip_address.address
+            gateway_netmask = self.gateway_interface.ip_address.mask
+
+
+
+
+        pool = l3_nat.NatPool(id=self.router_id, start_address=gateway_ip,end_address=gateway_ip,netmask=gateway_netmask)
         nat = l3_nat.DynamicNat(id=self.id, vrf=self.router_id, redundancy=self.redundancy,
                                           mapping_id=self.mapping_id, overload=True)
         return pool,nat

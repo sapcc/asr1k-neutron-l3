@@ -92,32 +92,38 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         pass
 
     def try_to_bind_segment_for_agent(self, context, segment, agent):
-        LOG.info(_LI("try_to_bind_segment_for_agent"))
-        LOG.info(context.current)
+        if segment.get(api.PHYSICAL_NETWORK) in self.physical_networks:
 
-        # We only do router devices
-        device_owner = context.current['device_owner']
-        device_id = context.current['device_id']
+            LOG.info(_LI("try_to_bind_segment_for_agent"))
+            LOG.info(context.current)
 
-        if not device_owner or not device_owner.startswith('network:router'):
-            return False
+            # We only do router devices
+            device_owner = context.current['device_owner']
+            device_id = context.current['device_id']
 
-        if not agent.get('admin_state_up', False) \
-                or not agent.get('alive', False) \
-                or agent['agent_type'].lower() != asr1k_constants.AGENT_TYPE_ASR1K_ML2.lower():
-            return False
+            if not device_owner or not device_owner.startswith('network:router'):
+                return False
 
-        agent_host = agent.get('host', None)
+            if not agent.get('admin_state_up', False) \
+                    or not agent.get('alive', False) \
+                    or agent['agent_type'].lower() != asr1k_constants.AGENT_TYPE_ASR1K_ML2.lower():
+                return False
 
-        # If the agent is bound to a host, then it can only handle those
+            agent_host = agent.get('host', None)
 
-        if agent_host and agent_host != context.current['binding:host_id']:
-            return False
+            # If the agent is bound to a host, then it can only handle those
 
-        extra_atts_db = asr1k_db.ExtraAttsDb(device_id, segment, context)
-        extra_atts_db.update_extra_atts()
+            if agent_host and agent_host != context.current['binding:host_id']:
+                return False
 
-        context.set_binding(segment[api.ID],
-                            self.vif_type,
-                            self.vif_details)
-        return True
+            LOG.debug("Creating extra atts for segment {}".format(segment))
+
+            extra_atts_db = asr1k_db.ExtraAttsDb(device_id, segment, context)
+            extra_atts_db.update_extra_atts()
+
+            context.set_binding(segment[api.ID],
+                                self.vif_type,
+                                self.vif_details)
+            return True
+        else:
+            LOG.debug('Skipping binding, physical network on segment "{}" is not managed by this driver, managed networks are {}'.format(segment.get(api.PHYSICAL_NETWORK), self.physical_networks))

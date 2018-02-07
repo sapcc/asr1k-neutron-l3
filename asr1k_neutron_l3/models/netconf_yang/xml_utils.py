@@ -12,6 +12,8 @@ NS_CISCO_NATIVE = 'http://cisco.com/ns/yang/Cisco-IOS-XE-native'
 NS_CISCO_ETHERNET = 'http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet'
 NS_CISCO_NAT = "http://cisco.com/ns/yang/Cisco-IOS-XE-nat"
 NS_CISCO_ACL = 'http://cisco.com/ns/yang/Cisco-IOS-XE-acl'
+NS_CISCO_BGP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-bgp'
+NS_CISCO_ROUTE_MAP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-route-map'
 
 RPC_REPLY = 'rpc-reply'
 CONFIG = 'config'
@@ -32,7 +34,9 @@ class XMLUtils(object):
         NS_CISCO_NATIVE:None,
         NS_CISCO_ETHERNET:None,
         NS_CISCO_NAT: None,
-        NS_CISCO_ACL: None
+        NS_CISCO_ACL: None,
+        NS_CISCO_BGP: None,
+        NS_CISCO_ROUTE_MAP: None,
     }
 
     @classmethod
@@ -63,7 +67,9 @@ class XMLUtils(object):
 
 
     def _wrapper_preamble(self,dict):
-        dict = {self.LIST_KEY: dict}
+        if self.LIST_KEY is not None:
+            dict = {self.LIST_KEY: dict}
+
         return dict
 
     def add_wrapper(self,dict,operation):
@@ -96,5 +102,7 @@ class XMLUtils(object):
 
         xml = xmltodict.unparse(j)
         xml = xml.replace(ENCODING,"")
+
+        print xml
 
         return xml

@@ -322,7 +322,7 @@ class RestBase(object):
     @classmethod
     def _make_url(cls, context, path):
         return '{protocol}://{host}:{port}{base}{path}'.format(
-            **{'protocol': context.protocol, 'host': context.host, 'port': str(context.port),
+            **{'protocol': context.protocol, 'host': context.host, 'port': str(context.http_port),
                'base': RestBase.base_path, 'path': path})
 
     @classmethod

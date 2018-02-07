@@ -21,19 +21,22 @@ import eventlet
 from oslo_log import log as logging
 from oslo_utils import importutils
 from asr1k_neutron_l3.models import asr1k_pair
+from asr1k_neutron_l3.models.netconf import ConnectionPool
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict
 
 
-from ncclient import manager
+
 from ncclient.operations.rpc import RPCError
 from ncclient.transport.errors import SessionCloseError
+from ncclient.transport.errors import SSHError
 
 LOG = logging.getLogger(__name__)
 
 
 class NC_OPERATION(object):
     DELETE = 'delete'
+    REMOVE = 'remove'
     CREATE = 'create'
     PUT = 'replace'
     PATCH = 'merge'
@@ -61,6 +64,7 @@ class execute_on_pair(object):
             else:
                 result.append( kwargs.get('context'), response)
         except Exception as e:
+            LOG.error(e)
             result.append(kwargs.get('context'), e)
 
     def __call__(self, method):
@@ -131,7 +135,7 @@ class retry_on_failure(object):
                     else:
                         return result
 
-                except (RPCError , SessionCloseError) as e:
+                except (RPCError , SessionCloseError,SSHError) as e:
                     # LOG.exception(e)
                     # if e.tag not in  ['in-use',]:
                     #     LOG.exception(e)
@@ -177,13 +181,17 @@ class PairResult(object, ):
 
     def __str__(self):
         result = "** Pair Result {} : {} ** \n".format(self.entity,self.action)
-        result += "Successful executions : \n"
-        for host in self.results:
-            result += "{} : {}\n".format(host,self.results.get(host))
-        result += "Errors executions : \n"
-        for host in self.errors:
-            error = self.errors.get(host)
-            result += "{} : {} : {}\n".format(host,error.__class__.__name__, error)
+
+        if bool(self.results):
+            result += "Successful executions : \n"
+            for host in self.results:
+                result += "{} : {}\n".format(host,self.results.get(host))
+
+        if bool(self.errors):
+            result += "Errors executions : \n"
+            for host in self.errors:
+                error = self.errors.get(host)
+                result += "{} : {} : {}\n".format(host,error.__class__.__name__, error)
 
         return result
 
@@ -242,7 +250,7 @@ class NyBase(xml_utils.XMLUtils):
         if isinstance(type,list):
             type = type[0]
 
-        if type is not None and item is not None and not isinstance(item,type):
+        if type is not None and item is not None and not isinstance(item,type) and not isinstance(item,unicode):
             return type(**item)
 
         return item
@@ -288,100 +296,69 @@ class NyBase(xml_utils.XMLUtils):
 
     @classmethod
     def from_json(cls, json,parent=None):
+        try:
+            if not bool(json):
+                return None
+            params = {}
+            for param in cls.__parameters__():
+                key = param.get('key', "")
 
-        if not bool(json):
-            return None
-        params = {}
-        for param in cls.__parameters__():
-            key = param.get('key', "")
+                cisco_key = key.replace("_", "-")
+                yang_key = param.get("yang-key",cisco_key)
+                yang_path = param.get("yang-path")
+                type = param.get("type")
 
-            cisco_key = key.replace("_", "-")
-            yang_key = param.get("yang-key",cisco_key)
-            yang_path = param.get("yang-path")
-            type = param.get("type")
-
-            values = json
-            if yang_path is not None:
-                path = yang_path.split("/")
-                for path_item in path:
-                    if values is not None:
-                        values = values.get(path_item)
-                        if values is None:
-                            LOG.warning("Invalid yang segment {} in {} please check against yang model. Values: {}".format(path_item,yang_path,values))
+                values = json
+                if yang_path is not None:
+                    path = yang_path.split("/")
+                    for path_item in path:
+                        if bool(values):
+                            values = values.get(path_item)
+                            if bool(values) is None:
+                                LOG.warning("Invalid yang segment {} in {} please check against yang model. Values: {}".format(path_item,yang_path,values))
 
 
 
-            if values is not None:
 
-                value = values.get(yang_key)
-                if type is not None:
-                    if isinstance(type,list):
-                        type = type[0]
-                        result = []
-                        if isinstance(value,list):
-                            for v in value:
-                                v[cls.PARENT]=params
-                                result.append(type.from_json(v))
+                if bool(values):
+
+                    value = values.get(yang_key)
+                    if type is not None:
+                        if isinstance(type,list):
+                            type = type[0]
+                            result = []
+                            if isinstance(value,list):
+                                for v in value:
+                                    if isinstance(v,dict):
+                                        v[cls.PARENT]=params
+                                        result.append(type.from_json(v))
+                                    else:
+                                        result.append(v)
+                            else:
+                                value[cls.PARENT] = params
+                                result.append(type.from_json(value))
+                            value = result
                         else:
-                            value[cls.PARENT] = params
-                            result.append(type.from_json(value))
-                        value = result
-                    else:
-                        value = type.from_json(value)
+                            value = type.from_json(value)
 
-                if isinstance(value, dict) and '$' in value.keys():
-                    value = value.get('$')
+                    if isinstance(value, dict) and '$' in value.keys():
+                        value = value.get('$')
 
-                if isinstance(value, dict) and value =={}:
-                    value = True
+                    if isinstance(value, dict) and value =={}:
+                        value = True
 
-                params[key] = value
+                    params[key] = value
+        except Exception as e:
+            LOG.exception(e)
 
         return cls(**params)
 
 
 
-    def _get_connection(self, context):
-        return self.__class__._get_connection(context)
-
-        # key = context.host
-        # try:
-        #     if not (self._ncc_connection.get(key) is not None and self._ncc_connection.get(key).connected):
-        #         self._ncc_connection[key] = self.__class__._connect(context)
-        #
-        # except Exception as e:
-        #     raise e
-        #
-        # return self._ncc_connection.get(key)
-
-
-
     @classmethod
     def _get_connection(cls, context):
-         # return cls._connect(context)
-         key = context.host
-         try:
-             if not (cls._ncc_connection.get(key) is not None and cls._ncc_connection.get(key).connected):
+        return ConnectionPool().get_connection(context.host)
 
-                 print("***** {} new Connection".format(key))
-
-                 cls._ncc_connection[key] = cls._connect(context)
-
-         except Exception as e:
-             raise e
-
-         return cls._ncc_connection.get(key)
-
-
-
-    @classmethod
-    def _connect(cls, context):
-        return manager.connect(
-            host=context.host, port=context.ncy_port,
-            username=context.username, password=context.password,
-            hostkey_verify=False,
-            device_params={'name': "default"}, timeout=context.nc_timeout,
-            allow_agent=False, look_for_keys=False)
 
     @classmethod
     def get_primary_filter(cls,**kwargs):
@@ -402,9 +379,8 @@ class NyBase(xml_utils.XMLUtils):
         nc_filter = kwargs.get('nc_filter')
         if nc_filter is None:
             nc_filter = cls.get_primary_filter(**kwargs)
-        manager = cls._get_connection(kwargs.get('context'))
-        result =  manager.get(filter=('subtree', nc_filter))
-
+        connection = cls._get_connection(kwargs.get('context'))
+        result =  connection.get(filter=nc_filter)
 
         json = cls.to_json(result.xml)
 
@@ -427,8 +403,8 @@ class NyBase(xml_utils.XMLUtils):
         nc_filter = kwargs.get('nc_filter')
         if nc_filter is None:
             nc_filter = cls.get_all_filter(**kwargs.get('filter'))
-        manager = cls._get_connection(kwargs.get('context'))
-        result =  manager.get(filter=('subtree', nc_filter))
+        connection = cls._get_connection(kwargs.get('context'))
+        result = connection.get(filter=nc_filter)
 
         json = cls.to_json(result.xml)
         result = []
@@ -462,6 +438,9 @@ class NyBase(xml_utils.XMLUtils):
             # raise e
             result = None
 
+        print '{} {}'.format(cls.__name__,result)
+
+
         if result is not None:
             return True
 
@@ -479,9 +458,8 @@ class NyBase(xml_utils.XMLUtils):
 
     @retry_on_failure()
     def _create(self,context=None):
-        manager = self._get_connection(context)
-
-        result = manager.edit_config(self.to_xml(operation=NC_OPERATION.PUT),target='running')
+        connection = self._get_connection(context)
+        result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT))
         return result
 
 
@@ -491,15 +469,17 @@ class NyBase(xml_utils.XMLUtils):
 
     @retry_on_failure()
     def _update(self, context=None,method='patch'):
-        manager = self._get_connection(context)
+
         if not self.internal_exists(context):
             return self._create(context=context)
         else:
+            connection = self._get_connection(context)
             if method not in ['patch', 'put']:
                 raise Exception('Update should be called with method = put | patch')
             operation = getattr(NC_OPERATION, method.upper(),None)
             if operation:
-                result = manager.edit_config(self.to_xml(operation=operation),target='running')
+                # print self.to_xml(operation=operation)
+                result = connection.edit_config(config=self.to_xml(operation=operation))
                 return result
             else:
                 raise Exception(
@@ -513,9 +493,11 @@ class NyBase(xml_utils.XMLUtils):
 
     @retry_on_failure()
     def _delete(self,context=None):
-        manager = self._get_connection(context)
+        connection = self._get_connection(context)
         if self.internal_exists(context):
             json = self.to_delete_dict()
 
-            result = manager.edit_config(config=self.to_xml(json=json,operation=NC_OPERATION.DELETE),target='running')
+            result = connection.edit_config(config=self.to_xml(json=json,operation=NC_OPERATION.DELETE))
             return result
+
+        print('Delete 404')

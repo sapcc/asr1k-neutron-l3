@@ -206,7 +206,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     def process_ports(self):
         updated_ports = self.updated_ports.copy()
 
-        # Get new ports on the VMWare integration bridge
+
         found_ports = self._scan_ports()
 
         ports_to_bind = list(port_id for port_id, port in six.iteritems(updated_ports))
@@ -230,7 +230,10 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         if ports_to_delete:
             try:
-                extra_atts = self.agent_rpc.get_extra_atts(self.context, ports_to_delete, self.agent_id, self.conf.host)
+                extra_atts = self.agent_rpc.get_extra_atts(self.context, ports_to_delete, agent_id=self.agent_id, host=self.conf.host)
+
+                LOG.debug('******************')
+                LOG.debug(extra_atts)
 
                 l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
                 self.deleted_ports = {}

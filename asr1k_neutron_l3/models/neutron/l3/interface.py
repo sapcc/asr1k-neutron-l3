@@ -19,6 +19,7 @@ from oslo_log import log as logging
 from asr1k_neutron_l3.models import types
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import l3_interface
+from asr1k_neutron_l3.models.netconf_yang import prefix
 
 from asr1k_neutron_l3.plugins.common import utils
 
@@ -73,6 +74,8 @@ class Interface(base.Base):
         self.mtu = self.router_port.get('mtu')
         self.address_scope = router_port.get('address_scopes',{}).get('4')
 
+        print "Address  scope {}".format(self.address_scope)
+
 
     def add_secondary_ip_address(self, ip_address, netmask):
         self.secondary_ip_addresses.append(l3_interface.BDISecondaryIpAddress(address=ip_address, mask=utils.to_netmask(netmask)))
@@ -89,6 +92,12 @@ class Interface(base.Base):
         for subnet in self.router_port.get('subnets', []):
             if subnet.get('id') == self._primary_subnet_id:
                 return subnet
+    @property
+    def subnets(self):
+
+        return self.router_port.get('subnets', [])
+
+
 
 
     @property
@@ -135,7 +144,6 @@ class GatewayInterface(Interface):
                                         secondary_ip_addresses=self.secondary_ip_addresses, nat_mode="outside",
                                         redundancy_group=None)
 
-
 class InternalInterface(Interface):
 
     def __init__(self, router_id, router_port, extra_atts):
@@ -147,10 +155,6 @@ class InternalInterface(Interface):
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
                                         nat_mode="inside", redundancy_group=None)
-
-
-
-
 
 
 class OrphanedInterface(Interface):

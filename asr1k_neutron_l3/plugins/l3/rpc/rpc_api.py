@@ -34,7 +34,21 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
     def delete_extra_atts_l3(self, context, **kwargs):
         ports = kwargs.get('ports', [])
 
-        LOG.debug(ports)
-
         for port_id in ports:
             self.db.delete_extra_att(self.context, port_id, l3=True)
+
+    @log_helpers.log_method_call
+    def get_address_scopes(self, context, **kwargs):
+
+        scopes = kwargs.get('scopes', [])
+
+        LOG.debug("********* {}".format(scopes))
+
+        scopes = self.db.get_address_scopes(self.context, filters={'name': scopes})
+
+        result = {}
+
+        for scope in scopes:
+            result[scope.get('name')] = scope
+
+        return result

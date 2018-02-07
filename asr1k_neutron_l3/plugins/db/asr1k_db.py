@@ -22,9 +22,11 @@ from neutron.db import external_net_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.plugins.ml2 import models as ml2_models
+
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 from sqlalchemy import and_
+from sqlalchemy import func
 
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
 
@@ -34,6 +36,10 @@ MIN_BRIDGE_DOMAIN = 4097
 MAX_BRIDGE_DOMAIN = 16000
 MIN_SECOND_DOT1Q = 1000
 MAX_SECOND_DOT1Q = 4096
+
+MIN_RD = 1
+MAX_RD = 65535
+
 
 LOG = log.getLogger(__name__)
 
@@ -91,13 +97,54 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
             sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers)).all()
 
+    def _get_router_ports_on_networks(self, context):
+        query = context.session.query(models_v2.Port.network_id, func.count(models_v2.Port.id).label('port_count')).filter(models_v2.Port.device_owner.like("network:router%")).group_by(models_v2.Port.network_id)
+        result = {}
+        for row in query.all():
+            result[row.network_id] = row.port_count
+
+        return result
+
     def get_extra_atts(self, context, ports):
-        return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
+        # marks ports that can delete external service instance
+        # network_port_count = self._get_router_ports_on_networks(context)
+        #
+        # query =context.session.query(models_v2.Port.id,models_v2.Port.network_id).filter(sa.cast(models_v2.Port.id, sa.Text()).in_(ports))
+        # LOG.debug(str(query))
+        #
+        # db_ports = self.get_ports(context,filters={'id':ports})#context.session.query(models_v2.Port).filter(sa.cast(models_v2.Port.id, sa.Text()).in_(ports)).all()
+        # LOG.debug("******* db ports {}".format(db_ports))
+        #
+        # port_dict = {}
+        # for port in db_ports:
+        #     port_dict[port.id] = port.network_id
+
+        extra_atts = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
             sa.cast(asr1k_models.ASR1KExtraAttsModel.port_id, sa.Text()).in_(ports)).all()
+
+        for att in extra_atts:
+
+            ports_on_segment = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel==att.segment_id).all()
+
+            if len(ports_on_segment) > 1:
+                att.set_external_deletable(False)
+            else:
+                att.set_external_deletable(True)
+
+        return extra_atts
 
     def get_extra_att(self, context, port):
         return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
             asr1k_models.ASR1KExtraAttsModel.port_id == port).first()
+
+    def get_router_atts_for_routers(self, context, routers):
+        return context.session.query(asr1k_models.ASR1KRouterAttsModel).filter(
+            sa.cast(asr1k_models.ASR1KRouterAttsModel.router_id, sa.Text()).in_(routers)).all()
+
+    def get_router_att(self, context, router):
+        return context.session.query(asr1k_models.ASR1RouterAttsModel).filter(
+            asr1k_models.ASR1KRouterAttsModel.router_id == router).first()
+
 
     @log_helpers.log_method_call
     def delete_extra_att(self, context, port_id, l2=None, l3=None):
@@ -143,6 +190,8 @@ class ExtraAttsDb(object):
         if segment is not None:
             self.segment_id = segment.get('id')
             self.segmentation_id = segment.get('segmentation_id')
+            if self.segmentation_id < 1 or self.segmentation_id > 4096:
+                raise Exception("Invalid segmentation id {} on segment {}".format(self.segmentation_id, self.segment_id))
 
         self.service_instance = None
         self.bridge_domain = None
@@ -215,3 +264,55 @@ class ExtraAttsDb(object):
                     deleted_l3=self.deleted_l3
                 )
                 self.session.add(extra_atts)
+
+
+class RouterAttsDb(object):
+
+    def __init__(self, router_id, context):
+        self.session = db_api.get_session();
+        self.context = context
+
+
+        self.router_id = router_id
+        self.rd = None
+
+
+    @property
+    def _router_data_complete(self):
+        return self.router_id is not None and self.rd is not None
+
+    @property
+    def _record_exists(self):
+        entry = self.session.query(asr1k_models.ASR1KRouterAttsModel).filter_by(router_id=self.router_id).first()
+        return entry is not None
+
+    def set_next_entries(self):
+        router_atts = self.session.query(asr1k_models.ASR1KRouterAttsModel).all()
+
+        rds = []
+
+        for router_att in router_atts:
+            rds.append(router_att.rd)
+
+        for x in range(MIN_RD, MAX_RD):
+            if x not in rds:
+                self.rd = x;
+                break
+
+
+    def update_router_atts(self):
+
+        if not self._record_exists:
+            LOG.debug("Router atts not existing, attempting create")
+            self.set_next_entries()
+
+        if not self._router_data_complete:
+            LOG.debug("Skipping router atts, data not complete")
+            return
+
+        with self.session.begin(subtransactions=True):
+            router_atts = asr1k_models.ASR1KRouterAttsModel(
+                router_id=self.router_id,
+                rd=self.rd
+            )
+            self.session.add(router_atts)
