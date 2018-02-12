@@ -335,8 +335,9 @@ class NyBase(xml_utils.XMLUtils):
                                     else:
                                         result.append(v)
                             else:
-                                value[cls.PARENT] = params
-                                result.append(type.from_json(value))
+                                if value is not None:
+                                    value[cls.PARENT] = params
+                                    result.append(type.from_json(value))
                             value = result
                         else:
                             value = type.from_json(value)
