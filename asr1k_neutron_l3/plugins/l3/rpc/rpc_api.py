@@ -42,8 +42,6 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
         scopes = kwargs.get('scopes', [])
 
-        LOG.debug("********* {}".format(scopes))
-
         scopes = self.db.get_address_scopes(self.context, filters={'name': scopes})
 
         result = {}
