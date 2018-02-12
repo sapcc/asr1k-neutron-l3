@@ -48,7 +48,6 @@ def upgrade():
                                 ondelete='CASCADE'),
 
         sa.PrimaryKeyConstraint("router_id", "agent_host", "port_id"),
-        sa.UniqueConstraint('router_id', 'agent_host', 'segmentation_id'),
         sa.UniqueConstraint('router_id', 'agent_host', 'service_instance'),
         sa.UniqueConstraint('router_id', 'agent_host', 'bridge_domain'),
         sa.UniqueConstraint('router_id', 'agent_host', 'segment_id', 'second_dot1q')
