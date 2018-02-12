@@ -51,7 +51,7 @@ class BDIInterface(NyBase):
             {'key': 'mtu', 'default': 1500},
             {'key': 'vrf','yang-path':'vrf','yang-key':"forwarding"},
             {'key': 'ip_address','yang-path':'ip/address','yang-key':"primary",'type':BDIPrimaryIpAddress},
-            {'key': 'secondary_ip_addresses','yang-path':'ip/address','yang-key':"secondary",'type':BDISecondaryIpAddress, 'default': [], 'validate':False},
+            {'key': 'secondary_ip_addresses','yang-path':'ip/address','yang-key':"secondary",'type':[BDISecondaryIpAddress], 'default': [], 'validate':False},
             {'key': 'nat_mode', 'default': 'outside', 'validate':False},
             {'key': 'redundancy_group'},
             {'key': 'shutdown','default':False},
