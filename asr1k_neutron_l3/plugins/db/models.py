@@ -26,8 +26,8 @@ LOG = log.getLogger(__name__)
 class ASR1KExtraAttsModel(model_base.BASEV2):
     __tablename__ = 'asr1k_extra_atts'
 
-    def set_external_deletable(self, value):
-        self.external_deletable = value
+    def set_external_deleteable(self, value):
+        self.external_deleteable = value
 
 
     router_id = sa.Column(sa.String(length=36), sa.ForeignKey('routers.id', ondelete='CASCADE'), nullable=False,

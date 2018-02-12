@@ -60,7 +60,7 @@ class Port(object):
         self.second_dot1q = self.port_info.get('second_dot1q')
         self.segmentation_id = self.port_info.get('segmentation_id')
         self.network_id = self.port_info.get('network_id')
-        self.external_deletable = self.port_info.get('external_deletable')
+        self.external_deleteable = self.port_info.get('external_deleteable')
 
         print ("*************** Network from L2 port {}".format(self.network_id))
 
@@ -151,7 +151,7 @@ class Port(object):
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
         # TODO only on last port on network
-        if self.external_deletable:
+        if self.external_deleteable:
             ext_result = ext_interface.delete()
 
         # For every port deletion
