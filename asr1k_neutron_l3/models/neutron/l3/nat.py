@@ -140,6 +140,7 @@ class FloatingIp(BaseNAT):
         self.global_ip_mask = gateway_interface.ip_address.mask
         self.bridge_domain = gateway_interface.bridge_domain
         self.id = "{},{}".format(self.local_ip, self.global_ip)
+        self.mapping_id = utils.uuid_to_mapping_id(self.floating_ip.get('id'))
 
     def _rest_definition(self):
         static_nat = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,

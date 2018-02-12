@@ -343,7 +343,6 @@ class StaticNat(NatBase):
         local_ip_as_int = utils.ip_to_int(self.local_ip)
         global_ip_as_int = utils.ip_to_int(self.global_ip)
 
-        self.mapping_id = int(utils.uuid_to_mapping_id(self.vrf) + local_ip_as_int + global_ip_as_int)
 
     def __id_function__(self, id_field, **kwargs):
         self.id = "{},{}".format(self.local_ip, self.global_ip)
