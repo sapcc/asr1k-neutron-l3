@@ -124,7 +124,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         for att in extra_atts:
 
-            ports_on_segment = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel==att.segment_id).all()
+            ports_on_segment = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel.segment_id==att.segment_id).all()
 
             if len(ports_on_segment) > 1:
                 att.set_external_deleteable(False)
