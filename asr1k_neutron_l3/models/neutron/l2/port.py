@@ -27,12 +27,13 @@ def create_ports(ports, callback=None):
     succeeded_ports = []
     for port in ports:
         l2_port = Port(port)
-        result = l2_port.create()
-        succeeded_ports.append(l2_port.id)
+        l2_port._create()
+        succeeded_ports.append(port.get('id'))
 
     if callable(callback):
         callback(succeeded_ports, [])
 
+    return succeeded_ports
 
 def delete_ports(port_extra_atts, callback=None):
     succeeded_ports = []
@@ -47,14 +48,16 @@ def delete_ports(port_extra_atts, callback=None):
 
         callback(succeeded_ports, [])
 
+    return succeeded_ports
+
 
 class Port(object):
 
     def __init__(self, port_info):
-
         self.port_info = port_info
         self.config = asr1k_pair.ASR1KPair().config
         self.id = self.port_info.get('port_id')
+
         self.service_instance = self.port_info.get('service_instance')
         self.bridge_domain = self.port_info.get('bridge_domain')
         self.second_dot1q = self.port_info.get('second_dot1q')
