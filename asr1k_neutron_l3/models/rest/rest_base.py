@@ -262,7 +262,6 @@ class RestBase(object):
     def __eq__(self, other):
         eq = True
         diff = self._diff(other)
-        print(diff)
         for key in diff.keys():
              eq = eq and diff.get(key).get('valid')
         return eq

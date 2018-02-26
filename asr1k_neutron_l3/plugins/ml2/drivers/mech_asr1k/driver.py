@@ -26,7 +26,7 @@ from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.plugins.common import asr1k_constants
+from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import constants
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api

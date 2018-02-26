@@ -1,5 +1,21 @@
+# Copyright 2017 SAP SE
+#
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
 from collections import OrderedDict
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
 from asr1k_neutron_l3.models.netconf_legacy import l3_interface as nc_l3_interface
 
 class L3Constants(object):
@@ -54,7 +70,7 @@ class BDIInterface(NyBase):
             {'key': 'secondary_ip_addresses','yang-path':'ip/address','yang-key':"secondary",'type':[BDISecondaryIpAddress], 'default': [], 'validate':False},
             {'key': 'nat_mode', 'default': 'outside', 'validate':False},
             {'key': 'redundancy_group'},
-            {'key': 'shutdown','default':False},
+            {'key': 'shutdown','default':False,'yang-type':YANG_TYPE.EMPTY}
 
         ]
 
@@ -69,6 +85,8 @@ class BDIInterface(NyBase):
         bdi[L3Constants.DESCRIPTION] = self.description
         bdi[L3Constants.MAC_ADDRESS] = self.mac_address
         bdi[L3Constants.MTU] = self.mtu
+
+        # Ignore shutdown until supporyted in yang
         if self.shutdown:
             bdi[L3Constants.SHUTDOWN] = ''
 
@@ -93,15 +111,16 @@ class BDIInterface(NyBase):
     #TODO : remove when nat is support in BDI yang model
     #TODO - the ncc update ins not propagated to both nodes
     @execute_on_pair()
-    def update(self,context=None):
-        result = super(BDIInterface, self)._update(context=context)
+    def update(self,context=None,method=NC_OPERATION.PUT):
+        result = super(BDIInterface, self)._update(context=context,method=method)
         self.ncc.update(context)
         return result
 
     @execute_on_pair()
-    def create(self,context=None):
-        result = super(BDIInterface, self)._create(context=context)
+    def create(self,context=None,method=NC_OPERATION.PUT):
+        result = super(BDIInterface, self)._create(context=context,method=method)
         self.ncc.update(context)
+
         return result
 
     @execute_on_pair()
@@ -136,7 +155,7 @@ class BDISecondaryIpAddress(NyBase):
     @classmethod
     def __parameters__(cls):
         return [
-            {'key': 'bridge_domain','validate': False},
+            {'key': 'bridge_domain','validate': False,'primary_key':True},
             {"key": 'address', 'id': True},
             {'key': 'mask'},
             {'key': 'secondary','default':True}

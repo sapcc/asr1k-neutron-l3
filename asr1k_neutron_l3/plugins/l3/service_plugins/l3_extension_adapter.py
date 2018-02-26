@@ -22,7 +22,8 @@ from neutron.db import l3_gwmode_db as l3_db
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 
-from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import asr1k_constants as constants
+from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.l3.schedulers import asr1k_scheduler_db
 
@@ -65,15 +66,10 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
                       dns_db.DNSDbMixin, L3RpcNotifierMixin):
 
-    @log_helpers.log_method_call
-    def _get_address_scope_config(self):
 
-        cfg
-
-
+    @instrument()
     @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None):
-
         extra_atts = self._get_extra_atts(context, router_ids)
         router_atts = self._get_router_atts(context, router_ids)
 

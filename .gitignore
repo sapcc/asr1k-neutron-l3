@@ -2,3 +2,5 @@
 copy
 dev_install*
 dev_migrate
+venv
+*.pyc

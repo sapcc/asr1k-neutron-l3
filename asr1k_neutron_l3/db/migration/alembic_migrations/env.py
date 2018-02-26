@@ -71,7 +71,6 @@ def run_migrations_offline():
 
     """
 
-    print('run_migrations_offline')
 
     set_mysql_engine()
 
@@ -102,7 +101,6 @@ def run_migrations_online():
 
     """
 
-    print('run_migrations_online')
 
     set_mysql_engine()
     engine = session.create_engine(neutron_config.database.connection)

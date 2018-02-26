@@ -17,14 +17,14 @@
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import bgp
 
-from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.common import utils
 
 
 class AddressFamily(base.Base):
-    def __init__(self, id, asn=None):
+    def __init__(self, vrf, asn=None, routeable_interface=False):
         super(AddressFamily, self).__init__()
-        self.id = utils.uuid_to_vrf_id(id)
-
+        self.vrf = utils.uuid_to_vrf_id(vrf)
+        self.routeable_interface = routeable_interface
         self.asn = asn
 
 
@@ -32,23 +32,23 @@ class AddressFamily(base.Base):
 
     @property
     def _rest_definition(self):
-         return bgp.AddressFamiliy(id=self.id,asn=self.asn)
+         return bgp.AddressFamily(vrf=self.vrf,asn=self.asn)
 
 
     def get(self):
-        return  bgp.AddressFamiliy.get(self.id)
+        return  bgp.AddressFamily.get(self.vrf,asn=self.asn)
 
 
 
 
     def update(self):
-        self._rest_definition.update()
 
+        self._rest_definition.update()
 
     def delete(self):
         self._rest_definition.delete()
 
 
     def valid(self):
-        return self._rest_definition == self.get()
+        return self._rest_definition.valid(should_be_none= not self.routeable_interface)
 

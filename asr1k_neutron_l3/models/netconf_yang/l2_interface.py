@@ -74,7 +74,7 @@ class ServiceInstance(NyBase):
     @classmethod
     def __parameters__(cls):
         return [
-            {"key": "port_channel", 'validate':False},
+            {"key": "port_channel", 'validate':False,'primary_key':True},
             {"key": "id", "mandatory": True},
             {"key": "description"},
             {"key": "bridge_domain",'yang-path':'bridge-domain','yang-key':'bridge-id'},
@@ -156,6 +156,15 @@ class ServiceInstance(NyBase):
         return dict(result)
 
 
+    def to_delete_dict(self):
+        instance = OrderedDict()
+        instance[L2Constants.ID] = "{}".format(str(self.id))
+        instance[L2Constants.ETHERNET] = ''
+
+        result = OrderedDict()
+        result[L2Constants.SERVICE_INSTANCE] = instance
+
+        return dict(result)
 
 class ExternalInterface(ServiceInstance):
     REWRITE_INGRESS_TAG_POP_WAY = 1

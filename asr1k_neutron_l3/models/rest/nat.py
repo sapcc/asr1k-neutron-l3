@@ -19,7 +19,7 @@ from collections import OrderedDict
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.models.rest.rest_base import RestBase
-from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.common import utils
 
 LOG = logging.getLogger(__name__)
 

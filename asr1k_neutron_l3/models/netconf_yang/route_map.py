@@ -16,8 +16,8 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,xml_utils
-
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,xml_utils,execute_on_pair,NC_OPERATION
+from asr1k_neutron_l3.models.netconf_legacy import route_map as nc_route_map
 
 class RouteMapConstants(object):
     ROUTE_MAP = 'route-map'
@@ -59,6 +59,7 @@ class RouteMap(NyBase):
 
     def __init__(self,**kwargs):
         super(RouteMap, self).__init__(**kwargs)
+        self.ncc = nc_route_map.RouteMap(self)
 
     def to_dict(self):
 
@@ -75,10 +76,25 @@ class RouteMap(NyBase):
 
         result[self.ITEM_KEY] = map
 
+        return dict(result)
 
 
+    def to_delete_dict(self):
+        result = OrderedDict()
+
+        map = OrderedDict()
+
+        map[RouteMapConstants.NAME] = self.name
+        result[self.ITEM_KEY] = map
 
         return dict(result)
+
+    @execute_on_pair()
+    def delete(self,context=None,method=NC_OPERATION.REMOVE):
+
+        self.ncc.delete(context)
+        #result = super(DynamicNat, self).delete(context=context)
+
 
 
 
@@ -102,7 +118,7 @@ class MapSequence(NyBase):
     def to_dict(self):
 
 
-        result = OrderedDict()
+
 
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.ordering_seq
@@ -117,6 +133,5 @@ class MapSequence(NyBase):
 
         seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
 
-        result[self.ITEM_KEY] = seq
 
         return seq

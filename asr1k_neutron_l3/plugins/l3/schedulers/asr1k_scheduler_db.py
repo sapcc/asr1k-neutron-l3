@@ -25,7 +25,7 @@ from neutron.extensions import router_availability_zone as router_az
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import asr1k_constants as constants
 
 LOG = logging.getLogger(__name__)
 

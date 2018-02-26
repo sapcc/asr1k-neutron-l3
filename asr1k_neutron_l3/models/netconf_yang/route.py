@@ -16,7 +16,8 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION
+
 
 
 class RouteConstants(object):
@@ -89,7 +90,7 @@ class VrfRoute(NyBase):
     def update(self,context=None):
 
         if len(self.routes) > 0:
-            return super(VrfRoute, self)._update(context=context,method='put')
+            return super(VrfRoute, self)._update(context=context,method=NC_OPERATION.PUT)
         else:
             return self._delete(context=context)
 
@@ -122,7 +123,7 @@ class IpRoute(NyBase):
         return [
             {'key': 'prefix', 'mandatory': True},
             {'key': 'mask', 'mandatory': True},
-            {'key': 'fwd_list','yang-key':RouteConstants.FWD_LIST, 'default': []}
+            {'key': 'fwd_list','yang-key':RouteConstants.FWD_LIST,'default': []}
         ]
 
 

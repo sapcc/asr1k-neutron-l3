@@ -14,7 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.common import utils
 
 
 class IpAddress(object):

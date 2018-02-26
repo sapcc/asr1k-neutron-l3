@@ -35,8 +35,9 @@ import neutron.context
 from neutron.i18n import _LI, _LE
 from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
 from neutron.common import config as common_config, topics, constants as n_const
-from asr1k_neutron_l3.plugins.common import config
-from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import config
+from asr1k_neutron_l3.common.instrument import instrument
+from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api
 from asr1k_neutron_l3.models.neutron.l2 import port as l2_port
@@ -48,6 +49,9 @@ CONF = cfg.CONF
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+SYNC_ROUTERS_MAX_CHUNK_SIZE = 256
+SYNC_ROUTERS_MIN_CHUNK_SIZE = 32
 
 
 class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
@@ -70,6 +74,12 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.unbound_ports = {}
         self.deleted_ports = {}
         self.added_ports = set()
+
+        self.sync_chunk_size = self.conf.asr1k_l2.sync_chunk_size
+        self.sync_offset = 0
+
+        self.sync_active = self.conf.asr1k_l2.sync_active
+
 
         self.pool = eventlet.greenpool.GreenPool(size=10)  # Start small, so we identify possible bottlenecks
 
@@ -210,6 +220,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         found_ports = self._scan_ports()
 
         ports_to_bind = list(port_id for port_id, port in six.iteritems(updated_ports))
+        succeeded_ports = []
 
         LOG.debug(ports_to_bind)
 
@@ -222,7 +233,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
                 l2_port.create_ports(router_ports, callback=self._bound_ports)
                 self.updated_ports = {}
-            except Exception as err:
+            except BaseException as err:
                 LOG.exception(err)
 
         deleted_ports = self.deleted_ports.copy()
@@ -232,16 +243,27 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             try:
                 extra_atts = self.agent_rpc.get_extra_atts(self.context, ports_to_delete, agent_id=self.agent_id, host=self.conf.host)
 
-                LOG.debug('******************')
-                LOG.debug(extra_atts)
-
                 l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
                 self.deleted_ports = {}
-            except Exception as err:
+            except BaseException as err:
                 LOG.exception(err)
 
+
+    @instrument()
     def _scan_ports(self):
-        pass
+
+
+        interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)
+
+        if len(interface_ports)==0:
+            self.sync_offset = 0
+            interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)
+        else:
+            self.sync_offset = self.sync_offset+self.sync_chunk_size
+
+        l2_port.update_ports(interface_ports, callback=self._bound_ports)
+
+
 
     def _deleted_ports(self, succeeded, failed):
         self.agent_rpc.delete_extra_atts(self.context, succeeded)
@@ -252,7 +274,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
     @log_helpers.log_method_call
     def _update_device_list(self, port_up_ids, port_down_ids):
-        LOG.debug("update device")
         self.plugin_rpc.update_device_list(self.context, port_up_ids, port_down_ids, self.agent_id, self.conf.host)
 
     def rpc_loop(self):
@@ -301,6 +322,7 @@ def main():
     conf = cfg.CONF
     conf.register_opts(config.DEVICE_OPTS, "asr1k_devices")
     conf.register_opts(config.ASR1K_OPTS, "asr1k")
+    conf.register_opts(config.ASR1K_L2_OPTS, "asr1k_l2")
 
     common_config.init(sys.argv[1:])
     common_config.setup_logging()

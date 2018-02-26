@@ -21,10 +21,12 @@ from asr1k_neutron_l3.models.netconf_yang import access_list
 
 class AccessList(base.Base):
 
-    def __init__(self, id):
+    def __init__(self, id, routeable_interfaces=[]):
         super(AccessList, self).__init__()
         self.id = id
         self.rules = []
+        self.routeable_interfaces = routeable_interfaces
+
 
 
     def _rest_definition(self):
@@ -38,11 +40,9 @@ class AccessList(base.Base):
 
         return acl
 
-    def valid(self):
-        device_acl = self.get()
-        acl = self._rest_definition()
+    def valid(self,should_be_none=False):
 
-        return acl == device_acl
+        return self._rest_definition().valid(should_be_none=should_be_none)
 
     def get(self):
         return  access_list.AccessList.get(self.id)
@@ -50,7 +50,10 @@ class AccessList(base.Base):
 
     def update(self):
 
-        return self._rest_definition().update()
+        if len(self.routeable_interfaces) > 0:
+            return self._rest_definition().update()
+        else:
+            return self.delete()
 
 
     def delete(self):

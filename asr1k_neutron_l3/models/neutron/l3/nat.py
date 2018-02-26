@@ -19,7 +19,7 @@ from oslo_log import log as logging
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import l3_interface
 from asr1k_neutron_l3.models.netconf_yang import nat as l3_nat
-from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.common import utils
 
 
 LOG = logging.getLogger(__name__)
@@ -47,12 +47,20 @@ class DynamicNAT(BaseNAT):
 
         self.interfaces = interfaces
 
-        self.id = 'nat-all'
-
+        self.specific_acl= False
         if gateway_interface is not None:
             for interface in self.interfaces.internal_interfaces:
                 if interface.address_scope == gateway_interface.address_scope:
-                    self.id = utils.vrf_to_access_list_id(self.router_id)
+                    self.specific_acl = True
+                    break
+
+        if self.specific_acl:
+            self.id = utils.vrf_to_access_list_id(self.router_id)
+            self.old_id = 'nat-all'
+        else:
+            self.old_id = utils.vrf_to_access_list_id(self.router_id)
+            self.id = 'nat-all'
+
 
     @property
     def _rest_definition(self):
@@ -65,18 +73,23 @@ class DynamicNAT(BaseNAT):
 
 
 
-
         pool = l3_nat.NatPool(id=self.router_id, start_address=gateway_ip,end_address=gateway_ip,netmask=gateway_netmask)
+
         nat = l3_nat.DynamicNat(id=self.id, vrf=self.router_id, redundancy=self.redundancy,
                                           mapping_id=self.mapping_id, overload=True)
-        return pool,nat
+
+        old_nat = l3_nat.DynamicNat(id=self.old_id, vrf=self.router_id, redundancy=self.redundancy,
+                                          mapping_id=self.mapping_id, overload=True)
+
+
+        return pool,nat,old_nat
 
 
     def valid(self):
-        device_pool,device_nat = self.get()
-        pool, nat = self._rest_definition
 
-        return pool == device_pool and nat == device_nat
+        pool, nat,old_nat = self._rest_definition
+
+        return pool.valid() and nat.valid()
 
 
     def get(self):
@@ -87,25 +100,20 @@ class DynamicNAT(BaseNAT):
 
 
     def update(self):
-        pool, nat = self._rest_definition
+        pool, nat,old_nat = self._rest_definition
 
         pool.update()
+        old_nat.delete()
         nat.update()
 
 
+
     def delete(self):
-        pool, nat = self._rest_definition
+        pool, nat,old_nat = self._rest_definition
 
-        # for interface in self.interfaces:
-        #     interface.disable_nat()
-
+        old_nat.delete()
         nat.delete()
         pool.delete()
-
-        # for interface in self.interfaces:
-        #     interface.enable_nat()
-
-
 
 
 class FloatingIp(BaseNAT):
@@ -153,10 +161,11 @@ class FloatingIp(BaseNAT):
         return static_nat,secondary_ip
 
     def valid(self):
-        device_nat,device_secondary = self.get()
+
         static_nat, secondary_ip = self._rest_definition()
 
-        return static_nat == device_nat and secondary_ip == device_secondary
+
+        return static_nat.valid() and secondary_ip.valid()
 
     def get(self):
         static_nat =  l3_nat.StaticNat.get(self.local_ip,self.global_ip)
@@ -167,7 +176,7 @@ class FloatingIp(BaseNAT):
     def update(self):
         static_nat,secondary_ip = self._rest_definition()
 
-        return secondary_ip.update(), static_nat.update()
+        return static_nat.update(),secondary_ip.update()
 
     def delete(self):
         static_nat, secondary_ip = self._rest_definition()

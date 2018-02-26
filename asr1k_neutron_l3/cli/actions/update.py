@@ -32,8 +32,6 @@ class Update(base_action.BaseAction):
     def execute(self):
         ri = self.get_router_info()
 
-        print ri
-
         port_ids = []
         if ri :
             router = Router(ri)
@@ -54,4 +52,4 @@ class Update(base_action.BaseAction):
         for port in ports:
             l2_port = Port(port)
 
-            print(l2_port.update())
+            l2_port.update()

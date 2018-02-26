@@ -16,12 +16,10 @@
 
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.models import types
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import l3_interface
-from asr1k_neutron_l3.models.netconf_yang import prefix
 
-from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.common import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -74,8 +72,6 @@ class Interface(base.Base):
         self.mtu = self.router_port.get('mtu')
         self.address_scope = router_port.get('address_scopes',{}).get('4')
 
-        print "Address  scope {}".format(self.address_scope)
-
 
     def add_secondary_ip_address(self, ip_address, netmask):
         self.secondary_ip_addresses.append(l3_interface.BDISecondaryIpAddress(address=ip_address, mask=utils.to_netmask(netmask)))
@@ -105,10 +101,10 @@ class Interface(base.Base):
         pass
 
     def valid(self):
-        device_bdi = self.get()
-        bdi = self._rest_definition
 
-        return bdi == device_bdi
+
+
+        return self._rest_definition.valid()
 
     def get(self):
         bdi = l3_interface.BDIInterface.get(self.bridge_domain)

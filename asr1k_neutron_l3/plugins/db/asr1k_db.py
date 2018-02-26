@@ -105,6 +105,41 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return result
 
+
+    def get_interface_ports(self, context, limit=1, offset=1):
+
+        with context.session.begin(subtransactions=True):
+            query = context.session.query(models_v2.Port.id,
+                                          models_v2.Port.network_id,
+                                          asr1k_models.ASR1KExtraAttsModel.router_id,
+                                          asr1k_models.ASR1KExtraAttsModel.service_instance,
+                                          asr1k_models.ASR1KExtraAttsModel.bridge_domain,
+                                          asr1k_models.ASR1KExtraAttsModel.second_dot1q,
+                                          asr1k_models.ASR1KExtraAttsModel.segmentation_id,
+                                          asr1k_models.ASR1KExtraAttsModel.deleted_l2,
+                                          asr1k_models.ASR1KExtraAttsModel.deleted_l3
+                                          ).filter(
+                models_v2.Port.device_owner.like("network:router%")
+            ).join(asr1k_models.ASR1KExtraAttsModel,
+                   and_(asr1k_models.ASR1KExtraAttsModel.port_id == models_v2.Port.id)).limit(limit).offset(offset)
+            result = []
+
+            for row in query.all():
+                result.append({'id': row.id,
+                               'network_id': row.network_id,
+                               'router_id': row.router_id,
+                               'segmentation_id': row.segmentation_id,
+                               'service_instance': int(row.service_instance),
+                               'bridge_domain': int(row.bridge_domain),
+                               'second_dot1q': int(row.second_dot1q),
+                               'deleted_l2': int(row.deleted_l2),
+                               'deleted_l3': int(row.deleted_l3)
+                               })
+
+            return result
+
+
+
     def get_extra_atts(self, context, ports):
         # marks ports that can delete external service instance
         # network_port_count = self._get_router_ports_on_networks(context)

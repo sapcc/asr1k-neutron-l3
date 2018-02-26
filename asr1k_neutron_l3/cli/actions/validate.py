@@ -43,13 +43,15 @@ class Validate(base_action.BaseAction):
                 port_ids.append(gateway_interface.id)
 
 
-            router.valid()
+            if router.valid():
+                print "Router Valid"
+
 
         ports = self.l2_plugin_rpc.get_ports_with_extra_atts(self.context,port_ids)
 
         for port in ports:
             l2_port = Port(port)
 
-            print(l2_port.valid())
+            l2_port.valid()
 
 

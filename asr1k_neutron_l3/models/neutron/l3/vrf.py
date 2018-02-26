@@ -16,22 +16,32 @@
 
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import vrf
-from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.common import utils
 
 
 class Vrf(base.Base):
-    def __init__(self, name, description=None,asn=None,rd=None):
+    def __init__(self, name, description=None,asn=None,rd=None,routeable_interface=False):
         super(Vrf, self).__init__()
         self.name = utils.uuid_to_vrf_id(name)
         self.description = description
-        self.asn = asn
-        self.rd = utils.to_rd(self.asn,rd)
+        self.routeable_interface = routeable_interface
 
+        self.asn=None
+        self.rd =None
+        self.asn = asn
+        self.rd = utils.to_rd(self.asn, rd)
+
+        self.disable_bgp = False
+
+        # self.disable_bgp = True
+        #
+        # if self.routeable_interface:
+        #     self.disable_bgp = False
 
 
     @property
     def _rest_definition(self):
-         return vrf.VrfDefinition(name=self.name, description=self.description, rd=self.rd)
+         return vrf.VrfDefinition(name=self.name, description=self.description, rd=self.rd, disable_bgp=self.disable_bgp)
 
 
     def get(self):
@@ -49,5 +59,5 @@ class Vrf(base.Base):
 
 
     def valid(self):
-        return self._rest_definition == self.get()
+        return self._rest_definition.valid()
 

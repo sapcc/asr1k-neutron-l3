@@ -19,6 +19,7 @@ from oslo_log import log as logging
 import base_action
 
 from asr1k_neutron_l3.models.neutron.l3.router import Router
+from asr1k_neutron_l3.models.neutron.l2.port import Port
 
 LOG = logging.getLogger(__name__)
 
@@ -30,7 +31,25 @@ class Delete(base_action.BaseAction):
 
     def execute(self):
         ri =  self.get_router_info()
+        port_ids = []
         if ri :
             router = Router(ri)
 
+            gateway_interface = router.interfaces.gateway_interface
+            if gateway_interface:
+                port_ids.append(gateway_interface.id)
+
+
+            for interface in router.interfaces.internal_interfaces:
+                port_ids.append(interface.id)
+
+
             router.delete()
+
+
+        ports = self.l2_plugin_rpc.get_ports_with_extra_atts(self.context,port_ids)
+
+        for port in ports:
+            l2_port = Port(port)
+
+            l2_port.delete()

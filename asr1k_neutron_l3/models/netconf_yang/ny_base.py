@@ -13,13 +13,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import sys
 import six
 import time
-import traceback
 import eventlet
+import eventlet.debug
+import dictdiffer
+eventlet.debug.hub_exceptions(False)
 from oslo_log import log as logging
-from oslo_utils import importutils
+from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.netconf import ConnectionPool
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
@@ -41,6 +42,10 @@ class NC_OPERATION(object):
     PUT = 'replace'
     PATCH = 'merge'
 
+class YANG_TYPE(object):
+    EMPTY = 'empty'
+
+
 class classproperty(property):
     def __get__(self, cls, owner):
         return self.fget.__get__(None, owner)()
@@ -48,23 +53,28 @@ class classproperty(property):
 
 class execute_on_pair(object):
 
-    def __init__(self, return_raw=False):
+    def __init__(self, return_raw=False, result_type=None):
         self.return_raw = return_raw
+
+        self.result_type = PairResult
+        if result_type is not None:
+            self.result_type = result_type
 
     def _execute_method(self,*args,**kwargs):
         method = kwargs.pop('_method')
         result = kwargs.pop('_result')
 
         try:
+
             response = method(*args, **kwargs)
             # if we wrap in a wrapped method return the
             # base result
-            if isinstance(response, PairResult):
+            if isinstance(response, self.result_type):
                 result = response
             else:
                 result.append( kwargs.get('context'), response)
-        except Exception as e:
-            LOG.error(e)
+
+        except BaseException as e:
             result.append(kwargs.get('context'), e)
 
     def __call__(self, method):
@@ -75,7 +85,7 @@ class execute_on_pair(object):
         @six.wraps(method)
         def wrapper(*args, **kwargs):
 
-            result = PairResult(args[0].__class__.__name__,method.__name__)
+            result = self.result_type(args[0],method.__name__)
             if not self.return_raw:
                 pool = eventlet.GreenPool()
                 for context in asr1k_pair.ASR1KPair().contexts:
@@ -101,7 +111,10 @@ class execute_on_pair(object):
                 except Exception as e:
                     raise e
 
-            print result
+            if isinstance(result,self.result_type):
+                if not result.success:
+                    LOG.warning(result)
+                    result.raise_errors()
 
             return result
 
@@ -109,10 +122,10 @@ class execute_on_pair(object):
 
 class retry_on_failure(object):
 
-    def __init__(self, retry_interval=0.5, max_retries=15,raise_exceptions=True):
+    def __init__(self, retry_interval=0.5, max_retries=15):
         self.retry_interval = retry_interval
         self.max_retries = max_retries
-        self.raise_exceptions = raise_exceptions
+
 
         super(retry_on_failure, self).__init__()
 
@@ -122,9 +135,15 @@ class retry_on_failure(object):
         def wrapper(*args, **kwargs):
             retries = 0
             exception = None
+
+            context = kwargs.get('context')
+            host = None
+            if context is not None:
+                host = context.host
+
             while retries < self.max_retries:
                 if retries > 0:
-                    LOG.debug("** Retry method {} on {} : {} of {}".format(f.__name__,args[0].__class__.__name__ ,retries,self.max_retries))
+                    LOG.debug("** [{}] Retry method {} on {} : {} of {}".format(host, f.__name__,args[0].__class__.__name__ ,retries,self.max_retries))
 
                 try:
                     result = f(*args, **kwargs)
@@ -136,64 +155,127 @@ class retry_on_failure(object):
                         return result
 
                 except (RPCError , SessionCloseError,SSHError) as e:
-                    # LOG.exception(e)
-                    # if e.tag not in  ['in-use',]:
-                    #     LOG.exception(e)
-                    #     raise e
-                    # else:
-                    #     LOG.info("Lock detected, will retry if expected")
+
+                    if isinstance(e,RPCError):
+                        if e.tag in  ['data-missing']:
+                            return None
+                        elif e.message=='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
+                            raise exc.InconsistentModelException(host=host,entity = args[0],operation = f.__name__)
+                        elif e.message == 'internal error':  # something can't be configured maybe due to transient state e.g. BGP session active these should be requeued
+                            raise exc.InternalErrorException(host=host, entity = args[0],operation = f.__name__)
+                        elif e.tag in ['in-use']:  # Lock
+                            pass  # retry on lock
 
                     time.sleep(self.retry_interval)
                     retries += 1
                     exception = e
 
             if exception is not None:
-                if self.raise_exceptions:
-                    raise exception
-                else:
-                    return exception
+              raise exception
 
         return wrapper
 
-class PairResult(object, ):
+class PairResult(object):
 
-    def __init__(self,entity,action):
+    def __init__(self,entity,operation):
+
         self.entity = entity
-        self.action = action
+        self.operation = operation
         self.results = {}
         self.errors = {}
+        self.show_success = False
+        self.show_failure = True
 
     def append(self, context, response):
 
-        if isinstance(response,Exception):
+        if isinstance(response,BaseException):
             self.errors[context.host] = response
         else:
             self.results[context.host] = response
 
     @property
     def success(self):
-        (not bool(self.errors) ) and bool(self.results)
+        return (not bool(self.errors)) and bool(self.results)
 
     @property
     def error(self):
-        bool(self.errors)
+        return bool(self.errors)
+
+
+    def raise_errors(self):
+        # Operation will start in _ as we use the internal CRD call on each device
+        # to evaluate whether to to raise we use raise_on_create/delete/update so we trim the first char
+        operation = self.operation
+        if operation.startswith('_'):
+            operation = operation[1:]
+
+        check_attr = 'raise_on_{}'.format(operation)
+
+        should_raise = False
+
+        if hasattr(self.entity, check_attr):
+            should_raise = getattr(self.entity, check_attr)
+
+        for host, error in self.errors.iteritems():
+            if should_raise and isinstance(error,exc.DeviceOperationException) and error.raise_exception:
+                raise error
 
 
     def __str__(self):
-        result = "** Pair Result {} : {} ** \n".format(self.entity,self.action)
-
-        if bool(self.results):
-            result += "Successful executions : \n"
+        result = ''
+        if self.success and self.show_success:
+            result = "** Success  for [{}] action [{}]\n".format(self.entity.__class__.__name__, self.operation)
             for host in self.results:
-                result += "{} : {}\n".format(host,self.results.get(host))
+                result += "[{}] : {}\n".format(host,self.results.get(host))
 
-        if bool(self.errors):
-            result += "Errors executions : \n"
+        if self.error and self.show_failure:
+            result = "** Errors for [{}] action [{}]\n".format(self.entity.__class__.__name__, self.operation)
+
             for host in self.errors:
-                error = self.errors.get(host)
+                error = self.errors.get(host,None)
+                if hasattr(self.entity,'to_xml'):
+                    result += "{}\n".format(self.entity.to_xml())
                 result += "{} : {} : {}\n".format(host,error.__class__.__name__, error)
 
         return result
+
+
+class DiffResult(PairResult):
+
+
+    @property
+    def valid(self):
+        valid = True
+        for host in self.results.keys():
+            diffs = self.results.get(host)
+            valid = valid and len(diffs) == 0
+
+        return valid
+
+    @property
+    def invalid_devicess(self):
+        results = []
+        for host in self.results.keys():
+            diffs = self.results.get(host)
+            if len(diffs) > 0:
+                results.append(host)
+        return results
+
+    @property
+    def diffs(self):
+        return self.results
+
+    def diffs_for_device(self, host):
+        return  self.results.get(host,[])
+
+    def __str__(self):
+        result = ''
+        for host in self.results.keys():
+            result = result + "{} : {} {} : {} \n".format(host,self.entity,self.valid,self.results.get(host))
+
+
+        return result
+
 
 class NyBase(xml_utils.XMLUtils):
 
@@ -202,7 +284,18 @@ class NyBase(xml_utils.XMLUtils):
     PARENT = 'parent'
 
     def __init__(self, **kwargs):
-        #self._ncc_connection = {}
+        # Should we delete even if object reports not existing
+        #
+        self.force_delete = False
+
+        # Should fatal exceptions be raised
+
+        self.raise_on_create = True
+        self.raise_on_update = True
+        self.raise_on_delete = True
+        self.raise_on_valid = False
+
+
         id_field = "id"
         if self.__parameters__():
             for param in self.__parameters__():
@@ -221,8 +314,13 @@ class NyBase(xml_utils.XMLUtils):
                 if value is None:
                     value = kwargs.get(yang_key)
                 if value is None:
-                    value = kwargs.get(yang_key.replace("_", "-"), default)
+                    value = kwargs.get(yang_key.replace("_", "-"))
+                if value is None and default is not None :
+                    value = default
 
+
+                if isinstance(value,int) and not isinstance(value,bool):
+                    value = str(value)
 
                 if mandatory and value is None:
                     raise Exception("Missing mandatory paramter {}".format(key))
@@ -257,7 +355,7 @@ class NyBase(xml_utils.XMLUtils):
 
 
     def __id_function__(self, id_field, **kwargs):
-        self.id = kwargs.get(id_field)
+        self.id = str(kwargs.get(id_field))
         if self.id is None:
             raise Exception("ID field {} is None".format(id_field))
 
@@ -268,34 +366,41 @@ class NyBase(xml_utils.XMLUtils):
         return value
 
     def __eq__(self, other):
-        eq = True
+
         diff = self._diff(other)
-        print(diff)
-        for key in diff.keys():
-             eq = eq and diff.get(key).get('valid')
-        return eq
+
+        return diff.valid
 
     def _diff(self,other):
-        diff = {}
+
+
+        self_json = self._to_plain_json(self.to_dict())
+        other_json= {}
+        if other is not None:
+            other_json = self._to_plain_json(other.to_dict())
+
+        return self.__json_diff(self_json,other_json)
+
+
+
+    def __json_diff(self,self_json,other_json):
+        ignore=[]
         for param in self.__parameters__():
-             if param.get('validate',True):
-                 key = param.get('key')
-                 self_value = getattr(self, key)
+            if not param.get('validate',True):
+                ignore.append(param.get('key',param.get('yang-key')))
 
-                 other_value=""
+        diffs =  list(dictdiffer.diff(self_json, other_json, ignore=ignore))
 
-                 if other is not None:
-                    try :
-                        other_value = getattr(other, key)
-                    except AttributeError:
-                        other_value = None
 
-                 diff[key] = {"self":self_value,"other":other_value,"valid": self_value==other_value}
+        for diff in diffs:
+            print "{} : {}".format(self.__class__.__name__, diff)
 
-        return diff
+        return diffs
+
 
     @classmethod
     def from_json(cls, json,parent=None):
+
         try:
             if not bool(json):
                 return None
@@ -322,7 +427,13 @@ class NyBase(xml_utils.XMLUtils):
 
                 if bool(values):
 
-                    value = values.get(yang_key)
+                    if  param.get('yang-type') == YANG_TYPE.EMPTY:
+                        if values.has_key(yang_key):
+                            value = True
+                        else:
+                            value = False
+                    else:
+                        value = values.get(yang_key)
                     if type is not None:
                         if isinstance(type,list):
                             type = type[0]
@@ -335,15 +446,13 @@ class NyBase(xml_utils.XMLUtils):
                                     else:
                                         result.append(v)
                             else:
+
                                 if value is not None:
                                     value[cls.PARENT] = params
                                     result.append(type.from_json(value))
                             value = result
                         else:
                             value = type.from_json(value)
-
-                    if isinstance(value, dict) and '$' in value.keys():
-                        value = value.get('$')
 
                     if isinstance(value, dict) and value =={}:
                         value = True
@@ -380,10 +489,12 @@ class NyBase(xml_utils.XMLUtils):
         nc_filter = kwargs.get('nc_filter')
         if nc_filter is None:
             nc_filter = cls.get_primary_filter(**kwargs)
+
         connection = cls._get_connection(kwargs.get('context'))
         result =  connection.get(filter=nc_filter)
 
         json = cls.to_json(result.xml)
+
 
         if json is not None:
             json = json.get(cls.ITEM_KEY, json)
@@ -392,9 +503,7 @@ class NyBase(xml_utils.XMLUtils):
 
             #Add missing primary keys from get
 
-            for key in kwargs.keys():
-                if key != 'context':
-                    setattr(result,key,kwargs.get(key))
+            cls.__ensure_primary_keys(result, **kwargs)
 
             return result
 
@@ -424,12 +533,32 @@ class NyBase(xml_utils.XMLUtils):
 
 
             for item in result:
-                for key in kwargs.keys():
+                cls.__ensure_primary_keys(item,**kwargs)
+        return result
 
-                    if key != 'context':
-                        setattr(item,key,kwargs.get(key))
+    @classmethod
+    def __ensure_primary_keys(cls,item,**kwargs):
+        # Add missing primary keys from get
+        params = cls.__parameters_as_dict()
+
+        for key in kwargs.keys():
+
+            param = params.get(key, {})
+            if key != 'context' and param.get('primary_key', False):
+                setattr(item, key, kwargs.get(key))
+
+
+    @classmethod
+    def __parameters_as_dict(cls):
+        result = {}
+
+        for param in cls.__parameters__():
+            result[param.get('key')] = param
 
         return result
+
+
+
 
     @classmethod
     def _exists(cls, **kwargs):
@@ -439,18 +568,22 @@ class NyBase(xml_utils.XMLUtils):
             # raise e
             result = None
 
-        print '{} {}'.format(cls.__name__,result)
-
-
         if result is not None:
             return True
 
         return False
 
-    def internal_exists(self,context=None):
+    def _internal_exists(self,context=None):
         kwargs = self.__dict__
         kwargs['context'] = context
         return self.__class__._exists(**kwargs)
+
+    def _internal_get(self,context=None):
+        kwargs = self.__dict__
+        kwargs['context'] = context
+        return self.__class__._get(**kwargs)
+
+
 
     @execute_on_pair()
     def create(self, context=None):
@@ -465,40 +598,54 @@ class NyBase(xml_utils.XMLUtils):
 
 
     @execute_on_pair()
-    def update(self, context=None, method='patch'):
+    def update(self, context=None, method= NC_OPERATION.PATCH):
         return self._update(context=context,method=method)
 
     @retry_on_failure()
-    def _update(self, context=None,method='patch'):
+    def _update(self, context=None,method=NC_OPERATION.PATCH):
 
-        if not self.internal_exists(context):
+        # if not self._valid(context=context).valid:
+        # print "{} device configuration {} invalid or missing updating".format(self.__class__.__name__,context.host)
+        if not self._internal_exists(context):
             return self._create(context=context)
         else:
             connection = self._get_connection(context)
-            if method not in ['patch', 'put']:
-                raise Exception('Update should be called with method = put | patch')
-            operation = getattr(NC_OPERATION, method.upper(),None)
-            if operation:
-                # print self.to_xml(operation=operation)
-                result = connection.edit_config(config=self.to_xml(operation=operation))
-                return result
-            else:
-                raise Exception(
-                    '{} can not be mapped to a valid NC operation'.format(method))
+            if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
+                raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
+            result = connection.edit_config(config=self.to_xml(operation=method))
+            return result
+        # else:
+        #     print "{} device configuration {} already upto date".format(self.__class__.__name__,context.host)
 
     @execute_on_pair()
-    def delete(self, context=None):
-        return self._delete(context=context)
+    def delete(self, context=None,method=NC_OPERATION.DELETE):
+        return self._delete(context=context,method=method)
 
 
     @retry_on_failure()
-    def _delete(self,context=None):
+    def _delete(self,context=None,method=NC_OPERATION.DELETE):
         connection = self._get_connection(context)
-        if self.internal_exists(context):
-            json = self.to_delete_dict()
 
-            result = connection.edit_config(config=self.to_xml(json=json,operation=NC_OPERATION.DELETE))
+        if self._internal_exists(context) or self.force_delete:
+            json = self.to_delete_dict()
+            result = connection.edit_config(config=self.to_xml(json=json,operation=method))
             return result
 
-        print('Delete 404')
+    @execute_on_pair(result_type=DiffResult)
+    def _valid(self,should_be_none=False,context=None):
+        device_config = self._internal_get(context=context)
+
+        if should_be_none:
+            if device_config is None:
+                return []
+
+        return self._diff(device_config)
+
+
+
+
+    def valid(self, should_be_none=False):
+        result = self._valid(should_be_none=should_be_none)
+        return result
+

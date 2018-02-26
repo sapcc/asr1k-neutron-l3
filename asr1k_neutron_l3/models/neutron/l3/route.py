@@ -16,7 +16,7 @@
 
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import route as l3_route
-from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.common import utils
 
 
 
@@ -43,7 +43,8 @@ class RouteCollection(base.Base):
         self.routes.append(route)
 
     def valid(self):
-        return self._rest_definition == self.get()
+        return self._rest_definition.valid()
+
 
     def update(self):
         return self._rest_definition.update()
@@ -65,4 +66,4 @@ class Route(base.Base):
 
     @property
     def _rest_definition(self):
-         return l3_route.IpRoute(vrf=self.router_id,prefix=self.destination,mask=self.mask,fwd_list=[{"fwd":self.nexthop}])
+         return l3_route.IpRoute(vrf=self.router_id,prefix=self.destination,mask=self.mask,fwd_list={"fwd":self.nexthop})

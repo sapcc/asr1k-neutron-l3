@@ -35,6 +35,22 @@ def create_ports(ports, callback=None):
 
     return succeeded_ports
 
+def update_ports(ports, callback=None):
+    succeeded_ports = []
+    for port in ports:
+        l2_port = Port(port)
+
+        print "valid {}".format(l2_port.valid())
+        l2_port.update()
+        succeeded_ports.append(port.get('id'))
+
+    if callable(callback):
+        callback(succeeded_ports, [])
+
+    return succeeded_ports
+
+
+
 def delete_ports(port_extra_atts, callback=None):
     succeeded_ports = []
 
@@ -65,9 +81,6 @@ class Port(object):
         self.network_id = self.port_info.get('network_id')
         self.external_deleteable = self.port_info.get('external_deleteable')
 
-        print ("*************** Network from L2 port {}".format(self.network_id))
-
-
     @property
     def ext_portchannel(self):
         return self.config.asr1k_devices.external_interface
@@ -94,10 +107,8 @@ class Port(object):
         return ext_interface, lb_ext_interface, lb_int_interface
 
     def valid(self):
-        device_ext_interface, device_lb_ext_interface, device_lb_int_interface = self.get()
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
-
-        return (ext_interface == device_ext_interface) and (lb_ext_interface == device_lb_ext_interface) and (lb_int_interface== device_lb_int_interface)
+        return ext_interface.valid() and lb_ext_interface.valid() and lb_int_interface.valid()
 
     def get(self):
 

@@ -16,8 +16,9 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, NC_OPERATION,execute_on_pair
 
+from asr1k_neutron_l3.models.netconf_legacy import vrf as nc_vrf
 
 class VrfConstants(object):
     VRF = 'vrf'
@@ -65,6 +66,11 @@ class VrfDefinition(NyBase):
         else:
             self.address_family = {self.address_family:{}}
 
+        self.drop_bgp = False
+
+        self.ncc = nc_vrf.Vrf(self)
+
+        self.disable_bgp = kwargs.get('disable_bgp',False)
 
 
     def to_dict(self):
@@ -74,12 +80,16 @@ class VrfDefinition(NyBase):
         if bool(self.description):
             definition[VrfConstants.DESCRIPTION] = self.description
         definition[VrfConstants.ADDRESS_FAMILY] = OrderedDict()
-        for address_family in self.address_family.keys():
-            definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
-            definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
 
-        if self.rd is not None:
+
+        if not self.disable_bgp:
             definition[VrfConstants.RD] = self.rd
+
+            for address_family in self.address_family.keys():
+                definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
+        else:
+             for address_family in self.address_family.keys():
+                  definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
 
 
         result = OrderedDict()
@@ -88,3 +98,9 @@ class VrfDefinition(NyBase):
         return dict(result)
 
 
+    @execute_on_pair()
+    def update(self,context=None):
+        if self.disable_bgp:
+            self.ncc.update(context)
+
+        return super(VrfDefinition, self)._update(context=context,method=NC_OPERATION.PUT)

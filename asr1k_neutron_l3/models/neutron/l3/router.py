@@ -14,7 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.models import asr1k_pair
@@ -27,9 +26,8 @@ from asr1k_neutron_l3.models.neutron.l3 import route_map
 from asr1k_neutron_l3.models.neutron.l3 import bgp
 from asr1k_neutron_l3.models.neutron.l3 import prefix
 from asr1k_neutron_l3.models.neutron.l3.base import Base
-from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
-from asr1k_neutron_l3.plugins.common import utils
-from asr1k_neutron_l3.plugins.common.instrument import instrument
+from asr1k_neutron_l3.common import asr1k_constants as constants, utils
+from asr1k_neutron_l3.common.instrument import instrument
 
 LOG = logging.getLogger(__name__)
 
@@ -61,15 +59,16 @@ class Router(Base):
         self.interfaces = self._build_interfaces()
         self.routes = self._build_routes()
         self.enable_snat = False
+        self.routeable_interface=False
         if router_info.get('external_gateway_info') is not None:
             self.enable_snat = router_info.get('external_gateway_info', {}).get('enable_snat', False)
+            self.routeable_interface =  len(self.address_scope_matches()) > 0
+
 
         description = self.router_info.get('description')
 
         if len(description) == 0:
             description = self.router_id
-
-        self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k.fabric_asn, rd=self.router_atts.get('rd'))
 
         #TODO : get rt's from config for router
         address_scope_config = router_info.get(constants.ADDRESS_SCOPE_CONFIG,{})
@@ -78,9 +77,12 @@ class Router(Base):
         if self.gateway_interface is not None:
             rt = address_scope_config.get(self.gateway_interface.address_scope)
 
-        self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt)
+        self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn, rd=self.router_atts.get('rd'),routeable_interface=self.routeable_interface)
 
-        self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'),asn=self.config.asr1k.fabric_asn)
+
+        self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,routeable_interface=self.routeable_interface)
+
+        self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'),asn=self.config.asr1k_l3.fabric_asn,routeable_interface=self.routeable_interface)
 
         self.dynamic_nat = self._build_dynamic_nat()
 
@@ -89,6 +91,14 @@ class Router(Base):
         self.nat_acl = self._build_nat_acl()
 
         self.prefix_lists = self._build_prefix_lists()
+
+    def address_scope_matches(self):
+        result = []
+        if self.gateway_interface is not None:
+            for interface in self.interfaces.internal_interfaces:
+                if interface.address_scope == self.gateway_interface.address_scope:
+                    result.append(interface)
+        return result
 
     def _build_interfaces(self):
         interfaces = l3_interface.InterfaceList()
@@ -127,20 +137,18 @@ class Router(Base):
         return routes
 
     def _build_nat_acl(self):
-        acl = access_list.AccessList("NAT-{}".format(utils.uuid_to_vrf_id(self.router_id)))
+        acl = access_list.AccessList("NAT-{}".format(utils.uuid_to_vrf_id(self.router_id)), routeable_interfaces=self.address_scope_matches())
+
 
         # Check address scope and deny any where internal interface matches externel
-        gateway = self.gateway_interface
-        if gateway is not None:
-            for interface in self.interfaces.internal_interfaces:
-                if interface.address_scope == gateway.address_scope:
-                    subnet = interface.primary_subnet
+        for interface in self.address_scope_matches():
+            subnet = interface.primary_subnet
 
-                    if subnet.get('cidr') is not None:
-                        ip, netmask = utils.from_cidr(subnet.get('cidr'))
-                        wildcard = utils.to_wildcard_mask(netmask)
-                        rule = access_list.Rule(action='deny',source=ip,source_mask=wildcard)
-                        acl.append_rule(rule)
+            if subnet.get('cidr') is not None:
+                ip, netmask = utils.from_cidr(subnet.get('cidr'))
+                wildcard = utils.to_wildcard_mask(netmask)
+                rule = access_list.Rule(action='deny',source=ip,source_mask=wildcard)
+                acl.append_rule(rule)
 
         acl.append_rule(access_list.Rule())
         return acl
@@ -178,10 +186,11 @@ class Router(Base):
         result = []
 
         # external interface
-        result.append(prefix.ExtPrefix(router_id=self.router_id, interfaces=self.interfaces))
-        result.append(prefix.SnatPrefix(router_id=self.router_id,interfaces=self.interfaces))
+        result.append(prefix.ExtPrefix(router_id=self.router_id, gateway_interface=self.gateway_interface))
 
+        no_snat_interfaces = self.address_scope_matches()
 
+        result.append(prefix.SnatPrefix(router_id=self.router_id,gateway_interface=self.gateway_interface,internal_interfaces=no_snat_interfaces))
 
         return result
 
@@ -201,17 +210,32 @@ class Router(Base):
     def update(self):
 
         if self.gateway_interface is None and len(self.interfaces.internal_interfaces)==0:
+            print "This should be DELETING EVERYTHING"
             return self.delete()
-
-        self.vrf.update()
-
-        self.bgp_address_family.update()
 
 
         for prefix_list in self.prefix_lists:
             prefix_list.update()
-
         self.route_map.update()
+        self.vrf.update()
+        self.bgp_address_family.update()
+
+
+
+        # Order is  important if as we switch from BGP <> non BGP
+        # if self.routeable_interface:
+        #     for prefix_list in self.prefix_lists:
+        #         prefix_list.update()
+        #     self.route_map.update()
+        #     self.vrf.update()
+        #     self.bgp_address_family.update()
+        #
+        # else:
+        #     self.bgp_address_family.delete()
+        #     self.vrf.update()
+        #     self.route_map.delete()
+        #     for prefix_list in self.prefix_lists:
+        #         prefix_list.delete()
 
 
         for interface in self.interfaces.all_interfaces:
@@ -229,8 +253,10 @@ class Router(Base):
         else:
             self.dynamic_nat.delete()
 
-            # Clean up static nat
+
         self.routes.update()
+
+        # Clean up static nat
         nat.FloatingIp.clean_floating_ips(self)
 
         for floating_ip in self.floating_ips:
@@ -243,6 +269,10 @@ class Router(Base):
 
         for prefix_list in self.prefix_lists:
             prefix_list.delete()
+
+        if len(self.prefix_lists) ==0:
+            prefix.SnatPrefix(router_id=self.router_id).delete()
+            prefix.ExtPrefix(router_id=self.router_id).delete()
 
         self.route_map.delete()
 
@@ -262,20 +292,35 @@ class Router(Base):
 
 
         self.bgp_address_family.delete()
+
         self.vrf.delete()
 
     @instrument()
     def valid(self):
-        print(self.vrf.valid())
-        print(self.routes.valid())
-        print(self.dynamic_nat.valid())
+        valid = True
+        valid = self.vrf.valid() and valid
+        valid =  self.bgp_address_family.valid() and valid
+
+
+        for prefix_list in self.prefix_lists:
+            valid = prefix_list.valid(should_be_none= not self.routeable_interface) and valid
+
+        valid = self.route_map.valid(should_be_none= not self.routeable_interface) and valid
+
+        valid = self.routes.valid() and valid
+        valid = self.dynamic_nat.valid() and valid
         for floating_ip in self.floating_ips:
-            print(floating_ip.valid())
+            valid = floating_ip.valid() and valid
+
+
+
 
         for interface in self.interfaces.internal_interfaces:
-            print(interface.valid())
+            valid = interface.valid() and valid
 
         if self.interfaces.gateway_interface:
-            print(self.interfaces.gateway_interface.valid())
+            valid = self.interfaces.gateway_interface.valid() and valid
 
-        print (self.nat_acl.valid())
+        valid = self.nat_acl.valid(should_be_none= not self.routeable_interface) and valid
+
+        return valid

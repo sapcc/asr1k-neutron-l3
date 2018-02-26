@@ -21,8 +21,8 @@ from netaddr import IPNetwork, IPAddress
 
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
-from asr1k_neutron_l3.plugins.common import config as asr1k_config
+from asr1k_neutron_l3.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import config as asr1k_config
 
 LOG = logging.getLogger(__name__)
 

@@ -38,21 +38,21 @@ class BGPConstants(object):
     UNICAST = "unicast"
 
 
-class AddressFamiliy(NyBase):
+class AddressFamily(NyBase):
     ID_FILTER = """
                   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-bgp="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
                     <router>
                       <ios-bgp:bgp>
-                        <ios-bgp:id>{fabric_asn}</ios-bgp:id>
-                        <address-family>
-                            <with-vrf>
-                                <ipv4>
-                                    <vrf>
-                                    <name>{id}</name>
-                                    </vrf>
-                                </ipv4>
-                            </with-vrf>                                                            
-                        </address-family>
+                        <ios-bgp:id>{asn}</ios-bgp:id>
+                        <ios-bgp:address-family>
+                            <ios-bgp:with-vrf>
+                                <ios-bgp:ipv4>
+                                    <ios-bgp:vrf>
+                                    <ios-bgp:name>{vrf}</ios-bgp:name>
+                                    </ios-bgp:vrf>
+                                </ios-bgp:ipv4>
+                            </ios-bgp:with-vrf>                                                            
+                        </ios-bgp:address-family>
                       </ios-bgp:bgp>
                     </router>
                   </native>         
@@ -64,27 +64,28 @@ class AddressFamiliy(NyBase):
     @classmethod
     def __parameters__(cls):
         return [
-            {'key': 'asn'},
-            {'key': 'id'}
+            {'key': 'asn','id':True,'yang-key':'id'},
+            {'key': 'vrf','yang-key':'name'}
+
         ]
 
     @classmethod
     def get_primary_filter(cls,**kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'fabric_asn':kwargs.get('asn')})
+        return cls.ID_FILTER.format(**{'asn': kwargs.get('asn'),'vrf':kwargs.get('vrf')})
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls,asn,id, context=None):
-        return super(AddressFamiliy, cls)._get(id=id, asn=asn,context=context)
+    def get(cls,vrf,asn, context=None):
+        return super(AddressFamily, cls)._get(vrf=vrf, asn=asn,context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, asn,id, context=None):
-        return super(AddressFamiliy, cls)._exists(id=id, asn=asn, context=context)
+    def exists(cls, vrf,asn , context=None):
+        return super(AddressFamily, cls)._exists(vrf=vrf, asn=asn, context=context)
 
     @classmethod
     def remove_wrapper(cls,dict):
-        dict = super(AddressFamiliy, cls)._remove_base_wrapper(dict)
+        dict = super(AddressFamily, cls)._remove_base_wrapper(dict)
         if dict is not None:
             dict = dict.get(BGPConstants.ROUTER,dict)
             dict = dict.get(BGPConstants.BGP, dict)
@@ -111,7 +112,7 @@ class AddressFamiliy(NyBase):
 
 
     def __init__(self,**kwargs):
-        super(AddressFamiliy, self).__init__(**kwargs)
+        super(AddressFamily, self).__init__(**kwargs)
 
 
 
@@ -119,14 +120,25 @@ class AddressFamiliy(NyBase):
 
     def to_dict(self):
 
-        vrf = OrderedDict()
-        vrf[BGPConstants.NAME] = self.id
-        vrf[BGPConstants.REDISTRIBUTE] = {BGPConstants.CONNECTED:'',BGPConstants.STATIC:''}
 
         result = OrderedDict()
+        if self.vrf is not None:
+            vrf = OrderedDict()
+            vrf[BGPConstants.NAME] = self.vrf
+            vrf[BGPConstants.REDISTRIBUTE] = {BGPConstants.CONNECTED:'',BGPConstants.STATIC:''}
 
-        result[BGPConstants.VRF] = vrf
+            result[BGPConstants.VRF] = vrf
 
         return dict(result)
 
 
+    def to_delete_dict(self):
+
+
+        result = OrderedDict()
+        if self.vrf is not None:
+            vrf = OrderedDict()
+            vrf[BGPConstants.NAME] = self.vrf
+            result[BGPConstants.VRF] = vrf
+
+        return dict(result)

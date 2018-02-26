@@ -20,7 +20,7 @@ from neutron.common import rpc as n_rpc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 
-from asr1k_neutron_l3.plugins.common import asr1k_constants
+from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.plugins.db import asr1k_db
 
 LOG = log.getLogger(__name__)
@@ -51,7 +51,9 @@ class ASR1KPluginApi(object):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'delete_extra_atts', ports=ports,
                           agent_id=agent_id, host=host)
-
+    def get_interface_ports(self,limit=None , offset=None):
+        cctxt = self.client.prepare()
+        return cctxt.call(self.rpc_context, 'get_interface_ports',limit=limit , offset=offset)
 
 class ASR1KPluginCallback(object):
 
@@ -70,3 +72,15 @@ class ASR1KPluginCallback(object):
     def delete_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
         for port_id in ports:
             self.db.delete_extra_att(self.context, port_id, l2=True)
+
+
+    @log_helpers.log_method_call
+    def get_interface_ports(self, rpc_context, limit=None, offset=None):
+
+
+        ports = self.db.get_interface_ports(self.context, limit=limit, offset=offset)
+
+        LOG.debug("ports len %s",len(ports))
+
+        return ports
+

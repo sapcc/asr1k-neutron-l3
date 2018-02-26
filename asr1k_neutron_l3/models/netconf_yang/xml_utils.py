@@ -1,3 +1,19 @@
+# Copyright 2017 SAP SE
+#
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
 import json
 
 import xmltodict
@@ -14,6 +30,7 @@ NS_CISCO_NAT = "http://cisco.com/ns/yang/Cisco-IOS-XE-nat"
 NS_CISCO_ACL = 'http://cisco.com/ns/yang/Cisco-IOS-XE-acl'
 NS_CISCO_BGP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-bgp'
 NS_CISCO_ROUTE_MAP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-route-map'
+
 
 RPC_REPLY = 'rpc-reply'
 CONFIG = 'config'
@@ -41,11 +58,15 @@ class XMLUtils(object):
 
     @classmethod
     def to_json(cls,xml):
-        json = xmltodict.parse(xml,process_namespaces=True,namespaces=cls.namespaces)
+        result = xmltodict.parse(xml,process_namespaces=True,namespaces=cls.namespaces)
 
-        json = cls.remove_wrapper(json)
+        result = cls.remove_wrapper(result)
 
-        return json
+        return cls._to_plain_json(result)
+
+    @classmethod
+    def _to_plain_json(cls,dict):
+        return json.loads(json.dumps(dict))
 
     @classmethod
     def remove_wrapper(cls,dict):
@@ -102,7 +123,5 @@ class XMLUtils(object):
 
         xml = xmltodict.unparse(j)
         xml = xml.replace(ENCODING,"")
-
-        print xml
 
         return xml

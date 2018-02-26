@@ -32,11 +32,25 @@ DEVICE_OPTS = [
 
 ]
 
-
 ASR1K_OPTS = [
-    cfg.StrOpt('monitor', default=('asr1k_neutron_l3.plugins.common.prometheus_monitor.PrometheusMonitor'), help=('')),
-    cfg.IntOpt('fabric_asn', default=(65192), help=(''))
+    cfg.StrOpt('monitor', default=('asr1k_neutron_l3.common.prometheus_monitor.PrometheusMonitor'), help=('')),
 ]
+
+ASR1K_L3_OPTS = [
+
+    cfg.IntOpt('fabric_asn', default=(65192), help=('')),
+    cfg.IntOpt('max_requeue_attempts', default=(10), help=(''))
+]
+
+ASR1K_L2_OPTS = [
+    cfg.BoolOpt('sync_active', default=True, help=_("Activate regular config sync")),
+
+    cfg.IntOpt('sync_interval', default=60, help=_("Polling interval for sync task")),
+
+    cfg.IntOpt('sync_chunk_size', default=10,help=_("Number of ports to process in on poll")),
+
+]
+
 
 
 def _get_specific_config(name):

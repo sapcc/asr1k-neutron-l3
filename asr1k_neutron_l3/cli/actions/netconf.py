@@ -20,7 +20,7 @@ import base_action
 from asr1k_neutron_l3.models.neutron.l3.router import Router
 from asr1k_neutron_l3.models.neutron.l2.port import Port
 
-from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface,BDISecondaryIpAddress
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface, BDISecondaryIpAddress
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackExternalInterface
 from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
@@ -43,7 +43,6 @@ class Netconf(base_action.BaseAction):
         super(Netconf, self).__init__(namespace)
 
     def execute(self):
-        print 'Netconf dev tool'
         # print(BdiInterface.exists(4098))
         # bdi = BdiInterface.get(4098)
         # bdi.update()
@@ -59,7 +58,6 @@ class Netconf(base_action.BaseAction):
         # bdi_sec.update()
         # bdi_sec.delete()
         # bdi_sec.update()
-
 
         #
         # print(VrfDefinition.exists('5d1b197391424996a272d4bbaf1f2e10'))
@@ -99,12 +97,12 @@ class Netconf(base_action.BaseAction):
 
         print(RouteMap.get('test123'))
 
-        seq=[]
-        seq.append(MapSequence(ordering_seq=10,operation='permit',prefix_list='snat-f8a44de0fc8e45df93c7f79bf3b01c95',asn='additive,65126:101'))
+        seq = []
+        seq.append(MapSequence(ordering_seq=10, operation='permit', prefix_list='snat-f8a44de0fc8e45df93c7f79bf3b01c95',
+                               asn='additive,65126:101'))
         seq.append(MapSequence(ordering_seq=20, operation='deny', prefix_list='snat-f8a44de0fc8e45df93c7f79bf3b01c95'))
 
-
-        RouteMap(name='test123',seq=seq).update()
+        RouteMap(name='test123', seq=seq).update()
 
         # print(Prefix.get('test1234'))
         #

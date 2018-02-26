@@ -22,6 +22,7 @@ from neutron.common import eventlet_utils
 eventlet_utils.monkey_patch()
 
 import sys
+import signal
 
 from oslo_service import service
 from oslo_utils import timeutils
@@ -52,7 +53,7 @@ from neutron.callbacks import resources
 from neutron.agent import rpc as agent_rpc
 from neutron.common import constants as l3_constants
 from neutron.common import ipv6_utils
-
+from neutron.common import exceptions as n_exc
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron import context as n_context
@@ -60,11 +61,10 @@ from neutron import manager
 
 from neutron.agent.l3 import router_processing_queue as queue
 
-from asr1k_neutron_l3.plugins.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1k_config, utils
+from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
-from asr1k_neutron_l3.plugins.common import config as asr1k_config
-from asr1k_neutron_l3.plugins.common import utils
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -96,12 +96,17 @@ def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWi
     register_opts(cfg.CONF)
     cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
     cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
+    cfg.CONF.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
     common_config.init(sys.argv[1:])
     config.setup_logging()
+    # set periodic interval to 10 seconds, as I understand the code this means
+    # the
     server = neutron_service.Service.create(
         binary='neutron-asr1k-l3-agent',
         topic=topics.L3_AGENT,
         report_interval=cfg.CONF.AGENT.report_interval,
+        periodic_interval=10,
+        periodic_fuzzy_delay=10,
         manager=manager)
     service.launch(cfg.CONF, server).wait()
 
@@ -250,12 +255,14 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
 
         self.context = n_context.get_admin_context_without_session()
         self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, host)
-        self.fullsync = True
+        self.fullsync = False
+        self.pause_process = False
         self.sync_routers_chunk_size = SYNC_ROUTERS_MAX_CHUNK_SIZE
 
         self.asr1k_pair = asr1k_pair.ASR1KPair(self.conf)
 
         self._queue = queue.RouterProcessingQueue()
+        self._requeue = {}
 
         # Get the list of service plugins from Neutron Server
         # This is the first place where we contact neutron-server on startup
@@ -287,6 +294,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
             break
 
         self._queue = queue.RouterProcessingQueue()
+        self.retry_tracker = {}
 
         self.target_ex_net_id = None
         self.use_ipv6 = ipv6_utils.is_enabled()
@@ -294,6 +302,27 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
         self.monitor = self._initialize_monitor()
 
         super(L3ASRAgent, self).__init__(conf=self.conf)
+
+        signal.signal(signal.SIGUSR1, self.trigger_sync)
+        signal.signal(signal.SIGUSR2, self.pause_processing)
+
+
+
+
+    def trigger_sync(self,signum, frame):
+        LOG.info("Setup full sync based on external signal")
+        self.fullsync =True
+
+    def pause_processing(self,signum, frame):
+
+        if self.pause_process:
+            LOG.info("Resuming processing after receiving external signal")
+            self.pause_process = False
+        else:
+            LOG.info("Pausing processing after receiving external signal")
+            self.pause_process = True
+
+
 
     def _initialize_monitor(self):
         try:
@@ -333,13 +362,91 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
     def router_added_to_agent(self, context, payload):
         pass
 
-    @periodic_task.periodic_task(spacing=1, run_immediately=True)
+
+    @periodic_task.periodic_task(spacing=30, run_immediately=True)
     def periodic_sync_routers_task(self, context):
-        pass
+        LOG.debug("Starting fullsync periodic_sync_routers_task")
+
+        self.process_services_sync(context)
+        if not self.fullsync:
+            return
+
+
+        try:
+            self.fetch_and_sync_all_routers(context)
+        except n_exc.AbortSyncRouters:
+            self.fullsync = True
 
     @log_helpers.log_method_call
-    def fetch_and_sync_all_routers(self, context, ns_manager):
-        pass
+    def fetch_and_sync_all_routers(self, context):
+        prev_router_ids = set(self.router_info)
+        curr_router_ids = set()
+        timestamp = timeutils.utcnow()
+
+        try:
+            router_ids = self.plugin_rpc.get_router_ids(context)
+            # fetch routers by chunks to reduce the load on server and to
+            # start router processing earlier
+            for i in range(0, len(router_ids), self.sync_routers_chunk_size):
+                routers = self.plugin_rpc.get_routers(
+                    context, router_ids[i:i + self.sync_routers_chunk_size])
+                LOG.debug('Processing :%r', routers)
+                for r in routers:
+                    curr_router_ids.add(r['id'])
+                    update = queue.RouterUpdate(
+                        r['id'],
+                        queue.PRIORITY_SYNC_ROUTERS_TASK,
+                        router=r,
+                        timestamp=timestamp)
+                    self._queue.add(update)
+        except oslo_messaging.MessagingTimeout:
+            if self.sync_routers_chunk_size > SYNC_ROUTERS_MIN_CHUNK_SIZE:
+                self.sync_routers_chunk_size = max(
+                    self.sync_routers_chunk_size / 2,
+                    SYNC_ROUTERS_MIN_CHUNK_SIZE)
+                LOG.error(_LE('Server failed to return info for routers in '
+                              'required time, decreasing chunk size to: %s'),
+                          self.sync_routers_chunk_size)
+            else:
+                LOG.error(_LE('Server failed to return info for routers in '
+                              'required time even with min chunk size: %s. '
+                              'It might be under very high load or '
+                              'just inoperable'),
+                          self.sync_routers_chunk_size)
+            raise
+        except oslo_messaging.MessagingException:
+            LOG.exception(_LE("Failed synchronizing routers due to RPC error"))
+            raise n_exc.AbortSyncRouters()
+
+        LOG.debug("periodic_sync_routers_task successfully completed")
+        # adjust chunk size after successful sync
+        if self.sync_routers_chunk_size < SYNC_ROUTERS_MAX_CHUNK_SIZE:
+            self.sync_routers_chunk_size = min(
+                self.sync_routers_chunk_size + SYNC_ROUTERS_MIN_CHUNK_SIZE,
+                SYNC_ROUTERS_MAX_CHUNK_SIZE)
+
+
+        self.fullsync = False
+
+
+        # Delete routers that have disappeared since the last sync
+        for router_id in prev_router_ids - curr_router_ids:
+            update = queue.RouterUpdate(router_id,
+                                        queue.PRIORITY_SYNC_ROUTERS_TASK,
+                                        timestamp=timestamp,
+                                        action=queue.DELETE_ROUTER)
+            self._queue.add(update)
+
+    @periodic_task.periodic_task(spacing=60, run_immediately=True)
+    def periodic_requeue_routers_task(self, context):
+        LOG.debug("Requeuing failed routers")
+        for update in self._requeue.iteritems():
+            LOG.debug("Adding {} to processing queue".format(update.id))
+            self._queue.add(update)
+
+        self._requeue = {}
+
+
 
     @log_helpers.log_method_call
     def after_start(self):
@@ -349,7 +456,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
         self._report_state()
 
 
-    @periodic_task.periodic_task(spacing=1, run_immediately=True)
+    @periodic_task.periodic_task(spacing=5, run_immediately=True)
     def periodic_refresh_address_scope_config(self, context):
         LOG.info('Refreshing address scope configuration dict')
         self.address_scopes = utils.get_address_scope_config(self.plugin_rpc, context)
@@ -368,48 +475,64 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
 
     @log_helpers.log_method_call
     def _process_router_update(self):
+        if not self.pause_process:
+            for rp, update in self._queue.each_update_to_next_router():
+                LOG.debug("Starting router update for %s, action %s, priority %s",
+                          update.id, update.action, update.priority)
 
-        for rp, update in self._queue.each_update_to_next_router():
-            LOG.debug("Starting router update for %s, action %s, priority %s",
-                      update.id, update.action, update.priority)
+                LOG.debug("Starting router update for %s", update.id)
+                router = update.router
+                if update.action != queue.DELETE_ROUTER and not router:
+                    update.timestamp = timeutils.utcnow()
+                    routers = self.plugin_rpc.get_routers(self.context, [update.id])
 
-            LOG.debug("Starting router update for %s", update.id)
-            router = update.router
-            if update.action != queue.DELETE_ROUTER and not router:
-                update.timestamp = timeutils.utcnow()
-                routers = self.plugin_rpc.get_routers(self.context, [update.id])
+                    if routers:
+                        router = routers[0]
 
-                if routers:
-                    router = routers[0]
+                if not router:
+                    removed = self._safe_router_deleted(update.id)
+                    if not removed:
+                        self._resync_router(update)
+                        LOG.debug("Router delete failed for %s requeuing for processing", update.id)
+                    else:
+                        # need to update timestamp of removed router in case
+                        # there are older events for the same router in the
+                        # processing queue (like events from fullsync) in order to
+                        # prevent deleted router re-creation
+                        rp.fetched_and_processed(update.timestamp)
+                        LOG.debug("Finished a router delete for %s", update.id)
 
-            if not router:
-                removed = self._safe_router_deleted(update.id)
-                if not removed:
-                    self._resync_router(update)
-                    LOG.debug("Router delete failed for %s requeuing for processing", update.id)
+                    continue
+
+                if self._extra_atts_complete(router):
+                    try:
+                        router[constants.ADDRESS_SCOPE_CONFIG] = self.address_scopes
+                        r = l3_router.Router(router)
+                        r.update()
+                        # set L3 deleted for all ports on the router that have disappeared
+                        deleted_ports = utils.calculate_deleted_ports(router)
+                        self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
+
+                        rp.fetched_and_processed(update.timestamp)
+                        LOG.debug("Finished a router update for {}".format(update.id))
+                        self.retry_tracker.pop(update.id, None)
+                    except exc.Asr1kException as  e:
+                        LOG.exception(e)
+                        if isinstance(e,exc.ReQueueException):
+                            requeue_attempts = self.retry_tracker.get(update.id,1)
+                            if requeue_attempts < self.conf.asr1k_l3.max_requeue_attempts:
+                                LOG.debug('Update failed, with a possibly transient error. Requeuing router {} attempt {} of {}'.format(update.id, requeue_attempts, self.conf.asr1k_l3.max_requeue_attempts))
+                                self.retry_tracker[update.id] = requeue_attempts + 1
+                                self._requeue_router(update)
+                            else:
+                                LOG.debug('Max requeing attempts reached for %s' % update.id)
+                                self.retry_tracker.pop(update.id,None)
+                                raise e
+                        else:
+                            raise e
                 else:
-                    # need to update timestamp of removed router in case
-                    # there are older events for the same router in the
-                    # processing queue (like events from fullsync) in order to
-                    # prevent deleted router re-creation
-                    rp.fetched_and_processed(update.timestamp)
-                    LOG.debug("Finished a router delete for %s", update.id)
+                    self._resync_router(update)
 
-                continue
-
-            if self._extra_atts_complete(router):
-                router[constants.ADDRESS_SCOPE_CONFIG] = self.address_scopes
-                r = l3_router.Router(router)
-                r.update()
-                # set L3 deleted for all ports on the router that have disappeared
-                deleted_ports = utils.calculate_deleted_ports(router)
-                self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
-
-                rp.fetched_and_processed(update.timestamp)
-                LOG.debug("Finished a router update for %s", update.id)
-
-            else:
-                self._resync_router(update)
 
     def _extra_atts_complete(self, router):
         extra_atts = router.get(constants.ASR1K_EXTRA_ATTS_KEY)
@@ -420,6 +543,16 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
         pool = eventlet.GreenPool(size=8)
         while True:
             pool.spawn_n(self._process_router_update)
+
+    def _requeue_router(self, router_update,
+                       priority=queue.PRIORITY_SYNC_ROUTERS_TASK):
+        router_update.timestamp = timeutils.utcnow()
+        router_update.priority = priority
+        router_update.router = None  # Force the agent to resync the router
+
+        LOG.info("Requeing router {} after recoverable error.".format(router_update.id))
+
+        self._requeue[router_update.id] = router_update
 
     def _resync_router(self, router_update,
                        priority=queue.PRIORITY_SYNC_ROUTERS_TASK):

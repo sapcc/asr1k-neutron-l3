@@ -43,7 +43,7 @@ class ACLConstants(object):
 class AccessList(NyBase):
 
     ID_FILTER = """
-                    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-acl="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
+                    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
                         <ip>
                           <access-list>
                             <extended xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
@@ -116,7 +116,7 @@ class ACLRule(NyBase):
     def __parameters__(cls):
         return [
             {"key": "sequence", "id": True},
-            {'key': 'access_list','validate':False,'default':""},
+            {'key': 'access_list','validate':False,'primary_key':True,'default':""},
             {'key': 'ace_rule','type':[ACERule]},
 
         ]

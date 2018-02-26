@@ -45,6 +45,8 @@ class NccBase(object):
             return e
         except Exception as e:
             raise e
+        finally:
+            connection.close()
 
     def _get_connection(self, context):
         return ConnectionPool().get_connection(context.host,legacy=True)

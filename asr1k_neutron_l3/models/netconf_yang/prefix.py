@@ -102,6 +102,13 @@ class Prefix(NyBase):
 
         return dict(result)
 
+    def to_delete_dict(self):
+        prefix = OrderedDict()
+        prefix[PrefixConstants.NAME] = self.name
+        result = OrderedDict()
+        result[PrefixConstants.PREFIXES] = prefix
+
+        return dict(result)
 
 class PrefixSeq(NyBase):
 

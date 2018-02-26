@@ -18,9 +18,9 @@ from collections import OrderedDict
 
 from oslo_log import log as logging
 from asr1k_neutron_l3.models.netconf_legacy import nat as nc_nat
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
-from asr1k_neutron_l3.plugins.common import utils
+from asr1k_neutron_l3.common import utils
 
 
 LOG = logging.getLogger(__name__)
@@ -161,7 +161,7 @@ class DynamicNat(NatBase):
             {'key': 'vrf'},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
-            {'key': 'overload','default':False}
+            {'key': 'overload','default':False,'yang-type':YANG_TYPE.EMPTY}
         ]
 
 
@@ -196,6 +196,7 @@ class DynamicNat(NatBase):
         super(DynamicNat, self).__init__(**kwargs)
         self.mapping_id = utils.uuid_to_mapping_id(self.vrf)
         self.ncc = nc_nat.DynamicNat(self)
+        self.raise_on_delete = False
 
     def to_dict(self):
         entry = OrderedDict()
@@ -230,7 +231,7 @@ class DynamicNat(NatBase):
     @execute_on_pair()
     def delete(self,context=None):
 
-        if self.internal_exists(context):
+        if self._internal_exists(context):
             self.ncc.delete(context)
             result = super(DynamicNat, self).delete(context=context)
             return result

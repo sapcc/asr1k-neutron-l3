@@ -22,5 +22,6 @@ ASR1K_TOPIC = 'ASR1K-TOPIC'
 
 ASR1K_EXTRA_ATTS_KEY = 'ars1k_extra_atts'
 ASR1K_ROUTER_ATTS_KEY = 'ars1k_router_atts'
+REQUEUES_KEY = 'requeues'
 
 ADDRESS_SCOPE_CONFIG = 'address_scope_config'
