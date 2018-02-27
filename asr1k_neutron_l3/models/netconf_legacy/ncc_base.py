@@ -38,9 +38,7 @@ class NccBase(object):
         try:
             rpc_obj = connection.edit_config(config=conf_str)
 
-            return rpc_obj
-
-            #self._check_response(rpc_obj, snippet, conf_str=conf_str)
+            self._check_response(rpc_obj, snippet, conf_str=conf_str)
         except RPCError as e:
             return e
         except Exception as e:
