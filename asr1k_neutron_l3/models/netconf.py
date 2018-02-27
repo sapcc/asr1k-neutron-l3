@@ -93,8 +93,8 @@ class NCConnection(object):
             allow_agent=False, look_for_keys=False)
 
     def close(self):
-        if self._ncc_connection and self._ncc_connection.connected:
-            self._ncc_connection.close_session()
+        if self._ncc_connection is not None and self._ncc_connection.connected:
+            self._ncc_connection.close_session(async=True, timeout=5)
 
     def get(self,filter=''):
         return self.connection.get(filter=('subtree', filter))
