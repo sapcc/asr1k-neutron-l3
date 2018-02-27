@@ -77,11 +77,12 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         self.sync_chunk_size = self.conf.asr1k_l2.sync_chunk_size
         self.sync_offset = 0
-
+        self.sync_interval = self.conf.asr1k_l2.sync_interval
         self.sync_active = self.conf.asr1k_l2.sync_active
 
 
         self.pool = eventlet.greenpool.GreenPool(size=10)  # Start small, so we identify possible bottlenecks
+        self.loop_pool = eventlet.greenpool.GreenPool(size=5)  # Start small, so we identify possible bottlenecks
 
         self.agent_state = {
             'binary': 'asr1k-ml2-agent',
@@ -217,8 +218,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         updated_ports = self.updated_ports.copy()
 
 
-        found_ports = self._scan_ports()
-
         ports_to_bind = list(port_id for port_id, port in six.iteritems(updated_ports))
         succeeded_ports = []
 
@@ -250,18 +249,20 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
 
     @instrument()
-    def _scan_ports(self):
+    def sync_known_ports(self):
 
-
-        interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)
-
-        if len(interface_ports)==0:
-            self.sync_offset = 0
+        if self.sync_active:
             interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)
-        else:
-            self.sync_offset = self.sync_offset+self.sync_chunk_size
 
-        l2_port.update_ports(interface_ports, callback=self._bound_ports)
+            if len(interface_ports)==0:
+                self.sync_offset = 0
+                interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)
+            else:
+                self.sync_offset = self.sync_offset+self.sync_chunk_size
+
+            l2_port.update_ports(interface_ports,callback=self._bound_ports)
+
+
 
 
 
@@ -277,19 +278,29 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.plugin_rpc.update_device_list(self.context, port_up_ids, port_down_ids, self.agent_id, self.conf.host)
 
     def rpc_loop(self):
+
         while self._check_and_handle_signal():
+            LOG.debug("**** RPC Loop")
             with timeutils.StopWatch() as w:
                 self.process_ports()
-            self.loop_count_and_wait(w.elapsed())
+            self.loop_count_and_wait(w.elapsed(), self.polling_interval)
 
-    def loop_count_and_wait(self, elapsed):
+    def sync_loop(self):
+
+        while self._check_and_handle_signal():
+            LOG.debug("**** SYNC Loop")
+            with timeutils.StopWatch() as w:
+                self.sync_known_ports()
+            self.loop_count_and_wait(w.elapsed(), self.sync_interval)
+
+    def loop_count_and_wait(self, elapsed,polling_interval):
         # sleep till end of polling interval
-        if elapsed < self.polling_interval:
-            eventlet.sleep(self.polling_interval - elapsed)
+        if elapsed < polling_interval:
+            eventlet.sleep(polling_interval - elapsed)
         else:
             LOG.debug("Loop iteration exceeded interval "
                       "(%(polling_interval)s vs. %(elapsed)s)!",
-                      {'polling_interval': self.polling_interval,
+                      {'polling_interval': polling_interval,
                        'elapsed': elapsed})
         self.iter_num += 1
 
@@ -300,11 +311,18 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         if hasattr(signal, 'SIGHUP'):
             signal.signal(signal.SIGHUP, self._handle_sighup)
 
-        self.rpc_loop()
+        self.loop_pool.spawn(self.rpc_loop)
+        self.loop_pool.spawn(self.sync_loop)
         # if self.api:
         #     self.api.stop()
+
+
+
         if self.pool:
             self.pool.waitall()
+
+        if self.loop_pool:
+            self.loop_pool.waitall()
 
     def _report_state(self):
         try:
