@@ -81,15 +81,15 @@ class Port(object):
 
     @property
     def ext_portchannel(self):
-        return self.config.asr1k_devices.external_interface
+        return self.config.asr1k_l2.external_interface
 
     @property
     def lb_ext_portchannel(self):
-        return self.config.asr1k_devices.loopback_external_interface
+        return self.config.asr1k_l2.loopback_external_interface
 
     @property
     def lb_int_portchannel(self):
-        return self.config.asr1k_devices.loopback_internal_interface
+        return self.config.asr1k_l2.loopback_internal_interface
 
 
     def _rest_definition(self):

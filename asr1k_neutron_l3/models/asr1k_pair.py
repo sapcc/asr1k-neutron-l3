@@ -15,15 +15,17 @@
 #    under the License.
 
 from oslo_log import log as logging
+from asr1k_neutron_l3.common import config as asr1k_config
 
 LOG = logging.getLogger(__name__)
 
 
 class ASR1KContext(object):
 
-    def __init__(self, host, http_port, legacy_port,yang_port, nc_timeout, username, password, protocol='https', insecure=False,
+    def __init__(self,name, host, http_port, legacy_port,yang_port, nc_timeout, username, password, protocol='https', insecure=False,
                  headers={}):
         self.protocol = protocol
+        self.name = name
         self.host = host
         self.http_port = http_port
         self.legacy_port = legacy_port
@@ -50,8 +52,13 @@ class ASR1KPair(object):
         if config is not None:
             self.config = config
         self.contexts = []
-        for host in self.config.asr1k_devices.hosts:
-            self.contexts.append(ASR1KContext(host, self.config.asr1k_devices.http_port, self.config.asr1k_devices.legacy_port,self.config.asr1k_devices.yang_port,
-                                              self.config.asr1k_devices.nc_timeout, self.config.asr1k_devices.user_name,
-                                              self.config.asr1k_devices.password,
-                                              protocol=self.config.asr1k_devices.protocol, insecure=True))
+
+        device_config = asr1k_config.create_device_pair_dictionary()
+
+        for device_name in device_config.keys():
+            config = device_config.get(device_name)
+
+            self.contexts.append(ASR1KContext(device_name,config.get('host'), config.get('http_port',self.config.asr1k_devices.http_port), config.get('legacy_port',self.config.asr1k_devices.legacy_port),config.get('yang_port',self.config.asr1k_devices.yang_port),
+                                              config.get('nc_timeout',self.config.asr1k_devices.nc_timeout), config.get('user_name'),
+                                              config.get('password'),
+                                              protocol=config.get('protocol',self.config.asr1k_devices.protocol), insecure=True))

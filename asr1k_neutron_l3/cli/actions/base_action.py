@@ -47,6 +47,7 @@ class BaseAction(object):
         self.conf.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
         self.conf.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
         self.conf.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
+        self.conf.register_opts(asr1k_config.ASR1K_L2_OPTS, "asr1k_l2")
         self.host = socket.gethostname()
         common_config.init(("--config-file " + s for s in self.config_files),default_config_files=self.config_files)
         if namespace.log:
