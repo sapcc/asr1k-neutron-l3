@@ -104,7 +104,7 @@ class Interface(base.Base):
 
 
 
-        return self._rest_definition.valid()
+        return self._rest_definition.is_valid()
 
     def get(self):
         bdi = l3_interface.BDIInterface.get(self.bridge_domain)

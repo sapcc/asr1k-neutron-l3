@@ -440,7 +440,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
     @periodic_task.periodic_task(spacing=60, run_immediately=True)
     def periodic_requeue_routers_task(self, context):
         LOG.debug("Requeuing failed routers")
-        for update in self._requeue.iteritems():
+        for update in self._requeue.values():
             LOG.debug("Adding {} to processing queue".format(update.id))
             self._queue.add(update)
 

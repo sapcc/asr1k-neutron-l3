@@ -43,7 +43,7 @@ class RouteCollection(base.Base):
         self.routes.append(route)
 
     def valid(self):
-        return self._rest_definition.valid()
+        return self._rest_definition.is_valid()
 
 
     def update(self):

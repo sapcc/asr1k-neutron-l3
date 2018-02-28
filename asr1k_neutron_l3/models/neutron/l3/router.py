@@ -298,28 +298,28 @@ class Router(Base):
     @instrument()
     def valid(self):
         valid = True
-        valid = self.vrf.valid() and valid
-        valid =  self.bgp_address_family.valid() and valid
+        valid = self.vrf.is_valid() and valid
+        valid =  self.bgp_address_family.is_valid() and valid
 
 
         for prefix_list in self.prefix_lists:
-            valid = prefix_list.valid(should_be_none= not self.routeable_interface) and valid
+            valid = prefix_list.is_valid(should_be_none= not self.routeable_interface) and valid
 
-        valid = self.route_map.valid(should_be_none= not self.routeable_interface) and valid
+        valid = self.route_map.is_valid(should_be_none= not self.routeable_interface) and valid
 
-        valid = self.routes.valid() and valid
-        valid = self.dynamic_nat.valid() and valid
+        valid = self.routes.is_valid() and valid
+        valid = self.dynamic_nat.is_valid() and valid
         for floating_ip in self.floating_ips:
-            valid = floating_ip.valid() and valid
+            valid = floating_ip.is_valid() and valid
 
 
 
 
         for interface in self.interfaces.internal_interfaces:
-            valid = interface.valid() and valid
+            valid = interface.is_valid() and valid
 
         if self.interfaces.gateway_interface:
-            valid = self.interfaces.gateway_interface.valid() and valid
+            valid = self.interfaces.gateway_interface.is_valid() and valid
 
         valid = self.nat_acl.valid(should_be_none= not self.routeable_interface) and valid
 

@@ -36,7 +36,7 @@ class RouteMap(base.Base):
          sequences = []
 
 
-         sequences.append(route_map.MapSequence(ordering_seq=10, operation='permit', prefix_list='snat-{}'.format(self.vrf), asn=self.rt))
+         sequences.append(route_map.MapSequence(ordering_seq=10, operation='permit', prefix_list='snat-{}'.format(self.vrf), asn=[self.rt,'additive']))
          sequences.append(route_map.MapSequence(ordering_seq=20, operation='deny', prefix_list='exp-{}'.format(self.vrf)))
 
          return route_map.RouteMap(name=self.name, seq=sequences)

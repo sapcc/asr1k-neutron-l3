@@ -39,8 +39,6 @@ def update_ports(ports, callback=None):
     succeeded_ports = []
     for port in ports:
         l2_port = Port(port)
-
-        print "valid {}".format(l2_port.valid())
         l2_port.update()
         succeeded_ports.append(port.get('id'))
 
@@ -108,7 +106,7 @@ class Port(object):
 
     def valid(self):
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
-        return ext_interface.valid() and lb_ext_interface.valid() and lb_int_interface.valid()
+        return ext_interface.is_valid() and lb_ext_interface.is_valid() and lb_int_interface.is_valid()
 
     def get(self):
 

@@ -114,18 +114,21 @@ class MapSequence(NyBase):
 
     def __init__(self,**kwargs):
         super(MapSequence, self).__init__(**kwargs)
+        if self.asn is not None and not isinstance(self.asn,list):
+            self.asn = [self.asn]
+
 
     def to_dict(self):
-
-
-
 
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.ordering_seq
 
         seq[RouteMapConstants.OPERATION] = self.operation
-        if self.asn is not None:
-            seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY:{RouteMapConstants.RT:{RouteMapConstants.ASN:[self.asn,'additive']}}}
+
+        print "ASN {}".format(self.asn)
+
+        if bool(self.asn):
+            seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY:{RouteMapConstants.RT:{RouteMapConstants.ASN:self.asn}}}
 
         if self.prefix_list is not None:
             seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {

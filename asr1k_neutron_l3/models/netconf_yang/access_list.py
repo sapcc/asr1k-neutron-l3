@@ -43,12 +43,12 @@ class ACLConstants(object):
 class AccessList(NyBase):
 
     ID_FILTER = """
-                    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+                    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-acl="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
                         <ip>
                           <access-list>
-                            <extended xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
-                                <name>{id}</name>
-                            </extended>
+                            <ios-acl:extended>
+                                <ios-aclname>{name}</ios-acl:name>
+                            </ios-aclextended>
                           </access-list>
                         </ip>
                     </native>
@@ -65,10 +65,15 @@ class AccessList(NyBase):
             {'key': 'rules','yang-key':"access-list-seq-rule", 'type':[ACLRule],'default': []}
         ]
 
+    @classmethod
+    def get_primary_filter(cls,**kwargs):
+        return cls.ID_FILTER.format(**{'name': kwargs.get('name')})
+
 
     @classmethod
     def remove_wrapper(cls,dict):
         dict = super(AccessList, cls)._remove_base_wrapper(dict)
+
         if dict is not None:
             dict = dict.get(ACLConstants.IP,dict)
             dict = dict.get(cls.LIST_KEY, dict)

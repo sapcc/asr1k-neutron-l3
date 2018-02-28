@@ -94,7 +94,10 @@ class NCConnection(object):
 
     def close(self):
         if self._ncc_connection is not None and self._ncc_connection.connected:
-            self._ncc_connection.close_session(async=True, timeout=5)
+            #close session is not playing nicely with eventlet
+            pass
+            # self._ncc_connection.close_session()
+
 
     def get(self,filter=''):
         return self.connection.get(filter=('subtree', filter))

@@ -59,5 +59,5 @@ class Vrf(base.Base):
 
 
     def valid(self):
-        return self._rest_definition.valid()
+        return self._rest_definition.is_valid()
 

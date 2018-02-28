@@ -89,7 +89,7 @@ class DynamicNAT(BaseNAT):
 
         pool, nat,old_nat = self._rest_definition
 
-        return pool.valid() and nat.valid()
+        return pool.is_valid() and nat.is_valid()
 
 
     def get(self):
@@ -165,7 +165,7 @@ class FloatingIp(BaseNAT):
         static_nat, secondary_ip = self._rest_definition()
 
 
-        return static_nat.valid() and secondary_ip.valid()
+        return static_nat.is_valid() and secondary_ip.is_valid()
 
     def get(self):
         static_nat =  l3_nat.StaticNat.get(self.local_ip,self.global_ip)

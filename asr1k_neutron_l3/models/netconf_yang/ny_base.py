@@ -113,7 +113,7 @@ class execute_on_pair(object):
 
             if isinstance(result,self.result_type):
                 if not result.success:
-                    LOG.warning(result)
+                    LOG.warning(result.errors)
                     result.raise_errors()
 
             return result
@@ -157,6 +157,8 @@ class retry_on_failure(object):
                 except (RPCError , SessionCloseError,SSHError) as e:
 
                     if isinstance(e,RPCError):
+                        LOG.debug(e.to_dict())
+
                         if e.tag in  ['data-missing']:
                             return None
                         elif e.message=='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
@@ -323,7 +325,8 @@ class NyBase(xml_utils.XMLUtils):
                     value = str(value)
 
                 if mandatory and value is None:
-                    raise Exception("Missing mandatory paramter {}".format(key))
+                    pass
+                    #raise Exception("Missing mandatory paramter {}".format(key))
                 else:
                     if isinstance(value, list):
                         new_value = []
@@ -378,6 +381,10 @@ class NyBase(xml_utils.XMLUtils):
         other_json= {}
         if other is not None:
             other_json = self._to_plain_json(other.to_dict())
+        else:
+            other_json = {}
+
+
 
         return self.__json_diff(self_json,other_json)
 
@@ -392,8 +399,11 @@ class NyBase(xml_utils.XMLUtils):
         diffs =  list(dictdiffer.diff(self_json, other_json, ignore=ignore))
 
 
+
         for diff in diffs:
-            print "{} : {}".format(self.__class__.__name__, diff)
+            LOG.debug("self {}".format(self_json))
+            LOG.debug("other {}".format(other_json))
+            LOG.debug("{} : {}".format(self.__class__.__name__, diff))
 
         return diffs
 
@@ -604,19 +614,19 @@ class NyBase(xml_utils.XMLUtils):
     @retry_on_failure()
     def _update(self, context=None,method=NC_OPERATION.PATCH):
 
-        # if not self._valid(context=context).valid:
-        # print "{} device configuration {} invalid or missing updating".format(self.__class__.__name__,context.host)
-        if not self._internal_exists(context):
-            return self._create(context=context)
-        else:
-            connection = self._get_connection(context)
-            if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
-                raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
+        if not self._validate(context=context).valid:
+            # print "{} device configuration {} invalid or missing updating".format(self.__class__.__name__,context.host)
+            if not self._internal_exists(context):
+                return self._create(context=context)
+            else:
+                connection = self._get_connection(context)
+                if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
+                    raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
-            result = connection.edit_config(config=self.to_xml(operation=method))
-            return result
+                result = connection.edit_config(config=self.to_xml(operation=method))
+                return result
         # else:
-        #     print "{} device configuration {} already upto date".format(self.__class__.__name__,context.host)
+            # print "{} device configuration {} already upto date".format(self.__class__.__name__,context.host)
 
     @execute_on_pair()
     def delete(self, context=None,method=NC_OPERATION.DELETE):
@@ -633,7 +643,7 @@ class NyBase(xml_utils.XMLUtils):
             return result
 
     @execute_on_pair(result_type=DiffResult)
-    def _valid(self,should_be_none=False,context=None):
+    def _validate(self,should_be_none=False,context=None):
         device_config = self._internal_get(context=context)
 
         if should_be_none:
@@ -645,7 +655,12 @@ class NyBase(xml_utils.XMLUtils):
 
 
 
-    def valid(self, should_be_none=False):
-        result = self._valid(should_be_none=should_be_none)
+    def validate(self, should_be_none=False):
+        result = self._validate(should_be_none=should_be_none)
         return result
 
+
+    def is_valid(self, should_be_none=False):
+        result = self._validate(should_be_none=should_be_none)
+
+        return result.valid
