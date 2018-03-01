@@ -50,5 +50,5 @@ class AddressFamily(base.Base):
 
 
     def valid(self):
-        return self._rest_definition.valid(should_be_none= not self.routeable_interface)
+        return self._rest_definition.is_valid(should_be_none= not self.routeable_interface)
 

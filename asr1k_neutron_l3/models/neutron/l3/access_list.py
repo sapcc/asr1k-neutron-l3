@@ -42,7 +42,7 @@ class AccessList(base.Base):
 
     def valid(self,should_be_none=False):
 
-        return self._rest_definition().valid(should_be_none=should_be_none)
+        return self._rest_definition().is_valid(should_be_none=should_be_none)
 
     def get(self):
         return  access_list.AccessList.get(self.id)

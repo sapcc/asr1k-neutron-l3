@@ -39,7 +39,7 @@ class BasePrefix(base.Base):
         self.rest_definition.delete()
 
     def valid(self,should_be_none=False):
-        self.rest_definition.valid(should_be_none=should_be_none)
+        self.rest_definition.is_valid(should_be_none=should_be_none)
 
 
 class ExtPrefix(BasePrefix):

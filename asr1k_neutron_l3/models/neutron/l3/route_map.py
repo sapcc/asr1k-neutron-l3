@@ -62,5 +62,5 @@ class RouteMap(base.Base):
 
 
     def valid(self, should_be_none=False):
-        return self._rest_definition.valid(should_be_none=should_be_none)
+        return self._rest_definition.is_valid(should_be_none=should_be_none)
 
