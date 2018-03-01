@@ -48,9 +48,9 @@ ASR1K_L2_OPTS = [
     cfg.BoolOpt('sync_active', default=True, help=_("Activate regular config sync")),
     cfg.IntOpt('sync_interval', default=60, help=_("Polling interval for sync task")),
     cfg.IntOpt('sync_chunk_size', default=10,help=_("Number of ports to process in on poll")),
-    cfg.StrOpt('external_interface', default=('Port-channel1'), help=('')),
-    cfg.StrOpt('loopback_external_interface', default=('Port-channel2'), help=('')),
-    cfg.StrOpt('loopback_internal_interface', default=('Port-channel3'), help=(''))
+    cfg.StrOpt('external_interface', default=('1'), help=('')),
+    cfg.StrOpt('loopback_external_interface', default=('2'), help=('')),
+    cfg.StrOpt('loopback_internal_interface', default=('3'), help=(''))
 ]
 
 
