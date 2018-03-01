@@ -47,8 +47,8 @@ class AccessList(NyBase):
                         <ip>
                           <access-list>
                             <ios-acl:extended>
-                                <ios-aclname>{name}</ios-acl:name>
-                            </ios-aclextended>
+                                <ios-acl:name>{name}</ios-acl:name>
+                            </ios-acl:extended>
                           </access-list>
                         </ip>
                     </native>
