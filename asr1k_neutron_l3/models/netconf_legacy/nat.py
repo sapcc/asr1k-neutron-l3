@@ -44,6 +44,7 @@ FORCE_DELETE = """
 <config>
         <cli-config-data>
             <cmd>no ip nat inside source list {id} pool {vrf} redundancy {redundancy} mapping-id {mapping_id} vrf {vrf} overload forced</cmd>
+            <cmd>do clear ip nat translation vrf {vrf} forced</cmd>
         </cli-config-data>
 </config>
 """
