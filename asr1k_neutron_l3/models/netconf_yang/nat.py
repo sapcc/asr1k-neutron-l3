@@ -30,6 +30,8 @@ class NATConstants(object):
     IP = 'ip'
     NAT = 'nat'
     POOL = "pool"
+    INTERFACE = "interface"
+    BDI = "BDI"
     ID = "id"
     START_ADDRESS = "start-address"
     END_ADDRESS = "end-address"
@@ -159,9 +161,10 @@ class DynamicNat(NatBase):
         return [
             {"key": "id", "mandatory": True},
             {'key': 'vrf'},
+            {'key': 'bridge_domain','yang-key':'BDI','yang-path':'interface'},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
-            {'key': 'overload','default':False,'yang-type':YANG_TYPE.EMPTY}
+            {'key': 'overload','default':True,'yang-type':YANG_TYPE.EMPTY}
         ]
 
 
@@ -195,14 +198,17 @@ class DynamicNat(NatBase):
     def __init__(self, **kwargs):
         super(DynamicNat, self).__init__(**kwargs)
         self.mapping_id = utils.uuid_to_mapping_id(self.vrf)
-        self.ncc = nc_nat.DynamicNat(self)
+        self.redundancy=None
         self.raise_on_delete = False
 
     def to_dict(self):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
-        entry[NATConstants.POOL] = self.vrf
+
         entry[NATConstants.VRF] = self.vrf
+
+        if self.bridge_domain is not None:
+            entry[NATConstants.INTERFACE] = {NATConstants.BDI:self.bridge_domain}
 
         if self.redundancy is not None:
             entry[NATConstants.REDUNDANCY] = self.redundancy
@@ -225,16 +231,6 @@ class DynamicNat(NatBase):
         result[NATConstants.LIST].append(entry)
 
         return dict(result)
-
-
-
-    @execute_on_pair()
-    def delete(self,context=None):
-
-        if self._internal_exists(context):
-            self.ncc.delete(context)
-            result = super(DynamicNat, self).delete(context=context)
-            return result
 
 
 class StaticNat(NatBase):
@@ -341,8 +337,9 @@ class StaticNat(NatBase):
     def __init__(self, **kwargs):
         super(StaticNat, self).__init__(**kwargs)
         self.bridge_domain = kwargs.get("bridge_domain")
-        local_ip_as_int = utils.ip_to_int(self.local_ip)
-        global_ip_as_int = utils.ip_to_int(self.global_ip)
+        self.mac_address = kwargs.get("mac_address")
+
+        self.ncc = nc_nat.StaticNat(self)
 
 
     def __id_function__(self, id_field, **kwargs):
@@ -375,3 +372,17 @@ class StaticNat(NatBase):
         result[NATConstants.TRANSPORT_LIST].append(entry)
 
         return dict(result)
+
+
+    @execute_on_pair()
+    def update(self, context=None):
+
+        result = super(StaticNat, self)._update(context=context)
+        self.ncc.update(context)
+        return result
+
+    @execute_on_pair()
+    def delete(self, context=None):
+        self.ncc.delete(context)
+        result = super(StaticNat, self)._delete(context=context)
+        return result

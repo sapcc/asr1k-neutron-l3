@@ -68,7 +68,7 @@ class VrfDefinition(NyBase):
 
         self.drop_bgp = False
 
-        self.ncc = nc_vrf.Vrf(self)
+        # self.ncc = nc_vrf.Vrf(self)
 
         self.disable_bgp = kwargs.get('disable_bgp',False)
 
@@ -84,12 +84,15 @@ class VrfDefinition(NyBase):
 
         if not self.disable_bgp:
             definition[VrfConstants.RD] = self.rd
-
             for address_family in self.address_family.keys():
                 definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
         else:
-             for address_family in self.address_family.keys():
-                  definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
+
+            # for address_family in self.address_family.keys():
+            #     definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
+            #
+            for address_family in self.address_family.keys():
+                 definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
 
 
         result = OrderedDict()
@@ -100,7 +103,6 @@ class VrfDefinition(NyBase):
 
     @execute_on_pair()
     def update(self,context=None):
-        if self.disable_bgp:
-            self.ncc.update(context)
-
+        # if self.disable_bgp:
+        #     self.ncc.update(context)
         return super(VrfDefinition, self)._update(context=context,method=NC_OPERATION.PUT)

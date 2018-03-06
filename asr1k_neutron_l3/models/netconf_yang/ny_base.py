@@ -157,13 +157,13 @@ class retry_on_failure(object):
                 except (RPCError , SessionCloseError,SSHError) as e:
 
                     if isinstance(e,RPCError):
-                        LOG.debug(e.to_dict())
-
                         if e.tag in  ['data-missing']:
                             return None
                         elif e.message=='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
+                            LOG.debug(e.to_dict())
                             raise exc.InconsistentModelException(host=host,entity = args[0],operation = f.__name__)
                         elif e.message == 'internal error':  # something can't be configured maybe due to transient state e.g. BGP session active these should be requeued
+                            LOG.debug(e.to_dict())
                             raise exc.InternalErrorException(host=host, entity = args[0],operation = f.__name__)
                         elif e.tag in ['in-use']:  # Lock
                             pass  # retry on lock
@@ -400,10 +400,10 @@ class NyBase(xml_utils.XMLUtils):
 
 
 
-        for diff in diffs:
-            LOG.debug("self {}".format(self_json))
-            LOG.debug("other {}".format(other_json))
-            LOG.debug("{} : {}".format(self.__class__.__name__, diff))
+        # for diff in diffs:
+        #     LOG.debug("self {}".format(self_json))
+        #     LOG.debug("other {}".format(other_json))
+        #     LOG.debug("{} : {}".format(self.__class__.__name__, diff))
 
         return diffs
 

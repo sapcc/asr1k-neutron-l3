@@ -59,6 +59,6 @@ class ASR1KPair(object):
             config = device_config.get(device_name)
 
             self.contexts.append(ASR1KContext(device_name,config.get('host'), config.get('http_port',self.config.asr1k_devices.http_port), config.get('legacy_port',self.config.asr1k_devices.legacy_port),config.get('yang_port',self.config.asr1k_devices.yang_port),
-                                              int(config.get('nc_timeout'),self.config.asr1k_devices.nc_timeout), config.get('user_name'),
+                                              int(config.get('nc_timeout',self.config.asr1k_devices.nc_timeout)), config.get('user_name'),
                                               config.get('password'),
                                               protocol=config.get('protocol',self.config.asr1k_devices.protocol), insecure=True))

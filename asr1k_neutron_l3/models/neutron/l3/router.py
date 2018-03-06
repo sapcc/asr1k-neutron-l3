@@ -214,28 +214,27 @@ class Router(Base):
             return self.delete()
 
 
-        for prefix_list in self.prefix_lists:
-            prefix_list.update()
-        self.route_map.update()
-        self.vrf.update()
-        self.bgp_address_family.update()
+        # for prefix_list in self.prefix_lists:
+        #     prefix_list.update()
+        # self.route_map.update()
+        # self.vrf.update()
+        # self.bgp_address_family.update()
 
 
 
         # Order is  important if as we switch from BGP <> non BGP
-        # if self.routeable_interface:
-        #     for prefix_list in self.prefix_lists:
-        #         prefix_list.update()
-        #     self.route_map.update()
-        #     self.vrf.update()
-        #     self.bgp_address_family.update()
-        #
-        # else:
-        #     self.bgp_address_family.delete()
-        #     self.vrf.update()
-        #     self.route_map.delete()
-        #     for prefix_list in self.prefix_lists:
-        #         prefix_list.delete()
+        if self.routeable_interface:
+            for prefix_list in self.prefix_lists:
+                prefix_list.update()
+            self.route_map.update()
+            self.vrf.update()
+            self.bgp_address_family.update()
+        else:
+            self.bgp_address_family.delete()
+            self.vrf.update()
+            self.route_map.delete()
+            for prefix_list in self.prefix_lists:
+                prefix_list.delete()
 
 
         for interface in self.interfaces.all_interfaces:

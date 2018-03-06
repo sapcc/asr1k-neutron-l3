@@ -48,3 +48,46 @@ FORCE_DELETE = """
         </cli-config-data>
 </config>
 """
+
+
+class StaticNat(ncc_base.NccBase):
+
+    @retry_on_failure()
+    def delete(self, context):
+        try:
+
+            config = DELETE_ARP.format(**{'vrf': self.base.vrf,'global_ip':self.base.global_ip,'mac_address':self.base.mac_address})
+            self._edit_running_config(context, config, 'DELETE_ARP')
+        finally:
+            if self._ncc_connection is not None:
+                self._ncc_connection.close_session()
+
+    @retry_on_failure()
+    def update(self, context):
+        try:
+
+            config = UPDATE_ARP.format(**{'vrf': self.base.vrf,'global_ip':self.base.global_ip,'mac_address':self.base.mac_address})
+
+            self._edit_running_config(context, config, 'UPDATE_ARP')
+
+        finally:
+            if self._ncc_connection is not None:
+                self._ncc_connection.close_session()
+
+
+
+UPDATE_ARP = """
+<config>
+        <cli-config-data>
+            <cmd>arp vrf {vrf} {global_ip} {mac_address}  ARPA alias</cmd>
+        </cli-config-data>
+</config>
+"""
+
+DELETE_ARP = """
+<config>
+        <cli-config-data>
+            <cmd>no arp vrf {vrf} {global_ip} {mac_address} ARPA alias</cmd>
+        </cli-config-data>
+</config>
+"""

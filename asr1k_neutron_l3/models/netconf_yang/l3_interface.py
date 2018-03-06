@@ -17,6 +17,7 @@
 from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
 from asr1k_neutron_l3.models.netconf_legacy import l3_interface as nc_l3_interface
+from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 class L3Constants(object):
     INTERFACE = "interface"
@@ -68,7 +69,8 @@ class BDIInterface(NyBase):
             {'key': 'vrf','yang-path':'vrf','yang-key':"forwarding"},
             {'key': 'ip_address','yang-path':'ip/address','yang-key':"primary",'type':BDIPrimaryIpAddress},
             {'key': 'secondary_ip_addresses','yang-path':'ip/address','yang-key':"secondary",'type':[BDISecondaryIpAddress], 'default': [], 'validate':False},
-            {'key': 'nat_mode', 'default': 'outside', 'validate':False},
+            {'key': 'nat_inside','yang-key':'inside','yang-path':'ip/nat','default':False,'yang-type':YANG_TYPE.EMPTY},
+            {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,'yang-type':YANG_TYPE.EMPTY},
             {'key': 'redundancy_group'},
             {'key': 'shutdown','default':False,'yang-type':YANG_TYPE.EMPTY}
 
@@ -77,7 +79,7 @@ class BDIInterface(NyBase):
 
     def __init__(self, **kwargs):
         super(BDIInterface, self).__init__(**kwargs)
-        self.ncc = nc_l3_interface.BDIInterface(self)
+        # self.ncc = nc_l3_interface.BDIInterface(self)
 
     def to_dict(self):
         bdi = OrderedDict()
@@ -86,7 +88,7 @@ class BDIInterface(NyBase):
         bdi[L3Constants.MAC_ADDRESS] = self.mac_address
         bdi[L3Constants.MTU] = self.mtu
 
-        # Ignore shutdown until supporyted in yang
+
         if self.shutdown:
             bdi[L3Constants.SHUTDOWN] = ''
 
@@ -96,6 +98,12 @@ class BDIInterface(NyBase):
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY] = OrderedDict()
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.ADDRESS] = self.ip_address.address
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.MASK] = self.ip_address.mask
+
+        if self.nat_inside:
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
+        elif self.nat_outside:
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
+
 
         vrf = OrderedDict()
         vrf[L3Constants.FORWARDING] = self.vrf
@@ -108,28 +116,19 @@ class BDIInterface(NyBase):
 
         return dict(result)
 
-    #TODO : remove when nat is support in BDI yang model
-    #TODO - the ncc update ins not propagated to both nodes
-    @execute_on_pair()
-    def update(self,context=None,method=NC_OPERATION.PUT):
-        result = super(BDIInterface, self)._update(context=context,method=method)
-        self.ncc.update(context)
+    @retry_on_failure()
+    def _create(self,context=None):
+        # Handle shutdown, to get this managed in yang the object first must be created in yang with
+        # shutdown explicitly set, it can then by no shut but omitting the shutdown flag and replaceing (putting)
+        # the model.
+
+        self.shutdown = True
+        connection = self._get_connection(context)
+        result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT))
+        self.shutdown = False
+        result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT))
         return result
 
-    @execute_on_pair()
-    def create(self,context=None,method=NC_OPERATION.PUT):
-        result = super(BDIInterface, self)._create(context=context,method=method)
-        self.ncc.update(context)
-
-        return result
-
-    @execute_on_pair()
-    def disable_nat(self, context=None):
-        self.ncc.disable_nat(context)
-
-    @execute_on_pair()
-    def enable_nat(self, context=None):
-        self.ncc.enable_nat(context)
 
 class BDISecondaryIpAddress(NyBase):
     ITEM_KEY = L3Constants.SECONDARY
@@ -158,7 +157,7 @@ class BDISecondaryIpAddress(NyBase):
             {'key': 'bridge_domain','validate': False,'primary_key':True},
             {"key": 'address', 'id': True},
             {'key': 'mask'},
-            {'key': 'secondary','default':True}
+            {'key': 'secondary','default':True},
 
         ]
 
@@ -212,6 +211,7 @@ class BDISecondaryIpAddress(NyBase):
         secondary[L3Constants.MASK] = self.mask
         secondary['secondary'] = ''
         ip[L3Constants.SECONDARY] = secondary
+
 
         return ip
 

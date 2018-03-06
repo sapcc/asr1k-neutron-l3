@@ -120,7 +120,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         router_atts_db = asr1k_db.RouterAttsDb(result.get('id'), context)
         router_atts_db.update_router_atts()
 
-        LOG.error(result)
+
 
         return result
 

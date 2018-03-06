@@ -111,6 +111,7 @@ class Interface(base.Base):
         return bdi
 
     def update(self):
+
         return  self._rest_definition.update()
 
 
@@ -137,7 +138,7 @@ class GatewayInterface(Interface):
         return l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address,
-                                        secondary_ip_addresses=self.secondary_ip_addresses, nat_mode="outside",
+                                        secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
                                         redundancy_group=None)
 
 class InternalInterface(Interface):
@@ -150,7 +151,7 @@ class InternalInterface(Interface):
         return l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
-                                        nat_mode="inside", redundancy_group=None)
+                                        nat_inside=True, redundancy_group=None)
 
 
 class OrphanedInterface(Interface):

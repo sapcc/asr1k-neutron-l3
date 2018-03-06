@@ -31,12 +31,11 @@ class Vrf(base.Base):
         self.asn = asn
         self.rd = utils.to_rd(self.asn, rd)
 
-        self.disable_bgp = False
 
-        # self.disable_bgp = True
-        #
-        # if self.routeable_interface:
-        #     self.disable_bgp = False
+        self.disable_bgp = True
+
+        if self.routeable_interface:
+            self.disable_bgp = False
 
 
     @property
