@@ -114,7 +114,7 @@ class AddressFamily(NyBase):
     def __init__(self,**kwargs):
         super(AddressFamily, self).__init__(**kwargs)
 
-
+        self.disable_bgp = kwargs.get('disable_bgp',False)
 
 
 
@@ -125,7 +125,8 @@ class AddressFamily(NyBase):
         if self.vrf is not None:
             vrf = OrderedDict()
             vrf[BGPConstants.NAME] = self.vrf
-            vrf[BGPConstants.REDISTRIBUTE] = {BGPConstants.CONNECTED:'',BGPConstants.STATIC:''}
+            if not self.disable_bgp:
+                vrf[BGPConstants.REDISTRIBUTE] = {BGPConstants.CONNECTED:'',BGPConstants.STATIC:''}
 
             result[BGPConstants.VRF] = vrf
 

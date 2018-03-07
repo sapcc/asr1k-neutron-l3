@@ -26,13 +26,24 @@ class Vrf(ncc_base.NccBase):
 
     def disable_bgp(self, context):
         try:
-            config = DISABLE_BGP.format(**{'id': self.base.id, 'rd': self.base.rd})
-
-            self._edit_running_config(context, config, 'DISABLE_BGP')
+            config = CLEAR_ROUTE_MAP.format(**{'id': self.base.id})
+            print config
+            self._edit_running_config(context, config, 'CLEAR_ROUTE_MAP')
         finally:
             if self._ncc_connection is not None:
                 self._ncc_connection.close_session()
 
+
+CLEAR_ROUTE_MAP = """
+<config>
+        <cli-config-data>
+            <cmd>vrf definition {id}</cmd>
+            <cmd>address-family ipv4</cmd>
+            <cmd>no export map exp-{id}</cmd>
+        </cli-config-data>
+</config>
+
+"""
 
 
 DISABLE_BGP = """

@@ -117,6 +117,7 @@ class MapSequence(NyBase):
         if self.asn is not None and not isinstance(self.asn,list):
             self.asn = [self.asn]
 
+        self.disable_bgp =  kwargs.get('disable_bgp',True)
 
     def to_dict(self):
 
@@ -125,9 +126,8 @@ class MapSequence(NyBase):
 
         seq[RouteMapConstants.OPERATION] = self.operation
 
-        print "ASN {}".format(self.asn)
 
-        if bool(self.asn):
+        if not self.disable_bgp:
             seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY:{RouteMapConstants.RT:{RouteMapConstants.ASN:self.asn}}}
 
         if self.prefix_list is not None:

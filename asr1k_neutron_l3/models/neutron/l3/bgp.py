@@ -26,17 +26,17 @@ class AddressFamily(base.Base):
         self.vrf = utils.uuid_to_vrf_id(vrf)
         self.routeable_interface = routeable_interface
         self.asn = asn
-
-
-
+        self.disable_bgp = True
+        if self.routeable_interface:
+            self.disable_bgp = False
 
     @property
     def _rest_definition(self):
-         return bgp.AddressFamily(vrf=self.vrf,asn=self.asn)
+         return bgp.AddressFamily(vrf=self.vrf,asn=self.asn,disable_bgp=self.disable_bgp)
 
 
     def get(self):
-        return  bgp.AddressFamily.get(self.vrf,asn=self.asn)
+        return  bgp.AddressFamily.get(self.vrf,asn=self.asn,disable_bgp=self.disable_bgp)
 
 
 

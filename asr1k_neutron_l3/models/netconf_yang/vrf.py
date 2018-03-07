@@ -66,11 +66,9 @@ class VrfDefinition(NyBase):
         else:
             self.address_family = {self.address_family:{}}
 
-        self.drop_bgp = False
+        self.ncc = nc_vrf.Vrf(self)
 
-        # self.ncc = nc_vrf.Vrf(self)
-
-        self.disable_bgp = kwargs.get('disable_bgp',False)
+        self.disable_bgp = False #kwargs.get('disable_bgp',False)
 
 
     def to_dict(self):
@@ -88,9 +86,6 @@ class VrfDefinition(NyBase):
                 definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
         else:
 
-            # for address_family in self.address_family.keys():
-            #     definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
-            #
             for address_family in self.address_family.keys():
                  definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
 
@@ -104,5 +99,6 @@ class VrfDefinition(NyBase):
     @execute_on_pair()
     def update(self,context=None):
         # if self.disable_bgp:
-        #     self.ncc.update(context)
+        #     self.ncc.disable_bgp(context)
+
         return super(VrfDefinition, self)._update(context=context,method=NC_OPERATION.PUT)
