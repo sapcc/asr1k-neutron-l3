@@ -40,7 +40,7 @@ class Vrf(base.Base):
 
     @property
     def _rest_definition(self):
-         return vrf.VrfDefinition(name=self.name, description=self.description, rd=self.rd, disable_bgp=self.disable_bgp)
+         return vrf.VrfDefinition(name=self.name, description="Router {}".format(self.description), rd=self.rd, disable_bgp=self.disable_bgp)
 
 
     def get(self):

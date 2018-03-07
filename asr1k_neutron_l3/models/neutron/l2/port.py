@@ -70,7 +70,10 @@ class Port(object):
     def __init__(self, port_info):
         self.port_info = port_info
         self.config = asr1k_pair.ASR1KPair().config
-        self.id = self.port_info.get('port_id')
+
+        print self.port_info
+
+        self.id = self.port_info.get('id')
 
         self.service_instance = self.port_info.get('service_instance')
         self.bridge_domain = self.port_info.get('bridge_domain')
@@ -94,12 +97,12 @@ class Port(object):
 
     def _rest_definition(self):
         ext_interface = l2_interface.ExternalInterface(port_channel=self.ext_portchannel,
-                                                       id=self.segmentation_id, description=self.network_id)
+                                                       id=self.segmentation_id, description="Network : {}".format(self.network_id))
         lb_ext_interface = l2_interface.LoopbackExternalInterface(port_channel=self.lb_ext_portchannel,
-                                                                  id=self.service_instance, description=self.id,
+                                                                  id=self.service_instance, description="Port : {}".format(self.id),
                                                                   dot1q=self.segmentation_id, second_dot1q=self.second_dot1q)
         lb_int_interface = l2_interface.LoopbackInternalInterface(port_channel=self.lb_int_portchannel,
-                                                                  id=self.service_instance, description=self.id,
+                                                                  id=self.service_instance, description="Port : {}".format(self.id),
                                                                   bridge_domain=self.bridge_domain,
                                                                   dot1q=self.segmentation_id, second_dot1q=self.second_dot1q)
         return ext_interface, lb_ext_interface, lb_int_interface
