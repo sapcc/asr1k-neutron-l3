@@ -51,6 +51,7 @@ class NATConstants(object):
     LOCAL_IP = "local-ip"
     GLOBAL_IP = "global-ip"
     FORCED = "forced"
+    MATCH_IN_VRF = "match-in-vrf"
 
 
 class NatPool(NyBase):
@@ -216,6 +217,9 @@ class DynamicNat(NatBase):
         if self.overload:
             entry[NATConstants.OVERLOAD] = ""
 
+
+
+
         result = OrderedDict()
         result[NATConstants.LIST] = []
         result[NATConstants.LIST].append(entry)
@@ -283,7 +287,8 @@ class StaticNat(NatBase):
             {"key": "global_ip", "mandatory": True},
             {'key': 'vrf'},
             {'key': 'redundancy'},
-            {'key': 'mapping_id'}
+            {'key': 'mapping_id'},
+            {'key': 'match_in_vrf','yang-key':'match-in-vrf','default':True}
         ]
 
     @classmethod
@@ -354,6 +359,10 @@ class StaticNat(NatBase):
         if self.redundancy is not None:
             entry[NATConstants.REDUNDANCY] = self.redundancy
             entry[NATConstants.MAPPING_ID] = self.mapping_id
+
+        if self.match_in_vrf:
+            entry[NATConstants.MATCH_IN_VRF] = ""
+        entry[NATConstants.MATCH_IN_VRF] = ""
 
         result = OrderedDict()
         result[NATConstants.TRANSPORT_LIST] = []
