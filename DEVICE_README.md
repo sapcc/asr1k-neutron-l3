@@ -485,8 +485,7 @@ interface BDI4501
  
 ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 0.0.0.0 0.0.0.0 172.24.4.1
 
-ip nat pool f8a44de0fc8e45df93c7f79bf3b01c95 172.24.4.6 172.24.4.6 netmask 255.255.255.0
-ip nat inside source list nat-all pool redundancy 1 mapping-id 10 vrf f8a44de0fc8e45df93c7f79bf3b01c95 overload
+ip nat inside source list nat-all interface BDI4501 vrf f8a44de0fc8e45df93c7f79bf3b01c95 overload
 
 ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 5 permit 172.24.4.0/24
 ```
@@ -508,8 +507,7 @@ interface BDI4501
  
 ip route vrf f8a44de0fc8e45df93c7f79bf3b01c95 0.0.0.0 0.0.0.0 172.24.4.1
 
-ip nat pool f8a44de0fc8e45df93c7f79bf3b01c95 172.24.4.6 172.24.4.6 netmask 255.255.255.0
-ip nat inside source list NAT-f8a44de0fc8e45df93c7f79bf3b01c95 pool redundancy 1 mapping-id 10 vrf f8a44de0fc8e45df93c7f79bf3b01c95 overload
+ip nat inside source list NAT-f8a44de0fc8e45df93c7f79bf3b01c95 interface BDI4501 vrf f8a44de0fc8e45df93c7f79bf3b01c95 overload
 
 ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 5 permit 172.24.4.0/24
 ```
@@ -564,7 +562,7 @@ interface BDI4502
 }
 ```
 
-Option assigned as secondary IP on outside Interface
+Option assigned as ARP Alias
 
 ```
 interface BDI4501
@@ -574,30 +572,23 @@ interface BDI4501
  vrf forwarding f8a44de0fc8e45df93c7f79bf3b01c95
  ip nat outside
  ip address 172.24.4.6 255.255.255.0
- ip address 172.24.5.228 255.255.255.0 secondary
+
  redundancy rii 10
 
-ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79bf3b01c95 redundancy 1 mapping-id 112
+ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79bf3b01c95 redundancy 1 mapping-id 112 match-in-vrf
+
+arp vrf f8a44de0fc8e45df93c7f79bf3b01c95 172.24.5.228 fa16.3e23.fdd7 ARPA alias
 
 ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 5 permit 172.24.4.0/24
 ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 10 permit 172.24.5.0/24
 ```
 
-Option assigned as arp-alias
-
-```
-arp vrf f8a44de0fc8e45df93c7f79bf3b01c95 172.24.5.228 fa16.3e23.fdd7 arpa alias
-
-ip nat inside source static 10.180.0.3 172.24.5.228 vrf f8a44de0fc8e45df93c7f79bf3b01c95 redundancy 1 mapping-id 112
-
-```
-
 ###### Open Architecture Topics:
 
  * Can we assign interfacce routes inside a vrf? NO
- * Does arp alias work for off-subnet ip's?
+ * Does arp alias work for off-subnet ip's? Yes
  * Do we need rii on interfaces or is mapping-id sufficient on nat statements ?
- * should/must all mapping-id's be the same or different for a given neutron router ? 
+ * should/must all mapping-id's be the same or different for a given neutron router ? Different
 
 ###### Configuration Limits for resources:
 
