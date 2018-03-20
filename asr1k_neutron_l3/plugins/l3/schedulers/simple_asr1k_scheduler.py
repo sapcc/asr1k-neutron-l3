@@ -18,6 +18,7 @@ from neutron.scheduler import l3_agent_scheduler
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
+
 LOG = logging.getLogger(__name__)
 
 
@@ -60,3 +61,4 @@ class SimpleASR1KScheduler(l3_agent_scheduler.AZLeastRoutersScheduler):
     def _choose_router_agents_for_ha(self, plugin, context, candidates):
         """Choose agents from candidates based on a specific policy."""
         pass
+

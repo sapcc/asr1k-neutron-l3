@@ -18,6 +18,7 @@ from oslo_log import log as logging
 
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.netconf_yang import l2_interface
+from asr1k_neutron_l3.models.netconf_yang import efp_stats
 
 
 LOG = logging.getLogger(__name__)
@@ -70,9 +71,6 @@ class Port(object):
     def __init__(self, port_info):
         self.port_info = port_info
         self.config = asr1k_pair.ASR1KPair().config
-
-        print self.port_info
-
         self.id = self.port_info.get('id')
 
         self.service_instance = self.port_info.get('service_instance')
@@ -107,9 +105,26 @@ class Port(object):
                                                                   dot1q=self.segmentation_id, second_dot1q=self.second_dot1q)
         return ext_interface, lb_ext_interface, lb_int_interface
 
-    def valid(self):
+    def diff(self):
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
-        return ext_interface.is_valid() and lb_ext_interface.is_valid() and lb_int_interface.is_valid()
+
+        result = {}
+
+        ext_diff = ext_interface.diff()
+        if not ext_diff.valid:
+            result["l2_external"] = ext_diff.to_dict()
+
+        lb_ext_diff = lb_ext_interface.diff()
+        if not lb_ext_diff.valid:
+            result["l2_external_lb"] = lb_ext_diff.to_dict()
+
+        lb_int_diff = lb_int_interface.diff()
+        if not lb_int_diff.valid:
+            result["l2_internal_lb"] = lb_int_diff.to_dict()
+
+
+
+        return result
 
     def get(self):
 
@@ -119,6 +134,14 @@ class Port(object):
 
 
         return ext_interface,lb_ext_interface,lb_int_interface
+
+
+    def get_stats(self):
+
+        lb_ext_interface = efp_stats.EfpStats.get(port_channel=self.lb_ext_portchannel, id=self.service_instance)
+        lb_int_interface = efp_stats.EfpStats.get(port_channel=self.lb_int_portchannel, id=self.service_instance)
+
+        return {"external_lb":lb_ext_interface.to_dict(),"internal_lb":lb_int_interface.to_dict()}
 
 
     def update(self):

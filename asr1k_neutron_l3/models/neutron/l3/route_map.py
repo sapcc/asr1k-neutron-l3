@@ -28,22 +28,16 @@ class RouteMap(base.Base):
         self.rt = rt
         self.routeable_interface  = routeable_interface
 
-        self.disable_bgp = True
+        self.enable_bgp = False
         if self.routeable_interface:
-            self.disable_bgp = False
+            self.enable_bgp = True
 
+        sequences = []
+        sequences.append(route_map.MapSequence(ordering_seq=10, operation='permit', prefix_list='snat-{}'.format(self.vrf), asn=[self.rt,'additive'],enable_bgp=self.enable_bgp))
+        sequences.append(route_map.MapSequence(ordering_seq=20, operation='deny', prefix_list='exp-{}'.format(self.vrf)))
 
+        self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)
 
-
-    @property
-    def _rest_definition(self):
-         sequences = []
-
-
-         sequences.append(route_map.MapSequence(ordering_seq=10, operation='permit', prefix_list='snat-{}'.format(self.vrf), asn=[self.rt,'additive'],disable_bgp=self.disable_bgp))
-         sequences.append(route_map.MapSequence(ordering_seq=20, operation='deny', prefix_list='exp-{}'.format(self.vrf)))
-
-         return route_map.RouteMap(name=self.name, seq=sequences)
 
 
     def get(self):
@@ -51,20 +45,4 @@ class RouteMap(base.Base):
 
 
 
-
-    def update(self):
-        self._rest_definition.update(method=NC_OPERATION.PUT)
-
-        # if  self.routeable_interface:
-        #     self._rest_definition.update(method=NC_OPERATION.PUT)
-        # else:
-        #     self.delete()
-
-
-    def delete(self):
-        self._rest_definition.delete()
-
-
-    def valid(self, should_be_none=False):
-        return self._rest_definition.is_valid(should_be_none=should_be_none)
 

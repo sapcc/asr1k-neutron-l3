@@ -30,6 +30,8 @@ NS_CISCO_NAT = "http://cisco.com/ns/yang/Cisco-IOS-XE-nat"
 NS_CISCO_ACL = 'http://cisco.com/ns/yang/Cisco-IOS-XE-acl'
 NS_CISCO_BGP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-bgp'
 NS_CISCO_ROUTE_MAP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-route-map'
+NS_CISCO_EFP_OPER = 'http://cisco.com/ns/yang/Cisco-IOS-XE-efp-oper'
+NS_IETF_INTERFACE = "urn:ietf:params:xml:ns:yang:ietf-interfaces"
 
 
 RPC_REPLY = 'rpc-reply'
@@ -54,6 +56,8 @@ class XMLUtils(object):
         NS_CISCO_ACL: None,
         NS_CISCO_BGP: None,
         NS_CISCO_ROUTE_MAP: None,
+        NS_CISCO_EFP_OPER: None,
+        NS_IETF_INTERFACE: None
     }
 
     @classmethod
@@ -84,6 +88,7 @@ class XMLUtils(object):
         if dict is None:
             return
         dict = dict.get(IOS_NATIVE, dict)
+
 
         return dict
 

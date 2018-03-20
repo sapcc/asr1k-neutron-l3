@@ -4,3 +4,8 @@ dev_install*
 dev_migrate
 venv
 *.pyc
+asr1k_neutron_l3.egg-info/*
+.eggs/*
+build/*
+AUTHORS
+ChangeLog

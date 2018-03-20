@@ -60,6 +60,7 @@ class RouteMap(NyBase):
     def __init__(self,**kwargs):
         super(RouteMap, self).__init__(**kwargs)
         self.ncc = nc_route_map.RouteMap(self)
+        self.force_delete = True
 
     def to_dict(self):
 
@@ -90,12 +91,17 @@ class RouteMap(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def delete(self,context=None,method=NC_OPERATION.REMOVE):
-
+    def delete(self,context=None,method=NC_OPERATION.DELETE):
         self.ncc.delete(context)
-        #result = super(DynamicNat, self).delete(context=context)
+        # result = super(RouteMap, self)._delete(context=context,method=method)
+        # print result
 
 
+
+    @execute_on_pair()
+    def update(self,context=None):
+
+        return super(RouteMap, self)._update(context=context,method=NC_OPERATION.PUT)
 
 
 class MapSequence(NyBase):
@@ -117,7 +123,7 @@ class MapSequence(NyBase):
         if self.asn is not None and not isinstance(self.asn,list):
             self.asn = [self.asn]
 
-        self.disable_bgp =  kwargs.get('disable_bgp',True)
+        self.enable_bgp =  kwargs.get('enable_bgp',False)
 
     def to_dict(self):
 
@@ -126,13 +132,28 @@ class MapSequence(NyBase):
 
         seq[RouteMapConstants.OPERATION] = self.operation
 
-
-        if not self.disable_bgp:
+        if bool(self.asn):
             seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY:{RouteMapConstants.RT:{RouteMapConstants.ASN:self.asn}}}
+
+        # if self.enable_bgp and bool(self.asn):
+        #     seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY:{RouteMapConstants.RT:{RouteMapConstants.ASN:self.asn}}}
 
         if self.prefix_list is not None:
             seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
                                                                                RouteMapConstants.PREFIX_LIST: self.prefix_list}}}
+
+        seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
+
+
+        return seq
+
+
+    def to_delete_dict(self):
+
+        seq = OrderedDict()
+        seq[RouteMapConstants.ORDERING_SEQ] = self.ordering_seq
+
+        seq[RouteMapConstants.OPERATION] = self.operation
 
         seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
 

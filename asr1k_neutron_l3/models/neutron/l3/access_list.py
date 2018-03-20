@@ -28,7 +28,7 @@ class AccessList(base.Base):
         self.routeable_interfaces = routeable_interfaces
 
 
-
+    @property
     def _rest_definition(self):
         acl = access_list.AccessList(name=self.id)
         for i, rule in enumerate(self.rules):
@@ -40,9 +40,8 @@ class AccessList(base.Base):
 
         return acl
 
-    def valid(self,should_be_none=False):
-
-        return self._rest_definition().is_valid(should_be_none=should_be_none)
+    def diff(self,should_be_none=False):
+        return super(AccessList,self).diff(should_be_none= not self.routeable_interfaces)
 
     def get(self):
         return  access_list.AccessList.get(self.id)
@@ -51,7 +50,7 @@ class AccessList(base.Base):
     def update(self):
 
         if len(self.routeable_interfaces) > 0:
-            return self._rest_definition().update()
+            return self._rest_definition.update()
         else:
             return self.delete()
 

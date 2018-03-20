@@ -80,6 +80,7 @@ class Router(Base):
         self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn, rd=self.router_atts.get('rd'),routeable_interface=self.routeable_interface)
 
 
+
         self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,routeable_interface=self.routeable_interface)
 
         self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'),asn=self.config.asr1k_l3.fabric_asn,routeable_interface=self.routeable_interface)
@@ -202,39 +203,39 @@ class Router(Base):
     def _port_extra_atts(self, port):
         return self.extra_atts.get(port.get('id'),{})
 
-
     def create(self):
         self.update()
 
     @instrument()
     def update(self):
-
+        results = []
         if self.gateway_interface is None and len(self.interfaces.internal_interfaces)==0:
-            print "This should be DELETING EVERYTHING"
             return self.delete()
 
-
-        # for prefix_list in self.prefix_lists:
-        #     prefix_list.update()
-        # self.route_map.update()
-        # self.vrf.update()
-        # self.bgp_address_family.update()
-
-
-
         # Order is  important if as we switch from BGP <> non BGP
+        # if self.routeable_interface:
+        #     for prefix_list in self.prefix_lists:
+        #         prefix_list.update()
+        #     self.route_map.update()
+        #     self.vrf.update()
+        #     self.bgp_address_family.update()
+        # else:
+        #
+        #     self.route_map.delete()
+        #     for prefix_list in self.prefix_lists:
+        #         prefix_list.delete()
+        #     self.vrf.update()
+        #     self.bgp_address_family.delete()
+
+        for prefix_list in self.prefix_lists:
+            prefix_list.update()
+        self.route_map.update()
+        self.vrf.update()
+
         if self.routeable_interface:
-            for prefix_list in self.prefix_lists:
-                prefix_list.update()
-            self.route_map.update()
-            self.vrf.update()
             self.bgp_address_family.update()
         else:
             self.bgp_address_family.delete()
-            self.vrf.update()
-            self.route_map.delete()
-            for prefix_list in self.prefix_lists:
-                prefix_list.delete()
 
 
         for interface in self.interfaces.all_interfaces:
@@ -295,31 +296,58 @@ class Router(Base):
         self.vrf.delete()
 
     @instrument()
-    def valid(self):
-        valid = True
-        valid = self.vrf.valid() and valid
-        valid =  self.bgp_address_family.valid() and valid
+    def diff(self):
+        diff_results = {}
+
+        vrf_diff = self.vrf.diff()
+        if not vrf_diff.valid:
+            diff_results['vrf'] = vrf_diff.to_dict()
+
+        bgp_diff = self.bgp_address_family.diff()
+
+        if not bgp_diff.valid:
+            diff_results['bgp'] = bgp_diff.to_dict()
 
 
         for prefix_list in self.prefix_lists:
-            valid = prefix_list.valid(should_be_none= not self.routeable_interface) and valid
+            prefix_diff = prefix_list.diff()
+            if not prefix_diff.valid:
+                diff_results['prefix_list'] = prefix_diff.to_dict()
 
-        valid = self.route_map.valid(should_be_none= not self.routeable_interface) and valid
 
-        valid = self.routes.valid() and valid
-        valid = self.dynamic_nat.valid() and valid
+        rm_diff =self.route_map.diff()
+        if not rm_diff.valid:
+            diff_results['route_map'] = rm_diff.to_dict()
+
+        route_diff = self.routes.diff()
+        if not route_diff.valid:
+            diff_results['route'] = route_diff.to_dict()
+
+        dynamic_nat_diff = self.dynamic_nat.diff()
+        if not dynamic_nat_diff.valid:
+            diff_results['dynamic_nat'] = dynamic_nat_diff.to_dict()
+
+
         for floating_ip in self.floating_ips:
-            valid = floating_ip.valid() and valid
-
-
-
+            floating_ip_diff = floating_ip.diff()
+            if not floating_ip_diff.valid:
+                diff_results['static_nat'] = floating_ip_diff.to_dict()
 
         for interface in self.interfaces.internal_interfaces:
-            valid = interface.valid() and valid
+            interface_diff = interface.diff()
+            if not interface_diff.valid:
+                diff_results['internal_interface'] = interface_diff.to_dict()
 
         if self.interfaces.gateway_interface:
-            valid = self.interfaces.gateway_interface.valid() and valid
+            gateway_diff = self.interfaces.gateway_interface.diff()
+            if not gateway_diff.valid:
+                diff_results['gateway_interface'] = gateway_diff.to_dict()
 
-        valid = self.nat_acl.valid(should_be_none= not self.routeable_interface) and valid
+        nat_acl_diff = self.nat_acl.diff()
+        if not nat_acl_diff.valid:
+            diff_results['nat_acl'] = nat_acl_diff.to_dict()
 
-        return valid
+
+        return diff_results
+
+

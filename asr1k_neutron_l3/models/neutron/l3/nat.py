@@ -70,8 +70,6 @@ class DynamicNAT(BaseNAT):
         if self.gateway_interface is not None:
             bridge_domain  = self.gateway_interface.bridge_domain
 
-
-
         nat = l3_nat.DynamicNat(id=self.id, vrf=self.router_id,bridge_domain=bridge_domain, redundancy=self.redundancy,
                                           mapping_id=self.mapping_id, overload=True)
 
@@ -82,18 +80,15 @@ class DynamicNAT(BaseNAT):
         return nat,old_nat
 
 
-    def valid(self):
+    def diff(self):
 
         nat,old_nat = self._rest_definition
-
-        return nat.is_valid()
-
+        return nat.diff()
 
     def get(self):
         nat = l3_nat.DynamicNat.get(self.id)
 
         return nat
-
 
     def update(self):
         nat,old_nat = self._rest_definition
@@ -101,11 +96,8 @@ class DynamicNAT(BaseNAT):
         old_nat.delete()
         nat.update()
 
-
-
     def delete(self):
         nat,old_nat = self._rest_definition
-
         old_nat.delete()
         nat.delete()
 
@@ -146,25 +138,10 @@ class FloatingIp(BaseNAT):
         self.mac_address = None
         if self.gateway_interface:
             self.mac_address = self.gateway_interface.mac_address
-
-
-    def _rest_definition(self):
-        static_nat = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
+        self._rest_definition = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
                                         mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
                                         redundancy=self.redundancy, mapping_id=self.mapping_id,mac_address=self.mac_address)
-        secondary_ip = l3_interface.BDISecondaryIpAddress(bridge_domain=self.bridge_domain, address=self.global_ip,mask=self.global_ip_mask)
 
-
-
-        return static_nat,secondary_ip
-
-    def valid(self):
-
-        static_nat, secondary_ip = self._rest_definition()
-
-
-        # return static_nat.is_valid() and secondary_ip.is_valid()
-        return static_nat.is_valid()
 
     def get(self):
         static_nat =  l3_nat.StaticNat.get(self.local_ip,self.global_ip)
@@ -174,15 +151,3 @@ class FloatingIp(BaseNAT):
 
         return static_nat
 
-    def update(self):
-        static_nat,secondary_ip = self._rest_definition()
-
-        # return static_nat.update(),secondary_ip.update()
-
-        return static_nat.update()
-
-    def delete(self):
-        static_nat, secondary_ip = self._rest_definition()
-
-        # return secondary_ip.delete(), static_nat.delete()
-        return static_nat.delete()

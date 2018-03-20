@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 
@@ -65,7 +65,10 @@ class AddressFamily(NyBase):
     def __parameters__(cls):
         return [
             {'key': 'asn','id':True,'yang-key':'id'},
-            {'key': 'vrf','yang-key':'name'}
+            {'key': 'vrf','yang-key':'name'},
+            {'key': 'connected', 'yang-path':'redistribute','default':False,'yang-type':YANG_TYPE.EMPTY},
+            {'key': 'static', 'yang-path': 'redistribute', 'default': False, 'yang-type': YANG_TYPE.EMPTY}
+
 
         ]
 
@@ -114,7 +117,7 @@ class AddressFamily(NyBase):
     def __init__(self,**kwargs):
         super(AddressFamily, self).__init__(**kwargs)
 
-        self.disable_bgp = kwargs.get('disable_bgp',False)
+        self.enable_bgp = kwargs.get('enable_bgp',False)
 
 
 
@@ -125,10 +128,16 @@ class AddressFamily(NyBase):
         if self.vrf is not None:
             vrf = OrderedDict()
             vrf[BGPConstants.NAME] = self.vrf
-            if not self.disable_bgp:
-                vrf[BGPConstants.REDISTRIBUTE] = {BGPConstants.CONNECTED:'',BGPConstants.STATIC:''}
+            vrf[BGPConstants.REDISTRIBUTE] = {}
+            if self.connected :
+                vrf[BGPConstants.REDISTRIBUTE][BGPConstants.CONNECTED] =''
+            if self.static:
+                vrf[BGPConstants.REDISTRIBUTE][BGPConstants.STATIC] =''
+
 
             result[BGPConstants.VRF] = vrf
+
+
 
         return dict(result)
 

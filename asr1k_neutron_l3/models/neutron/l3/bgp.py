@@ -26,29 +26,18 @@ class AddressFamily(base.Base):
         self.vrf = utils.uuid_to_vrf_id(vrf)
         self.routeable_interface = routeable_interface
         self.asn = asn
-        self.disable_bgp = True
+        self.enable_bgp = False
         if self.routeable_interface:
-            self.disable_bgp = False
+            self.enable_bgp = True
 
-    @property
-    def _rest_definition(self):
-         return bgp.AddressFamily(vrf=self.vrf,asn=self.asn,disable_bgp=self.disable_bgp)
-
+        self._rest_definition = bgp.AddressFamily(vrf=self.vrf,asn=self.asn,enable_bgp=self.enable_bgp,static=True,connected=True)
 
     def get(self):
-        return  bgp.AddressFamily.get(self.vrf,asn=self.asn,disable_bgp=self.disable_bgp)
+        return  bgp.AddressFamily.get(self.vrf,asn=self.asn,enable_bgp=self.enable_bgp)
 
 
 
 
-    def update(self):
-
-        self._rest_definition.update()
-
-    def delete(self):
-        self._rest_definition.delete()
-
-
-    def valid(self):
-        return self._rest_definition.is_valid(should_be_none= not self.routeable_interface)
+    def diff(self,should_be_none=False):
+        return super(AddressFamily,self).diff(should_be_none= not self.routeable_interface)
 

@@ -16,7 +16,6 @@
 
 from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
-from asr1k_neutron_l3.models.netconf_legacy import l3_interface as nc_l3_interface
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 class L3Constants(object):

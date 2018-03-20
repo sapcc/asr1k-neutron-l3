@@ -18,6 +18,7 @@ from oslo_log import log as logging
 
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import l3_interface
+from asr1k_neutron_l3.models.netconf_yang import l3_interface_state
 
 from asr1k_neutron_l3.common import utils
 
@@ -93,27 +94,20 @@ class Interface(base.Base):
 
         return self.router_port.get('subnets', [])
 
+    def get_state(self):
 
+        state = l3_interface_state.BDIInterfaceState.get(id=self.bridge_domain)
 
+        result={}
+        if state is not None:
+            result = state.to_dict()
 
-    @property
-    def _rest_definition(self):
-        pass
+        return result
 
-    def valid(self):
-
-
-
-        return self._rest_definition.is_valid()
 
     def get(self):
         bdi = l3_interface.BDIInterface.get(self.bridge_domain)
         return bdi
-
-    def update(self):
-
-        return  self._rest_definition.update()
-
 
     def delete(self):
         bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain)
@@ -132,23 +126,19 @@ class GatewayInterface(Interface):
 
     def __init__(self, router_id, router_port, extra_atts):
         super(GatewayInterface, self).__init__(router_id, router_port, extra_atts)
-
-    @property
-    def _rest_definition(self):
-        return l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
+        self._rest_definition = l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address,
                                         secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
                                         redundancy_group=None)
 
+
+
 class InternalInterface(Interface):
 
     def __init__(self, router_id, router_port, extra_atts):
         super(InternalInterface, self).__init__(router_id, router_port, extra_atts)
-
-    @property
-    def _rest_definition(self):
-        return l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
+        self._rest_definition = l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
                                         nat_inside=True, redundancy_group=None)

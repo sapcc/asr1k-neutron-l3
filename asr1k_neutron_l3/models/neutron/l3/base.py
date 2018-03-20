@@ -28,3 +28,21 @@ class Base(object):
 
     def __init__(self):
         self.contexts = asr1k_pair.ASR1KPair().contexts
+
+    @property
+    def _rest_definition(self):
+        return self.__rest_definition
+
+    @_rest_definition.setter
+    def _rest_definition(self, rest_definition):
+        self.__rest_definition = rest_definition
+
+
+    def update(self):
+        return  self._rest_definition.update()
+
+    def delete(self):
+        return  self._rest_definition.delete()
+
+    def diff(self,should_be_none=False):
+        return self._rest_definition.diff(should_be_none=should_be_none)

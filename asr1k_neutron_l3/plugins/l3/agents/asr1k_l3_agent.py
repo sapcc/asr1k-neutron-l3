@@ -65,6 +65,7 @@ from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
+from asr1k_neutron_l3.plugins.l3.agents import operations
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -97,6 +98,7 @@ def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWi
     cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
     cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
     cfg.CONF.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
+    cfg.CONF.register_opts(asr1k_config.ASR1K_L2_OPTS, "asr1k_l2")
     common_config.init(sys.argv[1:])
     config.setup_logging()
     # set periodic interval to 10 seconds, as I understand the code this means
@@ -115,8 +117,8 @@ LOG = logging.getLogger(__name__)
 
 # Number of routers to fetch from server at a time on resync.
 # Needed to reduce load on server side and to speed up resync on agent side.
-SYNC_ROUTERS_MAX_CHUNK_SIZE = 256
-SYNC_ROUTERS_MIN_CHUNK_SIZE = 32
+
+SYNC_ROUTERS_MIN_CHUNK_SIZE = 1
 
 
 class L3PluginApi(object):
@@ -230,7 +232,7 @@ class L3PluginApi(object):
                           host=self.host, scopes=scopes)
 
 
-class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
+class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,operations.OperationsMixin):
     """Manager for L3 ASR Agent
 
         API version history:
@@ -255,9 +257,9 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
 
         self.context = n_context.get_admin_context_without_session()
         self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, host)
-        self.fullsync = False
+        self.fullsync = cfg.CONF.asr1k_l3.sync_active
         self.pause_process = False
-        self.sync_routers_chunk_size = SYNC_ROUTERS_MAX_CHUNK_SIZE
+        self.sync_routers_chunk_size = cfg.CONF.asr1k_l3.sync_chunk_size
 
         self.asr1k_pair = asr1k_pair.ASR1KPair(self.conf)
 
@@ -375,7 +377,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
         try:
             self.fetch_and_sync_all_routers(context)
         except n_exc.AbortSyncRouters:
-            self.fullsync = True
+            self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
     @log_helpers.log_method_call
     def fetch_and_sync_all_routers(self, context):
@@ -420,13 +422,13 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager):
 
         LOG.debug("periodic_sync_routers_task successfully completed")
         # adjust chunk size after successful sync
-        if self.sync_routers_chunk_size < SYNC_ROUTERS_MAX_CHUNK_SIZE:
+        if self.sync_routers_chunk_size < cfg.CONF.asr1k_l3.sync_chunk_size:
             self.sync_routers_chunk_size = min(
                 self.sync_routers_chunk_size + SYNC_ROUTERS_MIN_CHUNK_SIZE,
-                SYNC_ROUTERS_MAX_CHUNK_SIZE)
+                cfg.CONF.asr1k_l3.sync_chunk_size)
 
 
-        self.fullsync = False
+        self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
 
         # Delete routers that have disappeared since the last sync

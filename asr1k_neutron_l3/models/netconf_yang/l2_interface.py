@@ -64,7 +64,6 @@ class ServiceInstance(NyBase):
               </native>        
              """
 
-
     REWRITE_INGRESS_TAG_POP_WAY = 2
 
     LIST_KEY = L2Constants.SERVICE
@@ -95,8 +94,6 @@ class ServiceInstance(NyBase):
     @execute_on_pair(return_raw=True)
     def exists(cls, port_channel,id, context=None):
         return super(ServiceInstance, cls)._exists(id=id, port_channel=port_channel, context=context)
-
-
 
     @classmethod
     def remove_wrapper(cls,dict):

@@ -32,22 +32,15 @@ class RouteCollection(base.Base):
          rest_routes = []
          for route in self.routes:
              rest_routes.append(route._rest_definition)
-
-
          return l3_route.VrfRoute(name=self.router_id, routes=rest_routes)
-
-    def get(self):
-        return l3_route.VrfRoute.get(self.router_id)
 
     def append(self, route):
         self.routes.append(route)
 
-    def valid(self):
-        return self._rest_definition.is_valid()
 
+    def get(self):
+        return l3_route.VrfRoute.get(self.router_id)
 
-    def update(self):
-        return self._rest_definition.update()
 
     def delete(self):
         rc = l3_route.VrfRoute(name=self.router_id)
@@ -64,6 +57,4 @@ class Route(base.Base):
         self.mask = mask
         self.nexthop = nexthop
 
-    @property
-    def _rest_definition(self):
-         return l3_route.IpRoute(vrf=self.router_id,prefix=self.destination,mask=self.mask,fwd_list={"fwd":self.nexthop})
+        self._rest_definition = l3_route.IpRoute(vrf=self.router_id, prefix=self.destination, mask=self.mask, fwd_list={"fwd": self.nexthop})

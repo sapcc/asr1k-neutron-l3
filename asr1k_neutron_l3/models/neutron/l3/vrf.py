@@ -32,31 +32,15 @@ class Vrf(base.Base):
         self.rd = utils.to_rd(self.asn, rd)
 
 
-        self.disable_bgp = True
+        self.enable_bgp = False
 
         if self.routeable_interface:
-            self.disable_bgp = False
+            self.enable_bgp = True
 
+        self._rest_definition = vrf.VrfDefinition(name=self.name, description="Router {}".format(self.description), rd=self.rd,enable_bgp=self.enable_bgp)
 
-    @property
-    def _rest_definition(self):
-         return vrf.VrfDefinition(name=self.name, description="Router {}".format(self.description), rd=self.rd, disable_bgp=self.disable_bgp)
 
 
     def get(self):
         return vrf.VrfDefinition.get(self.name)
-
-
-
-
-    def update(self):
-        self._rest_definition.update()
-
-
-    def delete(self):
-        self._rest_definition.delete()
-
-
-    def valid(self):
-        return self._rest_definition.is_valid()
 

@@ -17,39 +17,6 @@
 from asr1k_neutron_l3.models.netconf_legacy import ncc_base
 from asr1k_neutron_l3.models.netconf_yang.ny_base import retry_on_failure
 
-# class DynamicNat(ncc_base.NccBase):
-#
-#     @retry_on_failure()
-#     def delete(self, context):
-#         try:
-#             # config = CLEAR_NAT.format(**{'vrf': self.base.vrf})
-#
-#             config = FORCE_DELETE.format(**{'id':self.base.id,'vrf': self.base.vrf,'redundancy':self.base.redundancy,'mapping_id':self.base.mapping_id})
-#
-#             self._edit_running_config(context, config, 'CLEAR_NAT')
-#         finally:
-#             if self._ncc_connection is not None:
-#                 self._ncc_connection.close_session()
-#
-#
-# CLEAR_NAT = """
-# <config>
-#         <cli-config-data>
-#             <cmd>do clear ip nat translation vrf {vrf} forced</cmd>
-#         </cli-config-data>
-# </config>
-# """
-#
-# FORCE_DELETE = """
-# <config>
-#         <cli-config-data>
-#             <cmd>no ip nat inside source list {id} pool {vrf} redundancy {redundancy} mapping-id {mapping_id} vrf {vrf} overload forced</cmd>
-#             <cmd>do clear ip nat translation vrf {vrf} forced</cmd>
-#         </cli-config-data>
-# </config>
-# """
-
-
 class StaticNat(ncc_base.NccBase):
 
     @retry_on_failure()

@@ -18,6 +18,9 @@ import time
 import eventlet
 import eventlet.debug
 import dictdiffer
+from collections import OrderedDict
+
+
 eventlet.debug.hub_exceptions(False)
 from oslo_log import log as logging
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
@@ -75,6 +78,7 @@ class execute_on_pair(object):
                 result.append( kwargs.get('context'), response)
 
         except BaseException as e:
+            LOG.exception(e )
             result.append(kwargs.get('context'), e)
 
     def __call__(self, method):
@@ -167,7 +171,8 @@ class retry_on_failure(object):
                             raise exc.InternalErrorException(host=host, entity = args[0],operation = f.__name__)
                         elif e.tag in ['in-use']:  # Lock
                             pass  # retry on lock
-
+                    else:
+                        LOG.exception(e)
                     time.sleep(self.retry_interval)
                     retries += 1
                     exception = e
@@ -237,10 +242,21 @@ class PairResult(object):
                 error = self.errors.get(host,None)
                 if hasattr(self.entity,'to_xml'):
                     result += "{}\n".format(self.entity.to_xml())
+
                 result += "{} : {} : {}\n".format(host,error.__class__.__name__, error)
 
         return result
 
+    def to_dict(self):
+        result = {}
+        for host in self.results:
+            host_result = self.results.get(host)
+            if host_result is not None:
+                result[host] = self.results.get(host).to_dict()
+            else:
+                result[host] = {}
+
+        return result
 
 class DiffResult(PairResult):
 
@@ -250,7 +266,7 @@ class DiffResult(PairResult):
         valid = True
         for host in self.results.keys():
             diffs = self.results.get(host)
-            valid = valid and len(diffs) == 0
+            valid = valid and not diffs
 
         return valid
 
@@ -270,13 +286,21 @@ class DiffResult(PairResult):
     def diffs_for_device(self, host):
         return  self.results.get(host,[])
 
-    def __str__(self):
-        result = ''
-        for host in self.results.keys():
-            result = result + "{} : {} {} : {} \n".format(host,self.entity,self.valid,self.results.get(host))
 
+    def to_dict(self):
+        result = {}
+        for host in self.results:
+            result[host] = self.results.get(host)
 
         return result
+
+    # def __str__(self):
+    #     result = ''
+    #     for host in self.results.keys():
+    #         result = result + "{} : {} {} : {} \n".format(host,self.entity,self.valid,self.results.get(host))
+    #
+    #
+    #     return result
 
 
 class NyBase(xml_utils.XMLUtils):
@@ -396,21 +420,34 @@ class NyBase(xml_utils.XMLUtils):
             if not param.get('validate',True):
                 ignore.append(param.get('key',param.get('yang-key')))
 
-        diffs =  list(dictdiffer.diff(self_json, other_json, ignore=ignore))
+        diff =  self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=ignore))
+
+        return diff
+
+    def __diffs_to_dicts(self,diffs):
+        result= []
+        if not isinstance(diffs,list):
+            diffs = list(diffs)
+        if diffs:
+            for diff in diffs:
+                if len(diff)==3:
+                    neutron = None
+                    device = None
+
+                    if len(diff[2])==1:
+                        neutron = diff[2][0]
+
+                    elif len(diff[2])==2:
+                        neutron = diff[2][0]
+                        device = diff[2][1]
 
 
+                    result.append({'entity':self.id,'type':diff[0],'item':diff[1],'neutron':neutron,'device':device})
 
-        # for diff in diffs:
-        #     LOG.debug("self {}".format(self_json))
-        #     LOG.debug("other {}".format(other_json))
-        #     LOG.debug("{} : {}".format(self.__class__.__name__, diff))
-
-        return diffs
-
+        return result
 
     @classmethod
     def from_json(cls, json,parent=None):
-
         try:
             if not bool(json):
                 return None
@@ -655,12 +692,12 @@ class NyBase(xml_utils.XMLUtils):
 
 
 
-    def validate(self, should_be_none=False):
+    def diff(self, should_be_none=False):
         result = self._validate(should_be_none=should_be_none)
         return result
 
 
     def is_valid(self, should_be_none=False):
-        result = self._validate(should_be_none=should_be_none)
+        result = self.diff(should_be_none=should_be_none)
 
         return result.valid

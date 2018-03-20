@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, NC_OPERATION,execute_on_pair
 
-from asr1k_neutron_l3.models.netconf_legacy import vrf as nc_vrf
+
 
 class VrfConstants(object):
     VRF = 'vrf'
@@ -66,9 +66,7 @@ class VrfDefinition(NyBase):
         else:
             self.address_family = {self.address_family:{}}
 
-        self.ncc = nc_vrf.Vrf(self)
-
-        self.disable_bgp = False #kwargs.get('disable_bgp',False)
+        self.enable_bgp = kwargs.get('enable_bgp',False)
 
 
     def to_dict(self):
@@ -79,26 +77,30 @@ class VrfDefinition(NyBase):
             definition[VrfConstants.DESCRIPTION] = self.description
         definition[VrfConstants.ADDRESS_FAMILY] = OrderedDict()
 
+        # Idealliy we would not have this, but the Yang API is very unpleasant in case you try to remove things
+        # hopefully
 
-        if not self.disable_bgp:
-            definition[VrfConstants.RD] = self.rd
-            for address_family in self.address_family.keys():
-                definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
-        else:
+        definition[VrfConstants.RD] = self.rd
+        for address_family in self.address_family.keys():
+            definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
 
-            for address_family in self.address_family.keys():
-                 definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
+
+        # if self.enable_bgp:
+        #     definition[VrfConstants.RD] = self.rd
+        #     for address_family in self.address_family.keys():
+        #         definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
+        # else:
+        #
+        #     for address_family in self.address_family.keys():
+        #          definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
 
 
         result = OrderedDict()
         result[VrfConstants.DEFINITION] = definition
-
         return dict(result)
 
 
     @execute_on_pair()
     def update(self,context=None):
-        # if self.disable_bgp:
-        #     self.ncc.disable_bgp(context)
 
         return super(VrfDefinition, self)._update(context=context,method=NC_OPERATION.PUT)

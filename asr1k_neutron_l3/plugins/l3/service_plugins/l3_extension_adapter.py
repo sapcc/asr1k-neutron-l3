@@ -26,6 +26,9 @@ from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.l3.schedulers import asr1k_scheduler_db
+from asr1k_neutron_l3.extensions import devices as devices_ext
+from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
+from neutron.db import agentschedulers_db
 
 LOG = log.getLogger(__name__)
 
@@ -35,8 +38,8 @@ class L3RpcNotifierMixin(object):
 
     @property
     def l3_rpc_notifier(self):
-        if not hasattr(self, '_l3_rpc_notifier'):
-            self._l3_rpc_notifier = l3_rpc_agent_api.L3AgentNotifyAPI()
+        if not hasattr(self, '_l3_rpc_notifier') or not isinstance(self._l3_rpc_notifier,ask1k_l3_notifier.ASR1KAgentNotifyAPI)  :
+            self._l3_rpc_notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
         return self._l3_rpc_notifier
 
     @l3_rpc_notifier.setter
@@ -61,10 +64,48 @@ class L3RpcNotifierMixin(object):
     def notify_router_deleted(self, context, router_id):
         self.l3_rpc_notifier.router_deleted(context, router_id)
 
+    @log_helpers.log_method_call
+    def notify_router_sync(self, context, router_id):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+        return notifier.router_sync(context, router_id)
+
+    @log_helpers.log_method_call
+    def notify_router_teardown(self, context, router_id):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
+        return notifier.router_teardown(context, router_id)
+
+    @log_helpers.log_method_call
+    def notify_router_validate(self, context, router_id):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
+        return notifier.router_validate(context, router_id)
+
+    @log_helpers.log_method_call
+    def notify_interface_statistics(self, context, router_id):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
+        return notifier.interface_statistics(context, router_id)
+
+
+
 
 class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
-                      dns_db.DNSDbMixin, L3RpcNotifierMixin):
+                      dns_db.DNSDbMixin, L3RpcNotifierMixin,devices_ext.DevicePluginBase):
+
+
+    def get_host_for_router(self, context, router_id):
+        """Returns all hosts to send notification about router update"""
+        agents = self.list_l3_agents_hosting_router(context, router_id)
+
+        agents_list = agents.get('agents',[])
+
+        if len(agents_list) == 1:
+            return agents_list[0].get('host')
+        else:
+            LOG.error('get host for router: there should be one and only one agent, got {}'.format(agents_list))
+
 
 
     @instrument()
@@ -123,6 +164,27 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
 
         return result
+
+
+    def validate(self, context, id, fields=None):
+        result = self.notify_router_validate(context, id)
+        return {'diffs': result}
+
+
+    def sync(self, context, id, fields=None):
+        result = self.notify_router_sync(context,id)
+        return {'device': {'id': result}}
+
+
+    def interface_statistics(self, context, id, fields=None):
+        result = self.notify_interface_statistics(context, id)
+        return {'interface_statistics': result}
+
+
+    def teardown(self, context, id, fields=None):
+        result = self.notify_router_teardown(context, id)
+        return {'device': {'id': result}}
+
 
     #
     # @log_helpers.log_method_call

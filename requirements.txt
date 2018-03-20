@@ -8,4 +8,6 @@ xmljson >=0.1.9
 xmltodict >= 0.11.0
 dictdiffer >=0.7.0
 
+osc-lib>=1.8.0 # Apache-2.0
+
 prometheus_client>=0.0.19

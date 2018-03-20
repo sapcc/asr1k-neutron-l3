@@ -32,15 +32,6 @@ class BasePrefix(base.Base):
 
         self.has_prefixes = False
 
-    def update(self):
-        self.rest_definition.update()
-
-    def delete(self):
-        self.rest_definition.delete()
-
-    def valid(self,should_be_none=False):
-        self.rest_definition.is_valid(should_be_none=should_be_none)
-
 
 class ExtPrefix(BasePrefix):
 
@@ -48,14 +39,14 @@ class ExtPrefix(BasePrefix):
         super(ExtPrefix,self).__init__(router_id=router_id,gateway_interface=gateway_interface, internal_interfaces=internal_interfaces)
         self.name = 'ext-{}'.format(self.vrf)
 
-        self.rest_definition = prefix.Prefix(name=self.name)
+        self._rest_definition = prefix.Prefix(name=self.name)
 
         if self.gateway_interface is not None:
             i = 0
             for subnet in self.gateway_interface.subnets:
                 self.has_prefixes = True
                 i+=1
-                self.rest_definition.add_seq(prefix.PrefixSeq(no=i*10,permit_ip=subnet.get('cidr')))
+                self._rest_definition.add_seq(prefix.PrefixSeq(no=i*10,permit_ip=subnet.get('cidr')))
 
 
 
@@ -65,11 +56,11 @@ class SnatPrefix(BasePrefix):
         super(SnatPrefix,self).__init__(router_id=router_id,gateway_interface=gateway_interface, internal_interfaces=internal_interfaces)
         self.name = 'snat-{}'.format(self.vrf)
 
-        self.rest_definition = prefix.Prefix(name=self.name)
+        self._rest_definition = prefix.Prefix(name=self.name)
         i=0
         for interface in self.internal_interfaces:
             i += 1
             for subnet in interface.subnets:
                 self.has_prefixes = True
-                self.rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
+                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
                 i += 1
