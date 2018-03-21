@@ -202,6 +202,7 @@ class DynamicNat(NatBase):
         self.redundancy=None
         self.raise_on_delete = False
         self.raise_on_update = False
+        self.raise_on_create = False
 
     def to_dict(self):
         entry = OrderedDict()
