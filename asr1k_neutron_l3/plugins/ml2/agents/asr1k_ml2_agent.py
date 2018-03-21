@@ -267,6 +267,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
 
     def _deleted_ports(self, succeeded, failed):
+        LOG.debug("Callback to delete extra atts for {}".format(succeeded))
+
         self.agent_rpc.delete_extra_atts(self.context, succeeded)
 
     @log_helpers.log_method_call

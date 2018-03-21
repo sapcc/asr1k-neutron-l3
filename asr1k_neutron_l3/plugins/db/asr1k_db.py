@@ -81,6 +81,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             for row in query.all():
                 result.append({'id': row.id,
+                               'port_id': row.id,
                                'network_id': row.network_id,
                                'router_id': row.router_id,
                                'segmentation_id': row.segmentation_id,
@@ -187,23 +188,23 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         delete = False
 
         extra_att = self.get_extra_att(context, port_id)
-
         if extra_att is not None:
             if l3 is not None and extra_att.deleted_l2 and l3:
                 delete = True
             elif l2 is not None and extra_att.deleted_l3 and l2:
                 delete = True
 
-            if delete:
-                with context.session.begin(subtransactions=True):
-                    context.session.delete(extra_att)
-            else:
-                updates = {}
-                if l2: updates['deleted_l2'] = l2
-                if l3: updates['deleted_l3'] = l3
+            with context.session.begin(subtransactions=True):
+                if delete:
 
-                extra_att.update(updates)
-                extra_att.save(context.session)
+                        context.session.delete(extra_att)
+                else:
+                    updates = {}
+                    if l2: updates['deleted_l2'] = l2
+                    if l3: updates['deleted_l3'] = l3
+
+                    extra_att.update(updates)
+                    extra_att.save(context.session)
 
 
 class ExtraAttsDb(object):

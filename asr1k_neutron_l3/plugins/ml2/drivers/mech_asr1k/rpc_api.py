@@ -70,6 +70,8 @@ class ASR1KPluginCallback(object):
 
     @log_helpers.log_method_call
     def delete_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
+        LOG.debug("Deleting extra atts for ports {}".format(ports))
+
         for port_id in ports:
             self.db.delete_extra_att(self.context, port_id, l2=True)
 

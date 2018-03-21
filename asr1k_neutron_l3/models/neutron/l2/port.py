@@ -71,7 +71,8 @@ class Port(object):
     def __init__(self, port_info):
         self.port_info = port_info
         self.config = asr1k_pair.ASR1KPair().config
-        self.id = self.port_info.get('id')
+
+        self.id = self.port_info.get('port_id')
 
         self.service_instance = self.port_info.get('service_instance')
         self.bridge_domain = self.port_info.get('bridge_domain')
