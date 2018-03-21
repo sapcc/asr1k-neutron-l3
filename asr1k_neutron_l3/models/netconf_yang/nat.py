@@ -201,6 +201,7 @@ class DynamicNat(NatBase):
         self.mapping_id = utils.uuid_to_mapping_id(self.vrf)
         self.redundancy=None
         self.raise_on_delete = False
+        self.raise_on_update = False
 
     def to_dict(self):
         entry = OrderedDict()
