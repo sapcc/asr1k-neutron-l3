@@ -17,6 +17,7 @@
 from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
+from asr1k_neutron_l3.models.netconf_legacy import l3_interface as nc_l3_interface
 
 class L3Constants(object):
     INTERFACE = "interface"
@@ -78,7 +79,7 @@ class BDIInterface(NyBase):
 
     def __init__(self, **kwargs):
         super(BDIInterface, self).__init__(**kwargs)
-        # self.ncc = nc_l3_interface.BDIInterface(self)
+        self.ncc = nc_l3_interface.BDIInterface(self)
 
     def to_dict(self):
         bdi = OrderedDict()
@@ -86,8 +87,6 @@ class BDIInterface(NyBase):
         bdi[L3Constants.DESCRIPTION] = self.description
         bdi[L3Constants.MAC_ADDRESS] = self.mac_address
         bdi[L3Constants.MTU] = self.mtu
-
-
         if self.shutdown:
             bdi[L3Constants.SHUTDOWN] = ''
 
@@ -115,19 +114,19 @@ class BDIInterface(NyBase):
 
         return dict(result)
 
-    @retry_on_failure()
-    def _create(self,context=None):
-        # Handle shutdown, to get this managed in yang the object first must be created in yang with
-        # shutdown explicitly set, it can then by no shut but omitting the shutdown flag and replaceing (putting)
-        # the model.
 
-        self.shutdown = True
-        connection = self._get_connection(context)
-        result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT))
-        self.shutdown = False
-        result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT))
+
+    @execute_on_pair()
+    def update(self,context=None):
+        result = super(BDIInterface, self)._update(context=context)
+        self.ncc.update(context)
         return result
 
+    @execute_on_pair()
+    def create(self,context=None):
+        result = super(BDIInterface, self)._create(context=context)
+        self.ncc.update(context)
+        return result
 
 class BDISecondaryIpAddress(NyBase):
     ITEM_KEY = L3Constants.SECONDARY
@@ -210,7 +209,6 @@ class BDISecondaryIpAddress(NyBase):
         secondary[L3Constants.MASK] = self.mask
         secondary['secondary'] = ''
         ip[L3Constants.SECONDARY] = secondary
-
 
         return ip
 

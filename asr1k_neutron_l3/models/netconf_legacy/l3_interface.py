@@ -22,42 +22,23 @@ class BDIInterface(ncc_base.NccBase):
 
     @retry_on_failure()
     def update(self, context):
-        self.enable_nat(context)
+        self.no_shutdown(context)
 
-    def disable_nat(self, context):
+    def no_shutdown(self, context):
         try:
-            config = ADD_NAT_TO_BDI.format(**{'id': self.base.id, 'nat_mode': self.base.nat_mode})
-            self._edit_running_config(context, config, 'REMOVE_NAT_FROM_BDI')
+            config = NO_SHUTDOWN.format(**{'id': self.base.id})
+            self._edit_running_config(context, config, 'NO_SHUTDOWN')
         finally:
             if self._ncc_connection is not None:
                 self._ncc_connection.close_session()
 
 
-    def enable_nat(self, context):
-        try:
-            config = ADD_NAT_TO_BDI.format(**{'id': self.base.id, 'nat_mode': self.base.nat_mode})
-            self._edit_running_config(context, config, 'ADD_NAT_TO_BDI')
-        finally:
-            if self._ncc_connection is not None:
-                self._ncc_connection.close_session()
-
-
-ADD_NAT_TO_BDI = """
+NO_SHUTDOWN = """
 <config>
         <cli-config-data>
             <cmd>interface BDI{id}</cmd>
-            <cmd>ip nat {nat_mode}</cmd>
             <cmd>no shutdown</cmd>
         </cli-config-data>
 </config>
 """
 
-REMOVE_NAT_FROM_BDI = """
-<config>
-        <cli-config-data>
-            <cmd>interface BDI{id}</cmd>
-            <cmd>no ip nat {nat_mode}</cmd>
-            <cmd>no shutdown</cmd>
-        </cli-config-data>
-</config>
-"""
