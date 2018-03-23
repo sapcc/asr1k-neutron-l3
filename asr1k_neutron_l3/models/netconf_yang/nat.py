@@ -259,6 +259,25 @@ class StaticNat(NatBase):
                   </native>
                 """
 
+    GLOBAL_IP_FILTER = """
+                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                    <ip>
+                      <ios-nat:nat>
+                        <ios-nat:inside>
+                          <ios-nat:source>
+                            <ios-nat:static>
+                              <ios-nat:nat-static-transport-list>
+                                <ios-nat:global-ip>{global_ip}</ios-nat:global-ip>
+                              </ios-nat:nat-static-transport-list>
+                            </ios-nat:static>
+                          </ios-nat:source>
+                        </ios-nat:inside>
+                      </ios-nat:nat>
+                    </ip>
+                  </native>
+                """
+
+
     ALL_FILTER = """
                   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
                     <ip>
@@ -298,6 +317,10 @@ class StaticNat(NatBase):
         return cls.ID_FILTER.format(**{'local_ip': kwargs.get('local_ip'),'global_ip':kwargs.get('global_ip')})
 
     @classmethod
+    def get_global_ip_filter(cls,**kwargs):
+        return cls.ID_FILTER.format(**{'global_ip':kwargs.get('global_ip')})
+
+    @classmethod
     def get_all_filter(cls,**kwargs):
         return cls.ALL_FILTER.format(**{'vrf': kwargs.get('vrf')})
 
@@ -311,6 +334,8 @@ class StaticNat(NatBase):
     @execute_on_pair(return_raw=True)
     def get_all(cls,filter={}, context=None):
         return super(StaticNat, cls)._get_all(filter=filter, context=context)
+
+
 
     @classmethod
     @execute_on_pair(return_raw=True)
@@ -388,9 +413,24 @@ class StaticNat(NatBase):
     @execute_on_pair()
     def update(self, context=None):
 
+        self._check_and_clean_global_ip(context=context)
+
         result = super(StaticNat, self)._update(context=context)
         self.ncc.update(context)
         return result
+
+    def _check_and_clean_global_ip(self,context):
+
+        filter = self.GLOBAL_IP_FILTER.format(**{'global_ip':self.global_ip})
+
+        nats = self._get_all(nc_filter=filter,context=context)
+
+        for nat in nats:
+            if nat.global_ip == self.global_ip and nat.vrf != self.vrf:
+                LOG.info('Removing invalid mapping {} > {} in VRF {}'.format(nat.local_ip,nat.global_ip, nat.vrf))
+                nat._delete(context)
+
+
 
     @execute_on_pair()
     def delete(self, context=None):
