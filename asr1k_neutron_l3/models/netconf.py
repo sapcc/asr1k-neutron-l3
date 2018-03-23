@@ -14,12 +14,52 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import socket
+
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
+from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable
 
 from ncclient import manager
 from oslo_log import log as logging
+from paramiko.client import SSHClient,AutoAddPolicy
+from ncclient.operations.errors import TimeoutExpiredError
+from ncclient.transport.errors import SSHError
 
 LOG = logging.getLogger(__name__)
+
+
+def ssh_connect(context,legacy):
+    connect = None
+    try:
+        if legacy:
+            port = context.legacy_port
+        else:
+            port = context.yang_port
+        #LOG.debug("Checking device connectivity.")
+        client = SSHClient()
+        client.set_missing_host_key_policy(AutoAddPolicy())
+        connect = client.connect(context.host,port=port,username=context.username,password=context.password,timeout=0.5)
+        #LOG.debug("Connection to {} on port {} successful".format(context.host,port))
+    except Exception as e:
+        if isinstance(e,socket.error):
+            return False
+    finally:
+        if connect is not None:
+            connect.close()
+
+
+    return True
+
+def check_devices():
+    for context in ASR1KPair().contexts:
+        device_reachable = ssh_connect(context, False) and ssh_connect(context, True)
+        if not device_reachable:
+            context.alive = device_reachable
+            LOG.debug("Device {} is not reachable, marked as dead".format(context.host))
+        else:
+            if not context.alive:
+                context.alive = device_reachable
+                LOG.debug("Device {} is now reachable, marked as alive".format(context.host))
 
 class ConnectionPool(object):
     __instance = None
@@ -68,12 +108,14 @@ class NCConnection(object):
 
          try:
              if self._ncc_connection is None or not self._ncc_connection.connected:
-
-                 LOG.debug("***** new Connection to {}  legacy = {}".format(self.context.host,self.legacy))
                  self._ncc_connection = self._connect(self.context)
-
          except Exception as e:
-             raise e
+            if isinstance(e,TimeoutExpiredError):
+                self.context.alive = False
+            elif isinstance(e, SSHError):
+                self.context.alive = False
+            raise e
+
 
          return self._ncc_connection
 
@@ -94,19 +136,27 @@ class NCConnection(object):
 
     def close(self):
         if self._ncc_connection is not None and self._ncc_connection.connected:
-            #close session is not playing nicely with eventlet
-            pass
-            # self._ncc_connection.close_session()
+            #close session is not playing nicely with eventlet so try paramiko directly
+            LOG.debug("Closing session {} to {}  legacy = {} at the request of the client".format(
+                self._ncc_connection.session_id, self.context.host, self.legacy))
+            if self._ncc_connection._session is not None and self._ncc_connection._session._transport is not None:
+                self._ncc_connection._session._transport.close()
+            self._ncc_connection = None
 
 
     def get(self,filter=''):
-        return self.connection.get(filter=('subtree', filter))
+        if self.context.alive:
+            return self.connection.get(filter=('subtree', filter))
+        else :
+            raise DeviceUnreachable(host=self.context.host)
 
 
     def edit_config(self,config='',target='running'):
         # with self.connection.locked(target):
-        return self.connection.edit_config(target=target, config=config)
-
+        if self.context.alive:
+            return self.connection.edit_config(target=target, config=config)
+        else :
+            raise DeviceUnreachable(host=self.context.host)
 
 class YangConnection(NCConnection):
     def __init__(self,context):

@@ -65,6 +65,7 @@ from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
+from asr1k_neutron_l3.models import netconf
 from asr1k_neutron_l3.plugins.l3.agents import operations
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -261,7 +262,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         self.pause_process = False
         self.sync_routers_chunk_size = cfg.CONF.asr1k_l3.sync_chunk_size
 
-        self.asr1k_pair = asr1k_pair.ASR1KPair(self.conf)
+        self.asr1k_pair = asr1k_pair.ASR1KPair()
 
         self._queue = queue.RouterProcessingQueue()
         self._requeue = {}
@@ -364,6 +365,10 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
     def router_added_to_agent(self, context, payload):
         pass
 
+    @periodic_task.periodic_task(spacing=1, run_immediately=True)
+    def check_devices_alive(self,context):
+        LOG.debug('Checking device states')
+        netconf.check_devices()
 
     @periodic_task.periodic_task(spacing=30, run_immediately=True)
     def periodic_sync_routers_task(self, context):
@@ -392,7 +397,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
             for i in range(0, len(router_ids), self.sync_routers_chunk_size):
                 routers = self.plugin_rpc.get_routers(
                     context, router_ids[i:i + self.sync_routers_chunk_size])
-                LOG.debug('Processing :%r', routers)
+                LOG.debug('Syncing {} routers in regular sync loop'.format(len(routers)))
                 for r in routers:
                     curr_router_ids.add(r['id'])
                     update = queue.RouterUpdate(

@@ -18,6 +18,10 @@ class Asr1kException(BaseException):
     pass
 
 
+class DeviceUnreachable(BaseException):
+    message = "Device %(host)s is not reachable"
+    def __init__(self, **kwargs):
+        self.host = kwargs.get('host')
 
 class DeviceOperationException(Asr1kException):
 

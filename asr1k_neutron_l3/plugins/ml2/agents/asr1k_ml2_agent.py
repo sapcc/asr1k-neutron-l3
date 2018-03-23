@@ -39,6 +39,7 @@ from asr1k_neutron_l3.common import config
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.models import asr1k_pair
+from asr1k_neutron_l3.models import netconf
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api
 from asr1k_neutron_l3.models.neutron.l2 import port as l2_port
 
@@ -96,7 +97,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         self.setup_rpc()
 
-        self.asr1k_pair = asr1k_pair.ASR1KPair(self.conf)
+        self.asr1k_pair = asr1k_pair.ASR1KPair()
 
         report_interval = 30
         heartbeat = loopingcall.FixedIntervalLoopingCall(self._report_state)
@@ -250,6 +251,9 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
     @instrument()
     def sync_known_ports(self):
+
+        LOG.debug('Checking device states')
+        netconf.check_devices()
 
         if self.sync_active:
             interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)

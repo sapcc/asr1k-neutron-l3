@@ -34,6 +34,8 @@ from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict
 from ncclient.operations.rpc import RPCError
 from ncclient.transport.errors import SessionCloseError
 from ncclient.transport.errors import SSHError
+from ncclient.operations.errors import TimeoutExpiredError
+
 
 LOG = logging.getLogger(__name__)
 
@@ -70,6 +72,7 @@ class execute_on_pair(object):
         try:
 
             response = method(*args, **kwargs)
+
             # if we wrap in a wrapped method return the
             # base result
             if isinstance(response, self.result_type):
@@ -77,8 +80,10 @@ class execute_on_pair(object):
             else:
                 result.append( kwargs.get('context'), response)
 
+
+
         except BaseException as e:
-            LOG.exception(e )
+            LOG.exception(e)
             result.append(kwargs.get('context'), e)
 
     def __call__(self, method):
@@ -98,8 +103,6 @@ class execute_on_pair(object):
                     kwargs['_result'] = result
 
                     pool.spawn_n(self._execute_method,*args,**kwargs)
-
-
                 pool.waitall()
 
             else:
@@ -157,8 +160,17 @@ class retry_on_failure(object):
                         retries += 1
                     else:
                         return result
+                except exc.DeviceUnreachable as e:
+                    if context is not None:
+                        context.alive = False
+                    break
 
-                except (RPCError , SessionCloseError,SSHError) as e:
+                except (RPCError , SessionCloseError,SSHError,TimeoutExpiredError) as e:
+
+                    if isinstance(e, TimeoutExpiredError):
+                        # close and re-establish connection
+                        connection = args[0]._get_connection(context)
+                        connection.close()
 
                     if isinstance(e,RPCError):
                         if e.tag in  ['data-missing']:
@@ -190,7 +202,7 @@ class PairResult(object):
         self.operation = operation
         self.results = {}
         self.errors = {}
-        self.show_success = False
+        self.show_success = True
         self.show_failure = True
 
     def append(self, context, response):
@@ -533,54 +545,63 @@ class NyBase(xml_utils.XMLUtils):
 
     @classmethod
     def _get(cls,**kwargs):
-        nc_filter = kwargs.get('nc_filter')
-        if nc_filter is None:
-            nc_filter = cls.get_primary_filter(**kwargs)
+        try:
+            nc_filter = kwargs.get('nc_filter')
+            if nc_filter is None:
+                nc_filter = cls.get_primary_filter(**kwargs)
 
-        connection = cls._get_connection(kwargs.get('context'))
-        result =  connection.get(filter=nc_filter)
+            connection = cls._get_connection(kwargs.get('context'))
+            result =  connection.get(filter=nc_filter)
 
-        json = cls.to_json(result.xml)
+            json = cls.to_json(result.xml)
 
+            if json is not None:
+                json = json.get(cls.ITEM_KEY, json)
 
-        if json is not None:
-            json = json.get(cls.ITEM_KEY, json)
+                result = cls.from_json(json)
 
-            result = cls.from_json(json)
+                #Add missing primary keys from get
 
-            #Add missing primary keys from get
+                cls.__ensure_primary_keys(result, **kwargs)
 
-            cls.__ensure_primary_keys(result, **kwargs)
-
-            return result
-
+                return result
+        except exc.DeviceUnreachable:
+            pass
 
     @classmethod
     def _get_all(cls,**kwargs):
-        nc_filter = kwargs.get('nc_filter')
-        if nc_filter is None:
-            nc_filter = cls.get_all_filter(**kwargs.get('filter'))
-        connection = cls._get_connection(kwargs.get('context'))
-        result = connection.get(filter=nc_filter)
-
-        json = cls.to_json(result.xml)
         result = []
-        if json is not None:
-            json = json.get(cls.ITEM_KEY, json)
+        try:
+            nc_filter = kwargs.get('nc_filter')
+            if nc_filter is None:
+                nc_filter = cls.get_all_filter(**kwargs.get('filter'))
+            connection = cls._get_connection(kwargs.get('context'))
+            rpc_result = connection.get(filter=nc_filter)
 
-            if isinstance(json,list):
+            json = cls.to_json(rpc_result.xml)
 
-                for item in json:
-                    result.append(cls.from_json(item))
-            else:
+            if json is not None:
+                json = json.get(cls.ITEM_KEY, json)
 
-                result.append(cls.from_json(json))
+                if isinstance(json,list):
 
-            #Add missing primary keys from get
+                    for item in json:
+                        result.append(cls.from_json(item))
+                else:
+
+                    result.append(cls.from_json(json))
+
+                #Add missing primary keys from get
 
 
-            for item in result:
-                cls.__ensure_primary_keys(item,**kwargs)
+                for item in result:
+                    cls.__ensure_primary_keys(item,**kwargs)
+        except exc.DeviceUnreachable:
+            pass
+        except Exception as e:
+            LOG.exception(e)
+
+
         return result
 
     @classmethod
@@ -650,8 +671,8 @@ class NyBase(xml_utils.XMLUtils):
 
     @retry_on_failure()
     def _update(self, context=None,method=NC_OPERATION.PATCH):
+        if len(self._internal_validate(context=context)) > 0 :
 
-        if not self._validate(context=context).valid:
             # print "{} device configuration {} invalid or missing updating".format(self.__class__.__name__,context.host)
             if not self._internal_exists(context):
                 return self._create(context=context)
@@ -679,8 +700,7 @@ class NyBase(xml_utils.XMLUtils):
             result = connection.edit_config(config=self.to_xml(json=json,operation=method))
             return result
 
-    @execute_on_pair(result_type=DiffResult)
-    def _validate(self,should_be_none=False,context=None):
+    def _internal_validate(self,should_be_none=False, context=None):
         device_config = self._internal_get(context=context)
 
         if should_be_none:
@@ -688,6 +708,11 @@ class NyBase(xml_utils.XMLUtils):
                 return []
 
         return self._diff(device_config)
+
+
+    @execute_on_pair(result_type=DiffResult)
+    def _validate(self,should_be_none=False,context=None):
+        return self._internal_validate(should_be_none=False,context=None)
 
 
 

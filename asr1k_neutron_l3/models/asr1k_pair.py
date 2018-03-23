@@ -15,6 +15,7 @@
 #    under the License.
 
 from oslo_log import log as logging
+from oslo_config import cfg
 from asr1k_neutron_l3.common import config as asr1k_config
 
 LOG = logging.getLogger(__name__)
@@ -37,20 +38,24 @@ class ASR1KContext(object):
         self.headers = headers
         self.headers['content-type'] = headers.get('content-type', "application/yang-data+json")
         self.headers['accept'] = headers.get('accept', "application/yang-data+json")
-
+        self.alive = True
 
 class ASR1KPair(object):
 
-    def __new__(cls, config=None):
+    __instance = None
 
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(ASR1KPair, cls).__new__(cls, config=config)
+    def __new__(cls):
+        if ASR1KPair.__instance is None:
+            ASR1KPair.__instance = object.__new__(cls)
+            ASR1KPair.__instance.__setup()
 
-        return cls.instance
+        return ASR1KPair.__instance
 
-    def __init__(self, config=None):
-        if config is not None:
-            self.config = config
+
+    def __setup(self):
+
+
+        self.config = cfg.CONF
         self.contexts = []
 
         device_config = asr1k_config.create_device_pair_dictionary()

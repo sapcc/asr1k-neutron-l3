@@ -26,7 +26,7 @@ DEVICE_OPTS = [
     cfg.IntOpt('http_port', default=(443), help=('')),
     cfg.IntOpt('yang_port', default=(830), help=('')),
     cfg.IntOpt('legacy_port', default=(22), help=('')),
-    cfg.IntOpt('nc_timeout', default=(30), help=('')),
+    cfg.IntOpt('nc_timeout', default=(2), help=('')),
     cfg.StrOpt('user_name', default=('admin'), help=('')),
     cfg.StrOpt('password', default=('secret'), help=('')),
 

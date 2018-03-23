@@ -53,7 +53,7 @@ class BaseAction(object):
         if namespace.log:
             config.setup_logging()
         self.context = n_context.get_admin_context_without_session()
-        self.asr1k_pair = asr1k_pair.ASR1KPair(self.conf)
+        self.asr1k_pair = asr1k_pair.ASR1KPair()
         self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, self.host)
         self.l2_plugin_rpc = ASR1KPluginApi(self.context)
 
