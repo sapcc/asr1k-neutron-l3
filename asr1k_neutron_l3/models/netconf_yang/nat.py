@@ -259,7 +259,7 @@ class StaticNat(NatBase):
                   </native>
                 """
 
-    GLOBAL_IP_FILTER = """
+    MAPPING_ID_FILTER = """
                   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
                     <ip>
                       <ios-nat:nat>
@@ -267,7 +267,7 @@ class StaticNat(NatBase):
                           <ios-nat:source>
                             <ios-nat:static>
                               <ios-nat:nat-static-transport-list>
-                                <ios-nat:global-ip>{global_ip}</ios-nat:global-ip>
+                                <ios-nat:mapping-id>{mapping_id}</ios-nat:mapping-id>
                               </ios-nat:nat-static-transport-list>
                             </ios-nat:static>
                           </ios-nat:source>
@@ -276,6 +276,26 @@ class StaticNat(NatBase):
                     </ip>
                   </native>
                 """
+
+    LOCAL_IP_FILTER = """
+                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                    <ip>
+                      <ios-nat:nat>
+                        <ios-nat:inside>
+                          <ios-nat:source>
+                            <ios-nat:static>
+                              <ios-nat:nat-static-transport-list>
+                                <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
+                                <ios-nat:vrf>{vrf}</ios-nat:vrf> 
+                              </ios-nat:nat-static-transport-list>
+                            </ios-nat:static>
+                          </ios-nat:source>
+                        </ios-nat:inside>
+                      </ios-nat:nat>
+                    </ip>
+                  </native>
+                """
+
 
 
     ALL_FILTER = """
@@ -413,21 +433,32 @@ class StaticNat(NatBase):
     @execute_on_pair()
     def update(self, context=None):
 
-        self._check_and_clean_global_ip(context=context)
-
+        self._check_and_clean_mapping_id(context=context)
+        self._check_and_clean_local_ip(context=context)
         result = super(StaticNat, self)._update(context=context)
         self.ncc.update(context)
         return result
 
-    def _check_and_clean_global_ip(self,context):
-
-        filter = self.GLOBAL_IP_FILTER.format(**{'global_ip':self.global_ip})
+    def _check_and_clean_mapping_id(self,context):
+        # check if mapping ID is already in use in another VRF: if so its orphaned and should be removed
+        filter = self.MAPPING_ID_FILTER.format(**{'mapping_id':self.mapping_id})
 
         nats = self._get_all(nc_filter=filter,context=context)
 
         for nat in nats:
-            if nat.global_ip == self.global_ip and nat.vrf != self.vrf:
-                LOG.info('Removing invalid mapping {} > {} in VRF {}'.format(nat.local_ip,nat.global_ip, nat.vrf))
+            if nat.vrf != self.vrf:
+                LOG.info('Removing invalid global mapping {} > {} in VRF {} for mapping id {}'.format(nat.local_ip,nat.global_ip, nat.vrf,self.mapping_id))
+                nat._delete(context)
+
+    def _check_and_clean_local_ip(self,context):
+        # check if local IP is already mapped in VRF: if so its orphaned and should be removed
+        filter = self.LOCAL_IP_FILTER.format(**{'local_ip':self.local_ip,'vrf':self.vrf})
+
+        nats = self._get_all(nc_filter=filter,context=context)
+
+        for nat in nats:
+            if nat.local_ip != self.local_ip:
+                LOG.info('Removing invalid local mapping {} > {} in VRF {}'.format(nat.local_ip,nat.global_ip, nat.vrf))
                 nat._delete(context)
 
 
