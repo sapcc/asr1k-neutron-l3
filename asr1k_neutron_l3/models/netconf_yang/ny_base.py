@@ -169,8 +169,9 @@ class retry_on_failure(object):
 
                     if isinstance(e, TimeoutExpiredError):
                         # close and re-establish connection
-                        connection = args[0]._get_connection(context)
-                        connection.close()
+                        if context is not None:
+                            connection = args[0]._get_connection(context)
+                            connection.close()
 
                     if isinstance(e,RPCError):
                         if e.tag in  ['data-missing']:
@@ -183,6 +184,8 @@ class retry_on_failure(object):
                             raise exc.InternalErrorException(host=host, entity = args[0],operation = f.__name__)
                         elif e.tag in ['in-use']:  # Lock
                             pass  # retry on lock
+                        else:
+                            LOG.debug(e.to_dict())
                     else:
                         LOG.exception(e)
                     time.sleep(self.retry_interval)
