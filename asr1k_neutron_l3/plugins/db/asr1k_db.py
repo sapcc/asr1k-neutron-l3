@@ -127,6 +127,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             for row in query.all():
                 result.append({'id': row.id,
+                               'port_id': row.id,
                                'network_id': row.network_id,
                                'router_id': row.router_id,
                                'segmentation_id': row.segmentation_id,
