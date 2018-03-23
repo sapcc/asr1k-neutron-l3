@@ -25,12 +25,8 @@ class BDIInterface(ncc_base.NccBase):
         self.no_shutdown(context)
 
     def no_shutdown(self, context):
-        try:
-            config = NO_SHUTDOWN.format(**{'id': self.base.id})
-            self._edit_running_config(context, config, 'NO_SHUTDOWN')
-        finally:
-            if self._ncc_connection is not None:
-                self._ncc_connection.close_session()
+        config = NO_SHUTDOWN.format(**{'id': self.base.id})
+        self._edit_running_config(context, config, 'NO_SHUTDOWN')
 
 
 NO_SHUTDOWN = """

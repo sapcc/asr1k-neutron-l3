@@ -30,7 +30,6 @@ class NccBase(object):
     def __init__(self, base):
         self.base = base
 
-        self._ncc_connection = None
 
     def _edit_running_config(self, context, conf_str, snippet):
         connection = self._get_connection(context)
@@ -47,7 +46,7 @@ class NccBase(object):
             connection.close()
 
     def _get_connection(self, context):
-        return ConnectionPool().get_connection(context.host,legacy=True)
+        return ConnectionPool().get_connection(context,legacy=True)
 
     def _check_response(self, rpc_obj, snippet_name, conf_str=None):
         LOG.debug("RPCReply for %(snippet_name)s is %(rpc_obj)s",

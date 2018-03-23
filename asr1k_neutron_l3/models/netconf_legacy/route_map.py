@@ -21,15 +21,8 @@ class RouteMap(ncc_base.NccBase):
 
     @retry_on_failure()
     def delete(self, context):
-        try:
-
-
-            config = CLEAR_ROUTE_MAP.format(**{'name':self.base.name})
-
-            self._edit_running_config(context, config, 'CLEAR_ROUTE_MAP')
-        finally:
-            if self._ncc_connection is not None:
-                self._ncc_connection.close_session()
+        config = CLEAR_ROUTE_MAP.format(**{'name':self.base.name})
+        self._edit_running_config(context, config, 'CLEAR_ROUTE_MAP')
 
 
 CLEAR_ROUTE_MAP = """

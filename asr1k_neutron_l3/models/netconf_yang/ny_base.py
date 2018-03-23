@@ -526,7 +526,7 @@ class NyBase(xml_utils.XMLUtils):
 
     @classmethod
     def _get_connection(cls, context):
-        return ConnectionPool().get_connection(context.host)
+        return ConnectionPool().get_connection(context)
 
 
     @classmethod

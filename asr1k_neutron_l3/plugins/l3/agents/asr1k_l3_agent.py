@@ -547,7 +547,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         return set(utils.get_router_ports(router)).issubset(extra_atts.keys())
 
     def _process_routers_loop(self):
-        pool = eventlet.GreenPool(size=8)
+        pool = eventlet.GreenPool(size=5)
         while True:
             pool.spawn_n(self._process_router_update)
 

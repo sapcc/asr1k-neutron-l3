@@ -15,7 +15,7 @@
 #    under the License.
 
 import socket
-
+from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable
 
@@ -64,6 +64,8 @@ def check_devices():
 class ConnectionPool(object):
     __instance = None
 
+
+
     def __new__(cls):
         if ConnectionPool.__instance is None:
             ConnectionPool.__instance = object.__new__(cls)
@@ -73,23 +75,41 @@ class ConnectionPool(object):
 
 
     def __setup(self):
+        self.lock = Lock()
+        self.pool_size = 5
         self.pair_config = ASR1KPair()
 
         self.devices = {}
 
         for context in self.pair_config.contexts:
-            self.devices['{}_yang'.format(context.host)] = YangConnection(context)
-            self.devices['{}_legacy'.format(context.host)] = LegacyConnection(context)
+            yang = []
+            legacy = []
+            for i in range(self.pool_size):
+                yang.append(YangConnection(context))
+                legacy.append(LegacyConnection(context))
 
-    def get_connection(self,host,legacy=False):
-        key = '{}_yang'.format(host)
+            self.devices['{}_yang'.format(context.host)] = yang
+            self.devices['{}_legacy'.format(context.host)] = legacy
+
+    def get_connection(self,context,legacy=False):
+        self.lock.acquire()
+
+        key = '{}_yang'.format(context.host)
         if legacy :
-            key = '{}_legacy'.format(host)
+            key = '{}_legacy'.format(context.host)
 
-        connection = self.devices.get(key)
+        connection = self.devices.get(key).pop(0)
+
+
+        if legacy:
+            self.devices.get(key).append(LegacyConnection(context))
+        else:
+            self.devices.get(key).append(connection)
 
         if connection is None:
             raise Exception('No connection can be found for {}'.format(key))
+
+        self.lock.release()
 
         return connection
 
@@ -137,12 +157,12 @@ class NCConnection(object):
     def close(self):
         if self._ncc_connection is not None and self._ncc_connection.connected:
             #close session is not playing nicely with eventlet so try paramiko directly
-            LOG.debug("Closing session {} to {}  legacy = {} at the request of the client".format(
-                self._ncc_connection.session_id, self.context.host, self.legacy))
             if self._ncc_connection._session is not None and self._ncc_connection._session._transport is not None:
+                LOG.debug("Closing session {} to {}  legacy = {} at the request of the client".format(
+                    self._ncc_connection._session.id, self.context.host, self.legacy))
                 self._ncc_connection._session._transport.close()
-            self._ncc_connection = None
 
+            self._ncc_connection = None
 
     def get(self,filter=''):
         if self.context.alive:
