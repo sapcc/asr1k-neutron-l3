@@ -92,7 +92,6 @@ class ConnectionPool(object):
             self.devices['{}_legacy'.format(context.host)] = legacy
 
     def get_connection(self,context,legacy=False):
-        self.lock.acquire()
 
         key = '{}_yang'.format(context.host)
         if legacy :
@@ -108,8 +107,6 @@ class ConnectionPool(object):
 
         if connection is None:
             raise Exception('No connection can be found for {}'.format(key))
-
-        self.lock.release()
 
         return connection
 
