@@ -44,7 +44,8 @@ ASR1K_L3_OPTS = [
     cfg.IntOpt('max_requeue_attempts', default=(10), help=('')),
     cfg.BoolOpt('sync_active', default=True, help=_("Activate regular config sync")),
     cfg.IntOpt('sync_interval', default=60, help=_("Polling interval for sync task")),
-    cfg.IntOpt('sync_chunk_size', default=10, help=_("Number of ports to process in on poll"))
+    cfg.IntOpt('sync_chunk_size', default=10, help=_("Number of ports to process in on poll")),
+    cfg.IntOpt('queue_timeout', default=60, help=_("Timeout for blocking of get on queue, waiting for item to puched onto queue")),
 
 ]
 

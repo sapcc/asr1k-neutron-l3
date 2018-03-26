@@ -59,7 +59,9 @@ from neutron.common import topics
 from neutron import context as n_context
 from neutron import manager
 
-from neutron.agent.l3 import router_processing_queue as queue
+# from neutron.agent.l3 import router_processing_queue as queue
+
+from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as queue
 
 from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1k_config, utils
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
@@ -296,8 +298,6 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
                     continue
             break
 
-        self._queue = queue.RouterProcessingQueue()
-        self.retry_tracker = {}
 
         self.target_ex_net_id = None
         self.use_ipv6 = ipv6_utils.is_enabled()
@@ -547,7 +547,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         return set(utils.get_router_ports(router)).issubset(extra_atts.keys())
 
     def _process_routers_loop(self):
-        pool = eventlet.GreenPool(size=5)
+        pool = eventlet.GreenPool(size=8)
         while True:
             pool.spawn_n(self._process_router_update)
 
@@ -658,10 +658,10 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
             LOG.exception(_LE("Failed reporting state!"))
 
     def after_start(self):
-        eventlet.spawn_n(self._process_routers_loop)
-        LOG.info(_LI("L3 agent started"))
         # Do the report state before we do the first full sync.
         self._report_state()
+        eventlet.spawn_n(self._process_routers_loop)
+        LOG.info(_LI("L3 agent started"))
 
     def agent_updated(self, context, payload):
         """Handle the agent_updated notification event."""
