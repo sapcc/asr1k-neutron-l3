@@ -204,6 +204,9 @@ class DynamicNat(NatBase):
         self.raise_on_update = False
         self.raise_on_create = False
 
+        self.ncc = nc_nat.DynamicNat(self)
+
+
     def to_dict(self):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
@@ -237,6 +240,12 @@ class DynamicNat(NatBase):
         result[NATConstants.LIST].append(entry)
 
         return dict(result)
+
+    @execute_on_pair()
+    def delete(self, context=None):
+        self.ncc.delete(context)
+        return
+
 
 
 class StaticNat(NatBase):

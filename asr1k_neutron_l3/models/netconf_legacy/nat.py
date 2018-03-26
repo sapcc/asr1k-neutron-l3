@@ -30,6 +30,13 @@ class StaticNat(ncc_base.NccBase):
         self._edit_running_config(context, config, 'UPDATE_ARP')
 
 
+class DynamicNat(ncc_base.NccBase):
+
+    @retry_on_failure()
+    def delete(self, context):
+        config = DELETE_DYNAMIC_NAT_FORCED.format(**{'vrf': self.base.vrf,'bridge_domain':self.base.bridge_domain})
+        self._edit_running_config(context, config, 'DELETE_DYNAMIC_NAT_FORCED')
+
 
 UPDATE_ARP = """
 <config>
@@ -43,6 +50,15 @@ DELETE_ARP = """
 <config>
         <cli-config-data>
             <cmd>no arp vrf {vrf} {global_ip} {mac_address} ARPA alias</cmd>
+        </cli-config-data>
+</config>
+"""
+
+
+DELETE_DYNAMIC_NAT_FORCED = """
+<config>
+        <cli-config-data>
+            <cmd>no ip nat inside source list NAT-{vrf} interface BDI{bridge_domain} vrf {vrf} overload forced</cmd>
         </cli-config-data>
 </config>
 """
