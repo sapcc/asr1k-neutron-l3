@@ -59,9 +59,9 @@ from neutron.common import topics
 from neutron import context as n_context
 from neutron import manager
 
-# from neutron.agent.l3 import router_processing_queue as queue
+from neutron.agent.l3 import router_processing_queue as queue
 
-from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as queue
+from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
 
 from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1k_config, utils
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
@@ -266,7 +266,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
 
         self.asr1k_pair = asr1k_pair.ASR1KPair()
 
-        self._queue = queue.RouterProcessingQueue()
+        self._queue = asr1k_queue.RouterProcessingQueue()
         self._requeue = {}
 
         # Get the list of service plugins from Neutron Server
