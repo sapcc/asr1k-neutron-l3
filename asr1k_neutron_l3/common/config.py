@@ -46,6 +46,9 @@ ASR1K_L3_OPTS = [
     cfg.IntOpt('sync_interval', default=60, help=_("Polling interval for sync task")),
     cfg.IntOpt('sync_chunk_size', default=10, help=_("Number of ports to process in on poll")),
     cfg.IntOpt('queue_timeout', default=60, help=_("Timeout for blocking of get on queue, waiting for item to puched onto queue")),
+    cfg.IntOpt('update_timeout', default=120, help=_("Timeout for for one process routers update iteration")),
+    cfg.IntOpt('threadpool_maxsize', default=5, help=_("Size of thread pool used in router updates, needs to be balanced against ASR SSH connection limits"))
+
 
 ]
 
