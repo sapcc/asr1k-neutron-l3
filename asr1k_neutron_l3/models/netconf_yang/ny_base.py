@@ -710,7 +710,10 @@ class NyBase(xml_utils.XMLUtils):
             if device_config is None:
                 return []
 
-        return self._diff(device_config)
+        diff = self._diff(device_config)
+        LOG.debug("internal validate for {} produced {} diff(s)  {}".format(context.host, len(diff),diff))
+
+        return diff
 
 
     @execute_on_pair(result_type=DiffResult)
