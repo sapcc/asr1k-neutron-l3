@@ -144,7 +144,7 @@ class DynamicNat(NatBase):
                           <ios-nat:source>
                             <ios-nat:list>
                               <ios-nat:id>{id}</ios-nat:id>
-                              <vrf>{vrf}</vrf>
+                              <ios-nat:vrf>{vrf}</ios-nat:vrf>
                             </ios-nat:list>
                           </ios-nat:source>
                         </ios-nat:inside>
