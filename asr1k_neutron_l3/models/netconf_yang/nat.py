@@ -466,7 +466,7 @@ class StaticNat(NatBase):
         nats = self._get_all(nc_filter=filter,context=context)
 
         for nat in nats:
-            if nat.local_ip != self.local_ip:
+            if nat.global_ip != self.global_ip:
                 LOG.info('Removing invalid local mapping {} > {} in VRF {}'.format(nat.local_ip,nat.global_ip, nat.vrf))
                 nat._delete(context)
 
