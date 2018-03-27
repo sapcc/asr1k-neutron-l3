@@ -23,6 +23,7 @@ from collections import OrderedDict
 
 eventlet.debug.hub_exceptions(False)
 from oslo_log import log as logging
+from oslo_config import cfg
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.netconf import ConnectionPool
@@ -38,6 +39,11 @@ from ncclient.operations.errors import TimeoutExpiredError
 
 
 LOG = logging.getLogger(__name__)
+
+
+@property
+def debug_serialization():
+    return cfg.CONF.asr1k.debug_serialization
 
 
 class NC_OPERATION(object):
