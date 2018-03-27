@@ -15,10 +15,9 @@
 #    under the License.
 
 import json
-import six
+
 import xmltodict
 from collections import OrderedDict
-from oslo_config import cfg
 from oslo_log import log as logging
 
 ENCODING = '<?xml version="1.0" encoding="utf-8"?>'
@@ -44,10 +43,6 @@ CLI_CONFIG = 'cli-config-data'
 
 LOG = logging.getLogger(__name__)
 
-@property
-def debug_serialization():
-    return cfg.CONF.asr1k.debug_serialization
-
 
 class JsonDict(dict):
     def __str__(self):
@@ -68,11 +63,10 @@ class XMLUtils(object):
         NS_IETF_INTERFACE: None
     }
 
+
+
     @classmethod
     def to_json(cls,xml):
-        if debug_serialization:
-            LOG.debug("Base XML before JSON: {}".format(xml))
-
         result = xmltodict.parse(xml,process_namespaces=True,namespaces=cls.namespaces)
 
         result = cls.remove_wrapper(result)
@@ -85,9 +79,6 @@ class XMLUtils(object):
 
     @classmethod
     def remove_wrapper(cls,dict):
-        if debug_serialization:
-            LOG.debug("Base dict before wrapper removal: {}".format(dict))
-
         dict = cls._remove_base_wrapper(dict)
         if dict is None:
             return
@@ -96,6 +87,7 @@ class XMLUtils(object):
 
     @classmethod
     def _remove_base_wrapper(cls,dict):
+
 
         dict = dict.get(RPC_REPLY,dict)
         dict = dict.get(DATA, dict)
