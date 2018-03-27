@@ -41,25 +41,31 @@ class BaseNAT(base.Base):
 
 class DynamicNAT(BaseNAT):
 
-    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None,nat_all=False):
+    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None):
         super(DynamicNAT, self).__init__(router_id, gateway_interface,redundancy, mapping_id)
 
 
         self.interfaces = interfaces
 
-        self.specific_acl= False
-        if gateway_interface is not None:
-            for interface in self.interfaces.internal_interfaces:
-                if interface.address_scope == gateway_interface.address_scope:
-                    self.specific_acl = True
-                    break
+        self.specific_acl= True
 
-        if self.specific_acl:
-            self.id = utils.vrf_to_access_list_id(self.router_id)
-            self.old_id = 'nat-all'
-        else:
-            self.old_id = utils.vrf_to_access_list_id(self.router_id)
-            self.id = 'nat-all'
+        # due to https://github.com/sapcc/asr1k-neutron-l3/issues/15 always use
+        # a vrf specific NAT ACL for now
+
+        # if gateway_interface is not None:
+        #     for interface in self.interfaces.internal_interfaces:
+        #         if interface.address_scope == gateway_interface.address_scope:
+        #             self.specific_acl = True
+        #             break
+
+        # if self.specific_acl:
+        #     self.id = utils.vrf_to_access_list_id(self.router_id)
+        #     self.old_id = 'nat-all'
+        # else:
+        #     self.old_id = utils.vrf_to_access_list_id(self.router_id)
+        #     self.id = 'nat-all'
+
+        self.id = utils.vrf_to_access_list_id(self.router_id)
 
 
     @property
@@ -73,33 +79,33 @@ class DynamicNAT(BaseNAT):
         nat = l3_nat.DynamicNat(id=self.id, vrf=self.router_id,bridge_domain=bridge_domain, redundancy=self.redundancy,
                                           mapping_id=self.mapping_id, overload=True)
 
-        old_nat = l3_nat.DynamicNat(id=self.old_id, vrf=self.router_id,bridge_domain=bridge_domain, redundancy=self.redundancy,
-                                          mapping_id=self.mapping_id, overload=True)
+        # old_nat = l3_nat.DynamicNat(id=self.old_id, vrf=self.router_id,bridge_domain=bridge_domain, redundancy=self.redundancy,
+        #                                   mapping_id=self.mapping_id, overload=True)
 
-
-        return nat,old_nat
-
-
-    def diff(self):
-
-        nat,old_nat = self._rest_definition
-        return nat.diff()
-
-    def get(self):
-        nat = l3_nat.DynamicNat.get(self.id)
 
         return nat
 
-    def update(self):
-        nat,old_nat = self._rest_definition
 
-        old_nat.delete()
-        nat.update()
-
-    def delete(self):
-        nat,old_nat = self._rest_definition
-        old_nat.delete()
-        nat.delete()
+    # def diff(self):
+    #
+    #     nat = self._rest_definition
+    #     return nat.diff()
+    #
+    # def get(self):
+    #     nat = l3_nat.DynamicNat.get(self.id)
+    #
+    #     return nat
+    #
+    # def update(self):
+    #     nat = self._rest_definition
+    #
+    #     # old_nat.delete()
+    #     nat.update()
+    #
+    # def delete(self):
+    #     nat = self._rest_definition
+    #     # old_nat.delete()
+    #     nat.delete()
 
 
 class FloatingIp(BaseNAT):
@@ -140,7 +146,7 @@ class FloatingIp(BaseNAT):
             self.mac_address = self.gateway_interface.mac_address
         self._rest_definition = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
                                         mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
-                                        redundancy=self.redundancy, mapping_id=self.mapping_id,mac_address=self.mac_address)
+                                        redundancy=self.redundancy, mapping_id=self.mapping_id,mac_address=self.mac_address,match_in_vrf=True)
 
 
     def get(self):

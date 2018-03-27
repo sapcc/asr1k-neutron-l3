@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 from oslo_log import log as logging
 from asr1k_neutron_l3.models.netconf_legacy import nat as nc_nat
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE,NC_OPERATION
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.common import utils
 
@@ -165,7 +165,7 @@ class DynamicNat(NatBase):
             {'key': 'bridge_domain','yang-key':'BDI','yang-path':'interface'},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
-            {'key': 'overload','default':True,'yang-type':YANG_TYPE.EMPTY}
+            {'key': 'overload','default':False,'yang-type':YANG_TYPE.EMPTY}
         ]
 
 
@@ -184,6 +184,8 @@ class DynamicNat(NatBase):
 
         dict = dict.get(cls.LIST_KEY, dict)
 
+        print dict
+
         return dict
 
     def _wrapper_preamble(self,dict):
@@ -200,9 +202,6 @@ class DynamicNat(NatBase):
         super(DynamicNat, self).__init__(**kwargs)
         self.mapping_id = utils.uuid_to_mapping_id(self.vrf)
         self.redundancy=None
-        self.raise_on_delete = False
-        self.raise_on_update = False
-        self.raise_on_create = False
 
         self.ncc = nc_nat.DynamicNat(self)
 
@@ -240,6 +239,12 @@ class DynamicNat(NatBase):
         result[NATConstants.LIST].append(entry)
 
         return dict(result)
+
+
+    @execute_on_pair()
+    def update(self,context=None):
+
+        return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
 
     @execute_on_pair()
     def delete(self, context=None):
@@ -338,7 +343,7 @@ class StaticNat(NatBase):
             {'key': 'vrf'},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
-            {'key': 'match_in_vrf','yang-key':'match-in-vrf','default':True}
+            {'key': 'match_in_vrf','yang-key':'match-in-vrf','default':False}
         ]
 
     @classmethod

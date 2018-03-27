@@ -711,7 +711,7 @@ class NyBase(xml_utils.XMLUtils):
                 return []
 
         diff = self._diff(device_config)
-        LOG.debug("internal validate for {} produced {} diff(s)  {}".format(context.host, len(diff),diff))
+        LOG.debug("internal validate of {} for {} produced {} diff(s)  {}".format(self.__class__.__name__,context.host, len(diff),diff))
 
         return diff
 
