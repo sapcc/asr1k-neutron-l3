@@ -96,12 +96,18 @@ def register_opts(conf):
     config.register_availability_zone_opts_helper(conf)
 
 
+register_opts(cfg.CONF)
+cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
+cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
+cfg.CONF.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
+cfg.CONF.register_opts(asr1k_config.ASR1K_L2_OPTS, "asr1k_l2")
+
 def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWithStateReport'):
-    register_opts(cfg.CONF)
-    cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
-    cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
-    cfg.CONF.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
-    cfg.CONF.register_opts(asr1k_config.ASR1K_L2_OPTS, "asr1k_l2")
+    # register_opts(cfg.CONF)
+    # cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
+    # cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
+    # cfg.CONF.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
+    # cfg.CONF.register_opts(asr1k_config.ASR1K_L2_OPTS, "asr1k_l2")
     common_config.init(sys.argv[1:])
     config.setup_logging()
     # set periodic interval to 10 seconds, as I understand the code this means
@@ -370,7 +376,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         LOG.debug('Checking device states')
         netconf.check_devices()
 
-    @periodic_task.periodic_task(spacing=30, run_immediately=True)
+    @periodic_task.periodic_task(spacing=cfg.CONF.asr1k_l3.sync_interval, run_immediately=True)
     def periodic_sync_routers_task(self, context):
         LOG.debug("Starting fullsync periodic_sync_routers_task")
 
