@@ -41,7 +41,6 @@ class ACLConstants(object):
 
 
 class AccessList(NyBase):
-
     ID_FILTER = """
                     <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-acl="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
                         <ip>
@@ -109,7 +108,10 @@ class AccessList(NyBase):
 
     @execute_on_pair()
     def update(self,context=None):
-        super(AccessList, self)._delete(context=context)
+        #we need to check if the ACL needs to be updated, if it does selectively delete,
+        # because we can't easily update individual rules
+        if len(self._internal_validate(context=context)) > 0:
+            super(AccessList, self)._delete(context=context)
 
         return super(AccessList, self)._update(context=context)
 

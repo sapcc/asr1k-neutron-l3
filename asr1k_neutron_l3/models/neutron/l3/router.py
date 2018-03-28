@@ -243,10 +243,12 @@ class Router(Base):
 
 
         if self.nat_acl:
-            if self.enable_snat and self.gateway_interface is not None:
-                self.nat_acl.update()
-            else:
-                self.nat_acl.delete()
+            # if self.enable_snat and self.gateway_interface is not None:
+            #     self.nat_acl.update()
+            # else:
+            #     self.nat_acl.delete()
+            self.nat_acl.update()
+
 
         if  self.enable_snat and self.gateway_interface is not None:
             self.dynamic_nat.update()

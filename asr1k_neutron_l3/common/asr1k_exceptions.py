@@ -53,10 +53,14 @@ class ReQueueException(DeviceOperationException):
         return True
 
 
-class InternalErrorException(ReQueueException):
+class InternalErrorException(DeviceOperationException):
     message = "An internal error executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
 
-class InconsistentModelException(ReQueueException):
+class ReQueueableInternalErrorException(ReQueueException):
+    message = "An requeable internal error executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
+
+
+class InconsistentModelException(DeviceOperationException):
     message = "%(operation)s for model %(entity_name)s cannot be executed on %(host)s due to a model/device inconsistency. Model entity : %(entity)s"
 
 

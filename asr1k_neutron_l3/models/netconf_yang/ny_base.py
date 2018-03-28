@@ -56,6 +56,11 @@ class classproperty(property):
     def __get__(self, cls, owner):
         return self.fget.__get__(None, owner)()
 
+class Requeable(object):
+    # Marker class to indicate an object may be requed when an operation fails
+
+    def requeable_operations(self):
+        return []
 
 class execute_on_pair(object):
 
@@ -175,14 +180,21 @@ class retry_on_failure(object):
                             connection.close()
 
                     if isinstance(e,RPCError):
+                        operation = f.__name__
+                        entity = args[0]
+
                         if e.tag in  ['data-missing']:
                             return None
-                        elif e.message=='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
+                        elif e.message =='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
                             LOG.debug(e.to_dict())
-                            raise exc.InconsistentModelException(host=host,entity = args[0],operation = f.__name__)
+                            raise exc.InconsistentModelException(host=host,entity = entity,operation = operation)
                         elif e.message == 'internal error':  # something can't be configured maybe due to transient state e.g. BGP session active these should be requeued
                             LOG.debug(e.to_dict())
-                            raise exc.InternalErrorException(host=host, entity = args[0],operation = f.__name__)
+
+                            if isinstance(entity,Requeable) and operation in entity.requeable_operations():
+                                raise exc.ReQueueableInternalErrorException(host=host, entity = entity,operation = operation)
+                            else:
+                                raise exc.InternalErrorException(host=host, entity = entity,operation = operation)
                         elif e.tag in ['in-use']:  # Lock
                             pass  # retry on lock
                         else:
@@ -715,14 +727,17 @@ class NyBase(xml_utils.XMLUtils):
                 return []
 
         diff = self._diff(device_config)
-        LOG.debug("internal validate of {} for {} produced {} diff(s)  {}".format(self.__class__.__name__,context.host, len(diff),diff))
+
+        if len(diff) > 0 :
+            LOG.info("internal validate of {} for {} produced {} diff(s)  {}".format(self.__class__.__name__,context.host, len(diff),diff))
 
         return diff
 
 
     @execute_on_pair(result_type=DiffResult)
-    def _validate(self,should_be_none=False,context=None):
-        return self._internal_validate(should_be_none=False,context=None)
+    def _validate(self,context=None,should_be_none=False):
+
+        return self._internal_validate(should_be_none=False,context=context)
 
 
 

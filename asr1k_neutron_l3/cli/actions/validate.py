@@ -29,6 +29,7 @@ class Validate(base_action.BaseAction):
         super(Validate, self).__init__(namespace)
 
     def execute(self):
+        result = {}
         ri = self.get_router_info()
         port_ids = []
         if ri :
@@ -40,18 +41,24 @@ class Validate(base_action.BaseAction):
 
 
             for interface in router.interfaces.internal_interfaces:
-                port_ids.append(gateway_interface.id)
+                port_ids.append(interface.id)
 
 
-            if router.valid():
-                print "Router Valid"
+            result = router.diff()
 
+            print result
 
         ports = self.l2_plugin_rpc.get_ports_with_extra_atts(self.context,port_ids)
 
         for port in ports:
             l2_port = Port(port)
 
-            l2_port.valid()
+            result = self._merge_dicts(result,l2_port.diff())
+
+        print result
 
 
+    def _merge_dicts(self,x, y):
+        z = x.copy()
+        z.update(y)
+        return z

@@ -40,19 +40,19 @@ class AccessList(base.Base):
 
         return acl
 
-    def diff(self,should_be_none=False):
-        return super(AccessList,self).diff(should_be_none= not self.routeable_interfaces)
+    # def diff(self,should_be_none=False):
+    #     return super(AccessList,self).diff(should_be_none= not self.routeable_interfaces)
 
     def get(self):
         return  access_list.AccessList.get(self.id)
 
 
-    def update(self):
-
-        if len(self.routeable_interfaces) > 0:
-            return self._rest_definition.update()
-        else:
-            return self.delete()
+    # def update(self):
+    #
+    #     if len(self.routeable_interfaces) > 0:
+    #         return self._rest_definition.update()
+    #     else:
+    #         return self.delete()
 
 
     def delete(self):

@@ -155,8 +155,6 @@ class NCConnection(object):
         if self._ncc_connection is not None and self._ncc_connection.connected:
             #close session is not playing nicely with eventlet so try paramiko directly
             if self._ncc_connection._session is not None and self._ncc_connection._session._transport is not None:
-                LOG.debug("Closing session {} to {}  legacy = {} at the request of the client".format(
-                    self._ncc_connection._session.id, self.context.host, self.legacy))
                 self._ncc_connection._session._transport.close()
 
             self._ncc_connection = None

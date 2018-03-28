@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, NC_OPERATION,execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,Requeable, NC_OPERATION,execute_on_pair
 
 
 
@@ -35,7 +35,7 @@ class VrfConstants(object):
     RD = "rd"
 
 
-class VrfDefinition(NyBase):
+class VrfDefinition(NyBase,Requeable):
     ID_FILTER = """
                 <native>
                     <vrf>
@@ -48,6 +48,9 @@ class VrfDefinition(NyBase):
 
     LIST_KEY = VrfConstants.VRF
     ITEM_KEY = VrfConstants.DEFINITION
+
+    def requeable_operations(self):
+        return ['create','update']
 
     @classmethod
     def __parameters__(cls):

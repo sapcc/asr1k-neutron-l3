@@ -156,20 +156,17 @@ class L3PluginApi(object):
         target = oslo_messaging.Target(topic=topic, version='1.0')
         self.client = n_rpc.get_client(target)
 
-    @log_helpers.log_method_call
     def get_routers(self, context, router_ids=None):
         """Make a remote process call to retrieve the sync data for routers."""
         cctxt = self.client.prepare()
         return cctxt.call(context, 'sync_routers', host=self.host,
                           router_ids=router_ids)
 
-    @log_helpers.log_method_call
     def get_router_ids(self, context):
         """Make a remote process call to retrieve scheduled routers ids."""
         cctxt = self.client.prepare(version='1.9')
         return cctxt.call(context, 'get_router_ids', host=self.host)
 
-    @log_helpers.log_method_call
     def get_external_network_id(self, context):
         """Make a remote process call to retrieve the external network id.
 
@@ -187,41 +184,35 @@ class L3PluginApi(object):
         return cctxt.call(context, 'update_floatingip_statuses',
                           router_id=router_id, fip_statuses=fip_statuses)
 
-    @log_helpers.log_method_call
     def get_ports_by_subnet(self, context, subnet_id):
         """Retrieve ports by subnet id."""
         cctxt = self.client.prepare(version='1.2')
         return cctxt.call(context, 'get_ports_by_subnet', host=self.host,
                           subnet_id=subnet_id)
 
-    @log_helpers.log_method_call
     def get_agent_gateway_port(self, context, fip_net):
         """Get or create an agent_gateway_port."""
         cctxt = self.client.prepare(version='1.2')
         return cctxt.call(context, 'get_agent_gateway_port',
                           network_id=fip_net, host=self.host)
 
-    @log_helpers.log_method_call
     def get_service_plugin_list(self, context):
         """Make a call to get the list of activated services."""
         cctxt = self.client.prepare(version='1.3')
         return cctxt.call(context, 'get_service_plugin_list')
 
-    @log_helpers.log_method_call
     def update_ha_routers_states(self, context, states):
         """Update HA routers states."""
         cctxt = self.client.prepare(version='1.5')
         return cctxt.call(context, 'update_ha_routers_states',
                           host=self.host, states=states)
 
-    @log_helpers.log_method_call
     def process_prefix_update(self, context, prefix_update):
         """Process prefix update whenever prefixes get changed."""
         cctxt = self.client.prepare(version='1.6')
         return cctxt.call(context, 'process_prefix_update',
                           subnets=prefix_update)
 
-    @log_helpers.log_method_call
     def delete_agent_gateway_port(self, context, fip_net):
         """Delete Floatingip_agent_gateway_port."""
         cctxt = self.client.prepare(version='1.7')
@@ -274,6 +265,8 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
 
         self._queue = asr1k_queue.RouterProcessingQueue()
         self._requeue = {}
+        self._last_full_sync = timeutils.now()
+
 
         # Get the list of service plugins from Neutron Server
         # This is the first place where we contact neutron-server on startup
@@ -347,7 +340,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
             raise e
 
 
-    @log_helpers.log_method_call
+
     def router_deleted(self, context, router_id):
         LOG.debug('Got router deleted notification for %s', router_id)
         update = queue.RouterUpdate(router_id,
@@ -355,7 +348,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
                                     action=queue.DELETE_ROUTER)
         self._queue.add(update)
 
-    @log_helpers.log_method_call
+
     def routers_updated(self, context, routers=[], operation=None):
         LOG.debug('Got routers updated notification :%s %s', routers, operation)
         if routers:
@@ -363,34 +356,35 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
                 update = queue.RouterUpdate(id, queue.PRIORITY_RPC)
                 self._queue.add(update)
 
-    @log_helpers.log_method_call
+
     def router_removed_from_agent(self, context, router):
         pass
 
-    @log_helpers.log_method_call
+
     def router_added_to_agent(self, context, payload):
         pass
 
     @periodic_task.periodic_task(spacing=1, run_immediately=True)
     def check_devices_alive(self,context):
-        LOG.debug('Checking device states')
         netconf.check_devices()
 
     @periodic_task.periodic_task(spacing=cfg.CONF.asr1k_l3.sync_interval, run_immediately=True)
     def periodic_sync_routers_task(self, context):
-        LOG.debug("Starting fullsync periodic_sync_routers_task")
+        LOG.debug("Starting fullsync, last full sync started {} seconds ago".format(int(timeutils.now()-self._last_full_sync)))
+
 
         self.process_services_sync(context)
         if not self.fullsync:
             return
 
+        self._last_full_sync = timeutils.now()
 
         try:
             self.fetch_and_sync_all_routers(context)
         except n_exc.AbortSyncRouters:
             self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
-    @log_helpers.log_method_call
+
     def fetch_and_sync_all_routers(self, context):
         prev_router_ids = set(self.router_info)
         curr_router_ids = set()
@@ -452,9 +446,8 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
 
     @periodic_task.periodic_task(spacing=60, run_immediately=True)
     def periodic_requeue_routers_task(self, context):
-        LOG.debug("Requeuing failed routers")
         for update in self._requeue.values():
-            LOG.debug("Adding {} to processing queue".format(update.id))
+            LOG.debug("Adding requeued router {} to processing queue".format(update.id))
             self._queue.add(update)
 
         self._requeue = {}
@@ -471,29 +464,21 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
 
     @periodic_task.periodic_task(spacing=5, run_immediately=True)
     def periodic_refresh_address_scope_config(self, context):
-        LOG.info('Refreshing address scope configuration dict')
         self.address_scopes = utils.get_address_scope_config(self.plugin_rpc, context)
 
 
-
-
-
-
-
-    @log_helpers.log_method_call
     def agent_updated(self, context, payload):
         """Handle the agent_updated notification event."""
         self.fullsync = True
-        LOG.info(_LI("agent_updated by server side %s!"), payload)
+        LOG.info(_LI("Agent updated by server with payload : %s!"), payload)
 
-    @log_helpers.log_method_call
+
     def _process_router_update(self):
         if not self.pause_process:
             for rp, update in self._queue.each_update_to_next_router():
                 LOG.debug("Starting router update for %s, action %s, priority %s",
                           update.id, update.action, update.priority)
 
-                LOG.debug("Starting router update for %s", update.id)
                 router = update.router
                 if update.action != queue.DELETE_ROUTER and not router:
                     update.timestamp = timeutils.utcnow()
@@ -563,7 +548,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         router_update.priority = priority
         router_update.router = None  # Force the agent to resync the router
 
-        LOG.info("Requeing router {} after recoverable error.".format(router_update.id))
+        LOG.info("Requeing router {} after potentially recoverable error.".format(router_update.id))
 
         self._requeue[router_update.id] = router_update
 

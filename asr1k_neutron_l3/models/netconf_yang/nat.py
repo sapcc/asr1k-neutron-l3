@@ -184,8 +184,6 @@ class DynamicNat(NatBase):
 
         dict = dict.get(cls.LIST_KEY, dict)
 
-        print dict
-
         return dict
 
     def _wrapper_preamble(self,dict):

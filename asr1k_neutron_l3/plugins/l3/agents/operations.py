@@ -82,7 +82,7 @@ class OperationsMixin(object):
 
 
             for interface in router.interfaces.internal_interfaces:
-                port_ids.append(gateway_interface.id)
+                port_ids.append(interface.id)
 
 
             result = router.diff()
@@ -95,8 +95,6 @@ class OperationsMixin(object):
             l2_port = Port(port)
 
             result = self._merge_dicts(result,l2_port.diff())
-
-        print result
 
         return result
 
