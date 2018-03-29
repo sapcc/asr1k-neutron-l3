@@ -26,6 +26,10 @@ class instrument(object):
             if self.log:
                 LOG.debug('{} executed on {} in {}s'.format(method.__name__,args[0].__class__.__name__ ,duration))
 
+            # Crash if update takes too long - temporary workaround to blocking threads
+            if duration > 15:
+                exit(1)
+
             return result
 
         return wrapper
