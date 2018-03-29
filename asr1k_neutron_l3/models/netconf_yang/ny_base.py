@@ -24,6 +24,7 @@ from collections import OrderedDict
 eventlet.debug.hub_exceptions(False)
 from oslo_log import log as logging
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
+from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.netconf import ConnectionPool
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
@@ -62,6 +63,7 @@ class Requeable(object):
     def requeable_operations(self):
         return []
 
+
 class execute_on_pair(object):
 
     def __init__(self, return_raw=False, result_type=None):
@@ -70,8 +72,10 @@ class execute_on_pair(object):
         self.result_type = PairResult
         if result_type is not None:
             self.result_type = result_type
-
+    @instrument()
     def _execute_method(self,*args,**kwargs):
+
+
         method = kwargs.pop('_method')
         result = kwargs.pop('_result')
 
@@ -98,6 +102,7 @@ class execute_on_pair(object):
 
 
         @six.wraps(method)
+        @instrument()
         def wrapper(*args, **kwargs):
 
             result = self.result_type(args[0],method.__name__)

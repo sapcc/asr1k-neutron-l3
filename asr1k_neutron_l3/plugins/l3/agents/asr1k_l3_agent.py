@@ -17,9 +17,8 @@
 import eventlet
 import requests
 import urllib3
-from neutron.common import eventlet_utils
 
-eventlet_utils.monkey_patch()
+eventlet.monkey_patch()
 
 import sys
 import signal
@@ -65,6 +64,7 @@ from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_
 
 from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1k_config, utils
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
+from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import netconf
@@ -156,12 +156,14 @@ class L3PluginApi(object):
         target = oslo_messaging.Target(topic=topic, version='1.0')
         self.client = n_rpc.get_client(target)
 
+    @instrument()
     def get_routers(self, context, router_ids=None):
         """Make a remote process call to retrieve the sync data for routers."""
         cctxt = self.client.prepare()
         return cctxt.call(context, 'sync_routers', host=self.host,
                           router_ids=router_ids)
 
+    @instrument()
     def get_router_ids(self, context):
         """Make a remote process call to retrieve scheduled routers ids."""
         cctxt = self.client.prepare(version='1.9')
@@ -225,6 +227,7 @@ class L3PluginApi(object):
         return cctxt.call(context, 'delete_extra_atts_l3',
                           host=self.host, ports=ports)
 
+    @instrument()
     def get_address_scopes(self, context, scopes):
         """Get address scopes with names """
         cctxt = self.client.prepare(version='1.7')
@@ -384,7 +387,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         except n_exc.AbortSyncRouters:
             self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
-
+    @instrument()
     def fetch_and_sync_all_routers(self, context):
         prev_router_ids = set(self.router_info)
         curr_router_ids = set()
@@ -472,7 +475,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         self.fullsync = True
         LOG.info(_LI("Agent updated by server with payload : %s!"), payload)
 
-
+    @instrument()
     def _process_router_update(self):
         if not self.pause_process:
             for rp, update in self._queue.each_update_to_next_router():
