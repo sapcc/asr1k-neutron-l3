@@ -17,6 +17,18 @@
 from asr1k_neutron_l3.models.netconf_legacy import ncc_base
 from asr1k_neutron_l3.models.netconf_yang.ny_base import retry_on_failure
 
+
+class StaticNatList(ncc_base.NccBase):
+    @retry_on_failure()
+    def update(self, context):
+        config = "<config><cli-config-data>"
+
+        for nat in self.base.static_nats:
+            config += "<cmd>arp vrf {} {} {}  ARPA alias</cmd>".format(nat.vrf,nat.global_ip, nat.mac_address)
+        config += "</cli-config-data></config>"
+
+        self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
+
 class StaticNat(ncc_base.NccBase):
 
     @retry_on_failure()

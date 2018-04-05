@@ -21,10 +21,10 @@ from asr1k_neutron_l3.models.netconf_legacy import route_map as nc_route_map
 
 class RouteMapConstants(object):
     ROUTE_MAP = 'route-map'
-    ROUTE_MAP_SEQ = "route-map-seq"
+    ROUTE_MAP_SEQ = "route-map-without-order-seq"
 
     NAME = "name"
-    ORDERING_SEQ = "ordering-seq"
+    ORDERING_SEQ = "seq_no"
     OPERATION = "operation"
     SET = "set"
     EXTCOMMUNITY='extcommunity'
@@ -54,7 +54,7 @@ class RouteMap(NyBase):
     def __parameters__(cls):
         return [
             {'key': 'name','id':True},
-            {'key': 'seq', 'yang-key':'route-map-seq','type':[MapSequence],'default':[]},
+            {'key': 'seq', 'yang-key':'route-map-without-order-seq','type':[MapSequence],'default':[]},
         ]
 
     def __init__(self,**kwargs):
@@ -78,6 +78,15 @@ class RouteMap(NyBase):
         result[self.ITEM_KEY] = map
 
         return dict(result)
+
+
+    @classmethod
+    def remove_wrapper(cls,dict):
+        dict = super(RouteMap, cls)._remove_base_wrapper(dict)
+        return dict
+
+
+
 
 
     def to_delete_dict(self):
@@ -112,7 +121,7 @@ class MapSequence(NyBase):
     @classmethod
     def __parameters__(cls):
         return [
-            {'key': 'ordering_seq','id':True,'yang-key':'ordering-seq'},
+            {'key': 'seq_no','yang-key':'seq_no','id':True},
             {'key': 'operation'},
             {'key': 'asn','yang-key':'asn-nn','yang-path':'set/extcommunity/rt','type':[str]},
             {'key': 'prefix_list', 'yang-key':'prefix-list','yang-path':'match/ip/address'},
@@ -128,7 +137,7 @@ class MapSequence(NyBase):
     def to_dict(self):
 
         seq = OrderedDict()
-        seq[RouteMapConstants.ORDERING_SEQ] = self.ordering_seq
+        seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
 
         seq[RouteMapConstants.OPERATION] = self.operation
 
@@ -151,7 +160,7 @@ class MapSequence(NyBase):
     def to_delete_dict(self):
 
         seq = OrderedDict()
-        seq[RouteMapConstants.ORDERING_SEQ] = self.ordering_seq
+        seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
 
         seq[RouteMapConstants.OPERATION] = self.operation
 

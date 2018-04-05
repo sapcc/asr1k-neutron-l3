@@ -72,7 +72,7 @@ class execute_on_pair(object):
         self.result_type = PairResult
         if result_type is not None:
             self.result_type = result_type
-    @instrument()
+
     def _execute_method(self,*args,**kwargs):
 
 
@@ -102,7 +102,7 @@ class execute_on_pair(object):
 
 
         @six.wraps(method)
-        @instrument()
+
         def wrapper(*args, **kwargs):
 
             result = self.result_type(args[0],method.__name__)
@@ -458,6 +458,12 @@ class NyBase(xml_utils.XMLUtils):
 
         diff =  self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=ignore))
 
+        # if self.__class__.__name__ == 'StaticNatList':
+        #     print "***** Neutron {}".format(self_json)
+        #     print "***** Device {}".format(other_json)
+
+
+
         return diff
 
     def __diffs_to_dicts(self,diffs):
@@ -489,58 +495,63 @@ class NyBase(xml_utils.XMLUtils):
                 return None
             params = {}
             for param in cls.__parameters__():
-                key = param.get('key', "")
+                if param.get('deserialise',True):
 
-                cisco_key = key.replace("_", "-")
-                yang_key = param.get("yang-key",cisco_key)
-                yang_path = param.get("yang-path")
-                type = param.get("type")
+                    key = param.get('key', "")
 
-                values = json
-                if yang_path is not None:
-                    path = yang_path.split("/")
-                    for path_item in path:
-                        if bool(values):
-                            values = values.get(path_item)
-                            if bool(values) is None:
-                                LOG.warning("Invalid yang segment {} in {} please check against yang model. Values: {}".format(path_item,yang_path,values))
+                    cisco_key = key.replace("_", "-")
+                    yang_key = param.get("yang-key",cisco_key)
+                    yang_path = param.get("yang-path")
+                    type = param.get("type")
+
+                    values = json
+                    if yang_path is not None:
+                        path = yang_path.split("/")
+                        for path_item in path:
+                            if bool(values):
+                                values = values.get(path_item)
+                                if bool(values) is None:
+                                    LOG.warning("Invalid yang segment {} in {} please check against yang model. Values: {}".format(path_item,yang_path,values))
 
 
-
-
-                if bool(values):
-
-                    if  param.get('yang-type') == YANG_TYPE.EMPTY:
-                        if values.has_key(yang_key):
-                            value = True
-                        else:
-                            value = False
-                    else:
-                        value = values.get(yang_key)
-                    if type is not None:
-                        if isinstance(type,list):
-                            type = type[0]
-                            result = []
-                            if isinstance(value,list):
-                                for v in value:
-                                    if isinstance(v,dict):
-                                        v[cls.PARENT]=params
-                                        result.append(type.from_json(v))
-                                    else:
-                                        result.append(v)
+                    if bool(values):
+                        if  param.get('yang-type') == YANG_TYPE.EMPTY:
+                            if values.has_key(yang_key):
+                                value = True
                             else:
+                                value = False
 
-                                if value is not None:
-                                    value[cls.PARENT] = params
-                                    result.append(type.from_json(value))
-                            value = result
+                        elif isinstance(type,list) and param.get('root-list',False):
+                            value = values
                         else:
-                            value = type.from_json(value)
+                            value = values.get(yang_key)
 
-                    if isinstance(value, dict) and value =={}:
-                        value = True
+                        if type is not None:
+                            if isinstance(type,list):
+                                type = type[0]
+                                result = []
+                                if isinstance(value,list):
+                                    for v in value:
+                                        if isinstance(v,dict):
+                                            v[cls.PARENT]=params
+                                            result.append(type.from_json(v))
+                                        else:
+                                            result.append(v)
+                                else:
 
-                    params[key] = value
+                                    if value is not None:
+                                        value[cls.PARENT] = params
+                                        result.append(type.from_json(value))
+                                value = result
+                            else:
+                                value = type.from_json(value)
+
+                        if isinstance(value, dict) and value =={}:
+                            value = True
+
+
+
+                        params[key] = value
         except Exception as e:
             LOG.exception(e)
 
@@ -580,7 +591,11 @@ class NyBase(xml_utils.XMLUtils):
             json = cls.to_json(result.xml)
 
             if json is not None:
+
+
                 json = json.get(cls.ITEM_KEY, json)
+
+
 
                 result = cls.from_json(json)
 
@@ -698,15 +713,15 @@ class NyBase(xml_utils.XMLUtils):
         if len(self._internal_validate(context=context)) > 0 :
 
             # print "{} device configuration {} invalid or missing updating".format(self.__class__.__name__,context.host)
-            if not self._internal_exists(context):
-                return self._create(context=context)
-            else:
-                connection = self._get_connection(context)
-                if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
-                    raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
+            # if not self._internal_exists(context):
+            #     return self._create(context=context)
+            # else:
+            connection = self._get_connection(context)
+            if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
+                raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
-                result = connection.edit_config(config=self.to_xml(operation=method))
-                return result
+            result = connection.edit_config(config=self.to_xml(operation=method))
+            return result
         # else:
             # print "{} device configuration {} already upto date".format(self.__class__.__name__,context.host)
 

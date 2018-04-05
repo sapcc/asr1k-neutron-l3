@@ -33,8 +33,8 @@ class RouteMap(base.Base):
             self.enable_bgp = True
 
         sequences = []
-        sequences.append(route_map.MapSequence(ordering_seq=10, operation='permit', prefix_list='snat-{}'.format(self.vrf), asn=[self.rt,'additive'],enable_bgp=self.enable_bgp))
-        sequences.append(route_map.MapSequence(ordering_seq=20, operation='deny', prefix_list='exp-{}'.format(self.vrf)))
+        sequences.append(route_map.MapSequence(seq_no=10, operation='permit', prefix_list='snat-{}'.format(self.vrf), asn=[self.rt,'additive'],enable_bgp=self.enable_bgp))
+        sequences.append(route_map.MapSequence(seq_no=20, operation='deny', prefix_list='exp-{}'.format(self.vrf)))
 
         self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)
 

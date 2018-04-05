@@ -108,28 +108,69 @@ class DynamicNAT(BaseNAT):
     #     nat.delete()
 
 
+class FloatingIpList(BaseNAT):
+
+    def __init__(self, router_id):
+        self.router_id = utils.uuid_to_vrf_id(router_id)
+        self.floating_ips = []
+        self.count = 0
+    @property
+    def _rest_definition(self):
+        rest_static_nats = []
+        for floating_ip in self.floating_ips:
+            rest_static_nats.append(floating_ip._rest_definition)
+
+        return l3_nat.StaticNatList(vrf=self.router_id, static_nats=sorted(rest_static_nats, key=lambda static_nat: static_nat.local_ip))
+
+    def append(self, floating_ip):
+        self.floating_ips.append(floating_ip)
+
+
+    def get(self):
+        return l3_nat.StaticNatList.get(self.router_id)
+
+    def delete(self):
+        return l3_nat.StaticNatList(vrf=self.router_id).delete()
+
+    def update(self):
+
+
+        return super(FloatingIpList,self).update()
+
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        self.count += 1
+        if self.count >= len(self.floating_ips):
+            raise StopIteration
+
+        return self.floating_ips[-1]
+
+
 class FloatingIp(BaseNAT):
 
-    @classmethod
-    def clean_floating_ips(cls, router):
-        result = []
-        vrf = router.vrf.name
-        fips = router.floating_ips
-
-        ids = []
-        for fip in fips:
-            ids.append(fip.id)
-
-        nat_entries = l3_nat.StaticNat.get_all(filter={l3_nat.NATConstants.VRF: vrf})
-
-        for nat_entry in nat_entries:
-            if not nat_entry.id in ids:
-                fip = FloatingIp(vrf,
-                                 {'fixed_ip_address': nat_entry.local_ip, 'floating_ip_address': nat_entry.global_ip},
-                                 router.gateway_interface)
-                fip.delete()
-
-        return result
+    # @classmethod
+    # def clean_floating_ips(cls, router):
+    #     result = []
+    #     vrf = router.vrf.name
+    #     fips = router.floating_ips
+    #
+    #     ids = []
+    #     for fip in fips:
+    #         ids.append(fip.id)
+    #
+    #     nat_entries = l3_nat.StaticNat.get_all(filter={l3_nat.NATConstants.VRF: vrf})
+    #
+    #     for nat_entry in nat_entries:
+    #         if not nat_entry.id in ids:
+    #             fip = FloatingIp(vrf,
+    #                              {'fixed_ip_address': nat_entry.local_ip, 'floating_ip_address': nat_entry.global_ip},
+    #                              router.gateway_interface)
+    #             fip.delete()
+    #
+    #     return result
 
     def __init__(self, router_id, floating_ip, gateway_interface, redundancy=None, mapping_id=None):
         super(FloatingIp, self).__init__(router_id, gateway_interface, redundancy, mapping_id)

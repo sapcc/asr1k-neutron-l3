@@ -176,7 +176,7 @@ class Router(Base):
         return nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface, interfaces=self.interfaces)
 
     def _build_floating_ips(self):
-        floating_ips = []
+        floating_ips = nat.FloatingIpList(self.router_id)
         for floating_ip in self.router_info.get('_floatingips', []):
             floating_ips.append(nat.FloatingIp(self.router_id, floating_ip, self.gateway_interface))
 
@@ -258,11 +258,11 @@ class Router(Base):
 
         self.routes.update()
 
-        # Clean up static nat
-        nat.FloatingIp.clean_floating_ips(self)
+        # # Clean up static nat
+        # nat.FloatingIp.clean_floating_ips(self)
 
-        for floating_ip in self.floating_ips:
-            floating_ip.update()
+        #for floating_ip in self.floating_ips:
+        self.floating_ips.update()
 
     @instrument()
     def delete(self):
@@ -278,8 +278,8 @@ class Router(Base):
 
         self.route_map.delete()
 
-        for floating_ip in self.floating_ips:
-            floating_ip.delete()
+        #for floating_ip in self.floating_ips:
+        self.floating_ips.delete()
 
         nat.FloatingIp.clean_floating_ips(self)
 
@@ -330,10 +330,15 @@ class Router(Base):
             diff_results['dynamic_nat'] = dynamic_nat_diff.to_dict()
 
 
-        for floating_ip in self.floating_ips:
-            floating_ip_diff = floating_ip.diff()
-            if not floating_ip_diff.valid:
-                diff_results['static_nat'] = floating_ip_diff.to_dict()
+        # for floating_ip in self.floating_ips:
+        #     floating_ip_diff = floating_ip.diff()
+        #     if not floating_ip_diff.valid:
+        #         diff_results['static_nat'] = floating_ip_diff.to_dict()
+
+        floating_ips_diff = self.floating_ips.diff()
+        if not floating_ips_diff.valid:
+            diff_results['static_nat'] = floating_ips_diff.to_dict()
+
 
         for interface in self.interfaces.internal_interfaces:
             interface_diff = interface.diff()

@@ -107,7 +107,11 @@ class XMLUtils(object):
 
     def add_wrapper(self,dict,operation):
         if operation:
-            if isinstance( dict[self.ITEM_KEY],list):
+            if isinstance( dict,list):
+                for item in dict:
+                    item[self.ITEM_KEY][OPERATION] = operation
+
+            elif isinstance( dict[self.ITEM_KEY],list):
                 for item in dict[self.ITEM_KEY]:
                     item[OPERATION] = operation
             else:
