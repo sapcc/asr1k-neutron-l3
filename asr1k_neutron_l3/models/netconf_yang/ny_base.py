@@ -428,7 +428,7 @@ class NyBase(xml_utils.XMLUtils):
         if isinstance(json,dict):
             value = JsonDict(json).__str__()
         else:
-            value = json
+            value = json.__str__()
 
         if value is None:
             value =""
