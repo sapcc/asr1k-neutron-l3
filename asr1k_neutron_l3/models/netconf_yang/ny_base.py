@@ -73,6 +73,7 @@ class execute_on_pair(object):
         if result_type is not None:
             self.result_type = result_type
 
+
     def _execute_method(self,*args,**kwargs):
 
 
@@ -708,6 +709,7 @@ class NyBase(xml_utils.XMLUtils):
     def update(self, context=None, method= NC_OPERATION.PATCH):
         return self._update(context=context,method=method)
 
+
     @retry_on_failure()
     def _update(self, context=None,method=NC_OPERATION.PATCH):
         if len(self._internal_validate(context=context)) > 0 :
@@ -739,6 +741,7 @@ class NyBase(xml_utils.XMLUtils):
             result = connection.edit_config(config=self.to_xml(json=json,operation=method))
             return result
 
+    @instrument()
     def _internal_validate(self,should_be_none=False, context=None):
         device_config = self._internal_get(context=context)
 
