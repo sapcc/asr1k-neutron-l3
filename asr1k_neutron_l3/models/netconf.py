@@ -148,7 +148,7 @@ class NCConnection(object):
             host=context.host, port=port,
             username=context.username, password=context.password,
             hostkey_verify=False,
-            device_params={'name': "default"}, timeout=context.nc_timeout,
+            device_params={'name': "iosxe"}, timeout=context.nc_timeout,
             allow_agent=False, look_for_keys=False)
 
     def close(self):
