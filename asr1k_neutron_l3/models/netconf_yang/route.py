@@ -51,9 +51,6 @@ class VrfRoute(NyBase):
     LIST_KEY =RouteConstants.ROUTE
     ITEM_KEY = RouteConstants.DEFINITION
 
-    # list_path = "/Cisco-IOS-XE-native:native/ip/route"
-    # item_path = "{}/{}".format(list_path, RouteConstants.DEFINITION)
-
     @classmethod
     def __parameters__(cls):
         return [
