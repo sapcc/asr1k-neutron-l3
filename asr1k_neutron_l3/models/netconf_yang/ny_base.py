@@ -424,7 +424,12 @@ class NyBase(xml_utils.XMLUtils):
             raise Exception("ID field {} is None".format(id_field))
 
     def __str__(self):
-        value = JsonDict(self.to_dict()).__str__()
+        json = self.to_dict()
+        if isinstance(json,dict):
+            value = JsonDict(json).__str__()
+        else:
+            value = json
+
         if value is None:
             value =""
         return value
