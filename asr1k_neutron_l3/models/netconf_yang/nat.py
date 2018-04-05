@@ -322,14 +322,22 @@ class StaticNatList(NyBase):
     def clean_nat(self,context=None):
         nat_list = self._internal_get(context)
 
-        ids = []
+        neutron_ids = []
+        neutron_local_ips = {}
         for nat in self.static_nats:
-            ids.append(nat.id)
+            neutron_ids.append(nat.id)
+            neutron_local_ips[nat.local_ip] = nat.global_ip
         if nat_list is not None:
             for nat_entry in nat_list.static_nats:
-                if not nat_entry.id in ids:
+                if not nat_entry.id in neutron_ids:
                     LOG.debug('Removing unknown mapping local {} > {} from vrf {}'.format(nat_entry.local_ip,nat_entry.global_ip, self.vrf))
                     nat_entry.delete()
+                global_ip = neutron_local_ips.get(nat_entry.local_ip)
+                if global_ip is not None and global_ip != nat_entry.global_ip:
+                    LOG.debug('Removing invalid local mapping local {} > {} from vrf {}'.format(nat_entry.local_ip,nat_entry.global_ip, self.vrf))
+                    nat_entry.delete()
+
+
 
 
 
