@@ -23,12 +23,12 @@ class instrument(object):
 
             duration = time.time()-start
 
-            if self.log:
-                LOG.debug('{} executed on {} in {}s'.format(method.__name__,args[0].__class__.__name__ ,duration))
+            # if self.log:
+            #     LOG.debug('{} executed on {} in {}s  : args {} kwargs {}'.format(method.__name__,args[0].__class__.__name__ ,duration,args,kwargs))
 
             # Crash if update takes too long - temporary workaround to blocking threads
-            if duration > 15:
-                exit(1)
+            # if duration > 15:
+            #     exit(1)
 
             return result
 
