@@ -13,21 +13,25 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from oslo_log import log as logging
 from asr1k_neutron_l3.models.netconf_legacy import ncc_base
 from asr1k_neutron_l3.models.netconf_yang.ny_base import retry_on_failure
 
+LOG = logging.getLogger(__name__)
 
 class StaticNatList(ncc_base.NccBase):
     @retry_on_failure()
     def update(self, context):
-        config = "<config><cli-config-data>"
+        if bool(self.base.static_nats):
+            config = "<config><cli-config-data>"
 
-        for nat in self.base.static_nats:
-            config += "<cmd>arp vrf {} {} {}  ARPA alias</cmd>".format(nat.vrf,nat.global_ip, nat.mac_address)
-        config += "</cli-config-data></config>"
+            for nat in self.base.static_nats:
+                config += "<cmd>arp vrf {} {} {}  ARPA alias</cmd>".format(nat.vrf,nat.global_ip, nat.mac_address)
+            config += "</cli-config-data></config>"
 
-        self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
+            self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
+        else:
+            LOG.debug('Skipping ARP update, no NAT entries')
 
 class StaticNat(ncc_base.NccBase):
 
