@@ -119,7 +119,9 @@ class BDIInterface(NyBase):
     @execute_on_pair()
     def update(self,context=None):
         result = super(BDIInterface, self)._update(context=context)
-        self.ncc.update(context)
+        if result is not None: # We had a diff and need to run the legacy update
+            self.ncc.update(context)
+
         return result
 
     @execute_on_pair()
