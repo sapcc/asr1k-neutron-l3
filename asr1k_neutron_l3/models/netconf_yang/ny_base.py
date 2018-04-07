@@ -732,6 +732,7 @@ class NyBase(xml_utils.XMLUtils):
         # else:
             # print "{} device configuration {} already upto date".format(self.__class__.__name__,context.host)
 
+
     @execute_on_pair()
     def delete(self, context=None,method=NC_OPERATION.DELETE):
         return self._delete(context=context,method=method)
@@ -746,7 +747,7 @@ class NyBase(xml_utils.XMLUtils):
             result = connection.edit_config(config=self.to_xml(json=json,operation=method))
             return result
 
-    @instrument()
+
     def _internal_validate(self,should_be_none=False, context=None):
         device_config = self._internal_get(context=context)
 

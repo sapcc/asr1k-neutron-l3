@@ -18,6 +18,7 @@ import socket
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable
+from asr1k_neutron_l3.common.instrument import instrument
 
 from ncclient import manager
 from oslo_log import log as logging
@@ -159,13 +160,14 @@ class NCConnection(object):
 
             self._ncc_connection = None
 
+    @instrument()
     def get(self,filter=''):
         if self.context.alive:
             return self.connection.get(filter=('subtree', filter))
         else :
             raise DeviceUnreachable(host=self.context.host)
 
-
+    @instrument()
     def edit_config(self,config='',target='running'):
         # with self.connection.locked(target):
         if self.context.alive:

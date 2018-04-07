@@ -18,6 +18,7 @@ class instrument(object):
         @six.wraps(method)
         def wrapper(*args, **kwargs):
             start = time.time()
+            model = kwargs.pop('__model', None)
 
             context = kwargs.get('context')
 
@@ -31,7 +32,11 @@ class instrument(object):
             duration = time.time()-start
 
             if self.log:
-                LOG.debug('{}{} executed on {} in {}s  : args {} kwargs {}'.format(host, method.__name__,args[0].__class__.__name__ ,duration,args,kwargs))
+                impl = args[0].__class__.__name__
+
+                if model is not None:
+                    impl = "{} : {} ".format(model.__class__.__name__,impl)
+                LOG.debug('{}{} executed on {} in {}s'.format(host, method.__name__, impl ,duration))
 
             # Crash if update takes too long - temporary workaround to blocking threads
             # if duration > 15:

@@ -22,6 +22,7 @@ eventlet.monkey_patch()
 
 import sys
 import signal
+import traceback
 
 from oslo_service import service
 from oslo_utils import timeutils
@@ -309,7 +310,8 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         super(L3ASRAgent, self).__init__(conf=self.conf)
 
         signal.signal(signal.SIGUSR1, self.trigger_sync)
-        signal.signal(signal.SIGUSR2, self.pause_processing)
+        signal.signal(signal.SIGUSR1, self.pause_processing)
+        signal.signal(signal.SIGUSR2, self.dump_threads)
 
 
 
@@ -320,12 +322,30 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
 
     def pause_processing(self,signum, frame):
 
+
+
         if self.pause_process:
             LOG.info("Resuming processing after receiving external signal")
             self.pause_process = False
         else:
             LOG.info("Pausing processing after receiving external signal")
             self.pause_process = True
+
+    def dump_threads(self,signum, frame):
+
+        print "\n*** STACKTRACE - START ***\n"
+        code = []
+        for threadId, stack in sys._current_frames().items():
+            code.append("\n# ThreadID: %s" % threadId)
+            for filename, lineno, name, line in traceback.extract_stack(stack):
+                code.append('File: "%s", line %d, in %s' % (filename,
+                                                            lineno, name))
+                if line:
+                    code.append("  %s" % (line.strip()))
+
+        for line in code:
+            print line
+        print "\n*** STACKTRACE - END ***\n"
 
 
 
@@ -386,6 +406,9 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
             self.fetch_and_sync_all_routers(context)
         except n_exc.AbortSyncRouters:
             self.fullsync = cfg.CONF.asr1k_l3.sync_active
+        finally:
+            LOG.debug("Completed full sync, duration {}".format(
+                int(timeutils.now() - self._last_full_sync)))
 
     @instrument()
     def fetch_and_sync_all_routers(self, context):
