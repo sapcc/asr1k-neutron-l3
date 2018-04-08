@@ -32,6 +32,9 @@ from ncclient.transport.errors import SSHError
 LOG = logging.getLogger(__name__)
 
 
+def _retry_if_exhausted(exception):
+    return isinstance(exception, ConnectionPoolExhausted)
+
 def ssh_connect(context,legacy):
     connect = None
     try:
@@ -122,8 +125,7 @@ class ConnectionPool(object):
             self.devices['{}_yang'.format(context.host)] = yang
             self.devices['{}_legacy'.format(context.host)] = legacy
 
-    def _retry_if_exhausted(self,exception):
-        return isinstance(exception,ConnectionPoolExhausted)
+
 
     @retry(stop_max_attempt_number=5, wait_fixed=100,retry_on_exception=_retry_if_exhausted)
     def pop_connection(self,context=None, legacy=False):
