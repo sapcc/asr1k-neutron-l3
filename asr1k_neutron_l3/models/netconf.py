@@ -101,18 +101,20 @@ class ConnectionPool(object):
 
     def __setup(self):
         self.lock = Lock()
-        self.pool_size = cfg.CONF.asr1k.connection_pool_size
+        self.yang_pool_size = cfg.CONF.asr1k.yang_connection_pool_size
+        self.legacy_pool_size = cfg.CONF.asr1k.legacy_connection_pool_size
         self.pair_config = ASR1KPair()
 
         self.devices = {}
 
-        LOG.debug("Initializing connection pool of size {}".format(self.pool_size))
+        LOG.debug("Initializing connection pool of yang pool size {}, legacy pool size {}".format(self.yang_pool_size,self.legacy_pool_size))
 
         for context in self.pair_config.contexts:
             yang = []
             legacy = []
-            for i in range(self.pool_size):
+            for i in range(self.yang_pool_size):
                 yang.append(YangConnection(context))
+            for i in range(self.legacy_pool_size):
                 legacy.append(LegacyConnection(context))
 
             self.devices['{}_yang'.format(context.host)] = yang
