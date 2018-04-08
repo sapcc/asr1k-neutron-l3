@@ -63,6 +63,23 @@ def check_devices():
                 context.alive = device_reachable
                 LOG.debug("Device {} is now reachable, marked as alive".format(context.host))
 
+class  ConnectionPoolExhausted(Exception):
+    pass
+
+class ConnectionManager(object):
+
+    def __init__(self,context=None, legacy=False):
+        self.context = context
+        self.legacy  = False
+
+    def __enter__(self):
+        self.connection = ConnectionPool().pop_connection(context=self.context,legacy=self.legacy)
+        return self.connection
+
+    def __exit__(self, type, value, traceback):
+        ConnectionPool().push_connection(self.connection,legacy=self.legacy)
+
+
 class ConnectionPool(object):
     __instance = None
 
@@ -75,6 +92,12 @@ class ConnectionPool(object):
 
         return ConnectionPool.__instance
 
+    def _key(self,context,legacy):
+        key = '{}_yang'.format(context.host)
+        if legacy :
+            key = '{}_legacy'.format(context.host)
+
+        return key
 
     def __setup(self):
         self.lock = Lock()
@@ -93,11 +116,29 @@ class ConnectionPool(object):
             self.devices['{}_yang'.format(context.host)] = yang
             self.devices['{}_legacy'.format(context.host)] = legacy
 
+    def pop_connection(self,context=None, legacy=False):
+        key = self._key(context,legacy)
+        pool = self.devices.get(key)
+        if len(pool) == 0 :
+            raise ConnectionPoolExhausted()
+
+        connection = pool.pop(0)
+        LOG.debug('Using connection {} aged {} pool now {}'.format(connection.session_id, connection.age, len(pool)))
+        return connection
+
+    def push_connection(self,connection,legacy=False):
+        key = self._key(connection.context,legacy)
+        if legacy:
+            self.devices.get(key).append(LegacyConnection(connection.context))
+        else:
+            pool = self.devices.get(key)
+            LOG.debug('Returning connection {} aged {} to pool of size {}'.format(connection.session_id,connection.age,len(pool)))
+            pool.append(connection)
+
+
     def get_connection(self,context,legacy=False):
 
-        key = '{}_yang'.format(context.host)
-        if legacy :
-            key = '{}_legacy'.format(context.host)
+        key = self._key(context,legacy)
 
         connection = self.devices.get(key).pop(0)
 
@@ -114,6 +155,8 @@ class ConnectionPool(object):
             raise Exception('No connection can be found for {}'.format(key))
 
         return connection
+
+
 
 
 class NCConnection(object):

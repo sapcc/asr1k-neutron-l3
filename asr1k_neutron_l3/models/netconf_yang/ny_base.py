@@ -27,6 +27,7 @@ from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.netconf import ConnectionPool
+from asr1k_neutron_l3.models.netconf import ConnectionManager
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict
 
@@ -178,12 +179,6 @@ class retry_on_failure(object):
                     break
 
                 except (RPCError , SessionCloseError,SSHError,TimeoutExpiredError) as e:
-
-                    if isinstance(e, TimeoutExpiredError):
-                        # close and re-establish connection
-                        if context is not None:
-                            connection = args[0]._get_connection(context)
-                            connection.close()
 
                     if isinstance(e,RPCError):
                         operation = f.__name__
@@ -565,10 +560,6 @@ class NyBase(xml_utils.XMLUtils):
 
 
 
-    @classmethod
-    def _get_connection(cls, context):
-        return ConnectionPool().get_connection(context)
-
 
     @classmethod
     def get_primary_filter(cls,**kwargs):
@@ -591,25 +582,26 @@ class NyBase(xml_utils.XMLUtils):
             if nc_filter is None:
                 nc_filter = cls.get_primary_filter(**kwargs)
 
-            connection = cls._get_connection(kwargs.get('context'))
-            result =  connection.get(filter=nc_filter)
+            context = kwargs.get('context')
+            with ConnectionManager(context=context) as connection:
+                result = connection.get(filter=nc_filter)
 
-            json = cls.to_json(result.xml)
+                json = cls.to_json(result.xml)
 
-            if json is not None:
-
-
-                json = json.get(cls.ITEM_KEY, json)
+                if json is not None:
 
 
+                    json = json.get(cls.ITEM_KEY, json)
 
-                result = cls.from_json(json)
 
-                #Add missing primary keys from get
 
-                cls.__ensure_primary_keys(result, **kwargs)
+                    result = cls.from_json(json)
 
-                return result
+                    #Add missing primary keys from get
+
+                    cls.__ensure_primary_keys(result, **kwargs)
+
+                    return result
         except exc.DeviceUnreachable:
             pass
 
@@ -620,27 +612,30 @@ class NyBase(xml_utils.XMLUtils):
             nc_filter = kwargs.get('nc_filter')
             if nc_filter is None:
                 nc_filter = cls.get_all_filter(**kwargs.get('filter'))
-            connection = cls._get_connection(kwargs.get('context'))
-            rpc_result = connection.get(filter=nc_filter)
 
-            json = cls.to_json(rpc_result.xml)
+            context = kwargs.get('context')
+            with ConnectionManager(context=context) as connection:
 
-            if json is not None:
-                json = json.get(cls.ITEM_KEY, json)
+                rpc_result = connection.get(filter=nc_filter)
 
-                if isinstance(json,list):
+                json = cls.to_json(rpc_result.xml)
 
-                    for item in json:
-                        result.append(cls.from_json(item))
-                else:
+                if json is not None:
+                    json = json.get(cls.ITEM_KEY, json)
 
-                    result.append(cls.from_json(json))
+                    if isinstance(json,list):
 
-                #Add missing primary keys from get
+                        for item in json:
+                            result.append(cls.from_json(item))
+                    else:
+
+                        result.append(cls.from_json(json))
+
+                    #Add missing primary keys from get
 
 
-                for item in result:
-                    cls.__ensure_primary_keys(item,**kwargs)
+                    for item in result:
+                        cls.__ensure_primary_keys(item,**kwargs)
         except exc.DeviceUnreachable:
             pass
         except Exception as e:
@@ -705,9 +700,10 @@ class NyBase(xml_utils.XMLUtils):
 
     @retry_on_failure()
     def _create(self,context=None):
-        connection = self._get_connection(context)
-        result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT))
-        return result
+        with ConnectionManager(context=context) as connection:
+
+            result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT))
+            return result
 
 
     @execute_on_pair()
@@ -723,12 +719,15 @@ class NyBase(xml_utils.XMLUtils):
             # if not self._internal_exists(context):
             #     return self._create(context=context)
             # else:
-            connection = self._get_connection(context)
-            if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
-                raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
-            result = connection.edit_config(config=self.to_xml(operation=method))
-            return result
+            with ConnectionManager(context=context) as connection:
+
+
+                if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
+                    raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
+
+                result = connection.edit_config(config=self.to_xml(operation=method))
+                return result
         # else:
             # print "{} device configuration {} already upto date".format(self.__class__.__name__,context.host)
 
@@ -739,12 +738,13 @@ class NyBase(xml_utils.XMLUtils):
 
     @retry_on_failure()
     def _delete(self,context=None,method=NC_OPERATION.DELETE):
-        connection = self._get_connection(context)
 
-        if self._internal_exists(context) or self.force_delete:
-            json = self.to_delete_dict()
-            result = connection.edit_config(config=self.to_xml(json=json,operation=method))
-            return result
+        with ConnectionManager(context=context) as connection:
+
+            if self._internal_exists(context) or self.force_delete:
+                json = self.to_delete_dict()
+                result = connection.edit_config(config=self.to_xml(json=json,operation=method))
+                return result
 
     @instrument()
     def _internal_validate(self,should_be_none=False, context=None):
