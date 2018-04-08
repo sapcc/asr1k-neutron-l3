@@ -16,6 +16,8 @@
 
 import socket
 import time
+from retrying import retry
+
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable
@@ -120,13 +122,19 @@ class ConnectionPool(object):
             self.devices['{}_yang'.format(context.host)] = yang
             self.devices['{}_legacy'.format(context.host)] = legacy
 
+    def _retry_if_exhausted(self,exception):
+        return isinstance(exception,ConnectionPoolExhausted)
+
+    @retry(stop_max_attempt_number=5, wait_fixed=100,retry_on_exception=_retry_if_exhausted)
     def pop_connection(self,context=None, legacy=False):
         key = self._key(context,legacy)
         pool = self.devices.get(key)
+
         if len(pool) == 0 :
             raise ConnectionPoolExhausted()
 
         connection = pool.pop(0)
+
         LOG.debug('Using connection {} aged {} pool now {}'.format(connection.session_id, connection.age, len(pool)))
         return connection
 
