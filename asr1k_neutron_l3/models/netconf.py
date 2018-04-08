@@ -105,26 +105,28 @@ class ConnectionPool(object):
         return key
 
     def __setup(self):
-        self.lock = Lock()
-        self.yang_pool_size = cfg.CONF.asr1k.yang_connection_pool_size
-        self.legacy_pool_size = cfg.CONF.asr1k.legacy_connection_pool_size
-        self.pair_config = ASR1KPair()
+        try:
+            self.lock = Lock()
+            self.yang_pool_size = cfg.CONF.asr1k.yang_connection_pool_size
+            self.legacy_pool_size = cfg.CONF.asr1k.legacy_connection_pool_size
+            self.pair_config = ASR1KPair()
 
-        self.devices = {}
+            self.devices = {}
 
-        LOG.debug("Initializing connection pool of yang pool size {}, legacy pool size {}".format(self.yang_pool_size,self.legacy_pool_size))
+            LOG.debug("Initializing connection pool of yang pool size {}, legacy pool size {}".format(self.yang_pool_size,self.legacy_pool_size))
 
-        for context in self.pair_config.contexts:
-            yang = []
-            legacy = []
-            for i in range(self.yang_pool_size):
-                yang.append(YangConnection(context))
-            for i in range(self.legacy_pool_size):
-                legacy.append(LegacyConnection(context))
+            for context in self.pair_config.contexts:
+                yang = []
+                legacy = []
+                for i in range(self.yang_pool_size):
+                    yang.append(YangConnection(context,id=i))
+                for i in range(self.legacy_pool_size):
+                    legacy.append(LegacyConnection(context,id=i))
 
-            self.devices['{}_yang'.format(context.host)] = yang
-            self.devices['{}_legacy'.format(context.host)] = legacy
-
+                self.devices['{}_yang'.format(context.host)] = yang
+                self.devices['{}_legacy'.format(context.host)] = legacy
+        except Exception as e:
+            LOG.exception(e)
 
 
     @retry(stop_max_attempt_number=5, wait_fixed=100,retry_on_exception=_retry_if_exhausted)
@@ -137,17 +139,26 @@ class ConnectionPool(object):
 
         connection = pool.pop(0)
 
-        LOG.debug('Using connection {} aged {} pool now {}'.format(connection.session_id, connection.age, len(pool)))
-        return connection
+        LOG.debug('Using connection {} session {} aged {} pool now {}'.format(connection.id, connection.session_id, connection.age, len(pool)))
 
-    def push_connection(self,connection,legacy=False):
-        key = self._key(connection.context,legacy)
         if legacy:
             self.devices.get(key).append(LegacyConnection(connection.context))
         else:
             pool = self.devices.get(key)
             LOG.debug('Returning connection {} aged {} to pool of size {}'.format(connection.session_id,connection.age,len(pool)))
             pool.append(connection)
+
+        return connection
+
+    def push_connection(self,connection,legacy=False):
+        pass
+        # key = self._key(connection.context,legacy)
+        # if legacy:
+        #     self.devices.get(key).append(LegacyConnection(connection.context))
+        # else:
+        #     pool = self.devices.get(key)
+        #     LOG.debug('Returning connection {} aged {} to pool of size {}'.format(connection.session_id,connection.age,len(pool)))
+        #     pool.append(connection)
 
 
     def get_connection(self,context,legacy=False):
@@ -175,12 +186,13 @@ class ConnectionPool(object):
 
 class NCConnection(object):
 
-    def __init__(self, context,legacy=False):
+    def __init__(self, context,legacy=False,id=0):
 
         self.context = context
         self.legacy  = legacy
         self._ncc_connection = None
         self.start = time.time()
+        self.id = "{}-{}".format(context.host,id)
 
     @property
     def age(self):
@@ -248,9 +260,9 @@ class NCConnection(object):
             raise DeviceUnreachable(host=self.context.host)
 
 class YangConnection(NCConnection):
-    def __init__(self,context):
-        super(YangConnection,self).__init__(context)
+    def __init__(self,context,id=0):
+        super(YangConnection,self).__init__(context,id=id)
 
 class LegacyConnection(NCConnection):
-    def __init__(self,context):
-        super(LegacyConnection,self).__init__(context,legacy=True)
+    def __init__(self,context,id=0):
+        super(LegacyConnection,self).__init__(context,legacy=True,id=id)
