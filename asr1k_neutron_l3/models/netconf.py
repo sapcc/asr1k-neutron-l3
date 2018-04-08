@@ -101,12 +101,13 @@ class ConnectionPool(object):
 
         connection = self.devices.get(key).pop(0)
 
-        if connection.age >  cfg.CONF.asr1k.connection_max_age:
-            connection.close()
-
+        # if connection.age >  cfg.CONF.asr1k.connection_max_age:
+        #     connection.close()
+        #
         if legacy:
             self.devices.get(key).append(LegacyConnection(context))
         else:
+            LOG.debug('Using connection {} aged {}'.format(connection.session_id,connection.age))
             self.devices.get(key).append(connection)
 
         if connection is None:
@@ -128,6 +129,10 @@ class NCConnection(object):
     def age(self):
         return time.time() - self.start
 
+    @property
+    def session_id(self):
+       if self._ncc_connection is not None and  self._ncc_connection._session is not None:
+            return self._ncc_connection.session_id
     @property
     def connection(self):
 
@@ -158,6 +163,8 @@ class NCConnection(object):
             hostkey_verify=False,
             device_params={'name': "iosxe"}, timeout=context.nc_timeout,
             allow_agent=False, look_for_keys=False)
+
+
 
     def close(self):
         if self._ncc_connection is not None and self._ncc_connection.connected:
