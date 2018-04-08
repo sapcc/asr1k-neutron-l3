@@ -15,6 +15,7 @@
 #    under the License.
 
 import socket
+import time
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable
@@ -118,15 +119,24 @@ class NCConnection(object):
         self.context = context
         self.legacy  = legacy
         self._ncc_connection = None
+        self.start = time.time()
 
+    @property
+    def age(self):
+        return time.time() - self.start
 
     @property
     def connection(self):
 
-         try:
-             if self._ncc_connection is None or not self._ncc_connection.connected:
-                 self._ncc_connection = self._connect(self.context)
-         except Exception as e:
+        if self.age > 60:
+            LOG.debug("Closing connection aged {} on {}".format(self.age, self.context.host))
+            self.close()
+            self.start = time.time()
+
+        try:
+            if self._ncc_connection is None or not self._ncc_connection.connected:
+                self._ncc_connection = self._connect(self.context)
+        except Exception as e:
             if isinstance(e,TimeoutExpiredError):
                 self.context.alive = False
             elif isinstance(e, SSHError):
@@ -134,7 +144,7 @@ class NCConnection(object):
             raise e
 
 
-         return self._ncc_connection
+        return self._ncc_connection
 
 
     def _connect(self, context):
