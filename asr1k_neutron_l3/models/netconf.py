@@ -101,10 +101,12 @@ class ConnectionPool(object):
 
     def __setup(self):
         self.lock = Lock()
-        self.pool_size = 5
+        self.pool_size = cfg.CONF.asr1k.connection_pool_size
         self.pair_config = ASR1KPair()
 
         self.devices = {}
+
+        LOG.debug("Initializing connection pool of size {}".format(self.pool_size))
 
         for context in self.pair_config.contexts:
             yang = []
