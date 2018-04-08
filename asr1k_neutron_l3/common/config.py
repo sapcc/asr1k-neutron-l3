@@ -36,6 +36,7 @@ DEVICE_OPTS = [
 
 ASR1K_OPTS = [
     cfg.StrOpt('monitor', default=('asr1k_neutron_l3.common.prometheus_monitor.PrometheusMonitor'), help=('')),
+    cfg.IntOpt('connection_max_age', default=(300), help=('')),
 ]
 
 ASR1K_L3_OPTS = [

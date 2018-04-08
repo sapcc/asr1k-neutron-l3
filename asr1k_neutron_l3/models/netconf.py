@@ -22,6 +22,7 @@ from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable
 
 from ncclient import manager
 from oslo_log import log as logging
+from oslo_config import cfg
 from paramiko.client import SSHClient,AutoAddPolicy
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import SSHError
@@ -100,6 +101,8 @@ class ConnectionPool(object):
 
         connection = self.devices.get(key).pop(0)
 
+        if connection.age >  cfg.CONF.asr1k.connection_max_age:
+            connection.close()
 
         if legacy:
             self.devices.get(key).append(LegacyConnection(context))
@@ -127,11 +130,6 @@ class NCConnection(object):
 
     @property
     def connection(self):
-
-        if self.age > 60:
-            LOG.debug("Closing connection aged {} on {}".format(self.age, self.context.host))
-            self.close()
-            self.start = time.time()
 
         try:
             if self._ncc_connection is None or not self._ncc_connection.connected:
@@ -166,8 +164,10 @@ class NCConnection(object):
             #close session is not playing nicely with eventlet so try paramiko directly
             if self._ncc_connection._session is not None and self._ncc_connection._session._transport is not None:
                 self._ncc_connection._session._transport.close()
+                LOG.debug("Closed {} session {} aged {}".format(self.__class__.__name__,self._ncc_connection.session_id, self.age))
 
-            self._ncc_connection = None
+        self._ncc_connection = None
+        self.start = time.time()
 
     def get(self,filter=''):
         if self.context.alive:
