@@ -263,7 +263,7 @@ class StaticNatList(NyBase):
 
     LIST_KEY = NATConstants.STATIC
     ITEM_KEY = NATConstants.TRANSPORT_LIST
-
+    EMPTY_TYPE = []
 
     @classmethod
     def __parameters__(cls):

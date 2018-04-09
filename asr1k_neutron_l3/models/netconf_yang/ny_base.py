@@ -338,7 +338,7 @@ class NyBase(xml_utils.XMLUtils):
 
     PARENT = 'parent'
 
-
+    EMPTY_TYPE = {}
 
 
     def __init__(self, **kwargs):
@@ -443,7 +443,7 @@ class NyBase(xml_utils.XMLUtils):
         if other is not None:
             other_json = self._to_plain_json(other.to_dict())
         else:
-            other_json = {}
+            other_json = self.EMPTY_TYPE
 
 
 
@@ -757,7 +757,7 @@ class NyBase(xml_utils.XMLUtils):
         diff = self._diff(device_config)
 
         if len(diff) > 0 :
-            LOG.info("internal validate of {} for {} produced {} diff(s)  {}".format(self.__class__.__name__,context.host, len(diff),diff))
+            LOG.info("Internal validate of {} for {} produced {} diff(s)  {}".format(self.__class__.__name__,context.host, len(diff),diff))
 
         return diff
 
