@@ -139,13 +139,12 @@ class ConnectionPool(object):
 
         connection = pool.pop(0)
 
-        LOG.debug('Using connection {} session {} aged {} pool now {}'.format(connection.id, connection.session_id, connection.age, len(pool)))
 
         if legacy:
             self.devices.get(key).append(LegacyConnection(connection.context))
         else:
             pool = self.devices.get(key)
-            LOG.debug('Returning connection {} aged {} to pool of size {}'.format(connection.session_id,connection.age,len(pool)))
+
             pool.append(connection)
 
         return connection
@@ -173,7 +172,6 @@ class ConnectionPool(object):
         if legacy:
             self.devices.get(key).append(LegacyConnection(context))
         else:
-            LOG.debug('Using connection {} aged {}'.format(connection.session_id,connection.age))
             self.devices.get(key).append(connection)
 
         if connection is None:
@@ -240,7 +238,6 @@ class NCConnection(object):
             #close session is not playing nicely with eventlet so try paramiko directly
             if self._ncc_connection._session is not None and self._ncc_connection._session._transport is not None:
                 self._ncc_connection._session._transport.close()
-                LOG.debug("Closed {} session {} aged {}".format(self.__class__.__name__,self._ncc_connection.session_id, self.age))
 
         self._ncc_connection = None
         self.start = time.time()
