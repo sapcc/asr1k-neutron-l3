@@ -212,8 +212,9 @@ class NCConnection(object):
 
         try:
             if self.is_active:
-                LOG.debug("Session {} is not active, closing and reconnecting".format(self.session_id))
-                self.close()
+                if self.session_id:
+                    LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.session_id))
+                    self.close()
                 self._ncc_connection = self._connect(self.context)
 
         except Exception as e:
