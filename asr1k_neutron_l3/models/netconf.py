@@ -129,6 +129,7 @@ class ConnectionPool(object):
             LOG.exception(e)
 
 
+
     @retry(stop_max_attempt_number=5, wait_fixed=100,retry_on_exception=_retry_if_exhausted)
     def pop_connection(self,context=None, legacy=False):
         key = self._key(context,legacy)
@@ -200,12 +201,21 @@ class NCConnection(object):
     def session_id(self):
        if self._ncc_connection is not None and  self._ncc_connection._session is not None:
             return self._ncc_connection.session_id
+
+    @property
+    def is_active(self):
+        return self._ncc_connection is None or not self._ncc_connection.connected or not self._ncc_connection._session._transport.is_active()
+
+
     @property
     def connection(self):
 
         try:
-            if self._ncc_connection is None or not self._ncc_connection.connected:
+            if self.is_active:
+                LOG.debug("Session {} is not active, closing and reconnecting".format(self.session_id))
+                self.close()
                 self._ncc_connection = self._connect(self.context)
+
         except Exception as e:
             if isinstance(e,TimeoutExpiredError):
                 self.context.alive = False
@@ -213,9 +223,7 @@ class NCConnection(object):
                 self.context.alive = False
             raise e
 
-
         return self._ncc_connection
-
 
     def _connect(self, context):
 
