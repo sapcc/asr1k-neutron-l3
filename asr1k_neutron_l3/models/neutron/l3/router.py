@@ -281,7 +281,7 @@ class Router(Base):
         #for floating_ip in self.floating_ips:
         self.floating_ips.delete()
 
-        nat.FloatingIp.clean_floating_ips(self)
+        # nat.FloatingIp.clean_floating_ips(self)
 
         self.routes.delete()
         self.dynamic_nat.delete()

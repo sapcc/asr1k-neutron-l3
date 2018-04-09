@@ -336,16 +336,19 @@ class StaticNatList(NyBase):
                 if global_ip is not None and global_ip != nat_entry.global_ip:
                     LOG.debug('Removing invalid local mapping local {} > {} from vrf {}'.format(nat_entry.local_ip,nat_entry.global_ip, self.vrf))
                     nat_entry.delete()
-
-
-
+    @execute_on_pair()
+    def update(self,context=None):
+        self.clean_nat(context)
+        self.ncc.update(context)
+        return super(StaticNatList, self)._update(context=context,method=NC_OPERATION.PUT)
 
 
     @execute_on_pair()
-    def update(self,context=None):
-       self.clean_nat(context)
-       self.ncc.update(context)
-       return super(StaticNatList, self)._update(context=context,method=NC_OPERATION.PUT)
+    def delete(self,context=None):
+        self.clean_nat(context)
+        self.ncc.delete(context)
+        return super(StaticNatList, self)._delete(context=context)
+
 
 
 class StaticNat(NyBase):
