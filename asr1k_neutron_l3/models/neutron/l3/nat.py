@@ -120,7 +120,7 @@ class FloatingIpList(BaseNAT):
         for floating_ip in self.floating_ips:
             rest_static_nats.append(floating_ip._rest_definition)
 
-        return l3_nat.StaticNatList(vrf=self.router_id, static_nats=sorted(rest_static_nats, key=lambda static_nat: static_nat.local_ip))
+        return l3_nat.StaticNatList(vrf=self.router_id, static_nats=rest_static_nats)
 
     def append(self, floating_ip):
         self.floating_ips.append(floating_ip)

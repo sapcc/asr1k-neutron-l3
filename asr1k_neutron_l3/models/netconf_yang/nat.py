@@ -312,7 +312,7 @@ class StaticNatList(NyBase):
         nat_list = []
 
 
-        for static_nat in self.static_nats:
+        for static_nat in sorted(self.static_nats, key=lambda static_nat: static_nat.local_ip):
             nat_list.append(dict({self.ITEM_KEY:static_nat.to_single_dict()}))
 
 

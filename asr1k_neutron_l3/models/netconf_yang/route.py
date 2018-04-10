@@ -99,7 +99,7 @@ class VrfRoute(NyBase):
         vrf_route[RouteConstants.FOWARDING] = []
 
         if isinstance(self.routes,list):
-            for route in self.routes:
+            for route in sorted(self.routes, key=lambda route: route.prefix):
 
                 vrf_route[RouteConstants.FOWARDING].append(route.to_single_dict())
 
