@@ -17,13 +17,14 @@ class RouterProcessingQueue(object):
         updates stop bubbling to the front of the queue.
         """
 
-        next_update = self._queue.get(timeout=cfg.CONF.asr1k_l3.queue_timeout)
-        with ExclusiveRouterProcessor(next_update.id) as rp:
-            # Queue the update whether this worker is the master or not.
-            rp.queue_update(next_update)
+        next_update = self._queue.get()
+        if next_update is not None:
+            with ExclusiveRouterProcessor(next_update.id) as rp:
+                # Queue the update whether this worker is the master or not.
+                rp.queue_update(next_update)
 
-            # Here, if the current worker is not the master, the call to
-            # rp.updates() will not yield and so this will essentially be a
-            # noop.
-            for update in rp.updates():
-                yield (rp, update)
+                # Here, if the current worker is not the master, the call to
+                # rp.updates() will not yield and so this will essentially be a
+                # noop.
+                for update in rp.updates():
+                    yield (rp, update)
