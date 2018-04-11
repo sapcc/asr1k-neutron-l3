@@ -82,9 +82,9 @@ class Prefix(NyBase):
 
     def update(self,context=None):
         if len(self.seq) >0 :
-            super(Prefix,self).update()
+            return super(Prefix,self).update()
         else:
-            super(Prefix, self).delete()
+            return super(Prefix, self).delete()
 
     def to_dict(self):
 
