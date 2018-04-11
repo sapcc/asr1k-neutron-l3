@@ -204,98 +204,70 @@ class Router(Base):
         return self.extra_atts.get(port.get('id'),{})
 
     def create(self):
-        self.update()
+        return self.update()
 
     @instrument()
     def update(self):
-        results = []
+
         if self.gateway_interface is None and len(self.interfaces.internal_interfaces)==0:
             return self.delete()
 
-        # Order is  important if as we switch from BGP <> non BGP
-        # if self.routeable_interface:
-        #     for prefix_list in self.prefix_lists:
-        #         prefix_list.update()
-        #     self.route_map.update()
-        #     self.vrf.update()
-        #     self.bgp_address_family.update()
-        # else:
-        #
-        #     self.route_map.delete()
-        #     for prefix_list in self.prefix_lists:
-        #         prefix_list.delete()
-        #     self.vrf.update()
-        #     self.bgp_address_family.delete()
-
+        results = []
         for prefix_list in self.prefix_lists:
-            prefix_list.update()
-        self.route_map.update()
-        self.vrf.update()
+            results.append(prefix_list.update())
+            results.append(self.route_map.update())
+            results.append(self.vrf.update())
 
         if self.routeable_interface:
-            self.bgp_address_family.update()
+            results.append(self.bgp_address_family.update())
         else:
-            self.bgp_address_family.delete()
-
+            results.append(self.bgp_address_family.delete())
 
         for interface in self.interfaces.all_interfaces:
-            interface.update()
-
+            results.append(interface.update())
 
         if self.nat_acl:
-            # if self.enable_snat and self.gateway_interface is not None:
-            #     self.nat_acl.update()
-            # else:
-            #     self.nat_acl.delete()
-            self.nat_acl.update()
-
+            results.append(self.nat_acl.update())
 
         if  self.enable_snat and self.gateway_interface is not None:
-            self.dynamic_nat.update()
+            results.append(self.dynamic_nat.update())
         else:
-            self.dynamic_nat.delete()
+            results.append(self.dynamic_nat.delete())
 
+        results.append(self.routes.update())
 
-        self.routes.update()
+        results.append(self.floating_ips.update())
 
-        # # Clean up static nat
-        # nat.FloatingIp.clean_floating_ips(self)
-
-        #for floating_ip in self.floating_ips:
-        self.floating_ips.update()
+        return results
 
     @instrument()
     def delete(self):
-
+        results = []
         # order is important here.
 
         for prefix_list in self.prefix_lists:
-            prefix_list.delete()
+            results.append(prefix_list.delete())
 
         if len(self.prefix_lists) ==0:
-            prefix.SnatPrefix(router_id=self.router_id).delete()
-            prefix.ExtPrefix(router_id=self.router_id).delete()
+            results.append(prefix.SnatPrefix(router_id=self.router_id).delete())
+            results.append(prefix.ExtPrefix(router_id=self.router_id).delete())
 
-        self.route_map.delete()
+            results.append(self.route_map.delete())
 
-        #for floating_ip in self.floating_ips:
-        self.floating_ips.delete()
+        results.append(self.floating_ips.delete())
 
-        # nat.FloatingIp.clean_floating_ips(self)
-
-        self.routes.delete()
-        self.dynamic_nat.delete()
-        self.nat_acl.delete()
+        results.append(self.routes.delete())
+        results.append(self.dynamic_nat.delete())
+        results.append(self.nat_acl.delete())
 
         for interface in self.interfaces.all_interfaces:
-            interface.delete()
+            results.append(interface.delete())
 
+        results.append(self.bgp_address_family.delete())
 
+        results.append(self.vrf.delete())
 
-
-        self.bgp_address_family.delete()
-
-        self.vrf.delete()
+        return results
 
     @instrument()
     def diff(self):
@@ -310,12 +282,10 @@ class Router(Base):
         if not bgp_diff.valid:
             diff_results['bgp'] = bgp_diff.to_dict()
 
-
         for prefix_list in self.prefix_lists:
             prefix_diff = prefix_list.diff()
             if not prefix_diff.valid:
                 diff_results['prefix_list'] = prefix_diff.to_dict()
-
 
         rm_diff =self.route_map.diff()
         if not rm_diff.valid:
@@ -329,16 +299,9 @@ class Router(Base):
         if not dynamic_nat_diff.valid:
             diff_results['dynamic_nat'] = dynamic_nat_diff.to_dict()
 
-
-        # for floating_ip in self.floating_ips:
-        #     floating_ip_diff = floating_ip.diff()
-        #     if not floating_ip_diff.valid:
-        #         diff_results['static_nat'] = floating_ip_diff.to_dict()
-
         floating_ips_diff = self.floating_ips.diff()
         if not floating_ips_diff.valid:
             diff_results['static_nat'] = floating_ips_diff.to_dict()
-
 
         for interface in self.interfaces.internal_interfaces:
             interface_diff = interface.diff()
@@ -354,7 +317,4 @@ class Router(Base):
         if not nat_acl_diff.valid:
             diff_results['nat_acl'] = nat_acl_diff.to_dict()
 
-
         return diff_results
-
-

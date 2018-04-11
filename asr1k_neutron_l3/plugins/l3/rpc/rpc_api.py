@@ -50,3 +50,13 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
             result[scope.get('name')] = scope
 
         return result
+
+
+    @log_helpers.log_method_call
+    def update_router_status(self, context, **kwargs):
+
+        router_id = kwargs.get('router_id')
+        status = kwargs.get('status')
+
+        if router_id is not None and status is not None:
+            self.db.update_router_status(self.context, router_id,status)

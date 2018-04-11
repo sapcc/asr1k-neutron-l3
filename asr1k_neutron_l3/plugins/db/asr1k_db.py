@@ -21,6 +21,7 @@ from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
+from neutron.db import l3_db
 from neutron.plugins.ml2 import models as ml2_models
 
 from oslo_log import helpers as log_helpers
@@ -48,10 +49,19 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                portbindings_db.PortBindingMixin,
                address_scope_db.AddressScopeDbMixin,
                external_net_db.External_net_db_mixin,
+               l3_db.L3_NAT_dbonly_mixin
                ):
 
     def __init__(self):
         pass
+
+
+    def update_router_status(self, context, router_id,status):
+
+        with context.session.begin(subtransactions=True):
+            router = {'router': {'status':status}}
+            self.update_router(context,router_id,router)
+
 
     def get_ports_with_binding(self, context, network_id):
         with context.session.begin(subtransactions=True):

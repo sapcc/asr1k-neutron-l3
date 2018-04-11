@@ -25,3 +25,5 @@ ASR1K_ROUTER_ATTS_KEY = 'ars1k_router_atts'
 REQUEUES_KEY = 'requeues'
 
 ADDRESS_SCOPE_CONFIG = 'address_scope_config'
+
+ROUTER_STATE_ERROR = 'ERROR'

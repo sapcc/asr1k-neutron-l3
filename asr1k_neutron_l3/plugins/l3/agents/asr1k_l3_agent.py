@@ -203,11 +203,6 @@ class L3PluginApi(object):
         cctxt = self.client.prepare(version='1.3')
         return cctxt.call(context, 'get_service_plugin_list')
 
-    def update_ha_routers_states(self, context, states):
-        """Update HA routers states."""
-        cctxt = self.client.prepare(version='1.5')
-        return cctxt.call(context, 'update_ha_routers_states',
-                          host=self.host, states=states)
 
     def process_prefix_update(self, context, prefix_update):
         """Process prefix update whenever prefixes get changed."""
@@ -227,12 +222,17 @@ class L3PluginApi(object):
         return cctxt.call(context, 'delete_extra_atts_l3',
                           host=self.host, ports=ports)
 
-    @instrument()
+
     def get_address_scopes(self, context, scopes):
         """Get address scopes with names """
         cctxt = self.client.prepare(version='1.7')
         return cctxt.call(context, 'get_address_scopes',
                           host=self.host, scopes=scopes)
+
+    def update_router_status(self, context, router_id,status):
+        cctxt = self.client.prepare(version='1.7')
+        return cctxt.call(context, 'update_router_status',
+                          host=self.host, router_id=router_id,status=status)
 
 
 class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,operations.OperationsMixin):
@@ -269,7 +269,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         self._queue = asr1k_queue.RouterProcessingQueue()
         self._requeue = {}
         self._last_full_sync = timeutils.now()
-
+        self.retry_tracker = {}
 
         # Get the list of service plugins from Neutron Server
         # This is the first place where we contact neutron-server on startup
@@ -475,65 +475,89 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         self.fullsync = True
         LOG.info(_LI("Agent updated by server with payload : %s!"), payload)
 
-    @instrument()
     def _process_router_update(self):
-        if not self.pause_process:
-            for rp, update in self._queue.each_update_to_next_router():
-                LOG.debug("Starting router update for %s, action %s, priority %s",
-                          update.id, update.action, update.priority)
+        try:
+            if not self.pause_process:
+                for rp, update in self._queue.each_update_to_next_router():
+                    LOG.debug("Starting router update for %s, action %s, priority %s",
+                              update.id, update.action, update.priority)
 
-                router = update.router
-                if update.action != queue.DELETE_ROUTER and not router:
-                    update.timestamp = timeutils.utcnow()
-                    routers = self.plugin_rpc.get_routers(self.context, [update.id])
+                    router = update.router
+                    if update.action != queue.DELETE_ROUTER and not router:
+                        update.timestamp = timeutils.utcnow()
+                        routers = self.plugin_rpc.get_routers(self.context, [update.id])
 
-                    if routers:
-                        router = routers[0]
+                        if routers:
+                            router = routers[0]
 
-                if not router:
-                    removed = self._safe_router_deleted(update.id)
-                    if not removed:
-                        self._resync_router(update)
-                        LOG.debug("Router delete failed for %s requeuing for processing", update.id)
-                    else:
-                        # need to update timestamp of removed router in case
-                        # there are older events for the same router in the
-                        # processing queue (like events from fullsync) in order to
-                        # prevent deleted router re-creation
-                        rp.fetched_and_processed(update.timestamp)
-                        LOG.debug("Finished a router delete for %s", update.id)
-
-                    continue
-
-                if self._extra_atts_complete(router):
-                    try:
-                        router[constants.ADDRESS_SCOPE_CONFIG] = self.address_scopes
-                        r = l3_router.Router(router)
-                        r.update()
-                        # set L3 deleted for all ports on the router that have disappeared
-                        deleted_ports = utils.calculate_deleted_ports(router)
-                        self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
-
-                        rp.fetched_and_processed(update.timestamp)
-                        LOG.debug("Finished a router update for {}".format(update.id))
-                        self.retry_tracker.pop(update.id, None)
-                    except exc.Asr1kException as  e:
-                        LOG.exception(e)
-                        if isinstance(e,exc.ReQueueException):
-                            requeue_attempts = self.retry_tracker.get(update.id,1)
-                            if requeue_attempts < self.conf.asr1k_l3.max_requeue_attempts:
-                                LOG.debug('Update failed, with a possibly transient error. Requeuing router {} attempt {} of {}'.format(update.id, requeue_attempts, self.conf.asr1k_l3.max_requeue_attempts))
-                                self.retry_tracker[update.id] = requeue_attempts + 1
-                                self._requeue_router(update)
-                            else:
-                                LOG.debug('Max requeing attempts reached for %s' % update.id)
-                                self.retry_tracker.pop(update.id,None)
-                                raise e
+                    if not router:
+                        removed = self._safe_router_deleted(update.id)
+                        if not removed:
+                            self._resync_router(update)
+                            LOG.debug("Router delete failed for %s requeuing for processing", update.id)
                         else:
-                            raise e
-                else:
-                    self._resync_router(update)
+                            # need to update timestamp of removed router in case
+                            # there are older events for the same router in the
+                            # processing queue (like events from fullsync) in order to
+                            # prevent deleted router re-creation
+                            rp.fetched_and_processed(update.timestamp)
+                            LOG.debug("Finished a router delete for %s", update.id)
 
+                        continue
+
+                    if self._extra_atts_complete(router):
+                        try:
+                            LOG.debug("Starting router update for {}".format(update.id))
+
+                            router[constants.ADDRESS_SCOPE_CONFIG] = self.address_scopes
+                            r = l3_router.Router(router)
+
+                            result = r.update()
+
+                            self.process_update_result(r, result)
+
+                            # set L3 deleted for all ports on the router that have disappeared
+                            deleted_ports = utils.calculate_deleted_ports(router)
+                            self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
+
+                            rp.fetched_and_processed(update.timestamp)
+                            LOG.debug("Finished a router update for {}".format(update.id))
+                            self.retry_tracker.pop(update.id, None)
+                        except exc.Asr1kException as  e:
+                            LOG.exception(e)
+                            if isinstance(e,exc.ReQueueException):
+                                requeue_attempts = self.retry_tracker.get(update.id,1)
+                                if requeue_attempts < self.conf.asr1k_l3.max_requeue_attempts:
+                                    LOG.debug('Update failed, with a possibly transient error. Requeuing router {} attempt {} of {}'.format(update.id, requeue_attempts, self.conf.asr1k_l3.max_requeue_attempts))
+                                    self.retry_tracker[update.id] = requeue_attempts + 1
+                                    self._requeue_router(update)
+                                else:
+                                    LOG.debug('Max requeing attempts reached for %s' % update.id)
+                                    self.retry_tracker.pop(update.id,None)
+                                    raise e
+                            else:
+                                raise e
+                    else:
+                        LOG.debug("Resyncing router {}".format(update.id))
+                        self._resync_router(update)
+        except Exception as e:
+            LOG.exception(e)
+
+    def process_update_result(self,router,results):
+        success = True
+        duration = 0
+        if results is not None:
+            for result in results:
+                success = success and result.success
+                duration += result.duration
+
+        LOG.debug("***** Update of {} {} in {:10.3f}s".format(router.router_id,"succeeded" if success else "failed",duration))
+
+        # Callback to set router state based on update result
+        if not success:
+            self.plugin_rpc.update_router_status(self.context,router.router_id,constants.ROUTER_STATE_ERROR)
+        else:
+            self.plugin_rpc.update_router_status(self.context, router.router_id, l3_constants.ROUTER_STATUS_ACTIVE)
 
     def _extra_atts_complete(self, router):
         extra_atts = router.get(constants.ASR1K_EXTRA_ATTS_KEY)
