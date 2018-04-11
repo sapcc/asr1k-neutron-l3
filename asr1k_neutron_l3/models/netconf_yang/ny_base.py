@@ -106,7 +106,7 @@ class execute_on_pair(object):
         @six.wraps(method)
 
         def wrapper(*args, **kwargs):
-
+            start = time.time()
             result = self.result_type(args[0],method.__name__)
             if not self.return_raw:
                 pool = eventlet.GreenPool()
@@ -135,6 +135,11 @@ class execute_on_pair(object):
                 if not result.success:
                     LOG.warning(result.errors)
                     result.raise_errors()
+
+            duration = time.time()-start
+
+            if hasattr(result, 'duration'):
+                setattr(result,'duration',duration)
 
             return result
 
@@ -221,6 +226,7 @@ class PairResult(object):
         self.errors = {}
         self.show_success = True
         self.show_failure = True
+        self.duration = -1
 
     def append(self, context, response):
 
@@ -746,7 +752,7 @@ class NyBase(xml_utils.XMLUtils):
                 result = connection.edit_config(config=self.to_xml(json=json,operation=method))
                 return result
 
-    @instrument()
+
     def _internal_validate(self,should_be_none=False, context=None):
         device_config = self._internal_get(context=context)
 
