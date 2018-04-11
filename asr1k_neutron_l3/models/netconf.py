@@ -17,6 +17,7 @@
 import socket
 import time
 from retrying import retry
+import eventlet
 
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
@@ -97,6 +98,32 @@ class ConnectionPool(object):
 
         return ConnectionPool.__instance
 
+    def __init__(self):
+        pass
+
+    def monitor(self):
+        pool = eventlet.GreenPool(size=self.yang_pool_size )
+
+        while True:
+            pool.spawn_n(self._ensure_connections_aged)
+
+
+    def _ensure_connections_aged(self):
+        try:
+            for context in self.pair_config.contexts:
+                yang = self.devices[self._key(context, False)]
+
+                for connection in yang:
+
+                    if connection.age > cfg.CONF.asr1k.connection_max_age:
+                        LOG.debug("***** closing aged connection with session id {} aged {:10.2f}s".format(connection.session_id,connection.age))
+                        connection.lock.acquire()
+                        connection.close()
+                        connection.lock.release()
+        except Exception as e:
+            LOG.exception(e)
+
+
     def _key(self,context,legacy):
         key = '{}_yang'.format(context.host)
         if legacy :
@@ -106,7 +133,7 @@ class ConnectionPool(object):
 
     def __setup(self):
         try:
-            self.lock = Lock()
+
             self.yang_pool_size = cfg.CONF.asr1k.yang_connection_pool_size
             self.legacy_pool_size = cfg.CONF.asr1k.legacy_connection_pool_size
             self.pair_config = ASR1KPair()
@@ -123,8 +150,11 @@ class ConnectionPool(object):
                 for i in range(self.legacy_pool_size):
                     legacy.append(LegacyConnection(context,id=i))
 
-                self.devices['{}_yang'.format(context.host)] = yang
-                self.devices['{}_legacy'.format(context.host)] = legacy
+                self.devices[self._key(context,False)] = yang
+                self.devices[self._key(context,True)] = legacy
+
+            eventlet.spawn_n(self.monitor)
+
         except Exception as e:
             LOG.exception(e)
 
@@ -139,8 +169,7 @@ class ConnectionPool(object):
             raise ConnectionPoolExhausted()
 
         connection = pool.pop(0)
-
-
+        connection.lock.acquire()
         if legacy:
             self.devices.get(key).append(LegacyConnection(connection.context))
         else:
@@ -151,14 +180,8 @@ class ConnectionPool(object):
         return connection
 
     def push_connection(self,connection,legacy=False):
-        pass
-        # key = self._key(connection.context,legacy)
-        # if legacy:
-        #     self.devices.get(key).append(LegacyConnection(connection.context))
-        # else:
-        #     pool = self.devices.get(key)
-        #     LOG.debug('Returning connection {} aged {} to pool of size {}'.format(connection.session_id,connection.age,len(pool)))
-        #     pool.append(connection)
+        connection.lock.release()
+
 
 
     def get_connection(self,context,legacy=False):
@@ -186,7 +209,7 @@ class ConnectionPool(object):
 class NCConnection(object):
 
     def __init__(self, context,legacy=False,id=0):
-
+        self.lock = Lock()
         self.context = context
         self.legacy  = legacy
         self._ncc_connection = None
