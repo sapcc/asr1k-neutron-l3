@@ -14,6 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+MAX_CONNECTIONS = 10
+
 AGENT_TYPE_ASR1K_L3 = 'ASR1K L3 Agent'
 AGENT_BINARY_ASR1K_L3 = 'asr1k-neutron-l3-agent'
 AGENT_TYPE_ASR1K_ML2 = 'ASR1K ML2 Agent'

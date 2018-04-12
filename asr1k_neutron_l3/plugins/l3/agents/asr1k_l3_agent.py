@@ -565,7 +565,12 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         return set(utils.get_router_ports(router)).issubset(extra_atts.keys())
 
     def _process_routers_loop(self):
-        pool = eventlet.GreenPool(size=self.conf.asr1k_l3.threadpool_maxsize)
+        poolsize = min(self.conf.asr1k_l3.threadpool_maxsize,self.conf.asr1k.yang_connection_pool_size,constants.MAX_CONNECTIONS)
+
+        if poolsize < self.conf.asr1k_l3.threadpool_maxsize:
+            LOG.warning("The processing thread pool size has been reduced to match 'yang_connection_pool_size' its now {}".format(poolsize))
+
+        pool = eventlet.GreenPool(size=poolsize)
         while True:
             pool.spawn_n(self._process_router_update)
 

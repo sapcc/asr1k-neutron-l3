@@ -22,6 +22,7 @@ import eventlet
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable
+from asr1k_neutron_l3.common import asr1k_constants
 
 from ncclient import manager
 from oslo_log import log as logging
@@ -134,7 +135,13 @@ class ConnectionPool(object):
     def __setup(self):
         try:
 
-            self.yang_pool_size = cfg.CONF.asr1k.yang_connection_pool_size
+            yang_pool_size = min(cfg.CONF.asr1k.yang_connection_pool_size, asr1k_constants.MAX_CONNECTIONS)
+
+            if yang_pool_size < cfg.CONF.asr1k.yang_connection_pool_size:
+                LOG.warning(
+                    "The yang connectopm pool size has been reduced to the system maximum its now {}".format(yang_pool_size))
+
+            self.yang_pool_size = yang_pool_size
             self.legacy_pool_size = cfg.CONF.asr1k.legacy_connection_pool_size
             self.pair_config = ASR1KPair()
 
