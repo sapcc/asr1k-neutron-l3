@@ -233,13 +233,13 @@ class DynamicNat(NyBase):
 
     @execute_on_pair()
     def update(self,context=None):
-
         return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
 
     @execute_on_pair()
     def delete(self, context=None):
         self.ncc.delete(context)
-        return
+        return super(DynamicNat, self)._delete(context=context)
+
 
 
 class StaticNatList(NyBase):

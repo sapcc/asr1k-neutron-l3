@@ -151,7 +151,10 @@ class Router(Base):
                 rule = access_list.Rule(action='deny',source=ip,source_mask=wildcard)
                 acl.append_rule(rule)
 
-        acl.append_rule(access_list.Rule())
+        if not self.enable_snat:
+            acl.append_rule(access_list.Rule(action='deny'))
+        else:
+            acl.append_rule(access_list.Rule())
         return acl
 
     def _route_has_connected_interface(self, l3_route):
@@ -229,10 +232,12 @@ class Router(Base):
         if self.nat_acl:
             results.append(self.nat_acl.update())
 
-        if  self.enable_snat and self.gateway_interface is not None:
-            results.append(self.dynamic_nat.update())
-        else:
-            results.append(self.dynamic_nat.delete())
+        # if  self.enable_snat and self.gateway_interface is not None:
+
+        results.append(self.dynamic_nat.update())
+
+        # else:
+        #     results.append(self.dynamic_nat.delete())
 
         results.append(self.routes.update())
 
