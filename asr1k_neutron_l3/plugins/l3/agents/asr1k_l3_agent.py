@@ -17,6 +17,11 @@
 import eventlet
 import requests
 import urllib3
+import re
+
+import gc
+import traceback
+from greenlet import greenlet
 
 eventlet.monkey_patch()
 
@@ -309,7 +314,7 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         super(L3ASRAgent, self).__init__(conf=self.conf)
 
         signal.signal(signal.SIGUSR1, self.trigger_sync)
-        signal.signal(signal.SIGUSR2, self.pause_processing)
+        signal.signal(signal.SIGUSR2, self.dump_greenlets)
 
 
 
@@ -318,14 +323,22 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         LOG.info("Setup full sync based on external signal")
         self.fullsync =True
 
-    def pause_processing(self,signum, frame):
+    def dump_greenlets(self,signum, frame):
+        count=0
+        total_count = 0
+        for ob in gc.get_objects():
+            if not isinstance(ob, greenlet):
+                continue
+            if not ob:
+                continue
 
-        if self.pause_process:
-            LOG.info("Resuming processing after receiving external signal")
-            self.pause_process = False
-        else:
-            LOG.info("Pausing processing after receiving external signal")
-            self.pause_process = True
+            LOG.debug(''.join(traceback.format_stack(ob.gr_frame)))
+            if re.search('ncclient/transport/ssh.py', traceback.format_stack(ob.gr_frame).__str__(), re.I):
+
+                count += 1
+            total_count+=1
+        LOG.debug("************* Total SSH Greenlets : {} out of {}".format(count,total_count))
+
 
 
 
