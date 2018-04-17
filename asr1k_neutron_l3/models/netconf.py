@@ -19,14 +19,17 @@ import time
 from retrying import retry
 import eventlet
 
+
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable
 from asr1k_neutron_l3.common import asr1k_constants
+from asr1k_neutron_l3.common.instrument import instrument
 
 from ncclient import manager
 from oslo_log import log as logging
 from oslo_config import cfg
+from oslo_service import loopingcall
 from paramiko.client import SSHClient,AutoAddPolicy
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import SSHError
@@ -102,14 +105,10 @@ class ConnectionPool(object):
     def __init__(self):
         pass
 
-    def monitor(self):
-        pool = eventlet.GreenPool(size=self.yang_pool_size )
-
-        while True:
-            pool.spawn_n(self._ensure_connections_aged)
 
 
     def _ensure_connections_aged(self):
+
         try:
             for context in self.pair_config.contexts:
                 yang = self.devices[self._key(context, False)]
@@ -160,7 +159,12 @@ class ConnectionPool(object):
                 self.devices[self._key(context,False)] = yang
                 self.devices[self._key(context,True)] = legacy
 
-            eventlet.spawn_n(self.monitor)
+            if cfg.CONF.asr1k.connection_max_age > 0:
+                LOG.debug("Setting up looping call to close connections older than {} seconds".format(cfg.CONF.asr1k.connection_max_age))
+                self.monitor = loopingcall.FixedIntervalLoopingCall(
+                    self._ensure_connections_aged)
+                self.monitor.start(interval=cfg.CONF.asr1k.connection_max_age)
+
 
         except Exception as e:
             LOG.exception(e)
