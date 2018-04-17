@@ -233,12 +233,14 @@ class DynamicNat(NyBase):
 
     @execute_on_pair()
     def update(self,context=None):
-        return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
+        if self.bridge_domain is not None:
+            return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
 
     @execute_on_pair()
     def delete(self, context=None):
-        self.ncc.delete(context)
-        return super(DynamicNat, self)._delete(context=context)
+        if self.bridge_domain is not None:
+            self.ncc.delete(context)
+            return super(DynamicNat, self)._delete(context=context)
 
 
 
@@ -338,6 +340,7 @@ class StaticNatList(NyBase):
                     nat_entry.delete()
     @execute_on_pair()
     def update(self,context=None):
+
         self.clean_nat(context)
         self.ncc.update(context)
         return super(StaticNatList, self)._update(context=context,method=NC_OPERATION.PUT)
