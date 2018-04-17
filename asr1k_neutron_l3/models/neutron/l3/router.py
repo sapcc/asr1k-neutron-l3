@@ -236,9 +236,6 @@ class Router(Base):
 
         results.append(self.dynamic_nat.update())
 
-        # else:
-        #     results.append(self.dynamic_nat.delete())
-
         results.append(self.routes.update())
 
         results.append(self.floating_ips.update())
