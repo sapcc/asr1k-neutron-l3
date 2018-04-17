@@ -31,7 +31,7 @@ class instrument(object):
             duration = time.time()-start
 
             if self.log:
-                LOG.debug('{}{} executed on {} in {}s  : args {} kwargs {}'.format(host, method.__name__,args[0].__class__.__name__ ,duration,args,kwargs))
+                LOG.debug('{}{} executed on {} in {}s'.format(host, method.__name__,args[0].__class__.__name__ ,duration))
 
             # Crash if update takes too long - temporary workaround to blocking threads
             # if duration > 15:
