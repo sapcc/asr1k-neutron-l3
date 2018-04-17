@@ -33,6 +33,7 @@ from oslo_service import loopingcall
 from paramiko.client import SSHClient,AutoAddPolicy
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import SSHError
+from ncclient.transport.errors import TransportError
 
 LOG = logging.getLogger(__name__)
 
@@ -237,7 +238,7 @@ class NCConnection(object):
             return self._ncc_connection.session_id
 
     @property
-    def is_active(self):
+    def is_inactive(self):
         return self._ncc_connection is None or not self._ncc_connection.connected or not self._ncc_connection._session._transport.is_active()
 
 
@@ -245,13 +246,18 @@ class NCConnection(object):
     def connection(self):
 
         try:
-            if self.is_active:
+            if self.is_inactive:
                 if self.session_id:
                     LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.session_id))
+                try:
                     self.close()
-                self._ncc_connection = self._connect(self.context)
+                except TransportError:
+                    pass
+                finally:
+                    self._ncc_connection = self._connect(self.context)
 
         except Exception as e:
+            LOG.exception(e)
             if isinstance(e,TimeoutExpiredError):
                 self.context.alive = False
             elif isinstance(e, SSHError):
@@ -279,8 +285,7 @@ class NCConnection(object):
     def close(self):
         if self._ncc_connection is not None:
             self._ncc_connection.close_session()
-
-        self._ncc_connection = None
+            self._ncc_connection = None
         self.start = time.time()
 
     def get(self,filter=''):
@@ -291,7 +296,6 @@ class NCConnection(object):
 
 
     def edit_config(self,config='',target='running'):
-        # with self.connection.locked(target):
         if self.context.alive:
             return self.connection.edit_config(target=target, config=config)
         else :
