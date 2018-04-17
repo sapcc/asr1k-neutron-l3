@@ -77,12 +77,12 @@ from asr1k_neutron_l3.plugins.l3.agents import operations
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
-try:
-    from neutron_fwaas.services.firewall.agents.l3reference \
-        import firewall_l3_agent
-except Exception:
-    # TODO(dougw) - REMOVE THIS FROM NEUTRON; during l3_agent refactor only
-    from neutron.services.firewall.agents.l3reference import firewall_l3_agent
+# try:
+#     from neutron_fwaas.services.firewall.agents.l3reference \
+#         import firewall_l3_agent
+# except Exception:
+#     # TODO(dougw) - REMOVE THIS FROM NEUTRON; during l3_agent refactor only
+#     from neutron.services.firewall.agents.l3reference import firewall_l3_agent
 
 LOG = logging.getLogger(__name__)
 
@@ -240,7 +240,7 @@ class L3PluginApi(object):
                           host=self.host, router_id=router_id,status=status)
 
 
-class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,operations.OperationsMixin):
+class L3ASRAgent(manager.Manager,operations.OperationsMixin):
     """Manager for L3 ASR Agent
 
         API version history:
@@ -260,10 +260,6 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
             resource_type='router')
 
         self.context = n_context.get_admin_context_without_session()
-
-        self.driver = common_utils.load_interface_driver(self.conf)
-
-        self.context = n_context.get_admin_context_without_session()
         self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, host)
         self.fullsync = cfg.CONF.asr1k_l3.sync_active
         self.pause_process = False
@@ -279,39 +275,36 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
         # Get the list of service plugins from Neutron Server
         # This is the first place where we contact neutron-server on startup
         # so retry in case its not ready to respond.
-        while True:
-            try:
-                self.neutron_service_plugins = (
-                    self.plugin_rpc.get_service_plugin_list(self.context))
-            except oslo_messaging.RemoteError as e:
-                with excutils.save_and_reraise_exception() as ctx:
-                    ctx.reraise = False
-                    LOG.warning(_LW('l3-agent cannot check service plugins '
-                                    'enabled at the neutron server when '
-                                    'startup due to RPC error. It happens '
-                                    'when the server does not support this '
-                                    'RPC API. If the error is '
-                                    'UnsupportedVersion you can ignore this '
-                                    'warning. Detail message: %s'), e)
-                self.neutron_service_plugins = None
-            except oslo_messaging.MessagingTimeout as e:
-                with excutils.save_and_reraise_exception() as ctx:
-                    ctx.reraise = False
-                    LOG.warning(_LW('l3-agent cannot contact neutron server '
-                                    'to retrieve service plugins enabled. '
-                                    'Check connectivity to neutron server. '
-                                    'Retrying... '
-                                    'Detailed message: %(msg)s.') % {'msg': e})
-                    continue
-            break
+        # while True:
+        #     try:
+        #         self.neutron_service_plugins = (
+        #             self.plugin_rpc.get_service_plugin_list(self.context))
+        #     except oslo_messaging.RemoteError as e:
+        #         with excutils.save_and_reraise_exception() as ctx:
+        #             ctx.reraise = False
+        #             LOG.warning(_LW('l3-agent cannot check service plugins '
+        #                             'enabled at the neutron server when '
+        #                             'startup due to RPC error. It happens '
+        #                             'when the server does not support this '
+        #                             'RPC API. If the error is '
+        #                             'UnsupportedVersion you can ignore this '
+        #                             'warning. Detail message: %s'), e)
+        #         self.neutron_service_plugins = None
+        #     except oslo_messaging.MessagingTimeout as e:
+        #         with excutils.save_and_reraise_exception() as ctx:
+        #             ctx.reraise = False
+        #             LOG.warning(_LW('l3-agent cannot contact neutron server '
+        #                             'to retrieve service plugins enabled. '
+        #                             'Check connectivity to neutron server. '
+        #                             'Retrying... '
+        #                             'Detailed message: %(msg)s.') % {'msg': e})
+        #             continue
+        #     break
 
-
-        self.target_ex_net_id = None
-        self.use_ipv6 = ipv6_utils.is_enabled()
 
         self.monitor = self._initialize_monitor()
 
-        super(L3ASRAgent, self).__init__(conf=self.conf)
+        super(L3ASRAgent, self).__init__()
 
         signal.signal(signal.SIGUSR1, self.trigger_sync)
         signal.signal(signal.SIGUSR2, self.dump_greenlets)
@@ -384,19 +377,17 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
     def check_devices_alive(self,context):
         netconf.check_devices()
 
-    @periodic_task.periodic_task(spacing=cfg.CONF.asr1k_l3.sync_interval, run_immediately=True)
-    def periodic_sync_routers_task(self, context):
+
+    def _periodic_sync_routers_task(self):
         LOG.debug("Starting fullsync, last full sync started {} seconds ago".format(int(timeutils.now()-self._last_full_sync)))
 
-
-        self.process_services_sync(context)
         if not self.fullsync:
             return
 
         self._last_full_sync = timeutils.now()
 
         try:
-            self.fetch_and_sync_all_routers(context)
+            self.fetch_and_sync_all_routers(self.context)
         except n_exc.AbortSyncRouters:
             self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
@@ -472,13 +463,20 @@ class L3ASRAgent(firewall_l3_agent.FWaaSL3AgentRpcCallback, manager.Manager,oper
 
     @log_helpers.log_method_call
     def after_start(self):
+        self.periodic_refresh_address_scope_config(self.context)
+
+
+        if cfg.CONF.asr1k_l3.sync_active and cfg.CONF.asr1k_l3.sync_interval > 0:
+            self.sync_loop = loopingcall.FixedIntervalLoopingCall(
+                self._periodic_sync_routers_task)
+            self.sync_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
+
         eventlet.spawn_n(self._process_routers_loop)
+
         LOG.info(_LI("L3 agent started"))
-        # Do the report state before we do the first full sync.
-        self._report_state()
 
 
-    @periodic_task.periodic_task(spacing=5, run_immediately=True)
+    @periodic_task.periodic_task(spacing=5, run_immediately=False)
     def periodic_refresh_address_scope_config(self, context):
         self.address_scopes = utils.get_address_scope_config(self.plugin_rpc, context)
 
@@ -649,8 +647,6 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
             'agent_type': constants.AGENT_TYPE_ASR1K_L3}
         report_interval = self.conf.AGENT.report_interval
 
-
-        LOG.debug(report_interval)
         if report_interval:
             self.heartbeat = loopingcall.FixedIntervalLoopingCall(
                 self._report_state)
@@ -696,8 +692,7 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
     def after_start(self):
         # Do the report state before we do the first full sync.
         self._report_state()
-        eventlet.spawn_n(self._process_routers_loop)
-        LOG.info(_LI("L3 agent started"))
+        super(L3ASRAgentWithStateReport,self).after_start()
 
     def agent_updated(self, context, payload):
         """Handle the agent_updated notification event."""
