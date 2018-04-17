@@ -273,10 +273,8 @@ class NCConnection(object):
 
 
     def close(self):
-        if self._ncc_connection is not None and self._ncc_connection.connected:
-            #close session is not playing nicely with eventlet so try paramiko directly
-            if self._ncc_connection._session is not None and self._ncc_connection._session._transport is not None:
-                self._ncc_connection._session._transport.close()
+        if self._ncc_connection is not None:
+            self._ncc_connection.close_session()
 
         self._ncc_connection = None
         self.start = time.time()
