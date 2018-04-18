@@ -105,6 +105,9 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             return result
 
     def get_extra_atts_for_routers(self, context, routers):
+        if routers is None:
+            return []
+
         return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
             sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers)).all()
 
@@ -124,6 +127,9 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         result=[]
         for row in query.all():
             result.append(row.router_id)
+
+        if not bool(result):
+            result = None
 
         return result
 
@@ -199,6 +205,9 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             asr1k_models.ASR1KExtraAttsModel.port_id == port).first()
 
     def get_router_atts_for_routers(self, context, routers):
+        if routers is None:
+            return []
+
         return context.session.query(asr1k_models.ASR1KRouterAttsModel).filter(
             sa.cast(asr1k_models.ASR1KRouterAttsModel.router_id, sa.Text()).in_(routers)).all()
 
