@@ -111,7 +111,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     @instrument()
     @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None,host=None):
-        extra_atts = self._get_extra_atts(context, router_ids)
+        extra_atts = self._get_extra_atts(context, router_ids,host)
         router_atts = self._get_router_atts(context, router_ids)
 
         routers = super(ASR1KPluginBase, self).get_sync_data(context, router_ids=router_ids, active=active)
@@ -131,7 +131,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
         return routers
 
-    def _get_extra_atts(self, context, router_ids):
+    def _get_extra_atts(self, context, router_ids, host=None):
         db = asr1k_db.DBPlugin()
         extra_atts = db.get_extra_atts_for_routers(context, router_ids)
 
@@ -141,7 +141,11 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
             if return_dict.get(extra_att.get('router_id')) is None:
                 return_dict[extra_att.get('router_id')] = {}
 
-            return_dict[extra_att.get('router_id')][extra_att.get('port_id')] = extra_att
+            if host is None:
+                return_dict[extra_att.get('router_id')][extra_att.get('port_id')] = extra_att
+            else:
+                if host == extra_att.get('agent_host'):
+                    return_dict[extra_att.get('router_id')][extra_att.get('port_id')] = extra_att
 
         return return_dict
 

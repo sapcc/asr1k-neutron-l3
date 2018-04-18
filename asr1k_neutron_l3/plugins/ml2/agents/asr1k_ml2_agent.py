@@ -267,8 +267,17 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             l2_port.update_ports(interface_ports,callback=self._bound_ports)
 
 
+    @instrument()
+    def scavenge(self):
 
+        if self.sync_active:
+            try:
+                extra_atts = self.agent_rpc.get_orphaned_extra_atts(self.context, agent_id=self.agent_id, host=self.conf.host)
 
+                l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
+                self.deleted_ports = {}
+            except BaseException as err:
+                LOG.exception(err)
 
     def _deleted_ports(self, succeeded, failed):
         LOG.debug("Callback to delete extra atts for {}".format(succeeded))
@@ -299,6 +308,14 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                 self.sync_known_ports()
             self.loop_count_and_wait(w.elapsed(), self.sync_interval)
 
+    def scavenge_loop(self):
+
+        while self._check_and_handle_signal():
+            LOG.debug("**** SYNC Loop")
+            with timeutils.StopWatch() as w:
+                self.scavenge()
+            self.loop_count_and_wait(w.elapsed(), self.sync_interval)
+
     def loop_count_and_wait(self, elapsed,polling_interval):
         # sleep till end of polling interval
         if elapsed < polling_interval:
@@ -319,6 +336,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         self.loop_pool.spawn(self.rpc_loop)
         self.loop_pool.spawn(self.sync_loop)
+        self.loop_pool.spawn(self.scavenge_loop)
         # if self.api:
         #     self.api.stop()
 

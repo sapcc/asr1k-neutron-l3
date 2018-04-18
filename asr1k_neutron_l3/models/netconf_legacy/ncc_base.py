@@ -39,8 +39,7 @@ class NccBase(object):
 
             self._check_response(rpc_obj, snippet, conf_str=conf_str)
         except RPCError as e:
-            LOG.exception(e)
-            return e
+            raise e
         except Exception as e:
             raise e
         finally:

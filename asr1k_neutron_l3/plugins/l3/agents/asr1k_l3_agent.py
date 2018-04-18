@@ -75,6 +75,7 @@ from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import netconf
 from asr1k_neutron_l3.plugins.l3.agents import operations
 
+
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 # try:
@@ -170,10 +171,16 @@ class L3PluginApi(object):
 
     @instrument()
     def get_deleted_routers(self, context, router_ids=None):
-        """Make a remote process call to retrieve the sync data for routers."""
+        """Make a remote process call to retrieve the deleted router data."""
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_deleted_routers', host=self.host,
                           router_ids=router_ids)
+
+    @instrument()
+    def get_extra_atts_orphans(self, context, router_ids=None):
+        """Make a remote process call to retrieve the orphans in extra atts table."""
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_extra_atts_orphans', host=self.host)
 
     @instrument()
     def get_router_ids(self, context):
@@ -318,6 +325,23 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin):
 
 
 
+    @log_helpers.log_method_call
+    def after_start(self):
+        self.periodic_refresh_address_scope_config(self.context)
+
+
+        if cfg.CONF.asr1k_l3.sync_active and cfg.CONF.asr1k_l3.sync_interval > 0:
+            self.sync_loop = loopingcall.FixedIntervalLoopingCall(
+                self._periodic_sync_routers_task)
+            self.sync_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
+
+            self.scavenge_loop = loopingcall.FixedIntervalLoopingCall(
+            self._periodic_scavenge_task)
+            self.scavenge_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
+
+        eventlet.spawn_n(self._process_routers_loop)
+
+        LOG.info(_LI("L3 agent started"))
 
     def trigger_sync(self,signum, frame):
         LOG.info("Setup full sync based on external signal")
@@ -389,18 +413,32 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin):
     def check_devices_alive(self,context):
         netconf.check_devices()
 
+    def _periodic_scavenge_task(self):
+
+        LOG.debug('Starting to scavenge orphans from extra atts')
+
+        routers = self.plugin_rpc.get_extra_atts_orphans(self.context)
+
+        for router in routers:
+            try:
+                result = l3_router.Router(router).delete()
+                self._check_delete_result(router,result)
+
+            except Exception as e:
+                LOG.exception(e)
 
     def _periodic_sync_routers_task(self):
-        LOG.debug("Starting fullsync, last full sync started {} seconds ago".format(int(timeutils.now()-self._last_full_sync)))
-
-        if not self.fullsync:
-            return
-
-        self._last_full_sync = timeutils.now()
-
         try:
+            LOG.debug("Starting fullsync, last full sync started {} seconds ago".format(int(timeutils.now()-self._last_full_sync)))
+
+            if not self.fullsync:
+                return
+
+            self._last_full_sync = timeutils.now()
+
             self.fetch_and_sync_all_routers(self.context)
-        except n_exc.AbortSyncRouters:
+        except Exception as e:
+            LOG.error("Error in periodic sync : {}".format(e))
             self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
     @instrument()
@@ -473,19 +511,6 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin):
 
 
 
-    @log_helpers.log_method_call
-    def after_start(self):
-        self.periodic_refresh_address_scope_config(self.context)
-
-
-        if cfg.CONF.asr1k_l3.sync_active and cfg.CONF.asr1k_l3.sync_interval > 0:
-            self.sync_loop = loopingcall.FixedIntervalLoopingCall(
-                self._periodic_sync_routers_task)
-            self.sync_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
-
-        eventlet.spawn_n(self._process_routers_loop)
-
-        LOG.info(_LI("L3 agent started"))
 
 
     @periodic_task.periodic_task(spacing=5, run_immediately=False)
@@ -627,25 +652,27 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin):
         if routers:
             router = routers[0]
 
-        print "Deleted Router {}".format(router)
+        result = l3_router.Router(router).delete()
 
-        results = l3_router.Router(router).delete()
+        return self._check_delete_result(router,result)
 
+
+    def _check_delete_result(self,router,results):
         success = True
 
         if results is not None:
             for result in results:
-                success = success and result.success
+                if result is not None:
+                    success = success and result.success
 
         if success:
             deleted_ports = utils.calculate_deleted_ports(router)
             self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
-            registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router_id)
+            registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router.get('id'))
         else:
-            LOG.warning("Failed to clean up router {} on device, its been left to the scanvenger".format(router_id))
+            LOG.warning("Failed to clean up router {} on device, its been left to the scanvenger".format(router.get('id')))
 
         return success
-
 
 
 

@@ -47,6 +47,11 @@ class ASR1KPluginApi(object):
         return cctxt.call(context, 'get_extra_atts', ports=ports,
                           agent_id=agent_id, host=host)
 
+    def get_orphaned_extra_atts(self, context,agent_id=None, host=None):
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_orphaned_extra_atts',
+                          agent_id=agent_id, host=host)
+
     def delete_extra_atts(self, context, ports, agent_id=None, host=None):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'delete_extra_atts', ports=ports,
@@ -67,6 +72,9 @@ class ASR1KPluginCallback(object):
 
     def get_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
         return self.db.get_extra_atts(self.context, ports)
+
+    def get_orphaned_extra_atts(self, rpc_context, agent_id=None, host=None):
+        return self.db.get_orphaned_extra_atts(self.context, host=host)
 
     @log_helpers.log_method_call
     def delete_extra_atts(self, rpc_context, ports, agent_id=None, host=None):

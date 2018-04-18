@@ -116,6 +116,20 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return result
 
+    def get_orphaned_extra_atts_router_ids(self,context,host):
+
+        subquery = context.session.query(l3_db.Router.id)
+
+        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
+        result=[]
+        for row in query.all():
+            result.append(row.router_id)
+
+        return result
+
+    def get_orphaned_extra_atts(self,context,host):
+        routers = self.get_orphaned_extra_atts_router_ids(context,host)
+        return self.get_extra_atts_for_routers(context,routers)
 
     def get_interface_ports(self, context, limit=1, offset=1):
 

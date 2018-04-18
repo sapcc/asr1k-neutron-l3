@@ -16,13 +16,19 @@
 
 from asr1k_neutron_l3.models.netconf_legacy import ncc_base
 from asr1k_neutron_l3.models.netconf_yang.ny_base import retry_on_failure
+from oslo_log import log as logging
+
+LOG  = logging.getLogger(__name__)
 
 class RouteMap(ncc_base.NccBase):
 
     @retry_on_failure()
     def delete(self, context):
         config = CLEAR_ROUTE_MAP.format(**{'name':self.base.name})
-        self._edit_running_config(context, config, 'CLEAR_ROUTE_MAP')
+        try:
+            self._edit_running_config(context, config, 'CLEAR_ROUTE_MAP')
+        except:
+            LOG.warning("Error executing legacy NC call to delete route map {} on {} , this may be because its already deleted, in which case thie can be ignored.".format(self.base.name, context.host))
 
 
 CLEAR_ROUTE_MAP = """

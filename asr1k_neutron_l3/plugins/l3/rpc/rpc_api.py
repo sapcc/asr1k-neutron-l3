@@ -67,3 +67,11 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         router_ids = kwargs.get('router_ids')
 
         return self.l3plugin.get_sync_data(context, router_ids=router_ids, active=None,host=host)
+
+
+    @log_helpers.log_method_call
+    def get_extra_atts_orphans(self,context, **kwargs):
+        host = kwargs.get('host')
+        routers = self.db.get_orphaned_extra_atts_router_ids(self.context,host)
+
+        return self.l3plugin.get_sync_data(context, router_ids=routers, active=None,host=host)
