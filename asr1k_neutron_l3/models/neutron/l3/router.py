@@ -67,7 +67,7 @@ class Router(Base):
 
         description = self.router_info.get('description')
 
-        if len(description) == 0:
+        if description is None or len(description) == 0:
             description = self.router_id
 
         #TODO : get rt's from config for router
@@ -128,7 +128,7 @@ class Router(Base):
         if primary_route is not None and self._route_has_connected_interface(primary_route):
             routes.append(primary_route)
 
-        for l3_route in self.router_info.get('routes'):
+        for l3_route in self.router_info.get('routes',[]):
             ip, netmask = utils.from_cidr(l3_route.get('destination'))
 
             r = route.Route(self.router_id, ip, netmask, l3_route.get('nexthop'))
@@ -254,7 +254,7 @@ class Router(Base):
             results.append(prefix.SnatPrefix(router_id=self.router_id).delete())
             results.append(prefix.ExtPrefix(router_id=self.router_id).delete())
 
-            results.append(self.route_map.delete())
+        results.append(self.route_map.delete())
 
         results.append(self.floating_ips.delete())
 

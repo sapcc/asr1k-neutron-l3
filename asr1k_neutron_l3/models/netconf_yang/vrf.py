@@ -102,6 +102,13 @@ class VrfDefinition(NyBase,Requeable):
         result[VrfConstants.DEFINITION] = definition
         return dict(result)
 
+    def to_delete_dict(self):
+        definition = OrderedDict()
+        definition[VrfConstants.NAME] = self.name
+        result = OrderedDict()
+        result[VrfConstants.DEFINITION] = definition
+
+        return dict(result)
 
     @execute_on_pair()
     def update(self,context=None):

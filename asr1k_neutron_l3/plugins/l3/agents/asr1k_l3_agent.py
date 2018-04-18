@@ -169,6 +169,13 @@ class L3PluginApi(object):
                           router_ids=router_ids)
 
     @instrument()
+    def get_deleted_routers(self, context, router_ids=None):
+        """Make a remote process call to retrieve the sync data for routers."""
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_deleted_routers', host=self.host,
+                          router_ids=router_ids)
+
+    @instrument()
     def get_router_ids(self, context):
         """Make a remote process call to retrieve scheduled routers ids."""
         cctxt = self.client.prepare(version='1.9')
@@ -366,12 +373,17 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin):
                 self._queue.add(update)
 
 
-    def router_removed_from_agent(self, context, router):
-        pass
-
+    def router_removed_from_agent(self, context, payload):
+        LOG.debug('Got router removed from agent :%r', payload)
+        router_id = payload['router_id']
+        update = queue.RouterUpdate(router_id,
+                                    queue.PRIORITY_RPC,
+                                    action=queue.DELETE_ROUTER)
+        self._queue.add(update)
 
     def router_added_to_agent(self, context, payload):
-        pass
+        LOG.debug('Got router added to agent :%r', payload)
+        self.routers_updated(context, payload)
 
     @periodic_task.periodic_task(spacing=1, run_immediately=True)
     def check_devices_alive(self,context):
@@ -512,7 +524,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin):
                             # processing queue (like events from fullsync) in order to
                             # prevent deleted router re-creation
                             rp.fetched_and_processed(update.timestamp)
-                            LOG.debug("Finished a router delete for %s", update.id)
+                            LOG.debug("Finished a router delete for %s  action %s, priority %s ", update.id,update.action, update.priority)
 
                         continue
 
@@ -605,22 +617,36 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin):
     def _safe_router_deleted(self, router_id):
         """Try to delete a router and return True if successful."""
 
-        try:
-            self._router_deleted(router_id)
-        except Exception:
-            LOG.exception(_LE('Error while deleting router %s'), router_id)
-            return False
-        else:
-            return True
-
-    def _router_deleted(self, router_id):
-
         registry.notify(resources.ROUTER, events.BEFORE_DELETE,
                         self, router=router_id)
 
-        # l3_router.Router.purge(router_id)
+        LOG.debug('Got router deleted notification for %s', router_id)
 
-        registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router_id)
+        routers = self.plugin_rpc.get_deleted_routers(self.context, [router_id])
+        router = None
+        if routers:
+            router = routers[0]
+
+        print "Deleted Router {}".format(router)
+
+        results = l3_router.Router(router).delete()
+
+        success = True
+
+        if results is not None:
+            for result in results:
+                success = success and result.success
+
+        if success:
+            deleted_ports = utils.calculate_deleted_ports(router)
+            self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
+            registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router_id)
+        else:
+            LOG.warning("Failed to clean up router {} on device, its been left to the scanvenger".format(router_id))
+
+        return success
+
+
 
 
 class L3ASRAgentWithStateReport(L3ASRAgent):

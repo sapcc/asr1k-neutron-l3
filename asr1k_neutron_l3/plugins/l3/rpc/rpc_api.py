@@ -60,3 +60,10 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
         if router_id is not None and status is not None:
             self.db.update_router_status(self.context, router_id,status)
+
+    @log_helpers.log_method_call
+    def get_deleted_routers(self,context, **kwargs):
+        host = kwargs.get('host')
+        router_ids = kwargs.get('router_ids')
+
+        return self.l3plugin.get_sync_data(context, router_ids=router_ids, active=None,host=host)

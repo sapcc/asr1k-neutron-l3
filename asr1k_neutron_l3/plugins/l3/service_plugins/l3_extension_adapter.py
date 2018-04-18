@@ -110,11 +110,16 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
     @instrument()
     @log_helpers.log_method_call
-    def get_sync_data(self, context, router_ids=None, active=None):
+    def get_sync_data(self, context, router_ids=None, active=None,host=None):
         extra_atts = self._get_extra_atts(context, router_ids)
         router_atts = self._get_router_atts(context, router_ids)
 
         routers = super(ASR1KPluginBase, self).get_sync_data(context, router_ids=router_ids, active=active)
+
+        if not bool(routers):
+            routers = []
+            for router_id in router_ids:
+                routers.append({'id':router_id})
 
         for router in routers:
             extra_att = extra_atts.get(router['id'], {})
