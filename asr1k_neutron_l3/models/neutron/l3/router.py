@@ -221,10 +221,12 @@ class Router(Base):
             results.append(self.route_map.update())
             results.append(self.vrf.update())
 
-        if self.routeable_interface:
-            results.append(self.bgp_address_family.update())
-        else:
-            results.append(self.bgp_address_family.delete())
+        results.append(self.bgp_address_family.update())
+
+        # if self.routeable_interface:
+        #     results.append(self.bgp_address_family.update())
+        # else:
+        #     results.append(self.bgp_address_family.delete())
 
         for interface in self.interfaces.all_interfaces:
             results.append(interface.update())
