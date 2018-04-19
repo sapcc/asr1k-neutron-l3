@@ -221,12 +221,12 @@ class Router(Base):
             results.append(self.route_map.update())
             results.append(self.vrf.update())
 
-        results.append(self.bgp_address_family.update())
+        # results.append(self.bgp_address_family.update())
 
-        # if self.routeable_interface:
-        #     results.append(self.bgp_address_family.update())
-        # else:
-        #     results.append(self.bgp_address_family.delete())
+        if self.routeable_interface:
+            results.append(self.bgp_address_family.update())
+        else:
+            results.append(self.bgp_address_family.delete())
 
         for interface in self.interfaces.all_interfaces:
             results.append(interface.update())
@@ -281,10 +281,11 @@ class Router(Base):
         if not vrf_diff.valid:
             diff_results['vrf'] = vrf_diff.to_dict()
 
-        bgp_diff = self.bgp_address_family.diff()
+        if self.routeable_interface:
+            bgp_diff = self.bgp_address_family.diff()
 
-        if not bgp_diff.valid:
-            diff_results['bgp'] = bgp_diff.to_dict()
+            if not bgp_diff.valid:
+                diff_results['bgp'] = bgp_diff.to_dict()
 
         for prefix_list in self.prefix_lists:
             if prefix_list.internal_interfaces is not None and len(prefix_list.internal_interfaces) > 0:
