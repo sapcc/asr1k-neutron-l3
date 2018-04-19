@@ -126,15 +126,8 @@ class BDIInterface(NyBase):
 
     @execute_on_pair()
     def create(self,context=None):
-        # So we have this dance because the create will always create
-        # with the interface shutdown, if you don't specify the shutdown
-        # via yang then you can't change it via yang (yeah go figure)
-        # until this bug is fixed we have to make two calls
-
-        self.shutdown = True
-        super(BDIInterface, self)._create(context=context)
-        self.shutdown = False
-        result = super(BDIInterface, self)._update(context=context)
+        result = super(BDIInterface, self)._create(context=context)
+        self.ncc.update(context)
         return result
 
 class BDISecondaryIpAddress(NyBase):
