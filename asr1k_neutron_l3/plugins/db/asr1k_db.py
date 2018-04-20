@@ -111,6 +111,13 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
             sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers)).all()
 
+    def get_extra_atts_for_ports(self, context, ports):
+        if ports is None:
+            return []
+
+        return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
+            sa.cast(asr1k_models.ASR1KExtraAttsModel.port_id, sa.Text()).in_(ports)).all()
+
     def _get_router_ports_on_networks(self, context):
         query = context.session.query(models_v2.Port.network_id, func.count(models_v2.Port.id).label('port_count')).filter(models_v2.Port.device_owner.like("network:router%")).group_by(models_v2.Port.network_id)
         result = {}
@@ -133,9 +140,31 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return result
 
+    def get_orphaned_extra_atts_port_ids(self,context,host):
+
+        subquery = context.session.query(models_v2.Port.id)
+
+        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.port_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(asr1k_models.ASR1KExtraAttsModel.port_id.notin_(subquery))
+        result=[]
+        for row in query.all():
+            result.append(row.port_id)
+
+        if not bool(result):
+            result = None
+
+        return result
+
+
     def get_orphaned_extra_atts(self,context,host):
         routers = self.get_orphaned_extra_atts_router_ids(context,host)
-        return self.get_extra_atts_for_routers(context,routers)
+        router_extra_atts = self.get_extra_atts_for_routers(context,routers)
+
+        ports = self.get_orphaned_extra_atts_port_ids(context, host)
+
+        port_extra_atts = self.get_extra_atts_for_ports(context, ports)
+
+        return router_extra_atts + list(set(port_extra_atts) - set(router_extra_atts))
+
 
     def get_interface_ports(self, context, limit=1, offset=1):
 
