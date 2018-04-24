@@ -135,6 +135,16 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         for row in query.all():
             result.append(row.router_id)
 
+        # TODO we need to conisder orphaned ports, at least at L2 level
+        # but I think if we just do the below the whole router will get deleted
+        # for a single orpshaned port
+
+        # subquery = context.session.query(models_v2.Port.device_id)
+        #
+        # query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
+        # for row in query.all():
+        #     result.append(row.router_id)
+
         if not bool(result):
             result = None
 
