@@ -14,6 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from  collections import OrderedDict
+
 from neutron.api.rpc.agentnotifiers import l3_rpc_agent_api
 from neutron.db import common_db_mixin
 from neutron.db import dns_db
@@ -182,8 +184,31 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
     def sync(self, context, id, fields=None):
         result = self.notify_router_sync(context,id)
-        return {'device': {'id': result}}
+        return {'device': {'router_id': result}}
 
+    def port_config(self, context, id, fields=None):
+        extra_atts = self._get_extra_atts(context,[id])
+        atts = extra_atts.get(id,None)
+        result = {}
+        ports = []
+        if atts is not None:
+            for port_id in atts.keys():
+                port = OrderedDict({'port_id':port_id})
+                att = atts.get(port_id)
+                if att is not None:
+                    port['segment_id']=att.segment_id
+                    port['segmentation_id'] = att.segmentation_id
+                    port['second_dot1q'] = att.second_dot1q
+                    port['external_service_instance'] = att.segmentation_id
+                    port['loopback_service_instance'] = att.service_instance
+                    port['bridge_domain'] = att.bridge_domain
+                    port['deleted_l2'] = att.deleted_l2
+                    port['deleted_l3'] = att.deleted_l3
+
+                ports.append(port)
+        result[id] = ports
+
+        return dict(result)
 
     def interface_statistics(self, context, id, fields=None):
         result = self.notify_interface_statistics(context, id)

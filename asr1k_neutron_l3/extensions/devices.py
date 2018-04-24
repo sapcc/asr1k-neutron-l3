@@ -23,7 +23,7 @@ ASR1K_DEVICES_ALIAS = 'asr1k_devices'
 RESOURCE_NAME = 'device'
 RESOURCE_COLLECTION = 'devices'
 
-MEMBER_ACTIONS = {'validate':'GET','sync':'PUT','interface_statistics':'GET','teardown':'DELETE'}
+MEMBER_ACTIONS = {'validate':'GET','port_config':'GET','sync':'PUT','interface_statistics':'GET','teardown':'DELETE'}
 
 RESOURCE_ATTRIBUTE_MAP = {
 
@@ -93,6 +93,10 @@ class DevicePluginBase(object):
 
     @abc.abstractmethod
     def sync(self, context, id, fields=None):
+        pass
+
+    @abc.abstractmethod
+    def port_config(self, context, id, fields=None):
         pass
 
     @abc.abstractmethod
