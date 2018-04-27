@@ -136,6 +136,13 @@ class BDIInterface(NyBase):
         self.ncc.update(context)
         return result
 
+    @execute_on_pair()
+    def delete(self,context=None):
+        self.ncc.delete(context)
+        result = super(BDIInterface, self)._delete(context=context)
+
+        return result
+
 class BDISecondaryIpAddress(NyBase):
     ITEM_KEY = L3Constants.SECONDARY
     LIST_KEY = L3Constants.ADDRESS

@@ -24,9 +24,17 @@ class BDIInterface(ncc_base.NccBase):
     def update(self, context):
         self.no_shutdown(context)
 
+    @retry_on_failure()
+    def delete(self, context):
+        self.no_policy(context)
+
     def no_shutdown(self, context):
         config = NO_SHUTDOWN.format(**{'id': self.base.id})
         self._edit_running_config(context, config, 'NO_SHUTDOWN')
+
+    def no_policy(self, context):
+        config = NO_POLICY.format(**{'id': self.base.id,'vrf':self.base.vrf})
+        self._edit_running_config(context, config, 'NO_POLICY')
 
 
 NO_SHUTDOWN = """
@@ -38,3 +46,11 @@ NO_SHUTDOWN = """
 </config>
 """
 
+NO_POLICY = """
+<config>
+        <cli-config-data>
+            <cmd>interface BDI{id}</cmd>
+            <cmd>no ip policy route-map pbr-{vrf}</cmd>
+        </cli-config-data>
+</config>
+"""

@@ -110,7 +110,7 @@ class Interface(base.Base):
         return bdi
 
     def delete(self):
-        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain)
+        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain,vrf=self.vrf)
         return  bdi_interface.delete()
 
     def disable_nat(self):
