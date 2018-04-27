@@ -530,8 +530,10 @@ class NyBase(xml_utils.XMLUtils):
 
                         elif isinstance(type,list) and param.get('root-list',False):
                             value = values
-                        else:
+                        elif hasattr(values,'get'):
                             value = values.get(yang_key)
+                        else:
+                            value = values
 
                         if type is not None:
                             if isinstance(type,list):

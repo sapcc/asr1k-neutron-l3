@@ -33,9 +33,11 @@ class RouteMapConstants(object):
     ADDITIVE = 'additive'
     MATCH = "match"
     IP = "ip"
+    NEXT_HOP = "next-hop"
     ADDRESS = "address"
     ASN = "asn-nn"
     PREFIX_LIST = "prefix-list"
+    ACCESS_LIST = "access-list"
 
 
 class RouteMap(NyBase):
@@ -125,7 +127,9 @@ class MapSequence(NyBase):
             {'key': 'seq_no','yang-key':'seq_no','id':True},
             {'key': 'operation'},
             {'key': 'asn','yang-key':'asn-nn','yang-path':'set/extcommunity/rt','type':[str]},
+            {'key': 'next_hop', 'yang-key': 'address', 'yang-path': 'set/ip/next-hop/address'},
             {'key': 'prefix_list', 'yang-key':'prefix-list','yang-path':'match/ip/address'},
+            {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
         ]
 
     def __init__(self,**kwargs):
@@ -145,12 +149,17 @@ class MapSequence(NyBase):
         if bool(self.asn):
             seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY:{RouteMapConstants.RT:{RouteMapConstants.ASN:self.asn}}}
 
-        # if self.enable_bgp and bool(self.asn):
-        #     seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY:{RouteMapConstants.RT:{RouteMapConstants.ASN:self.asn}}}
+        if self.next_hop is not None:
+            seq[RouteMapConstants.SET] = {
+                RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP:{RouteMapConstants.ADDRESS:self.next_hop}}}
 
         if self.prefix_list is not None:
             seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
                                                                                RouteMapConstants.PREFIX_LIST: self.prefix_list}}}
+
+        if self.access_list is not None:
+            seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
+                                                                               RouteMapConstants.ACCESS_LIST: self.access_list}}}
 
         seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
 

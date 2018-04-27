@@ -79,9 +79,12 @@ class Router(Base):
 
         self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn, rd=self.router_atts.get('rd'),routeable_interface=self.routeable_interface)
 
-
+        self.nat_acl = self._build_nat_acl()
+        self.pbr_acl = self._build_pbr_acl()
 
         self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,routeable_interface=self.routeable_interface)
+
+        self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'),gateway_interface=self.gateway_interface)
 
         self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'),asn=self.config.asr1k_l3.fabric_asn,routeable_interface=self.routeable_interface)
 
@@ -89,7 +92,6 @@ class Router(Base):
 
         self.floating_ips = self._build_floating_ips()
 
-        self.nat_acl = self._build_nat_acl()
 
         self.prefix_lists = self._build_prefix_lists()
 
@@ -138,8 +140,7 @@ class Router(Base):
         return routes
 
     def _build_nat_acl(self):
-        acl = access_list.AccessList("NAT-{}".format(utils.uuid_to_vrf_id(self.router_id)), routeable_interfaces=self.address_scope_matches())
-
+        acl = access_list.AccessList("NAT-{}".format(utils.uuid_to_vrf_id(self.router_id)))
 
         # Check address scope and deny any where internal interface matches externel
         for interface in self.address_scope_matches():
@@ -155,6 +156,21 @@ class Router(Base):
             acl.append_rule(access_list.Rule(action='deny'))
         else:
             acl.append_rule(access_list.Rule())
+        return acl
+
+    def _build_pbr_acl(self):
+        acl = access_list.AccessList("PBR-{}".format(utils.uuid_to_vrf_id(self.router_id)))
+
+        if self.gateway_interface:
+            subnet = self.gateway_interface.primary_subnet
+
+            if subnet.get('cidr') is not None:
+                ip, netmask = utils.from_cidr(subnet.get('cidr'))
+                wildcard = utils.to_wildcard_mask(netmask)
+                rule = access_list.Rule(destination=ip,destination_mask=wildcard)
+                acl.append_rule(rule)
+
+
         return acl
 
     def _route_has_connected_interface(self, l3_route):
@@ -221,6 +237,11 @@ class Router(Base):
             results.append(self.route_map.update())
             results.append(self.vrf.update())
 
+        if self.gateway_interface is not None:
+            results.append(self.pbr_route_map.update())
+        else:
+            results.append(self.pbr_route_map.delete())
+
         # results.append(self.bgp_address_family.update())
 
         if self.routeable_interface:
@@ -233,6 +254,9 @@ class Router(Base):
 
         if self.nat_acl:
             results.append(self.nat_acl.update())
+
+        if self.pbr_acl:
+            results.append(self.pbr_acl.update())
 
         # if  self.enable_snat and self.gateway_interface is not None:
 
@@ -258,11 +282,15 @@ class Router(Base):
 
         results.append(self.route_map.delete())
 
+
+        results.append(self.pbr_route_map.delete())
+
         results.append(self.floating_ips.delete())
 
         results.append(self.routes.delete())
         results.append(self.dynamic_nat.delete())
         results.append(self.nat_acl.delete())
+        results.append(self.pbr_acl.delete())
 
         for interface in self.interfaces.all_interfaces:
             results.append(interface.delete())
@@ -296,6 +324,11 @@ class Router(Base):
         rm_diff =self.route_map.diff()
         if not rm_diff.valid:
             diff_results['route_map'] = rm_diff.to_dict()
+
+        if self.gateway_interface:
+            pbr_rm_diff =self.pbr_route_map.diff()
+            if not pbr_rm_diff.valid:
+                diff_results['pbr_route_map'] = pbr_rm_diff.to_dict()
 
         route_diff = self.routes.diff()
         if not route_diff.valid:

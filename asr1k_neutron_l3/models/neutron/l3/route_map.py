@@ -48,4 +48,17 @@ class RouteMap(base.Base):
 
 
 
+class PBRRouteMap(base.Base):
+    def __init__(self, name,gateway_interface=None):
+        super(PBRRouteMap, self).__init__()
 
+        self.vrf = utils.uuid_to_vrf_id(name)
+        self.name = "pbr-{}".format(self.vrf)
+
+        sequences = []
+        seq = 10
+
+        if gateway_interface is not None:
+            sequences.append(route_map.MapSequence(seq_no=seq, operation='permit', access_list='PBR-{}'.format(self.vrf),next_hop=gateway_interface.primary_gateway_ip))
+
+        self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)

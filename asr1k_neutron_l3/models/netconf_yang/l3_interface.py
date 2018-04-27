@@ -39,6 +39,8 @@ class L3Constants(object):
     NAT = "nat"
     NAT_MODE_INSIDE = "inside"
     NAT_MODE_OUTSIDE = "outside"
+    POLICY = "policy"
+    ROUTE_MAP = "route-map"
 
 
 class BDIInterface(NyBase):
@@ -71,6 +73,7 @@ class BDIInterface(NyBase):
             {'key': 'secondary_ip_addresses','yang-path':'ip/address','yang-key':"secondary",'type':[BDISecondaryIpAddress], 'default': [], 'validate':False},
             {'key': 'nat_inside','yang-key':'inside','yang-path':'ip/nat','default':False,'yang-type':YANG_TYPE.EMPTY},
             {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,'yang-type':YANG_TYPE.EMPTY},
+            {'key': 'route_map', 'yang-key': 'route-map','yang-path': 'ip/policy'},
             {'key': 'redundancy_group'},
             {'key': 'shutdown','default':False,'yang-type':YANG_TYPE.EMPTY}
 
@@ -99,9 +102,12 @@ class BDIInterface(NyBase):
 
         if self.nat_inside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
+
         elif self.nat_outside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
 
+        if self.route_map:
+            ip[L3Constants.POLICY] = {L3Constants.ROUTE_MAP: self.route_map}
 
         vrf = OrderedDict()
         vrf[L3Constants.FORWARDING] = self.vrf
