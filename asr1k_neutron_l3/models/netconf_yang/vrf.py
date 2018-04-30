@@ -46,6 +46,17 @@ class VrfDefinition(NyBase,Requeable):
                 </native>            
              """
 
+
+    ALL_FILTER = """
+                <native>
+                    <vrf>
+                        <definition>
+                        </definition>
+                    </vrf>
+                </native>            
+             """
+
+
     LIST_KEY = VrfConstants.VRF
     ITEM_KEY = VrfConstants.DEFINITION
 

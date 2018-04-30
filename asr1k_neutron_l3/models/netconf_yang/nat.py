@@ -455,9 +455,7 @@ class StaticNat(NyBase):
     def get_global_ip_filter(cls,**kwargs):
         return cls.ID_FILTER.format(**{'global_ip':kwargs.get('global_ip')})
 
-    @classmethod
-    def get_all_filter(cls,**kwargs):
-        return cls.ALL_FILTER.format(**{'vrf': kwargs.get('vrf')})
+
 
 
     @classmethod
@@ -562,6 +560,8 @@ class StaticNat(NyBase):
     def _check_and_clean_mapping_id(self,context):
         # check if mapping ID is already in use in another VRF: if so its orphaned and should be removed
         filter = self.MAPPING_ID_FILTER.format(**{'mapping_id':self.mapping_id})
+
+
 
         nats = self._get_all(nc_filter=filter,context=context)
 

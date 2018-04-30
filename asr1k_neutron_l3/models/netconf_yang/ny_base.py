@@ -574,6 +574,10 @@ class NyBase(xml_utils.XMLUtils):
         return cls.ID_FILTER.format(**{'id': kwargs.get('id')})
 
     @classmethod
+    def get_all_filter(cls,**kwargs):
+        return cls.ALL_FILTER.format(**kwargs)
+
+    @classmethod
     @execute_on_pair(return_raw=True)
     def get(cls,id, context=None):
         return cls._get(id=id,context=context)
