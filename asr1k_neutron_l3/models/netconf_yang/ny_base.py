@@ -30,7 +30,7 @@ from asr1k_neutron_l3.models.netconf import ConnectionPool
 from asr1k_neutron_l3.models.netconf import ConnectionManager
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict
-
+from asr1k_neutron_l3.models.netconf_yang.bulk_operations import BulkOperations
 
 
 from ncclient.operations.rpc import RPCError
@@ -40,6 +40,8 @@ from ncclient.operations.errors import TimeoutExpiredError
 
 
 LOG = logging.getLogger(__name__)
+
+
 
 
 
@@ -338,14 +340,13 @@ class DiffResult(PairResult):
     #     return result
 
 
-class NyBase(xml_utils.XMLUtils):
+class NyBase(BulkOperations):
 
     _ncc_connection = {}
 
     PARENT = 'parent'
 
     EMPTY_TYPE = {}
-
 
     def __init__(self, **kwargs):
         # Should we delete even if object reports not existing
@@ -494,6 +495,7 @@ class NyBase(xml_utils.XMLUtils):
                     result.append({'entity':self.id,'type':diff[0],'item':diff[1],'neutron':neutron,'device':device})
 
         return result
+
 
     @classmethod
     def from_json(cls, json,parent=None):
@@ -656,6 +658,8 @@ class NyBase(xml_utils.XMLUtils):
 
         return result
 
+
+
     @classmethod
     def __ensure_primary_keys(cls,item,**kwargs):
         # Add missing primary keys from get
@@ -703,6 +707,11 @@ class NyBase(xml_utils.XMLUtils):
         kwargs['context'] = context
         return self.__class__._get(**kwargs)
 
+
+    @classmethod
+    @execute_on_pair()
+    def get_all(cls, filter={},context=None):
+        return cls._get_all_mass(context=context)
 
 
     @execute_on_pair()
@@ -791,3 +800,7 @@ class NyBase(xml_utils.XMLUtils):
         result = self.diff(should_be_none=should_be_none)
 
         return result.valid
+
+
+    def orphan_info(self):
+        return {self.__class__.__name__:{'id':self.id}}

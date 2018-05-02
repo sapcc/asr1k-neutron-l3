@@ -33,22 +33,27 @@ from oslo_utils import timeutils
 from oslo_utils import importutils
 
 from neutron.agent.common import config
-from neutron.agent.l3 import config as l3_config
-from neutron.agent.linux import interface
-from neutron.agent.metadata import config as metadata_config
+
 from neutron.common import config as common_config
 from neutron import service as neutron_service
 
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_log import helpers as log_helpers
+from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1k_config, utils
+
+
+
+utils.register_opts(cfg.CONF)
+cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
+cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
+cfg.CONF.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
+cfg.CONF.register_opts(asr1k_config.ASR1K_L2_OPTS, "asr1k_l2")
 
 import oslo_messaging
 from oslo_service import loopingcall
 from oslo_service import periodic_task
-from oslo_utils import excutils
 from neutron._i18n import _LE, _LI, _LW
-from neutron.agent.common import utils as common_utils
 from neutron.agent.linux import external_process
 from neutron.callbacks import events
 from neutron.callbacks import registry
@@ -56,7 +61,6 @@ from neutron.callbacks import resources
 
 from neutron.agent import rpc as agent_rpc
 from neutron.common import constants as l3_constants
-from neutron.common import ipv6_utils
 from neutron.common import exceptions as n_exc
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
@@ -67,14 +71,14 @@ from neutron.agent.l3 import router_processing_queue as queue
 
 from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
 
-from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1k_config, utils
+
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import netconf
 from asr1k_neutron_l3.plugins.l3.agents import operations
-
+from asr1k_neutron_l3.plugins.l3.agents.device_cleaner import DeviceCleanerMixin
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -91,22 +95,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-def register_opts(conf):
-    conf.register_opts(l3_config.OPTS)
-    conf.register_opts(metadata_config.DRIVER_OPTS)
-    conf.register_opts(metadata_config.SHARED_OPTS)
-    config.register_interface_driver_opts_helper(conf)
-    config.register_agent_state_opts_helper(conf)
-    conf.register_opts(interface.OPTS)
-    conf.register_opts(external_process.OPTS)
-    config.register_availability_zone_opts_helper(conf)
 
-
-register_opts(cfg.CONF)
-cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
-cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
-cfg.CONF.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
-cfg.CONF.register_opts(asr1k_config.ASR1K_L2_OPTS, "asr1k_l2")
 
 def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWithStateReport'):
     # register_opts(cfg.CONF)
@@ -182,6 +171,13 @@ class L3PluginApi(object):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_extra_atts_orphans', host=self.host)
 
+
+    @instrument()
+    def get_all_extra_atts(self, context):
+        """Make a remote process call to retrieve the orphans in extra atts table."""
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_all_extra_atts', host=self.host)
+
     @instrument()
     def get_router_ids(self, context):
         """Make a remote process call to retrieve scheduled routers ids."""
@@ -254,7 +250,7 @@ class L3PluginApi(object):
                           host=self.host, router_id=router_id,status=status)
 
 
-class L3ASRAgent(manager.Manager,operations.OperationsMixin):
+class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     """Manager for L3 ASR Agent
 
         API version history:
@@ -449,6 +445,9 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin):
 
         try:
             router_ids = self.plugin_rpc.get_router_ids(context)
+
+
+
             # fetch routers by chunks to reduce the load on server and to
             # start router processing earlier
             for i in range(0, len(router_ids), self.sync_routers_chunk_size):

@@ -195,6 +195,10 @@ class DynamicNat(NyBase):
 
         self.ncc = nc_nat.DynamicNat(self)
 
+    @property
+    def neutron_router_id(self):
+        if self.vrf is not None:
+            return utils.vrf_id_to_uuid(self.vrf)
 
     def to_dict(self):
         entry = OrderedDict()
@@ -489,6 +493,9 @@ class StaticNat(NyBase):
 
         return dict
 
+    def orphan_info(self):
+        return {self.__class__.__name__:{'local_ip':self.local_ip,'global_ip':self.global_ip,'vrf':self.vrf}}
+
     def _wrapper_preamble(self,dict):
         result = {}
         result[self.LIST_KEY] = dict
@@ -505,6 +512,11 @@ class StaticNat(NyBase):
         self.mac_address = kwargs.get("mac_address")
 
         self.ncc = nc_nat.StaticNat(self)
+
+    @property
+    def neutron_router_id(self):
+        if self.vrf is not None:
+            return utils.vrf_id_to_uuid(self.vrf)
 
 
     def __id_function__(self, id_field, **kwargs):

@@ -16,11 +16,19 @@
 
 import socket
 import struct
+import re
 
 from netaddr import IPNetwork, IPAddress
 
 from oslo_log import log as logging
+from neutron.agent.common import config
 
+
+from oslo_config import cfg
+from neutron.agent.l3 import config as l3_config
+from neutron.agent.linux import interface
+from neutron.agent.metadata import config as metadata_config
+from neutron.agent.linux import external_process
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import config as asr1k_config
 
@@ -47,6 +55,16 @@ def get_router_ports(router):
 
 def uuid_to_vrf_id(uuid):
     return uuid.replace('-', '')
+
+def vrf_id_to_uuid(id):
+    if id is None or isinstance(id,str):
+        return False
+
+    if re.match("[0-9a-f]{32}",id):
+        return "{}-{}-{}-{}-{}".format(id[0:8],id[8:12],id[12:16],id[16:20],id[20:32])
+    return False
+
+
 
 
 def vrf_to_access_list_id(vrf_id):
@@ -143,3 +161,15 @@ def get_address_scope_config(plugin_rpc,context):
 
 
     return result
+
+
+
+def register_opts(conf):
+    conf.register_opts(l3_config.OPTS)
+    conf.register_opts(metadata_config.DRIVER_OPTS)
+    conf.register_opts(metadata_config.SHARED_OPTS)
+    config.register_interface_driver_opts_helper(conf)
+    config.register_agent_state_opts_helper(conf)
+    conf.register_opts(interface.OPTS)
+    conf.register_opts(external_process.OPTS)
+    config.register_availability_zone_opts_helper(conf)

@@ -17,7 +17,7 @@
 from collections import OrderedDict
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase
-
+from asr1k_neutron_l3.common import utils
 
 class PrefixConstants(object):
     IP = 'ip'
@@ -73,6 +73,14 @@ class Prefix(NyBase):
 
     def __init__(self,**kwargs):
         super(Prefix, self).__init__(**kwargs)
+
+    @property
+    def neutron_router_id(self):
+        if self.name is not None and self.name.startswith('ext-'):
+            return utils.vrf_id_to_uuid(self.name[4:])
+        elif self.name is not None and self.name.startswith('snat-'):
+            return utils.vrf_id_to_uuid(self.name[5:])
+
 
 
     def add_seq(self, seq):

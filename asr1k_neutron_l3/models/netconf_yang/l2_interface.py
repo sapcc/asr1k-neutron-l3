@@ -15,7 +15,7 @@
 #    under the License.
 
 from collections import OrderedDict
-
+from oslo_config import cfg
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
@@ -74,7 +74,7 @@ class ServiceInstance(NyBase):
     def __parameters__(cls):
         return [
             {"key": "port_channel", 'validate':False,'primary_key':True},
-            {"key": "id", "mandatory": True},
+            {"key": "id", "mandatory": True,'default':0},
             {"key": "description"},
             {"key": "bridge_domain",'yang-path':'bridge-domain','yang-key':'bridge-id'},
             {"key": "dot1q",'yang-path':'encapsulation/dot1q','yang-key':'id'},
@@ -83,40 +83,58 @@ class ServiceInstance(NyBase):
 
     @classmethod
     def get_primary_filter(cls,**kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'port_channel':kwargs.get('port_channel')})
+        return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'port_channel':cls.PORT_CHANNEL})
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls,port_channel,id, context=None):
-        return super(ServiceInstance, cls)._get(id=id, port_channel=port_channel,context=context)
+    def get(cls,id, context=None):
+        return super(ServiceInstance, cls)._get(id=id, port_channel=cls.PORT_CHANNEL,context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, port_channel,id, context=None):
-        return super(ServiceInstance, cls)._exists(id=id, port_channel=port_channel, context=context)
+    def exists(cls,id, context=None):
+        return super(ServiceInstance, cls)._exists(id=id, port_channel=cls.PORT_CHANNEL, context=context)
 
     @classmethod
-    def remove_wrapper(cls,dict):
-        dict = super(ServiceInstance, cls)._remove_base_wrapper(dict)
-        if dict is  None:
+    def remove_wrapper(cls,json):
+        json = super(ServiceInstance, cls)._remove_base_wrapper(json)
+        if json is  None:
             return
-        dict = dict.get(L2Constants.INTERFACE,dict)
-        dict = dict.get(L2Constants.PORT_CHANNEL,dict)
-        dict = dict.get(L2Constants.SERVICE, dict)
-        return dict
+        json = json.get(L2Constants.INTERFACE,json)
+        json = json.get(L2Constants.PORT_CHANNEL,json)
+
+        if isinstance(json,list):
+            result = []
+            for pc in json:
+                if pc.get("name") == cls.PORT_CHANNEL:
+                    service = pc.get(L2Constants.SERVICE, pc)
+                    result.append(service)
+
+            json = result
+        else:
+            json = json.get(L2Constants.SERVICE, json)
+        return json
+
+    def orphan_info(self):
+        return {self.__class__.__name__:{'service_instance':self.id,'port_channel':self.PORT_CHANNEL,'bridge_domain':self.bridge_domain}}
+
 
     def _wrapper_preamble(self,dict):
         result = {}
         dict [xml_utils.NS] = xml_utils.NS_CISCO_ETHERNET
         result[self.LIST_KEY] = dict
-        result[L2Constants.NAME] = self.port_channel
+        result[L2Constants.NAME] = self.PORT_CHANNEL
         result = {L2Constants.PORT_CHANNEL:result}
         result = {L2Constants.INTERFACE: result}
         return result
 
 
     def __init__(self, **kwargs):
+        kwargs['port_channel'] = self.PORT_CHANNEL
         super(ServiceInstance, self).__init__(**kwargs)
+
+        if self.id == 'None' or self.id is None:
+            self.id = -1
 
     def to_dict(self):
 
@@ -165,24 +183,24 @@ class ServiceInstance(NyBase):
 
 class ExternalInterface(ServiceInstance):
     REWRITE_INGRESS_TAG_POP_WAY = 1
+    PORT_CHANNEL = cfg.CONF.asr1k_l2.external_interface
 
     def __init__(self, **kwargs):
 
         kwargs['bridge_domain'] = kwargs.get('id')
         kwargs['dot1q'] = kwargs.get('id')
-
         super(ExternalInterface, self).__init__(**kwargs)
 
 class LoopbackExternalInterface(ServiceInstance):
+    PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_external_interface
 
     def __init__(self, **kwargs):
         kwargs['bridge_domain'] = kwargs.get('dot1q')
         kwargs['dot1q'] = kwargs.get('dot1q')
-
         super(LoopbackExternalInterface, self).__init__(**kwargs)
 
 
 class LoopbackInternalInterface(ServiceInstance):
-
+    PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_internal_interface
     def __init__(self, **kwargs):
         super(LoopbackInternalInterface, self).__init__(**kwargs)

@@ -17,7 +17,7 @@
 from collections import OrderedDict
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION
-
+from asr1k_neutron_l3.common import utils
 
 
 class RouteConstants(object):
@@ -82,6 +82,11 @@ class VrfRoute(NyBase):
 
     def __init__(self, **kwargs):
         super(VrfRoute, self).__init__( **kwargs)
+
+    @property
+    def neutron_router_id(self):
+        if self.name is not None:
+            return utils.vrf_id_to_uuid(self.name)
 
     @execute_on_pair()
     def update(self,context=None):

@@ -15,7 +15,7 @@
 #    under the License.
 
 from collections import OrderedDict
-
+from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,Requeable, NC_OPERATION,execute_on_pair
 
 
@@ -82,6 +82,10 @@ class VrfDefinition(NyBase,Requeable):
 
         self.enable_bgp = kwargs.get('enable_bgp',False)
 
+    @property
+    def neutron_router_id(self):
+        if self.name is not None:
+            return utils.vrf_id_to_uuid(self.name)
 
     def to_dict(self):
 

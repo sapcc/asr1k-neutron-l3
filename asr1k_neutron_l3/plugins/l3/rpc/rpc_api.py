@@ -78,3 +78,17 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
             return []
 
         return self.l3plugin.get_sync_data(context, router_ids=routers, active=None,host=host)
+
+    @log_helpers.log_method_call
+    def get_all_extra_atts(self, context, host=None):
+        db = asr1k_db.DBPlugin()
+        extra_atts = db.get_all_extra_atts(context, host=host)
+
+        return_dict = {}
+
+        for extra_att in extra_atts:
+            router_id = extra_att.get('router_id')
+            if return_dict.get(router_id) is None:
+                return_dict[router_id] = {}
+            return_dict[router_id][extra_att.get('port_id')] = extra_att
+        return return_dict

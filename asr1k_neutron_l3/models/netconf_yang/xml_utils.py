@@ -64,14 +64,21 @@ class XMLUtils(object):
     }
 
 
+    @classmethod
+    def to_raw_json(cls,xml):
+        return xmltodict.parse(xml, process_namespaces=True, namespaces=cls.namespaces)
+
+
 
     @classmethod
     def to_json(cls,xml):
-        result = xmltodict.parse(xml,process_namespaces=True,namespaces=cls.namespaces)
+        result = cls.to_raw_json(xml)
 
         result = cls.remove_wrapper(result)
 
         return cls._to_plain_json(result)
+
+
 
     @classmethod
     def _to_plain_json(cls,dict):
@@ -97,6 +104,7 @@ class XMLUtils(object):
 
 
         return dict
+
 
 
     def _wrapper_preamble(self,dict):

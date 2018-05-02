@@ -18,6 +18,7 @@ from collections import OrderedDict
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,xml_utils,execute_on_pair,NC_OPERATION
 from asr1k_neutron_l3.models.netconf_legacy import route_map as nc_route_map
+from asr1k_neutron_l3.common import utils
 
 class RouteMapConstants(object):
     ROUTE_MAP = 'route-map'
@@ -63,6 +64,12 @@ class RouteMap(NyBase):
         super(RouteMap, self).__init__(**kwargs)
         self.ncc = nc_route_map.RouteMap(self)
         self.force_delete = False
+
+    @property
+    def neutron_router_id(self):
+        if self.name is not None and (self.name.startswith('ext-') or self.name.startswith('pbr-')):
+            return utils.vrf_id_to_uuid(self.name[4:])
+
 
     def to_dict(self):
 

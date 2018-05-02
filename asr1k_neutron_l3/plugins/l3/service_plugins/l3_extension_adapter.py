@@ -89,6 +89,17 @@ class L3RpcNotifierMixin(object):
 
         return notifier.interface_statistics(context, router_id)
 
+    @log_helpers.log_method_call
+    def notify_show_orphans(self, context,host):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
+        return notifier.show_orphans(context,host)
+
+    @log_helpers.log_method_call
+    def notify_delete_orphans(self, context,host):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
+        return notifier.delete_orphans(context,host)
 
 
 
@@ -133,6 +144,8 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
         return routers
 
+
+
     def _get_extra_atts(self, context, router_ids, host=None):
         db = asr1k_db.DBPlugin()
         extra_atts = db.get_extra_atts_for_routers(context, router_ids)
@@ -140,14 +153,15 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         return_dict = {}
 
         for extra_att in extra_atts:
-            if return_dict.get(extra_att.get('router_id')) is None:
-                return_dict[extra_att.get('router_id')] = {}
+            router_id = extra_att.get('router_id')
+            if return_dict.get(router_id) is None:
+                return_dict[router_id] = {}
 
             if host is None:
-                return_dict[extra_att.get('router_id')][extra_att.get('port_id')] = extra_att
+                return_dict[router_id][extra_att.get('port_id')] = extra_att
             else:
                 if host == extra_att.get('agent_host'):
-                    return_dict[extra_att.get('router_id')][extra_att.get('port_id')] = extra_att
+                    return_dict[router_id][extra_att.get('port_id')] = extra_att
 
         return return_dict
 
@@ -186,6 +200,10 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         result = self.notify_router_sync(context,id)
         return {'device': {'router_id': result}}
 
+    def orphans(self, context, dry_run=True):
+        result = self.notify_router_sync(context,dry_run)
+        return result
+
     def port_config(self, context, id, fields=None):
         extra_atts = self._get_extra_atts(context,[id])
         atts = extra_atts.get(id,None)
@@ -218,6 +236,14 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     def teardown(self, context, id, fields=None):
         result = self.notify_router_teardown(context, id)
         return {'device': {'id': result}}
+
+    def show_orphans(self, context,host):
+        result = self.notify_show_orphans(context,host)
+        return result
+
+    def delete_orphans(self, context,host):
+        result = self.notify_delete_orphans(context,host)
+        return result
 
 
     #

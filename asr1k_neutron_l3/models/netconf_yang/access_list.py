@@ -19,6 +19,7 @@ from collections import OrderedDict
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
+from asr1k_neutron_l3.common import utils
 
 class ACLConstants(object):
     ACCESS_LIST = "access-list"
@@ -89,6 +90,11 @@ class AccessList(NyBase):
 
     def __init__(self, **kwargs):
         super(AccessList, self).__init__(**kwargs)
+
+    @property
+    def neutron_router_id(self):
+        if self.name is not None and (self.name.startswith('NAT-') or self.name.startswith('PBR-')):
+            return utils.vrf_id_to_uuid(self.name[4:])
 
     def add_rule(self, rule):
         self.rules.append(rule)

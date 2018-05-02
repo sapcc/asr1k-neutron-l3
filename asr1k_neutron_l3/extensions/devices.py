@@ -58,9 +58,11 @@ class Devices(extensions.ExtensionDescriptor):
     def get_updated(cls):
         return "2018-03-08T10:00:00-00:00"
 
+
+
     @classmethod
     def get_resources(cls):
-
+        resources = []
         plural_mappings = {'devices': 'device'}
         attr.PLURALS.update(plural_mappings)
 
@@ -72,13 +74,30 @@ class Devices(extensions.ExtensionDescriptor):
                                           member_actions=MEMBER_ACTIONS.keys())
 
         ex = extensions.ResourceExtension(RESOURCE_COLLECTION,
-                                          controller, member_actions=MEMBER_ACTIONS)
-        return [ex]
+                                          controller, member_actions=MEMBER_ACTIONS,attr_map=params)
+
+        resource = extensions.ResourceExtension('devices/orphans',
+                                                OrphansController(plugin))
+        resources.append(resource)
+        resources.append(ex)
+
+        return resources
 
     def get_extended_resources(self, version):
         return {}
 
+class OrphansController(wsgi.Controller):
 
+    def __init__(self,plugin):
+        super(OrphansController,self).__init__()
+        self.plugin = plugin
+
+    def show(self, request,id):
+
+        return self.plugin.show_orphans(request.context,id)
+
+    def delete(self, request,id):
+        return self.plugin.delete_orphans(request.context,id)
 
 
 class DevicePluginBase(object):
@@ -105,4 +124,12 @@ class DevicePluginBase(object):
 
     @abc.abstractmethod
     def teardown(self, context, id, fields=None):
+        pass
+
+    @abc.abstractmethod
+    def show_orphans(self,host):
+        pass
+
+    @abc.abstractmethod
+    def delete_orphans(self,host):
         pass

@@ -18,6 +18,7 @@ from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.netconf_legacy import l3_interface as nc_l3_interface
+from asr1k_neutron_l3.common import utils
 
 class L3Constants(object):
     INTERFACE = "interface"
@@ -83,6 +84,11 @@ class BDIInterface(NyBase):
     def __init__(self, **kwargs):
         super(BDIInterface, self).__init__(**kwargs)
         self.ncc = nc_l3_interface.BDIInterface(self)
+
+    @property
+    def neutron_router_id(self):
+        if self.vrf:
+            return utils.vrf_id_to_uuid(self.vrf)
 
     def to_dict(self):
         bdi = OrderedDict()

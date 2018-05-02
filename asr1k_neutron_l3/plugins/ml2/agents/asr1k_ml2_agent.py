@@ -35,7 +35,7 @@ import neutron.context
 from neutron.i18n import _LI, _LE
 from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
 from neutron.common import config as common_config, topics, constants as n_const
-from asr1k_neutron_l3.common import config
+
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.models import asr1k_pair
@@ -297,15 +297,22 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         while self._check_and_handle_signal():
             LOG.debug("**** RPC Loop")
             with timeutils.StopWatch() as w:
-                self.process_ports()
+                try:
+                    self.process_ports()
+                except Exception as e:
+                    LOG.exception(e)
             self.loop_count_and_wait(w.elapsed(), self.polling_interval)
 
     def sync_loop(self):
 
         while self._check_and_handle_signal():
-            LOG.debug("**** SYNC Loop")
+            LOG.debug("**** SYNC Loop : known ports")
             with timeutils.StopWatch() as w:
-                self.sync_known_ports()
+                try:
+                    self.sync_known_ports()
+                except Exception as e:
+                    LOG.exception(e)
+
             self.loop_count_and_wait(w.elapsed(), self.sync_interval)
 
     def scavenge_loop(self):
@@ -313,7 +320,10 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         while self._check_and_handle_signal():
             LOG.debug("**** SYNC Loop")
             with timeutils.StopWatch() as w:
-                self.scavenge()
+                try:
+                    self.scavenge()
+                except Exception as e:
+                    LOG.exception(e)
             self.loop_count_and_wait(w.elapsed(), self.sync_interval)
 
     def loop_count_and_wait(self, elapsed,polling_interval):
@@ -359,18 +369,4 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             LOG.exception(_LE("Failed reporting state!"))
 
 
-def main():
-    import sys
-    conf = cfg.CONF
-    conf.register_opts(config.DEVICE_OPTS, "asr1k_devices")
-    conf.register_opts(config.ASR1K_OPTS, "asr1k")
-    conf.register_opts(config.ASR1K_L2_OPTS, "asr1k_l2")
 
-    common_config.init(sys.argv[1:])
-    common_config.setup_logging()
-
-    agent = ASR1KNeutronAgent()
-
-    # Start everything.
-    LOG.info("Agent initialized successfully, now running... ")
-    agent.daemon_loop()

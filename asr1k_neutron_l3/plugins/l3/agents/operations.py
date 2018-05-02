@@ -99,6 +99,14 @@ class OperationsMixin(object):
         return result
 
 
+    @log_helpers.log_method_call
+    def show_orphans(self,context):
+        return self.clean_device(dry_run=True)
+
+    @log_helpers.log_method_call
+    def delete_orphans(self, context):
+        return self.clean_device(dry_run=False)
+
     def _merge_dicts(self,x, y):
         z = x.copy()
         z.update(y)

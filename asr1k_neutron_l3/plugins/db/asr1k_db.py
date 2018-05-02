@@ -23,6 +23,7 @@ from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import l3_db
 from neutron.plugins.ml2 import models as ml2_models
+from neutron.extensions.l3 import RouterNotFound
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log
@@ -35,8 +36,12 @@ MIN_SERVICE_INSTANCE = 100
 MAX_SERVICE_INSTANCE = 8000
 MIN_BRIDGE_DOMAIN = 4097
 MAX_BRIDGE_DOMAIN = 16000
+
+MIN_DOT1Q = 100
+MAX_DOT1Q = 4096
+
 MIN_SECOND_DOT1Q = 1000
-MAX_SECOND_DOT1Q = 4096
+MAX_SECOND_DOT1Q = MAX_DOT1Q
 
 MIN_RD = 1
 MAX_RD = 65535
@@ -57,10 +62,17 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
 
     def update_router_status(self, context, router_id,status):
+        try:
+            self.get_router(context,router_id)
+        except RouterNotFound:
+            LOG.info("Update to status to {} for router {} failed, router not found.".format(status,router_id))
+            return
 
         with context.session.begin(subtransactions=True):
             router = {'router': {'status':status}}
             self.update_router(context,router_id,router)
+
+
 
 
     def get_ports_with_binding(self, context, network_id):
@@ -103,6 +115,13 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                })
 
             return result
+
+    def get_all_extra_atts(self, context,host):
+
+        if host is None:
+            return context.session.query(asr1k_models.ASR1KExtraAttsModel).all()
+        else:
+            return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel.agent_host==host).all()
 
     def get_extra_atts_for_routers(self, context, routers):
         if routers is None:
