@@ -18,9 +18,10 @@ from collections import OrderedDict
 
 from oslo_log import log as logging
 from asr1k_neutron_l3.models.netconf_legacy import nat as nc_nat
+from oslo_config import cfg
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE,NC_OPERATION
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
-from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.common import utils,asr1k_constants
 
 
 LOG = logging.getLogger(__name__)
@@ -154,7 +155,8 @@ class DynamicNat(NyBase):
         return [
             {"key": "id", "mandatory": True},
             {'key': 'vrf'},
-            {'key': 'bridge_domain','yang-key':'BDI','yang-path':'interface'},
+            {'key': 'pool'},
+            {'key': 'bridge_domain', 'yang-key': 'BDI', 'yang-path': 'interface'},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
             {'key': 'overload','default':False,'yang-type':YANG_TYPE.EMPTY}
@@ -206,8 +208,12 @@ class DynamicNat(NyBase):
 
         entry[NATConstants.VRF] = self.vrf
 
+
         if self.bridge_domain is not None:
             entry[NATConstants.INTERFACE] = {NATConstants.BDI:self.bridge_domain}
+        else:
+            entry[NATConstants.POOL] = self.pool
+
 
         if self.redundancy is not None:
             entry[NATConstants.REDUNDANCY] = self.redundancy
@@ -228,6 +234,11 @@ class DynamicNat(NyBase):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
         entry[NATConstants.VRF] = self.vrf
+        # if self.bridge_domain is not None:
+        #     entry[NATConstants.INTERFACE] = {NATConstants.BDI:self.bridge_domain}
+        # else:
+        #     entry[NATConstants.POOL] = self.pool
+
         result = OrderedDict()
         result[NATConstants.LIST] = []
         result[NATConstants.LIST].append(entry)
@@ -237,14 +248,19 @@ class DynamicNat(NyBase):
 
     @execute_on_pair()
     def update(self,context=None):
-        if self.bridge_domain is not None:
-            return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
+
+        return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
 
     @execute_on_pair()
     def delete(self, context=None):
-        if self.bridge_domain is not None:
-            self.ncc.delete(context)
-            return super(DynamicNat, self)._delete(context=context)
+        if self._internal_exists(context) or self.force_delete:
+            if cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_INTERFACE:
+                self.ncc.delete_interface(context)
+            elif cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_POOL:
+                self.ncc.delete_pool(context)
+
+
+            return super(DynamicNat, self)._delete(context=context,method=NC_OPERATION.REMOVE)
 
 
 

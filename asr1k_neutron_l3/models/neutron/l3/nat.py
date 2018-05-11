@@ -15,11 +15,11 @@
 #    under the License.
 
 from oslo_log import log as logging
-
+from oslo_config import cfg
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import l3_interface
 from asr1k_neutron_l3.models.netconf_yang import nat as l3_nat
-from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.common import utils,asr1k_constants
 
 
 LOG = logging.getLogger(__name__)
@@ -38,32 +38,32 @@ class BaseNAT(base.Base):
         if self.redundancy is None:
             self.redundancy = 1
 
+class NATPool(base.Base):
+    def __init__(self, router_id, gateway_interface=None):
+        super(NATPool, self).__init__()
+        self.router_id = utils.uuid_to_vrf_id(router_id)
+        self.gateway_interface = gateway_interface
 
+    @property
+    def _rest_definition(self):
+        nat_ip = None
+        gateway_netmask=None
+        if self.gateway_interface is not None:
+            nat_ip = self.gateway_interface.nat_address
+            gateway_netmask = self.gateway_interface.ip_address.mask
+
+        return  l3_nat.NatPool(id=self.router_id, start_address=nat_ip, end_address=nat_ip,
+                                  netmask=gateway_netmask)
 class DynamicNAT(BaseNAT):
 
-    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None):
+    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None, mode=asr1k_constants.SNAT_MODE_POOL):
         super(DynamicNAT, self).__init__(router_id, gateway_interface,redundancy, mapping_id)
 
 
         self.interfaces = interfaces
 
         self.specific_acl= True
-
-        # due to https://github.com/sapcc/asr1k-neutron-l3/issues/15 always use
-        # a vrf specific NAT ACL for now
-
-        # if gateway_interface is not None:
-        #     for interface in self.interfaces.internal_interfaces:
-        #         if interface.address_scope == gateway_interface.address_scope:
-        #             self.specific_acl = True
-        #             break
-
-        # if self.specific_acl:
-        #     self.id = utils.vrf_to_access_list_id(self.router_id)
-        #     self.old_id = 'nat-all'
-        # else:
-        #     self.old_id = utils.vrf_to_access_list_id(self.router_id)
-        #     self.id = 'nat-all'
+        self.mode = mode
 
         self.id = utils.vrf_to_access_list_id(self.router_id)
 
@@ -71,22 +71,24 @@ class DynamicNAT(BaseNAT):
     @property
     def _rest_definition(self):
 
-        gateway_ip, gateway_netmask,bridge_domain = [None, None,None]
+        if self.mode == asr1k_constants.SNAT_MODE_INTERFACE :
+            bridge_domain=None
+            if self.gateway_interface is not None:
+                bridge_domain  = self.gateway_interface.bridge_domain
 
-        if self.gateway_interface is not None:
-            bridge_domain  = self.gateway_interface.bridge_domain
+            return l3_nat.DynamicNat(id=self.id, vrf=self.router_id, bridge_domain=bridge_domain, redundancy=self.redundancy,
+                                mapping_id=self.mapping_id, overload=True)
 
-        nat = l3_nat.DynamicNat(id=self.id, vrf=self.router_id,bridge_domain=bridge_domain, redundancy=self.redundancy,
-                                          mapping_id=self.mapping_id, overload=True)
+        elif self.mode == asr1k_constants.SNAT_MODE_POOL:
 
-        # old_nat = l3_nat.DynamicNat(id=self.old_id, vrf=self.router_id,bridge_domain=bridge_domain, redundancy=self.redundancy,
-        #                                   mapping_id=self.mapping_id, overload=True)
-
-
-        return nat
+            return l3_nat.DynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id,redundancy=self.redundancy,
+                                    mapping_id=self.mapping_id, overload=True)
 
 
-    # def diff(self):
+
+
+
+# def diff(self):
     #
     #     nat = self._rest_definition
     #     return nat.diff()

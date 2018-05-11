@@ -63,9 +63,15 @@ class StaticNat(ncc_base.NccBase):
 class DynamicNat(ncc_base.NccBase):
 
     @retry_on_failure()
-    def delete(self, context):
-        config = DELETE_DYNAMIC_NAT_FORCED.format(**{'vrf': self.base.vrf,'bridge_domain':self.base.bridge_domain})
-        self._edit_running_config(context, config, 'DELETE_DYNAMIC_NAT_FORCED')
+    def delete_interface(self, context):
+        config = DELETE_DYNAMIC_NAT_INTERFACE_FORCED.format(**{'vrf': self.base.vrf,'bridge_domain':self.base.bridge_domain})
+        return self._edit_running_config(context, config, 'DELETE_DYNAMIC_NAT_INTERFACE_FORCED',accept_failure=True)
+
+    @retry_on_failure()
+    def delete_pool(self, context):
+        config = DELETE_DYNAMIC_NAT_POOL_FORCED.format(**{'vrf': self.base.vrf})
+        return self._edit_running_config(context, config, 'DELETE_DYNAMIC_NAT_POOL_FORCED',accept_failure=True)
+
 
 
 UPDATE_ARP = """
@@ -85,10 +91,18 @@ DELETE_ARP = """
 """
 
 
-DELETE_DYNAMIC_NAT_FORCED = """
+DELETE_DYNAMIC_NAT_INTERFACE_FORCED = """
 <config>
         <cli-config-data>
             <cmd>no ip nat inside source list NAT-{vrf} interface BDI{bridge_domain} vrf {vrf} overload forced</cmd>
+        </cli-config-data>
+</config>
+"""
+
+DELETE_DYNAMIC_NAT_POOL_FORCED = """
+<config>
+        <cli-config-data>
+            <cmd>no ip nat inside source list NAT-{vrf} pool {vrf} vrf {vrf} overload forced</cmd>
         </cli-config-data>
 </config>
 """

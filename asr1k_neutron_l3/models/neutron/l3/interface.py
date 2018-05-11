@@ -63,6 +63,7 @@ class Interface(base.Base):
         self.vrf = utils.uuid_to_vrf_id(self.router_id)
         self._primary_subnet_id = None
         self.ip_address = self._ip_address()
+
         self.secondary_ip_addresses = []
         self.primary_subnet = self._primary_subnet()
         self.primary_gateway_ip = None
@@ -84,6 +85,8 @@ class Interface(base.Base):
             self._primary_subnet_id = n_fixed_ip.get('subnet_id')
 
             return l3_interface.BDIPrimaryIpAddress(address=n_fixed_ip.get('ip_address'), mask = utils.to_netmask(n_fixed_ip.get('prefixlen')))
+
+
 
     def _primary_subnet(self):
         for subnet in self.router_port.get('subnets', []):
@@ -126,13 +129,24 @@ class GatewayInterface(Interface):
 
     def __init__(self, router_id, router_port, extra_atts):
         super(GatewayInterface, self).__init__(router_id, router_port, extra_atts)
+
+        self.nat_address = self._nat_address()
+
         self._rest_definition = l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address,
                                         secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
                                         redundancy_group=None)
 
+    def _nat_address(self):
+        ips = self.router_port.get('fixed_ips')
+        if bool(ips):
+            for ip in ips:
+                address = ip.get('ip_address')
 
+
+                if address != self.ip_address.address:
+                    return address
 
 class InternalInterface(Interface):
 

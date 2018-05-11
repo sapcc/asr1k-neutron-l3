@@ -249,6 +249,9 @@ class L3PluginApi(object):
         return cctxt.call(context, 'update_router_status',
                           host=self.host, router_id=router_id,status=status)
 
+    def ensure_snat_mode(self,context, port_id, mode):
+        cctxt = self.client.prepare(version='1.7')
+        return cctxt.call(context, 'ensure_snat_mode', port_id=port_id,mode=mode)
 
 class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     """Manager for L3 ASR Agent
@@ -522,6 +525,36 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         self.fullsync = True
         LOG.info(_LI("Agent updated by server with payload : %s!"), payload)
 
+
+    def _ensure_snat_mode_config(self,update):
+
+        router = update.router
+
+        if update.action != queue.DELETE_ROUTER and not router:
+            update.timestamp = timeutils.utcnow()
+
+            routers = routers = self.plugin_rpc.get_routers(self.context, [update.id])
+            if routers:
+                router = routers[0]
+
+        updated = False
+        gw_info = router.get('external_gateway_info')
+        if bool(gw_info):
+            fixed_ips = gw_info.get('external_fixed_ips')
+            if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL and len(fixed_ips) == 1:
+                self.plugin_rpc.ensure_snat_mode(self.context, router.get('gw_port_id'),cfg.CONF.asr1k_l3.snat_mode)
+                updated=True
+            elif cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_INTERFACE and len(fixed_ips) == 2:
+                self.plugin_rpc.ensure_snat_mode(self.context, router.get('gw_port_id'),cfg.CONF.asr1k_l3.snat_mode)
+                updated=True
+
+        if updated:
+            routers =  self.plugin_rpc.get_routers(self.context, [update.id])
+            if routers:
+                router = routers[0]
+
+        return router
+
     def _process_router_update(self):
         try:
             if not self.pause_process:
@@ -529,13 +562,9 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                     LOG.debug("Starting router update for %s, action %s, priority %s",
                               update.id, update.action, update.priority)
 
-                    router = update.router
-                    if update.action != queue.DELETE_ROUTER and not router:
-                        update.timestamp = timeutils.utcnow()
-                        routers = self.plugin_rpc.get_routers(self.context, [update.id])
 
-                        if routers:
-                            router = routers[0]
+                    router = self._ensure_snat_mode_config(update)
+
 
                     if not router:
                         removed = self._safe_router_deleted(update.id)

@@ -29,3 +29,6 @@ REQUEUES_KEY = 'requeues'
 ADDRESS_SCOPE_CONFIG = 'address_scope_config'
 
 ROUTER_STATE_ERROR = 'ERROR'
+
+SNAT_MODE_POOL = 'pool'
+SNAT_MODE_INTERFACE = 'interface'

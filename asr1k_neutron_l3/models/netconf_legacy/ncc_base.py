@@ -31,15 +31,15 @@ class NccBase(object):
         self.base = base
 
 
-    def _edit_running_config(self, context, conf_str, snippet):
+    def _edit_running_config(self, context, conf_str, snippet, accept_failure=False):
         connection = self._get_connection(context)
 
         try:
             rpc_obj = connection.edit_config(config=conf_str)
-
             self._check_response(rpc_obj, snippet, conf_str=conf_str)
         except RPCError as e:
-            raise e
+            if not accept_failure:
+                raise e
         except Exception as e:
             raise e
         finally:

@@ -18,6 +18,8 @@ from neutron import context
 from neutron.api.rpc.handlers import l3_rpc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
+from oslo_config import cfg
+
 
 from asr1k_neutron_l3.plugins.db import asr1k_db
 
@@ -92,3 +94,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
                 return_dict[router_id] = {}
             return_dict[router_id][extra_att.get('port_id')] = extra_att
         return return_dict
+
+    def ensure_snat_mode(self,context, port_id=None,mode=None):
+        db = asr1k_db.DBPlugin()
+        return db.ensure_snat_mode(context,port_id,mode)

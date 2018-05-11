@@ -27,10 +27,12 @@ from neutron.extensions.l3 import RouterNotFound
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log
+from oslo_config import cfg
 from sqlalchemy import and_
 from sqlalchemy import func
 
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
+from asr1k_neutron_l3.common import asr1k_constants as constants
 
 MIN_SERVICE_INSTANCE = 100
 MAX_SERVICE_INSTANCE = 8000
@@ -58,7 +60,29 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                ):
 
     def __init__(self):
-        pass
+        super(DBPlugin,self).__init__()
+
+    def ensure_snat_mode(self,context,port_id,mode):
+        if port_id is None:
+            LOG.warning("Asked to ensure SNAT mode for port==None, can't do anything.")
+            return
+        port = self.get_port(context,port_id)
+
+        LOG.debug(port)
+
+        fixed_ips = port.get('fixed_ips',[])
+        update = False
+        if mode == constants.SNAT_MODE_POOL and len(fixed_ips) == 1:
+            gw_ip = fixed_ips[0]
+            fixed_ips.append({'subnet_id':gw_ip.get('subnet_id')})
+            update = True
+        elif mode == constants.SNAT_MODE_INTERFACE and len(fixed_ips) == 2:
+            update = True
+            fixed_ips.pop()
+
+        if update:
+            self.update_port(context,port_id,{'port':port})
+
 
 
     def update_router_status(self, context, router_id,status):

@@ -15,7 +15,7 @@
 #    under the License.
 
 from oslo_log import log as logging
-
+from oslo_config import cfg
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.neutron.l3 import access_list
 from asr1k_neutron_l3.models.neutron.l3 import interface as l3_interface
@@ -89,6 +89,7 @@ class Router(Base):
         self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'),asn=self.config.asr1k_l3.fabric_asn,routeable_interface=self.routeable_interface)
 
         self.dynamic_nat = self._build_dynamic_nat()
+        self.nat_pool =  self._build_nat_pool()
 
         self.floating_ips = self._build_floating_ips()
 
@@ -192,7 +193,13 @@ class Router(Base):
         return False
 
     def _build_dynamic_nat(self):
-        return nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface, interfaces=self.interfaces)
+        pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface, interfaces=self.interfaces,mode=constants.SNAT_MODE_POOL)
+        interface_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface, interfaces=self.interfaces,mode=constants.SNAT_MODE_INTERFACE)
+
+        return {constants.SNAT_MODE_POOL:pool_nat,constants.SNAT_MODE_INTERFACE:interface_nat}
+
+    def _build_nat_pool(self):
+        return nat.NATPool(self.router_id, gateway_interface=self.gateway_interface)
 
     def _build_floating_ips(self):
         floating_ips = nat.FloatingIpList(self.router_id)
@@ -257,10 +264,34 @@ class Router(Base):
 
         if self.pbr_acl:
             results.append(self.pbr_acl.update())
+        # Working assumption is that any NAT mode migration is completed
 
-        # if  self.enable_snat and self.gateway_interface is not None:
+        # We don't remove NAT statement or pool if enabling/disabling snat - instead update ACL
 
-        results.append(self.dynamic_nat.update())
+        if  self.enable_snat and self.gateway_interface is not None:
+            if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
+                print "**** Start pool nat"
+                results.append(self.nat_pool.update())
+                results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].update())
+                print "**** End nat"
+
+            elif cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_INTERFACE:
+                print "**** Start interface nat"
+                results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].update())
+                print "**** End nat"
+        else:
+            # Only need to delete one
+            results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].delete())
+            results.append(self.nat_pool.delete())
+
+
+        # if  self.gateway_interface is not None:
+        #     if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
+        #         results.append(self.nat_pool.update())
+        #         results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].update())
+        #     elif cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_INTERFACE:
+        #         results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].update())
+
 
         results.append(self.routes.update())
 
@@ -288,7 +319,10 @@ class Router(Base):
         results.append(self.floating_ips.delete())
 
         results.append(self.routes.delete())
-        results.append(self.dynamic_nat.delete())
+        for key in self.dynamic_nat.keys():
+            results.append(self.dynamic_nat.get(key).delete())
+        if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
+            results.append(self.nat_pool.delete())
         results.append(self.nat_acl.delete())
         results.append(self.pbr_acl.delete())
 
@@ -334,9 +368,14 @@ class Router(Base):
         if not route_diff.valid:
             diff_results['route'] = route_diff.to_dict()
 
-        dynamic_nat_diff = self.dynamic_nat.diff()
+        dynamic_nat_diff = self.dynamic_nat.get(cfg.CONF.asr1k_l3.snat_mode).diff()
         if not dynamic_nat_diff.valid:
             diff_results['dynamic_nat'] = dynamic_nat_diff.to_dict()
+
+        if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
+            nat_pool_diff = self.nat_pool.diff()
+            if not nat_pool_diff.valid:
+                diff_results['nat_pool'] = nat_pool_diff.to_dict()
 
         floating_ips_diff = self.floating_ips.diff()
         if not floating_ips_diff.valid:
