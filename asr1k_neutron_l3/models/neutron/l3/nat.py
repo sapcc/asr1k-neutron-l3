@@ -71,18 +71,20 @@ class DynamicNAT(BaseNAT):
     @property
     def _rest_definition(self):
 
-        if self.mode == asr1k_constants.SNAT_MODE_INTERFACE :
-            bridge_domain=None
-            if self.gateway_interface is not None:
-                bridge_domain  = self.gateway_interface.bridge_domain
+        bridge_domain=None
+        if self.gateway_interface is not None:
+            bridge_domain  = self.gateway_interface.bridge_domain
 
-            return l3_nat.DynamicNat(id=self.id, vrf=self.router_id, bridge_domain=bridge_domain, redundancy=self.redundancy,
-                                mapping_id=self.mapping_id, overload=True)
+        if self.mode == asr1k_constants.SNAT_MODE_POOL:
+            return l3_nat.PoolDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id, bridge_domain=bridge_domain,
+                                     redundancy=self.redundancy,
+                                     mapping_id=self.mapping_id, overload=True)
 
-        elif self.mode == asr1k_constants.SNAT_MODE_POOL:
+        elif self.mode == asr1k_constants.SNAT_MODE_INTERFACE:
+            return l3_nat.InterfaceDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id, bridge_domain=bridge_domain,
+                                     redundancy=self.redundancy,
+                                     mapping_id=self.mapping_id, overload=True)
 
-            return l3_nat.DynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id,redundancy=self.redundancy,
-                                    mapping_id=self.mapping_id, overload=True)
 
 
 

@@ -209,9 +209,9 @@ class DynamicNat(NyBase):
         entry[NATConstants.VRF] = self.vrf
 
 
-        if self.bridge_domain is not None:
+        if cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_INTERFACE and self.bridge_domain is not None:
             entry[NATConstants.INTERFACE] = {NATConstants.BDI:self.bridge_domain}
-        else:
+        elif cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_POOL:
             entry[NATConstants.POOL] = self.pool
 
 
@@ -251,16 +251,22 @@ class DynamicNat(NyBase):
 
         return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
 
+
+
+class InterfaceDynamicNat(DynamicNat):
     @execute_on_pair()
     def delete(self, context=None):
         if self._internal_exists(context) or self.force_delete:
-            if cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_INTERFACE:
-                self.ncc.delete_interface(context)
-            elif cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_POOL:
-                self.ncc.delete_pool(context)
+            self.ncc.delete_interface(context)
+        # Check again since we likely deleted it via legacy
+        # if self._internal_exists(context) or self.force_delete:
+        #     return super(DynamicNat, self)._delete(context=context,method=NC_OPERATION.REMOVE)
 
-
-            return super(DynamicNat, self)._delete(context=context,method=NC_OPERATION.REMOVE)
+class PoolDynamicNat(DynamicNat):
+    @execute_on_pair()
+    def delete(self, context=None):
+        if self._internal_exists(context) or self.force_delete:
+            self.ncc.delete_pool(context)
 
 
 
