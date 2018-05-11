@@ -17,8 +17,8 @@
 from collections import OrderedDict
 
 from oslo_log import log as logging
-from asr1k_neutron_l3.models.netconf_legacy import nat as nc_nat
 from oslo_config import cfg
+from asr1k_neutron_l3.models.netmiko_legacy import nat as nc_nat
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE,NC_OPERATION
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.common import utils,asr1k_constants

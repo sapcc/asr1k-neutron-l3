@@ -76,7 +76,7 @@ from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
-from asr1k_neutron_l3.models import netconf
+from asr1k_neutron_l3.models import connection
 from asr1k_neutron_l3.plugins.l3.agents import operations
 from asr1k_neutron_l3.plugins.l3.agents.device_cleaner import DeviceCleanerMixin
 
@@ -410,7 +410,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
     @periodic_task.periodic_task(spacing=1, run_immediately=True)
     def check_devices_alive(self,context):
-        netconf.check_devices()
+        connection.check_devices()
 
     def _periodic_scavenge_task(self):
 

@@ -18,9 +18,8 @@ from oslo_log import log as logging
 from oslo_utils import importutils
 
 import ncclient
-from asr1k_neutron_l3.models.netconf import ConnectionPool
+from asr1k_neutron_l3.models.connection import ConnectionPool
 from ncclient.operations.rpc import RPCError
-
 
 LOG = logging.getLogger(__name__)
 

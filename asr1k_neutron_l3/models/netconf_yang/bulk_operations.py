@@ -1,7 +1,7 @@
 import json
 from oslo_log import log as logging
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
-from asr1k_neutron_l3.models.netconf import ConnectionManager
+from asr1k_neutron_l3.models.connection import ConnectionManager
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 
 LOG = logging.getLogger(__name__)

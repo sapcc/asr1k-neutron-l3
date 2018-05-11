@@ -19,6 +19,7 @@ import time
 from retrying import retry
 import eventlet
 
+from netmiko import ConnectHandler
 
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
@@ -34,6 +35,8 @@ from paramiko.client import SSHClient,AutoAddPolicy
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import SSHError
 from ncclient.transport.errors import TransportError
+
+
 
 LOG = logging.getLogger(__name__)
 
@@ -81,7 +84,7 @@ class ConnectionManager(object):
 
     def __init__(self,context=None, legacy=False):
         self.context = context
-        self.legacy  = False
+        self.legacy  = legacy
 
     def __enter__(self):
         self.connection = ConnectionPool().pop_connection(context=self.context,legacy=self.legacy)
@@ -182,12 +185,10 @@ class ConnectionPool(object):
 
         connection = pool.pop(0)
         connection.lock.acquire()
-        if legacy:
-            self.devices.get(key).append(LegacyConnection(connection.context))
-        else:
-            pool = self.devices.get(key)
 
-            pool.append(connection)
+        pool = self.devices.get(key)
+
+        pool.append(connection)
 
         return connection
 
@@ -218,12 +219,11 @@ class ConnectionPool(object):
 
 
 
-class NCConnection(object):
+class YangConnection(object):
 
-    def __init__(self, context,legacy=False,id=0):
+    def __init__(self, context,id=0):
         self.lock = Lock()
         self.context = context
-        self.legacy  = legacy
         self._ncc_connection = None
         self.start = time.time()
         self.id = "{}-{}".format(context.host,id)
@@ -270,8 +270,6 @@ class NCConnection(object):
 
         port = context.yang_port
 
-        if self.legacy :
-            port = context.legacy_port
 
         return manager.connect(
             host=context.host, port=port,
@@ -301,10 +299,69 @@ class NCConnection(object):
         else :
             raise DeviceUnreachable(host=self.context.host)
 
-class YangConnection(NCConnection):
-    def __init__(self,context,id=0):
-        super(YangConnection,self).__init__(context,id=id)
 
-class LegacyConnection(NCConnection):
+
+class LegacyConnection(object):
     def __init__(self,context,id=0):
-        super(LegacyConnection,self).__init__(context,legacy=True,id=id)
+        self.lock = Lock()
+        self.context = context
+        self.id = "{}-{}".format(context.host, id)
+        self._connection = None
+        self.start = time.time()
+
+
+    @property
+    def is_inactive(self):
+        if self._connection:
+            print self._connection
+            print "is alive {}".format(self._connection.is_alive())
+        return self._connection is None or not self._connection.is_alive()
+
+    @property
+    def age(self):
+        return time.time() - self.start
+
+    @property
+    def session_id(self):
+       if self._connection is not None and  self._connection._session is not None:
+            return self._connection.remote_conn.transport
+
+    @property
+    def connection(self):
+        try:
+            print "****** inactive {} ".format(self.is_inactive)
+
+            if self.is_inactive:
+                if self.session_id:
+                    LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.session_id))
+
+                try:
+                    self.close()
+                except TransportError as e:
+                    LOG.exception(e)
+                    pass
+                finally:
+                    self._connection = self._connect(self.context)
+
+        except Exception as e:
+            LOG.exception(e)
+            if isinstance(e, TimeoutExpiredError):
+                self.context.alive = False
+            elif isinstance(e, SSHError):
+                self.context.alive = False
+
+
+            raise e
+
+        return self._connection
+
+
+
+    def _connect(self, context):
+        return ConnectHandler( **{'device_type': 'cisco_ios','ip':   context.host,'port':context.legacy_port,'username': context.username,'password': context.password, 'blocking_timeout':1, 'keepalive':60,'verbose':False,'global_delay_factor':0})
+
+    def close(self):
+        if self._connection is not None:
+            self._connection.disconnect()
+            self._connection = None
+        self.start = time.time()
