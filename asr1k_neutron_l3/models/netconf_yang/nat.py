@@ -92,6 +92,11 @@ class NatPool(NyBase):
 
         return dict
 
+    @property
+    def neutron_router_id(self):
+        if self.vrf is not None:
+            return utils.vrf_id_to_uuid(self.id)
+
     def _wrapper_preamble(self,dict):
         result = {}
         dict[xml_utils.NS] = xml_utils.NS_CISCO_NAT
