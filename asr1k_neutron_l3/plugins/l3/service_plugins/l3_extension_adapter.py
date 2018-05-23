@@ -141,6 +141,17 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
             router_att = router_atts.get(router['id'], {})
             router[constants.ASR1K_ROUTER_ATTS_KEY] = router_att
 
+            gw_info = router.get('external_gateway_info',None)
+            if gw_info is not None:
+                ips = gw_info.get('external_fixed_ips',[])
+                if bool(ips):
+                    gw_info['external_fixed_ips'] = sorted(ips, key=lambda k: k['ip_address'])
+
+            gw_port = router.get('gw_port',None)
+            if gw_port is not None:
+                ips = gw_port.get('fixed_ips',[])
+                if bool(ips):
+                    gw_port['fixed_ips'] = sorted(ips, key=lambda k: k['ip_address'])
 
         return routers
 
