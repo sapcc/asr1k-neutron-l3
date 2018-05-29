@@ -46,7 +46,10 @@ class PrometheusMonitor(object):
         if not self.exporter_listening:
             port = int(os.environ.get('METRICS_PORT', 9102))
             LOG.info("Starting prometheus exporter port port %s", port)
-            start_http_server(port)
+            try:
+                start_http_server(port)
+            except Exception as e:
+                LOG.error("Failed to start prometheus exporter : %s", e)
 
 
     @property
