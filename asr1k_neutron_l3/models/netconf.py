@@ -33,6 +33,7 @@ from oslo_service import loopingcall
 from paramiko.client import SSHClient,AutoAddPolicy
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import SSHError
+from ncclient.transport.errors import SessionCloseError
 from ncclient.transport.errors import TransportError
 
 LOG = logging.getLogger(__name__)
@@ -257,17 +258,17 @@ class NCConnection(object):
                     self._ncc_connection = self._connect(self.context)
 
         except Exception as e:
-            LOG.exception(e)
-            if isinstance(e,TimeoutExpiredError):
+            if isinstance(e,TimeoutExpiredError) or isinstance(e,SSHError) or isinstance(e,SessionCloseError):
+                LOG.warning(
+                    "Failed to connect due to '{}', connection will be attempted again in subsequent iterations".format(
+                        e))
                 self.context.alive = False
-            elif isinstance(e, SSHError):
-                self.context.alive = False
-            raise e
+            else:
+                LOG.exception(e)
 
         return self._ncc_connection
 
     def _connect(self, context):
-
         port = context.yang_port
 
         if self.legacy :
@@ -280,8 +281,6 @@ class NCConnection(object):
             device_params={'name': "iosxe"}, timeout=context.nc_timeout,
             allow_agent=False, look_for_keys=False)
 
-
-
     def close(self):
         if self._ncc_connection is not None:
             self._ncc_connection.close_session()
@@ -289,14 +288,14 @@ class NCConnection(object):
         self.start = time.time()
 
     def get(self,filter=''):
-        if self.context.alive:
+        if self.context.alive and self.connection is not None:
             return self.connection.get(filter=('subtree', filter))
         else :
             raise DeviceUnreachable(host=self.context.host)
 
 
     def edit_config(self,config='',target='running'):
-        if self.context.alive:
+        if self.context.alive and self.connection is not None:
             return self.connection.edit_config(target=target, config=config)
         else :
             raise DeviceUnreachable(host=self.context.host)
