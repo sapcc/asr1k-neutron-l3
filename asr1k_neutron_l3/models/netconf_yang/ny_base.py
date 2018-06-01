@@ -602,11 +602,10 @@ class NyBase(BulkOperations):
                 json = cls.to_json(result.xml)
 
                 if json is not None:
+                    json = json.get(cls.ITEM_KEY,None)
 
-
-                    json = json.get(cls.ITEM_KEY, json)
-
-
+                    if json is None:
+                        return None
 
                     result = cls.from_json(json)
 
