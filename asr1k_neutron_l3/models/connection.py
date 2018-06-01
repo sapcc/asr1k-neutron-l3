@@ -31,6 +31,7 @@ from oslo_log import log as logging
 from oslo_config import cfg
 from oslo_service import loopingcall
 from paramiko.client import SSHClient,AutoAddPolicy
+from paramiko import Transport
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import SSHError
 from ncclient.transport.errors import SessionCloseError
@@ -82,7 +83,7 @@ class ConnectionManager(object):
 
     def __init__(self,context=None, legacy=False):
         self.context = context
-        self.legacy  = False
+        self.legacy  = legacy
 
     def __enter__(self):
         self.connection = ConnectionPool().pop_connection(context=self.context,legacy=self.legacy)
@@ -156,7 +157,7 @@ class ConnectionPool(object):
                 for i in range(self.yang_pool_size):
                     yang.append(YangConnection(context,id=i))
                 for i in range(self.legacy_pool_size):
-                    legacy.append(LegacyConnection(context,id=i))
+                    legacy.append(SSHConnection(context,id=i))
 
                 self.devices[self._key(context,False)] = yang
                 self.devices[self._key(context,True)] = legacy
@@ -183,12 +184,13 @@ class ConnectionPool(object):
 
         connection = pool.pop(0)
         connection.lock.acquire()
-        if legacy:
-            self.devices.get(key).append(LegacyConnection(connection.context))
-        else:
-            pool = self.devices.get(key)
 
-            pool.append(connection)
+        # if legacy:
+        #     self.devices.get(key).append(LegacyConnection(connection.context))
+        # else:
+
+        pool = self.devices.get(key)
+        pool.append(connection)
 
         return connection
 
@@ -206,10 +208,11 @@ class ConnectionPool(object):
         # if connection.age >  cfg.CONF.asr1k.connection_max_age:
         #     connection.close()
         #
-        if legacy:
-            self.devices.get(key).append(LegacyConnection(context))
-        else:
-            self.devices.get(key).append(connection)
+        # if legacy:
+        #     self.devices.get(key).append(LegacyConnection(context))
+        # else:
+
+        self.devices.get(key).append(connection)
 
         if connection is None:
             raise Exception('No connection can be found for {}'.format(key))
@@ -304,6 +307,114 @@ class YangConnection(NCConnection):
     def __init__(self,context,id=0):
         super(YangConnection,self).__init__(context,id=id)
 
-class LegacyConnection(NCConnection):
-    def __init__(self,context,id=0):
-        super(LegacyConnection,self).__init__(context,legacy=True,id=id)
+# class LegacyConnection(NCConnection):
+#     def __init__(self,context,id=0):
+#         super(LegacyConnection,self).__init__(context,legacy=True,id=id)
+
+
+class SSHConnection(object):
+    def __init__(self, context,id=0):
+        self.lock = Lock()
+        self.context = context
+        self._ssh_client = None
+        self._ssh_channel = None
+        self.start = time.time()
+        self.id = "{}-{}".format(context.host,id)
+
+    @property
+    def age(self):
+        return time.time() - self.start
+
+    @property
+    def session_id(self):
+       if not self.is_inactive and self._ssh_channel is not None and  self._ssh_channel.get_transport() is not None:
+            return self._ssh_channel.get_transport().session_id
+
+    @property
+    def is_inactive(self):
+        if self._ssh_channel is None or self._ssh_client is None:
+            return True
+        try:
+            self._ssh_channel.send("echo alive \r\n")
+            return False
+        except BaseException as e :
+            return True
+
+
+
+    @property
+    def connection(self):
+        try:
+            if self.is_inactive:
+                if self.session_id:
+                    LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.session_id))
+                try:
+                    self.close()
+                except BaseException:
+                    pass
+                finally:
+                    self._connect(self.context)
+
+        except BaseException as e:
+            if isinstance(e,TimeoutExpiredError) or isinstance(e,SSHError) or isinstance(e,SessionCloseError):
+                LOG.warning(
+                    "Failed to connect due to '{}', connection will be attempted again in subsequent iterations".format(
+                        e))
+                self.context.alive = False
+            else:
+                LOG.exception(e)
+
+
+        return self._ssh_channel
+
+    def _connect(self, context):
+        port = context.legacy_port
+
+        client = SSHClient()
+        client.set_missing_host_key_policy(AutoAddPolicy())
+        client.connect(context.host, port=port, username=context.username, password=context.password, timeout=0.5)
+
+        channel = client.invoke_shell()
+        self._ssh_client = client
+        self._ssh_channel = channel
+
+
+
+    def close(self):
+
+        if self._ssh_client is not None:
+            try:
+                self._ssh_client.close()
+            except BaseException:
+                pass
+            self._ssh_client = None
+            self._ssh_channel = None
+        self.start = time.time()
+
+    def get(self,filter=''):
+        raise NotImplementedError()
+
+    @instrument()
+    def edit_config(self,config='',target='running'):
+
+        if self.context.alive and self.connection is not None and not self.is_inactive:
+            self.connection.send("config t \r\n")
+
+            if isinstance(config,list):
+                for cmd in config:
+                    self.connection.send(cmd+"\r\n")
+            elif isinstance(config,str):
+                self.connection.send(config+"\r\n")
+
+            self.connection.send("end \r\n")
+
+
+        else :
+            raise DeviceUnreachable(host=self.context.host)
+
+
+    # def _get_reply(self, channel):
+    #     bytes = u''
+    #     while bytes.find(eom)==-1:
+    #         bytes += channel.recv(65535).decode('utf-8')
+    #     return bytes

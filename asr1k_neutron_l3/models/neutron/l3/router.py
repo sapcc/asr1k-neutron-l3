@@ -303,7 +303,7 @@ class Router(Base):
         results.append(self.route_map.delete())
 
 
-        results.append(self.pbr_route_map.delete())
+
 
         results.append(self.floating_ips.delete())
 
@@ -317,6 +317,8 @@ class Router(Base):
 
         for interface in self.interfaces.all_interfaces:
             results.append(interface.delete())
+
+        results.append(self.pbr_route_map.delete())
 
         results.append(self.bgp_address_family.delete())
 

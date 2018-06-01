@@ -39,7 +39,7 @@ from neutron.common import config as common_config, topics, constants as n_const
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.models import asr1k_pair
-from asr1k_neutron_l3.models import netconf
+from asr1k_neutron_l3.models import connection
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api
 from asr1k_neutron_l3.models.neutron.l2 import port as l2_port
 
@@ -253,7 +253,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     def sync_known_ports(self):
 
         LOG.debug('Checking device states')
-        netconf.check_devices()
+        connection.check_devices()
 
         if self.sync_active:
             interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)
