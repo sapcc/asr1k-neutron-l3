@@ -18,7 +18,7 @@ import time
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-import ncclient
+
 from asr1k_neutron_l3.models.connection import ConnectionManager
 from ncclient.operations.rpc import RPCError
 

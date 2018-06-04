@@ -14,7 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from asr1k_neutron_l3.models.netconf_legacy import ncc_base
 from asr1k_neutron_l3.models.netconf_yang.ny_base import retry_on_failure
 from asr1k_neutron_l3.models.ssh_legacy import ssh_base
 
