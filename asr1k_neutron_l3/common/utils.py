@@ -166,8 +166,6 @@ def get_address_scope_config(plugin_rpc,context):
 
 def register_opts(conf):
     conf.register_opts(l3_config.OPTS)
-    conf.register_opts(metadata_config.DRIVER_OPTS)
-    conf.register_opts(metadata_config.SHARED_OPTS)
     config.register_interface_driver_opts_helper(conf)
     config.register_agent_state_opts_helper(conf)
     conf.register_opts(interface.OPTS)
