@@ -27,7 +27,7 @@ from neutron.extensions.l3 import RouterNotFound
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log
-from oslo_config import cfg
+from oslo_utils import timeutils
 from sqlalchemy import and_
 from sqlalchemy import func
 
@@ -219,6 +219,32 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return router_extra_atts + list(set(port_extra_atts) - set(router_extra_atts))
 
 
+    def get_orphaned_router_atts_router_ids(self,context,host):
+
+        subquery = context.session.query(l3_db.Router.id)
+
+        #TODO filter
+        query = context.session.query(asr1k_models.ASR1KRouterAttsModel.router_id).filter(asr1k_models.ASR1KRouterAttsModel.router_id.notin_(subquery)).filter(asr1k_models.ASR1KRouterAttsModel.deleted_at.is_(None))
+        result=[]
+        for row in query.all():
+            result.append(row.router_id)
+
+
+
+        if not bool(result):
+            result = None
+
+        return result
+
+    def get_orphaned_router_atts(self,context,host):
+        routers = self.get_orphaned_router_atts_router_ids(context,host)
+        router_atts = self.get_router_atts_for_routers(context,routers)
+
+
+        return router_atts
+
+
+
     def get_interface_ports(self, context, limit=1, offset=1):
 
         with context.session.begin(subtransactions=True):
@@ -294,8 +320,12 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             sa.cast(asr1k_models.ASR1KRouterAttsModel.router_id, sa.Text()).in_(routers)).all()
 
     def get_router_att(self, context, router):
-        return context.session.query(asr1k_models.ASR1RouterAttsModel).filter(
+        return context.session.query(asr1k_models.ASR1KRouterAttsModel).filter(
             asr1k_models.ASR1KRouterAttsModel.router_id == router).first()
+
+    def get_deleted_router_atts(self, context):
+        return context.session.query(asr1k_models.ASR1KRouterAttsModel).filter(
+            asr1k_models.ASR1KRouterAttsModel.deleted_at.isnot(None)).all()
 
 
     @log_helpers.log_method_call
@@ -322,7 +352,15 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     extra_att.update(updates)
                     extra_att.save(context.session)
 
-
+    def delete_router_att(self, context, router_id):
+        router_att = self.get_router_att(context, router_id)
+        if router_att is not None:
+            with context.session.begin(subtransactions=True):
+                if router_att.deleted_at is not None:
+                    context.session.delete(router_att)
+                else:
+                    router_att.update({'deleted_at':timeutils.utcnow()})
+                    router_att.save(context.session)
 class ExtraAttsDb(object):
 
     def __init__(self, router_id, segment, context):
@@ -427,7 +465,7 @@ class RouterAttsDb(object):
 
         self.router_id = router_id
         self.rd = None
-
+        self.deleted_at = None
 
     @property
     def _router_data_complete(self):
@@ -465,6 +503,7 @@ class RouterAttsDb(object):
         with self.session.begin(subtransactions=True):
             router_atts = asr1k_models.ASR1KRouterAttsModel(
                 router_id=self.router_id,
-                rd=self.rd
+                rd=self.rd,
+                deleted_at = self.deleted_at
             )
             self.session.add(router_atts)

@@ -173,6 +173,12 @@ class L3PluginApi(object):
 
 
     @instrument()
+    def get_router_atts_orphans(self, context):
+        """Make a remote process call to retrieve the orphans in extra atts table."""
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_router_atts_orphans', host=self.host)
+
+    @instrument()
     def get_all_extra_atts(self, context):
         """Make a remote process call to retrieve the orphans in extra atts table."""
         cctxt = self.client.prepare()
@@ -236,6 +242,19 @@ class L3PluginApi(object):
         cctxt = self.client.prepare(version='1.7')
         return cctxt.call(context, 'delete_extra_atts_l3',
                           host=self.host, ports=ports)
+
+
+    @instrument()
+    def get_deleted_router_atts(self, context):
+        """Make a remote process call to retrieve the orphans in extra atts table."""
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_deleted_router_atts', host=self.host)
+
+    def delete_router_atts(self, context, router_ids):
+        """Delete extra atts for unused l3 ports"""
+        cctxt = self.client.prepare(version='1.7')
+        return cctxt.call(context, 'delete_router_atts',
+                          host=self.host, router_ids=router_ids)
 
 
     def get_address_scopes(self, context, scopes):
@@ -426,6 +445,16 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
             except Exception as e:
                 LOG.exception(e)
 
+        routers = self.plugin_rpc.get_router_atts_orphans(self.context)
+
+        for router in routers:
+            try:
+                result = l3_router.Router(router).delete()
+                self._check_delete_result(router,result)
+
+            except Exception as e:
+                LOG.exception(e)
+
     def _periodic_sync_routers_task(self):
         try:
             LOG.debug("Starting fullsync, last full sync started {} seconds ago".format(int(timeutils.now()-self._last_full_sync)))
@@ -484,7 +513,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
             LOG.exception(_LE("Failed synchronizing routers due to RPC error"))
             raise n_exc.AbortSyncRouters()
 
-        LOG.debug("periodic_sync_routers_task successfully completed")
+
         # adjust chunk size after successful sync
         if self.sync_routers_chunk_size < cfg.CONF.asr1k_l3.sync_chunk_size:
             self.sync_routers_chunk_size = min(
@@ -502,6 +531,21 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                                         timestamp=timestamp,
                                         action=queue.DELETE_ROUTER)
             self._queue.add(update)
+
+        deleted_atts = self.plugin_rpc.get_deleted_router_atts(context)
+
+
+
+        for atts in deleted_atts:
+            router_id = atts.get("router_id")
+            update = queue.RouterUpdate(router_id,
+                                        queue.PRIORITY_SYNC_ROUTERS_TASK,
+                                        timestamp=timestamp,
+                                        action=queue.DELETE_ROUTER)
+            self._queue.add(update)
+
+
+    LOG.debug("periodic_sync_routers_task successfully completed")
 
     @periodic_task.periodic_task(spacing=60, run_immediately=True)
     def periodic_requeue_routers_task(self, context):
@@ -683,28 +727,49 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         if routers:
             router = routers[0]
 
+
         result = l3_router.Router(router).delete()
+
 
         return self._check_delete_result(router,result)
 
 
-    def _check_delete_result(self,router,results):
-        success = True
+    def _check_delete_result(self,router,result):
 
-        if results is not None:
-            for result in results:
-                if result is not None:
-                    success = success and result.success
-
+        success = self.check_success(result)
         if success:
             deleted_ports = utils.calculate_deleted_ports(router)
             self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
+
+            if self._clean(router):
+                self.plugin_rpc.delete_router_atts(self.context, [router.get('id')])
             registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router.get('id'))
         else:
             LOG.warning("Failed to clean up router {} on device, its been left to the scanvenger".format(router.get('id')))
 
         return success
 
+
+    def _clean(self,router):
+        router_att = router.get(constants.ASR1K_ROUTER_ATTS_KEY,{})
+        deleted_at = router_att.get("deleted_at",None)
+
+        if deleted_at is None:
+            return True
+        else:
+            if timeutils.is_older_than(timeutils.parse_isotime(deleted_at),cfg.CONF.asr1k_l3.clean_delta):
+                LOG.info("Found deleted extra att entry for router {} older than {} seconds. A device cleanup will be attempted before deletion".format(router.get('id'),cfg.CONF.asr1k_l3.clean_delta))
+                result = l3_router.Router(router).delete()
+                return self.check_success(result)
+        return False
+
+    def check_success(self, results):
+        success = True
+        if results is not None:
+            for result in results:
+                if result is not None:
+                    success = success and result.success
+        return success
 
 
 class L3ASRAgentWithStateReport(L3ASRAgent):

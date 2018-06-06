@@ -132,7 +132,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         if not bool(routers):
             routers = []
             for router_id in router_ids:
-                routers.append({'id':router_id})
+                routers.append({'id':router_id,constants.ASR1K_ROUTER_ATTS_KEY:router_atts.get(router_id, {})})
 
         for router in routers:
             extra_att = extra_atts.get(router['id'], {})
@@ -169,9 +169,13 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                     if gw_info is not None:
                         gw_info['external_fixed_ips']=gw_port['fixed_ips']
 
+
         return routers
 
 
+    def get_deleted_router_atts(self,context):
+        db = asr1k_db.DBPlugin()
+        return db.get_deleted_router_atts(context)
 
     def _get_extra_atts(self, context, router_ids, host=None):
         db = asr1k_db.DBPlugin()

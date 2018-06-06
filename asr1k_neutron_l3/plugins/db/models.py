@@ -44,10 +44,12 @@ class ASR1KExtraAttsModel(model_base.BASEV2):
 
 
 
+
 class ASR1KRouterAttsModel(model_base.BASEV2):
     __tablename__ = 'asr1k_router_atts'
 
     router_id = sa.Column(sa.String(length=36), sa.ForeignKey('routers.id', ondelete='CASCADE'), nullable=False,
                           primary_key=True)
     rd = sa.Column(sa.Integer(), nullable=False)
+    deleted_at = sa.Column(sa.DateTime)
 3

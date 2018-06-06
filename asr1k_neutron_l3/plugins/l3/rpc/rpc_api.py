@@ -98,3 +98,27 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
     def ensure_snat_mode(self,context, port_id=None,mode=None):
         db = asr1k_db.DBPlugin()
         return db.ensure_snat_mode(context,port_id,mode)
+
+
+    def get_deleted_router_atts(self,context,**kwargs):
+        db = asr1k_db.DBPlugin()
+        router_atts = db.get_deleted_router_atts(context)
+
+        return router_atts
+
+    @log_helpers.log_method_call
+    def delete_router_atts(self, context, **kwargs):
+        router_ids = kwargs.get('router_ids', [])
+        for router_id in router_ids:
+            self.db.delete_router_att(self.context, router_id)
+
+
+    @log_helpers.log_method_call
+    def get_router_atts_orphans(self,context, **kwargs):
+        host = kwargs.get('host')
+        routers = self.db.get_orphaned_router_atts_router_ids(self.context,host)
+
+        if routers is None:
+            return []
+
+        return self.l3plugin.get_sync_data(context, router_ids=routers, active=None,host=host)
