@@ -262,16 +262,21 @@ class DynamicNat(NyBase):
 class InterfaceDynamicNat(DynamicNat):
     @execute_on_pair()
     def delete(self, context=None):
-        if self._internal_exists(context) or self.force_delete:
+        device = self._internal_get(context=context)
+        if (device is not None and device.bridge_domain is not None) or self.force_delete:
             self.ncc.delete_interface(context)
         # Check again since we likely deleted it via legacy
         # if self._internal_exists(context) or self.force_delete:
         #     return super(DynamicNat, self)._delete(context=context,method=NC_OPERATION.REMOVE)
 
+
+
+
 class PoolDynamicNat(DynamicNat):
     @execute_on_pair()
     def delete(self, context=None):
-        if self._internal_exists(context) or self.force_delete:
+        device = self._internal_get(context=context)
+        if (device is not None and device.pool is not None) or self.force_delete:
             self.ncc.delete_pool(context)
 
 
