@@ -15,12 +15,17 @@
 #    under the License.
 
 import signal
-
+import re
+import gc
+import traceback
+import signal
 import eventlet
 import oslo_messaging
 import requests
 import six
 import urllib3
+
+from greenlet import greenlet
 
 eventlet.monkey_patch()
 
@@ -107,6 +112,25 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
 
         self.connection.consume_in_threads()
+
+        signal.signal(signal.SIGUSR2, self.dump_greenlets)
+
+
+    def dump_greenlets(self,signum, frame):
+        count=0
+        total_count = 0
+        for ob in gc.get_objects():
+            if not isinstance(ob, greenlet):
+                continue
+            if not ob:
+                continue
+
+            LOG.debug(''.join(traceback.format_stack(ob.gr_frame)))
+            if re.search('ncclient/transport/ssh.py', traceback.format_stack(ob.gr_frame).__str__(), re.I):
+
+                count += 1
+            total_count+=1
+        LOG.debug("************* Total SSH Greenlets : {} out of {}".format(count,total_count))
 
 
     def _initialize_monitor(self):
