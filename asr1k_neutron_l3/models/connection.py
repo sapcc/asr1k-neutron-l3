@@ -79,6 +79,9 @@ def check_devices():
 class  ConnectionPoolExhausted(Exception):
     pass
 
+class  ConnectionPoolNotInitialized(Exception):
+    pass
+
 class ConnectionManager(object):
 
     def __init__(self,context=None, legacy=False):
@@ -101,7 +104,8 @@ class ConnectionPool(object):
     def __new__(cls):
         if ConnectionPool.__instance is None:
             ConnectionPool.__instance = object.__new__(cls)
-            ConnectionPool.__instance.__setup()
+        else:
+            ConnectionPool.__instance.__check_initialized()
 
         return ConnectionPool.__instance
 
@@ -118,7 +122,7 @@ class ConnectionPool(object):
 
                 for connection in yang:
 
-                    if connection.age > cfg.CONF.asr1k.connection_max_age:
+                    if connection.age > self.max_age:
                         LOG.debug("***** closing aged connection with session id {} aged {:10.2f}s".format(connection.session_id,connection.age))
                         connection.lock.acquire()
                         connection.close()
@@ -134,17 +138,24 @@ class ConnectionPool(object):
 
         return key
 
-    def __setup(self):
+    def __check_initialized(self):
+        if not hasattr(self, 'initialized'):
+            raise ConnectionPoolNotInitialized("Please ensure pool is before first use initilized with `ConnectionPool().initialiase(self, yang_connection_pool_size=0,legacy_connection_pool_size=0,max_age=0)`")
+
+
+    def initialiase(self, yang_connection_pool_size=0,legacy_connection_pool_size=0,max_age=0):
+
         try:
 
-            yang_pool_size = min(cfg.CONF.asr1k.yang_connection_pool_size, asr1k_constants.MAX_CONNECTIONS)
+            yang_pool_size = min(yang_connection_pool_size, asr1k_constants.MAX_CONNECTIONS)
 
-            if yang_pool_size < cfg.CONF.asr1k.yang_connection_pool_size:
+            if yang_pool_size < yang_connection_pool_size:
                 LOG.warning(
                     "The yang connectopm pool size has been reduced to the system maximum its now {}".format(yang_pool_size))
 
             self.yang_pool_size = yang_pool_size
-            self.legacy_pool_size = cfg.CONF.asr1k.legacy_connection_pool_size
+            self.legacy_pool_size = legacy_connection_pool_size
+            self.max_age = max_age
             self.pair_config = ASR1KPair()
 
             self.devices = {}
@@ -162,13 +173,13 @@ class ConnectionPool(object):
                 self.devices[self._key(context,False)] = yang
                 self.devices[self._key(context,True)] = legacy
 
-            if cfg.CONF.asr1k.connection_max_age > 0:
-                LOG.debug("Setting up looping call to close connections older than {} seconds".format(cfg.CONF.asr1k.connection_max_age))
+            if self.max_age > 0:
+                LOG.debug("Setting up looping call to close connections older than {} seconds".format(self.max_age))
                 self.monitor = loopingcall.FixedIntervalLoopingCall(
                     self._ensure_connections_aged)
-                self.monitor.start(interval=cfg.CONF.asr1k.connection_max_age)
+                self.monitor.start(interval=self.max_age)
 
-
+            self.initialized = True
         except Exception as e:
             LOG.exception(e)
 
@@ -205,7 +216,7 @@ class ConnectionPool(object):
 
         connection = self.devices.get(key).pop(0)
 
-        # if connection.age >  cfg.CONF.asr1k.connection_max_age:
+        # if connection.age >  self.max_age
         #     connection.close()
         #
         # if legacy:

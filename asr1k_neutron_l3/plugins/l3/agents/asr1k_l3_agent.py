@@ -32,9 +32,7 @@ from oslo_service import service
 from oslo_utils import timeutils
 from oslo_utils import importutils
 
-from neutron.agent.common import config
 
-from neutron.common import config as common_config
 from neutron import service as neutron_service
 
 from oslo_config import cfg
@@ -43,12 +41,6 @@ from oslo_log import helpers as log_helpers
 from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1k_config, utils
 
 
-
-utils.register_opts(cfg.CONF)
-cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
-cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
-cfg.CONF.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
-cfg.CONF.register_opts(asr1k_config.ASR1K_L2_OPTS, "asr1k_l2")
 
 import oslo_messaging
 from oslo_service import loopingcall
@@ -74,6 +66,7 @@ from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_
 
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
+from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import connection
@@ -98,13 +91,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWithStateReport'):
-    # register_opts(cfg.CONF)
-    # cfg.CONF.register_opts(asr1k_config.DEVICE_OPTS, "asr1k_devices")
-    # cfg.CONF.register_opts(asr1k_config.ASR1K_OPTS, "asr1k")
-    # cfg.CONF.register_opts(asr1k_config.ASR1K_L3_OPTS, "asr1k_l3")
-    # cfg.CONF.register_opts(asr1k_config.ASR1K_L2_OPTS, "asr1k_l2")
-    common_config.init(sys.argv[1:])
-    config.setup_logging()
+    asr1k_config.register_l3_opts(cfg.CONF)
     # set periodic interval to 10 seconds, as I understand the code this means
     # the
     server = neutron_service.Service.create(
@@ -285,6 +272,12 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
             self.conf = conf
         else:
             self.conf = cfg.CONF
+
+        self.yang_connection_pool_size = cfg.CONF.asr1k_l3.yang_connection_pool_size
+        self.legacy_connection_pool_size = cfg.CONF.asr1k_l3.legacy_connection_pool_size
+
+        connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size, legacy_connection_pool_size=self.legacy_connection_pool_size,max_age=cfg.CONF.asr1k.connection_max_age)
+
         self.router_info = {}
 
         self.process_monitor = external_process.ProcessMonitor(
@@ -688,7 +681,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         return set(utils.get_router_ports(router)).issubset(extra_atts.keys())
 
     def _process_routers_loop(self):
-        poolsize = min(self.conf.asr1k_l3.threadpool_maxsize,self.conf.asr1k.yang_connection_pool_size,constants.MAX_CONNECTIONS)
+        poolsize = min(self.conf.asr1k_l3.threadpool_maxsize,self.yang_connection_pool_size,constants.MAX_CONNECTIONS)
 
         if poolsize < self.conf.asr1k_l3.threadpool_maxsize:
             LOG.warning("The processing thread pool size has been reduced to match 'yang_connection_pool_size' its now {}".format(poolsize))

@@ -43,12 +43,14 @@ from neutron.common import config as common_config, topics, constants as n_const
 
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import connection
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api
 from asr1k_neutron_l3.models.neutron.l2 import port as l2_port
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from asr1k_neutron_l3.common import config
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
@@ -58,6 +60,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 SYNC_ROUTERS_MAX_CHUNK_SIZE = 256
 SYNC_ROUTERS_MIN_CHUNK_SIZE = 32
+
+def main():
+    asr1k_config.register_l2_opts()
+    agent = ASR1KNeutronAgent()
+
+    # Start everything.
+    LOG.info("Agent initialized successfully, now running... ")
+    agent.daemon_loop()
 
 
 class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
@@ -69,6 +79,13 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         super(ASR1KNeutronAgent, self).__init__()
         self.conf = conf or CONF
+
+        self.yang_connection_pool_size = cfg.CONF.asr1k_l2.yang_connection_pool_size
+        self.legacy_connection_pool_size = cfg.CONF.asr1k_l2.legacy_connection_pool_size
+
+
+        connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size, legacy_connection_pool_size=self.legacy_connection_pool_size,max_age=cfg.CONF.asr1k.connection_max_age)
+
         self.catch_sigterm = False
         self.catch_sighup = False
         self.run_daemon_loop = True

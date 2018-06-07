@@ -21,14 +21,8 @@ import re
 from netaddr import IPNetwork, IPAddress
 
 from oslo_log import log as logging
-from neutron.agent.common import config
 
 
-from oslo_config import cfg
-from neutron.agent.l3 import config as l3_config
-from neutron.agent.linux import interface
-from neutron.agent.metadata import config as metadata_config
-from neutron.agent.linux import external_process
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import config as asr1k_config
 
@@ -164,10 +158,3 @@ def get_address_scope_config(plugin_rpc,context):
 
 
 
-def register_opts(conf):
-    conf.register_opts(l3_config.OPTS)
-    config.register_interface_driver_opts_helper(conf)
-    config.register_agent_state_opts_helper(conf)
-    conf.register_opts(interface.OPTS)
-    conf.register_opts(external_process.OPTS)
-    config.register_availability_zone_opts_helper(conf)

@@ -14,8 +14,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import sys
+
 from oslo_config import cfg
 from oslo_log import log as logging
+from neutron.agent.common import config
+from oslo_config import cfg
+from neutron.agent.common import config
+from neutron.common import config as common_config
+from neutron.agent.l3 import config as l3_config
+from neutron.agent.linux import interface
+from neutron.agent.linux import external_process
+
 
 LOG = logging.getLogger(__name__)
 
@@ -36,13 +46,12 @@ DEVICE_OPTS = [
 
 ASR1K_OPTS = [
     cfg.StrOpt('monitor', default=('asr1k_neutron_l3.common.prometheus_monitor.PrometheusMonitor'), help=('')),
-    cfg.IntOpt('yang_connection_pool_size', default=(5), help=('')),
-    cfg.IntOpt('legacy_connection_pool_size', default=(5), help=('')),
     cfg.IntOpt('connection_max_age', default=(3600), help=('')),
 ]
 
 ASR1K_L3_OPTS = [
-
+    cfg.IntOpt('yang_connection_pool_size', default=(5), help=('')),
+    cfg.IntOpt('legacy_connection_pool_size', default=(5), help=('')),
     cfg.IntOpt('fabric_asn', default=(65192), help=('')),
     cfg.IntOpt('max_requeue_attempts', default=(10), help=('')),
     cfg.BoolOpt('sync_active', default=True, help=_("Activate regular config sync")),
@@ -56,6 +65,8 @@ ASR1K_L3_OPTS = [
 ]
 
 ASR1K_L2_OPTS = [
+    cfg.IntOpt('yang_connection_pool_size', default=(5), help=('')),
+    cfg.IntOpt('legacy_connection_pool_size', default=(0), help=('')),
     cfg.BoolOpt('sync_active', default=True, help=_("Activate regular config sync")),
     cfg.IntOpt('sync_interval', default=60, help=_("Polling interval for sync task")),
     cfg.IntOpt('sync_chunk_size', default=10,help=_("Number of ports to process in on poll")),
@@ -117,3 +128,29 @@ def create_address_scope_dict():
         address_scope_dict[key] = value[0]
 
     return address_scope_dict
+
+
+def register_l3_opts(conf):
+    conf.register_opts(l3_config.OPTS)
+    config.register_interface_driver_opts_helper(conf)
+    config.register_agent_state_opts_helper(conf)
+    conf.register_opts(interface.OPTS)
+    conf.register_opts(external_process.OPTS)
+    config.register_availability_zone_opts_helper(conf)
+    cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
+    cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
+    cfg.CONF.register_opts(ASR1K_L3_OPTS, "asr1k_l3")
+    cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
+    common_config.init(sys.argv[1:])
+    config.setup_logging()
+
+def register_l2_opts(conf):
+    conf = cfg.CONF
+    conf.register_opts(config.DEVICE_OPTS, "asr1k_devices")
+    conf.register_opts(config.ASR1K_OPTS, "asr1k")
+    conf.register_opts(config.ASR1K_L2_OPTS, "asr1k_l2")
+    common_config.init(sys.argv[1:])
+    common_config.setup_logging()
+
+    cfg.CONF.asr1k.yang_connection_pool_size = cfg.CONF.asr1k_l2.yang_connection_pool_size
+    cfg.CONF.asr1k.legacy_connection_pool_size =  cfg.CONF.asr1k_l2.legacy_connection_pool_size

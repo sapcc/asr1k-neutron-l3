@@ -49,6 +49,8 @@ class BridgeDomain(NyBase):
 
 class ServiceInstance(NyBase):
 
+    PORT_CHANNEL = 0
+
     ID_FILTER = """
               <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
                 <interface>
@@ -131,6 +133,9 @@ class ServiceInstance(NyBase):
 
     def __init__(self, **kwargs):
         kwargs['port_channel'] = self.PORT_CHANNEL
+
+
+
         super(ServiceInstance, self).__init__(**kwargs)
 
         if self.id == 'None' or self.id is None:
@@ -183,24 +188,26 @@ class ServiceInstance(NyBase):
 
 class ExternalInterface(ServiceInstance):
     REWRITE_INGRESS_TAG_POP_WAY = 1
-    PORT_CHANNEL = cfg.CONF.asr1k_l2.external_interface
+
 
     def __init__(self, **kwargs):
-
+        self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.external_interface
         kwargs['bridge_domain'] = kwargs.get('id')
         kwargs['dot1q'] = kwargs.get('id')
         super(ExternalInterface, self).__init__(**kwargs)
 
 class LoopbackExternalInterface(ServiceInstance):
-    PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_external_interface
+
 
     def __init__(self, **kwargs):
+        self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_external_interface
         kwargs['bridge_domain'] = kwargs.get('dot1q')
         kwargs['dot1q'] = kwargs.get('dot1q')
         super(LoopbackExternalInterface, self).__init__(**kwargs)
 
 
 class LoopbackInternalInterface(ServiceInstance):
-    PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_internal_interface
+
     def __init__(self, **kwargs):
+        self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_internal_interface
         super(LoopbackInternalInterface, self).__init__(**kwargs)

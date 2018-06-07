@@ -61,7 +61,12 @@ class EfpStats(NyBase):
         return {'in_pkts':self.in_pkts,'in_bytes':self.in_bytes,'out_pkts':self.out_pkts,'out_bytes':self.out_bytes}
 
 class LoopbackExternalEfpStats(EfpStats):
-    PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_external_interface
+    def __init__(self, **kwargs):
+        self.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_external_interface
+        super(LoopbackExternalEfpStats, self).__init__(**kwargs)
 
 class LoopbackInternalEfpStats(EfpStats):
-    PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_internal_interface
+
+    def __init__(self, **kwargs):
+        self.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_internal_interface
+        super(LoopbackInternalEfpStats, self).__init__(**kwargs)
