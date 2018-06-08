@@ -34,6 +34,6 @@ down_revision = '27342df5a5fea'
 
 
 def upgrade():
-    op.drop_constraint("asr1k_extra_atts_router_id_fke", 'asr1k_router_atts', 'foreignkey')
+    op.drop_constraint("asr1k_router_atts_router_id_fkey", 'asr1k_router_atts', 'foreignkey')
     op.create_unique_constraint('uq_rd', 'asr1k_router_atts',['rd'])
     op.add_column('asr1k_router_atts', sa.Column('deleted_at',sa.DateTime))
