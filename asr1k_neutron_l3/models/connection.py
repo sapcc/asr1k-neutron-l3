@@ -492,12 +492,14 @@ class SSHConnection(object):
             bytes += channel.recv(self.BUF).decode('utf-8')
         bytes = bytes.replace(self.EOM, '')
 
-        result = ""
+        result = []
         return_text = bs(bytes, 'lxml').find('text')
         if return_text is not None:
+            raw = bs(bytes, 'lxml').find('text').contents[0].splitlines()
 
-            for l in bs(bytes, 'lxml').find('text').contents[0].splitlines():
-                result += l
+            for l in raw:
+                if len(l.strip(" "))>0:
+                    result.append(l)
         else:
             return None
 
@@ -507,10 +509,6 @@ class SSHConnection(object):
 
     @instrument()
     def edit_config(self,config='',target='running'):
-
-        print "***********"
-        print config
-        print "***********"
 
         if self.context.alive and self.connection is not None and not self.is_inactive:
             self.connection.send("config t \r\n")

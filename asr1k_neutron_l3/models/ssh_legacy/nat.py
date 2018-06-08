@@ -26,12 +26,11 @@ class StaticNatList(ssh_base.SSHBase):
     def update(self, context):
         if bool(self.base.static_nats):
             config = []
-
+            matches=[]
             for nat in self.base.static_nats:
-                if not self.exists(context, "show arp vrf {} {} | inc Internet".format(nat.vrf,nat.global_ip),self.ARP_REGEX.format(nat.global_ip, nat.mac_address)):
-                    config.append("arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
-
-            if bool(config):
+                matches.append(self.ARP_REGEX.format(nat.global_ip, nat.mac_address))
+                config.append("arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
+            if not self.exists(context, "show arp vrf {} alias | inc Internet".format(nat.vrf), matches, results=len(config)):
                 self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
         else:
             LOG.debug('Skipping ARP update, no NAT entries')
@@ -40,11 +39,13 @@ class StaticNatList(ssh_base.SSHBase):
     def delete(self, context):
         if bool(self.base.static_nats):
             config= []
+            matches=[]
 
             for nat in self.base.static_nats:
-                if not self.exists(context, "show arp vrf {} {} | inc Internet".format(nat.vrf, nat.global_ip),self.ARP_REGEX.format(nat.global_ip, nat.mac_address)):
-                    config.append("no arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
-            if bool(config):
+                matches.append(self.ARP_REGEX.format(nat.global_ip, nat.mac_address))
+                config.append("no arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
+
+            if self.exists(context,"show arp vrf {} alias | inc Internet".format(nat.vrf),matches, results=len(config)):
                 self._edit_running_config(context, config, 'DELETE_ARP_LIST')
         else:
             LOG.debug('Skipping ARP delete, no NAT entries')

@@ -31,11 +31,28 @@ class SSHBase(object):
         self.base = base
 
 
-    def exists(self,context,config,match):
+    def exists(self,context,config,matches,results=-1):
         with ConnectionManager(context=context,legacy=True) as manager:
             try:
                 result = manager.run_cli_command(config)
-                return re.match(match,result) is not None
+
+
+
+                if result is  not None:
+                    exists = True
+
+                    if results >=0 and len(result)!= results:
+                        return False
+
+                    reg_lst = []
+                    for raw_regex in matches:
+                        reg_lst.append(re.compile(raw_regex))
+
+                    for l in result :
+                        exists = exists and any(compiled_reg.match(l) for compiled_reg in reg_lst)
+
+
+                    return  exists
             except Exception as e:
                 LOG.exception(e)
                 raise e
