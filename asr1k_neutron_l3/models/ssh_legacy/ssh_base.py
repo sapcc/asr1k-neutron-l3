@@ -14,7 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import time
-
+import re
 from oslo_log import log as logging
 from oslo_utils import importutils
 
@@ -29,6 +29,19 @@ class SSHBase(object):
 
     def __init__(self, base):
         self.base = base
+
+
+    def exists(self,context,config,match):
+        with ConnectionManager(context=context,legacy=True) as manager:
+            try:
+                result = manager.run_cli_command(config)
+                return re.match(match,result) is not None
+            except Exception as e:
+                LOG.exception(e)
+                raise e
+            return False
+
+
 
     def _edit_running_config(self, context, config, snippet, accept_failure=False):
 

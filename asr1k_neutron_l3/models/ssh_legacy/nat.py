@@ -20,6 +20,7 @@ from asr1k_neutron_l3.models.netconf_yang.ny_base import retry_on_failure
 LOG = logging.getLogger(__name__)
 
 class StaticNatList(ssh_base.SSHBase):
+    ARP_REGEX = "^Internet\s+{}\s+.\s+{}"
 
     @retry_on_failure()
     def update(self, context):
@@ -27,10 +28,11 @@ class StaticNatList(ssh_base.SSHBase):
             config = []
 
             for nat in self.base.static_nats:
-                config.append("arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
+                if not self.exists(context, "show arp vrf {} {} | inc Internet".format(nat.vrf,nat.global_ip),self.ARP_REGEX.format(nat.global_ip, nat.mac_address)):
+                    config.append("arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
 
-
-            self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
+            if bool(config):
+                self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
         else:
             LOG.debug('Skipping ARP update, no NAT entries')
 
@@ -40,9 +42,10 @@ class StaticNatList(ssh_base.SSHBase):
             config= []
 
             for nat in self.base.static_nats:
-                config.append("no arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
-
-            self._edit_running_config(context, config, 'DELETE_ARP_LIST')
+                if not self.exists(context, "show arp vrf {} {} | inc Internet".format(nat.vrf, nat.global_ip),self.ARP_REGEX.format(nat.global_ip, nat.mac_address)):
+                    config.append("no arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
+            if bool(config):
+                self._edit_running_config(context, config, 'DELETE_ARP_LIST')
         else:
             LOG.debug('Skipping ARP delete, no NAT entries')
 

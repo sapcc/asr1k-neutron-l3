@@ -31,11 +31,13 @@ from oslo_log import log as logging
 from oslo_config import cfg
 from oslo_service import loopingcall
 from paramiko.client import SSHClient,AutoAddPolicy
-from paramiko import Transport
+import paramiko
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import SSHError
 from ncclient.transport.errors import SessionCloseError
 from ncclient.transport.errors import TransportError
+
+from bs4 import BeautifulSoup as bs
 
 LOG = logging.getLogger(__name__)
 
@@ -324,11 +326,34 @@ class YangConnection(NCConnection):
 
 
 class SSHConnection(object):
+
+    PROT = 'ssh'
+    EOM = ']]>]]>'
+    BUF = 1024 * 1024
+
+    READ_SOAP12 = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Body>
+    <request xmlns="urn:cisco:wsma-exec" correlator="c-1">
+      <execCLI>
+        <cmd>{}</cmd>
+      </execCLI>
+    </request>
+  </soap12:Body>
+</soap12:Envelope>
+]]>]]>'''
+
+
+
     def __init__(self, context,id=0):
         self.lock = Lock()
         self.context = context
-        self._ssh_client = None
+
+        self._ssh_transport = None
+        self._wsma_transport = None
         self._ssh_channel = None
+        self._wsma_channel = None
         self.start = time.time()
         self.id = "{}-{}".format(context.host,id)
 
@@ -338,12 +363,12 @@ class SSHConnection(object):
 
     @property
     def session_id(self):
-       if not self.is_inactive and self._ssh_channel is not None and  self._ssh_channel.get_transport() is not None:
-            return self._ssh_channel.get_transport().session_id
+       if not self.is_inactive and self._ssh_channel is not None and  self._ssh_transport is not None:
+            return self._ssh_transport.session_id
 
     @property
     def is_inactive(self):
-        if self._ssh_channel is None or self._ssh_client is None:
+        if self._ssh_channel is None or self._ssh_transport is None or self._wsma_transport is None:
             return True
         try:
             self._ssh_channel.send("echo alive \r\n")
@@ -378,35 +403,114 @@ class SSHConnection(object):
 
         return self._ssh_channel
 
+    @property
+    def wsma_connection(self):
+        self.connection
+        return self._wsma_channel
+
+
     def _connect(self, context):
         port = context.legacy_port
 
-        client = SSHClient()
-        client.set_missing_host_key_policy(AutoAddPolicy())
-        client.connect(context.host, port=port, username=context.username, password=context.password, timeout=0.5)
+        # client = SSHClient()
+        # client.set_missing_host_key_policy(AutoAddPolicy())
+        # client.connect(context.host, port=port, username=context.username, password=context.password, timeout=0.5)
+        #
+        # ssh_channel = client.invoke_shell()
 
-        channel = client.invoke_shell()
-        self._ssh_client = client
-        self._ssh_channel = channel
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((context.host, port))
+        ssh_transport = paramiko.Transport(sock)
+        try:
+            ssh_transport.connect(username=context.username, password=context.password)
+        except paramiko.AuthenticationException:
+            print("SSH Authentication failed.")
 
+        wsma_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        wsma_sock.connect((context.host, port))
+        wsma_transport = paramiko.Transport(wsma_sock)
+        try:
+            wsma_transport.connect(username=context.username, password=context.password)
+        except paramiko.AuthenticationException:
+            print("SSH Authentication failed.")
+
+
+
+
+        ssh_channel = ssh_transport.open_session()
+        ssh_channel.get_pty()
+        ssh_channel.set_name('ssh')
+        ssh_channel.invoke_shell()
+
+        wsma_channel = wsma_transport.open_session()
+        wsma_channel.set_name('wsma')
+        wsma_channel.invoke_subsystem('wsma')
+        self._wsma_reply(wsma_channel)
+
+        # self._ssh_client = client
+        self._ssh_transport = ssh_transport
+        self._ssh_channel = ssh_channel
+        self._wsma_transport = wsma_channel
+        self._wsma_channel = wsma_channel
 
 
     def close(self):
 
-        if self._ssh_client is not None:
+        if self._ssh_transport is not None :
             try:
-                self._ssh_client.close()
+                self._ssh_transport.close()
             except BaseException:
                 pass
-            self._ssh_client = None
-            self._ssh_channel = None
+
+        if self._wsma_transport is not None :
+            try:
+                self._wsma_transport.close()
+            except BaseException:
+                pass
+
+
+
+        self._ssh_transport = None
+        self._ssh_channel = None
+        self._wsma_channel = None
         self.start = time.time()
 
     def get(self,filter=''):
         raise NotImplementedError()
 
     @instrument()
+    def run_cli_command(self, command):
+
+        self.wsma_connection.sendall(self.READ_SOAP12.format(command))
+
+        return self._wsma_reply(self.wsma_connection)
+
+    def _wsma_reply(self,channel):
+
+        bytes = u''
+        while bytes.find(self.EOM) == -1:
+            bytes += channel.recv(self.BUF).decode('utf-8')
+        bytes = bytes.replace(self.EOM, '')
+
+        result = ""
+        return_text = bs(bytes, 'lxml').find('text')
+        if return_text is not None:
+
+            for l in bs(bytes, 'lxml').find('text').contents[0].splitlines():
+                result += l
+        else:
+            return None
+
+        return result
+
+
+
+    @instrument()
     def edit_config(self,config='',target='running'):
+
+        print "***********"
+        print config
+        print "***********"
 
         if self.context.alive and self.connection is not None and not self.is_inactive:
             self.connection.send("config t \r\n")
