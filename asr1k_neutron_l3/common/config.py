@@ -16,9 +16,7 @@
 
 import sys
 
-from oslo_config import cfg
 from oslo_log import log as logging
-from neutron.agent.common import config
 from oslo_config import cfg
 from neutron.agent.common import config
 from neutron.common import config as common_config
@@ -147,9 +145,9 @@ def register_l3_opts():
 
 def register_l2_opts():
     conf = cfg.CONF
-    conf.register_opts(config.DEVICE_OPTS, "asr1k_devices")
-    conf.register_opts(config.ASR1K_OPTS, "asr1k")
-    conf.register_opts(config.ASR1K_L2_OPTS, "asr1k_l2")
+    conf.register_opts(DEVICE_OPTS, "asr1k_devices")
+    conf.register_opts(ASR1K_OPTS, "asr1k")
+    conf.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
     common_config.init(sys.argv[1:])
     common_config.setup_logging()
 
