@@ -91,7 +91,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWithStateReport'):
-    asr1k_config.register_l3_opts(cfg.CONF)
+    asr1k_config.register_l3_opts()
     # set periodic interval to 10 seconds, as I understand the code this means
     # the
     server = neutron_service.Service.create(

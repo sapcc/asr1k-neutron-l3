@@ -130,7 +130,8 @@ def create_address_scope_dict():
     return address_scope_dict
 
 
-def register_l3_opts(conf):
+def register_l3_opts():
+    conf = cfg.CONF
     conf.register_opts(l3_config.OPTS)
     config.register_interface_driver_opts_helper(conf)
     config.register_agent_state_opts_helper(conf)
@@ -144,7 +145,7 @@ def register_l3_opts(conf):
     common_config.init(sys.argv[1:])
     config.setup_logging()
 
-def register_l2_opts(conf):
+def register_l2_opts():
     conf = cfg.CONF
     conf.register_opts(config.DEVICE_OPTS, "asr1k_devices")
     conf.register_opts(config.ASR1K_OPTS, "asr1k")
