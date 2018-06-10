@@ -51,7 +51,6 @@ class SSHBase(object):
                     for l in result :
                         exists = exists and any(compiled_reg.match(l) for compiled_reg in reg_lst)
 
-
                     return  exists
             except Exception as e:
                 LOG.exception(e)
@@ -70,6 +69,7 @@ class SSHBase(object):
                 if not accept_failure:
                     raise e
             except Exception as e:
+                print e
                 LOG.exception(e)
                 raise e
 
