@@ -497,6 +497,7 @@ class SSHConnection(object):
         bytes = u''
         while bytes.find(self.EOM) == -1:
             if time.time() > self.READ_TIMEOUT:
+                LOG.debug("Timeout on WSMA read")
                 break
             bytes += channel.recv(self.BUF).decode('utf-8')
         bytes = bytes.replace(self.EOM, '')
