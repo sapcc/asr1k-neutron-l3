@@ -330,7 +330,7 @@ class SSHConnection(object):
     PROT = 'ssh'
     EOM = ']]>]]>'
     BUF = 1024 * 1024
-
+    READ_TIMEOUT = 3
     READ_SOAP12 = '''
 <?xml version="1.0" encoding="UTF-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
@@ -481,15 +481,23 @@ class SSHConnection(object):
 
     @instrument()
     def run_cli_command(self, command):
-
+        start = time.time()
         self.wsma_connection.sendall(self.READ_SOAP12.format(command))
 
-        return self._wsma_reply(self.wsma_connection)
+        LOG.debug("send all {} in {}s".format(command, time.time()-start))
+
+        response =  self._wsma_reply(self.wsma_connection)
+
+        LOG.debug("get reply {} in {}s".format(command, time.time() - start))
+
+        return response
 
     def _wsma_reply(self,channel):
-
+        start = time.time()
         bytes = u''
         while bytes.find(self.EOM) == -1:
+            if time.time() > self.READ_TIMEOUT:
+                break
             bytes += channel.recv(self.BUF).decode('utf-8')
         bytes = bytes.replace(self.EOM, '')
 
