@@ -372,7 +372,7 @@ class SSHConnection(object):
             return True
         try:
             self._ssh_channel.send("show whoami \r\n")
-            self._wsma_channel.send("show whoami")
+            self.run_cli_command("show whoami")
             return False
         except BaseException as e :
             return True
