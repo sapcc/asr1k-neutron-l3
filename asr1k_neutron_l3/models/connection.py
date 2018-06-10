@@ -53,9 +53,10 @@ def ssh_connect(context,legacy):
         else:
             port = context.yang_port
         #LOG.debug("Checking device connectivity.")
-        client = SSHClient()
-        client.set_missing_host_key_policy(AutoAddPolicy())
-        connect = client.connect(context.host,port=port,username=context.username,password=context.password,timeout=0.5)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((context.host, port))
+        ssh_transport = paramiko.Transport(sock)
+        ssh_transport.close()
         #LOG.debug("Connection to {} on port {} successful".format(context.host,port))
     except Exception as e:
         if isinstance(e,socket.error):
@@ -367,12 +368,27 @@ class SSHConnection(object):
             return self._ssh_transport.session_id
 
     @property
+    def wsma_session_id(self):
+        if not self.is_wsma_inactive and self._wsma_channel is not None and self._wsma_transport is not None:
+            return self._wsma_transport.session_id
+
+    @property
     def is_inactive(self):
-        if self._ssh_channel is None or self._wsma_channel is None or self._ssh_transport is None or self._wsma_transport is None:
+        if self._ssh_channel is None  or self._ssh_transport is None:
             return True
         try:
-            self._ssh_channel.send("show whoami \r\n")
-            self._wsma_channel.sendall(self.READ_SOAP12.format("show whoami"))
+            self._ssh_channel.send("echo alive \r\n")
+            return False
+        except BaseException as e :
+            return True
+
+    @property
+    def is_wsma_inactive(self):
+        if self._wsma_channel is None or self._wsma_transport is None:
+            return True
+        try:
+
+            self._wsma_channel.sendall(self.READ_SOAP12.format("echo alive"))
             return False
         except BaseException as e :
             return True
@@ -387,16 +403,18 @@ class SSHConnection(object):
                     LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.session_id))
                 try:
                     self.close()
-                except BaseException:
-                    pass
+                except BaseException as e:
+                    LOG.warning("Failed to close SSH connection due to '{}', connection will be attempted again in subsequent iterations".format(e))
+
                 finally:
                     self._connect(self.context)
 
         except BaseException as e:
+            LOG.warning(
+                "Failed to connect via SSH due to '{}', connection will be attempted again in subsequent iterations".format(
+                    e))
+
             if isinstance(e,TimeoutExpiredError) or isinstance(e,SSHError) or isinstance(e,SessionCloseError):
-                LOG.warning(
-                    "Failed to connect due to '{}', connection will be attempted again in subsequent iterations".format(
-                        e))
                 self.context.alive = False
             else:
                 LOG.exception(e)
@@ -404,55 +422,64 @@ class SSHConnection(object):
 
         return self._ssh_channel
 
+
     @property
     def wsma_connection(self):
-        self.connection
+        try:
+            if self.is_wsma_inactive:
+                if self.session_id:
+                    LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.wsma_session_id))
+                try:
+                    self.close()
+                except BaseException as e:
+                    LOG.warning(
+                        "Failed to close WSMA connection due to '{}', connection will be attempted again in subsequent iterations".format(
+                            e))
+                finally:
+                    self._connect(self.context,wsma=True)
+
+        except BaseException as e:
+            LOG.warning(
+                "Failed to connect via WSMA due to '{}', connection will be attempted again in subsequent iterations".format(
+                    e))
+
+            if isinstance(e,TimeoutExpiredError) or isinstance(e,SSHError) or isinstance(e,SessionCloseError):
+                self.context.alive = False
+            else:
+                LOG.exception(e)
+
+
         return self._wsma_channel
 
 
-    def _connect(self, context):
+    def _connect(self, context, wsma=False):
         port = context.legacy_port
 
-        # client = SSHClient()
-        # client.set_missing_host_key_policy(AutoAddPolicy())
-        # client.connect(context.host, port=port, username=context.username, password=context.password, timeout=0.5)
-        #
-        # ssh_channel = client.invoke_shell()
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((context.host, port))
-        ssh_transport = paramiko.Transport(sock)
-        try:
+        if not wsma:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((context.host, port))
+            ssh_transport = paramiko.Transport(sock)
             ssh_transport.connect(username=context.username, password=context.password)
-        except paramiko.AuthenticationException:
-            print("SSH Authentication failed.")
+            ssh_channel = ssh_transport.open_session()
+            ssh_channel.get_pty()
+            ssh_channel.set_name('ssh')
+            ssh_channel.invoke_shell()
+            self._ssh_transport = ssh_transport
+            self._ssh_channel = ssh_channel
 
-        wsma_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        wsma_sock.connect((context.host, port))
-        wsma_transport = paramiko.Transport(wsma_sock)
-        try:
+        else:
+
+            wsma_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            wsma_sock.connect((context.host, port))
+            wsma_transport = paramiko.Transport(wsma_sock)
             wsma_transport.connect(username=context.username, password=context.password)
-        except paramiko.AuthenticationException:
-            print("SSH Authentication failed.")
 
-
-
-
-        ssh_channel = ssh_transport.open_session()
-        ssh_channel.get_pty()
-        ssh_channel.set_name('ssh')
-        ssh_channel.invoke_shell()
-
-        wsma_channel = wsma_transport.open_session()
-        wsma_channel.set_name('wsma')
-        wsma_channel.invoke_subsystem('wsma')
-        self._wsma_reply(wsma_channel)
-
-        # self._ssh_client = client
-        self._ssh_transport = ssh_transport
-        self._ssh_channel = ssh_channel
-        self._wsma_transport = wsma_channel
-        self._wsma_channel = wsma_channel
+            wsma_channel = wsma_transport.open_session()
+            wsma_channel.set_name('wsma')
+            wsma_channel.invoke_subsystem('wsma')
+            self._wsma_reply(wsma_channel)
+            self._wsma_transport = wsma_transport
+            self._wsma_channel = wsma_channel
 
 
     def close(self):
@@ -460,19 +487,28 @@ class SSHConnection(object):
         if self._ssh_transport is not None :
             try:
                 self._ssh_transport.close()
-            except BaseException:
-                pass
+            except BaseException as e:
+                LOG.warning(
+                    "Failed to close SSH connection due to '{}', connection will be attempted again in subsequent iterations".format(
+                        e))
+                LOG.exception(e)
+
 
         if self._wsma_transport is not None :
             try:
                 self._wsma_transport.close()
-            except BaseException:
-                pass
+            except BaseException as e:
+                LOG.warning(
+                    "Failed to close WSMA connection due to '{}', connection will be attempted again in subsequent iterations".format(
+                        e))
+                LOG.exception(e)
+
 
 
 
         self._ssh_transport = None
         self._ssh_channel = None
+        self._wsma_transport = None
         self._wsma_channel = None
         self.start = time.time()
 
@@ -520,14 +556,17 @@ class SSHConnection(object):
     @instrument()
     def edit_config(self,config='',target='running'):
 
-        if self.context.alive and self.connection is not None and not self.is_inactive:
+
+        if self.context.alive :
             self.connection.send("config t \r\n")
 
             if isinstance(config,list):
                 for cmd in config:
-                    self.connection.send(cmd+"\r\n")
+                    print cmd
+
+                    self.connection.send(cmd+" \r\n")
             elif isinstance(config,str):
-                self.connection.send(config+"\r\n")
+                self.connection.send(config+" \r\n")
 
             self.connection.send("end \r\n")
 

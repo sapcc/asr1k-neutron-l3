@@ -32,6 +32,8 @@ class SSHBase(object):
 
 
     def exists(self,context,config,matches,results=-1):
+
+        # return False
         with ConnectionManager(context=context,legacy=True) as manager:
             try:
                 result = manager.run_cli_command(config)
@@ -68,7 +70,7 @@ class SSHBase(object):
             except RPCError as e:
                 if not accept_failure:
                     raise e
-            except Exception as e:
+            except BaseException as e:
                 print e
                 LOG.exception(e)
                 raise e
