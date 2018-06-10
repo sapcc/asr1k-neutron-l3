@@ -371,7 +371,8 @@ class SSHConnection(object):
         if self._ssh_channel is None or self._ssh_transport is None or self._wsma_transport is None:
             return True
         try:
-            self._ssh_channel.send("echo alive \r\n")
+            self._ssh_channel.send("show whoami \r\n")
+            self._wsma_channel.send("show whoami")
             return False
         except BaseException as e :
             return True
