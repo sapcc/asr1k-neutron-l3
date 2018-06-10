@@ -368,11 +368,11 @@ class SSHConnection(object):
 
     @property
     def is_inactive(self):
-        if self._ssh_channel is None or self._ssh_transport is None or self._wsma_transport is None:
+        if self._ssh_channel is None or self._wsma_channel is None or self._ssh_transport is None or self._wsma_transport is None:
             return True
         try:
             self._ssh_channel.send("show whoami \r\n")
-            self.run_cli_command("show whoami")
+            self._wsma_channel.sendall(self.READ_SOAP12.format("show whoami"))
             return False
         except BaseException as e :
             return True
