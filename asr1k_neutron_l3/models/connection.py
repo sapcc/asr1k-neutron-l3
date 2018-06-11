@@ -204,7 +204,7 @@ class ConnectionPool(object):
                     connection = pool.pop(0)
                     break
 
-                LOG.info("Waiting for connection in pool {}".format(key))
+                LOG.info("Waiting for connection in pool {} {}/{}".format(key,retry, self.WAIT_RETRIES))
                 time.sleep(self.WAIT_TIME)
             if connection is None:
                 raise ConnectionPoolExhausted()
