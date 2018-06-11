@@ -13,13 +13,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import re
 from oslo_log import log as logging
 from asr1k_neutron_l3.models.ssh_legacy import ssh_base
 from asr1k_neutron_l3.models.netconf_yang.ny_base import retry_on_failure
 
 LOG = logging.getLogger(__name__)
 
-
+ARP_REGEX = "^Internet(.*)-(.*)ARPA"
 ARP_MATCH = "Internet{}-{}ARPA"
 
 
@@ -35,6 +36,16 @@ class StaticNatList(ssh_base.SSHBase):
             for nat in self.base.static_nats:
                 if ARP_MATCH.format(nat.global_ip,nat.mac_address) not in existing:
                     config.append("arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
+
+            for entry in existing:
+
+                if entry not in self.get_neutron_nats():
+                    match = re.match(ARP_REGEX,entry)
+                    if match is not None:
+                        ip = match.group(1)
+                        mac = match.group(2)
+                        LOG.warning("Found stale AR entry for {} {} > {} it will be removed from device {}".format(nat.vrf, ip, mac,context.host))
+                        config.append("no arp vrf {} {} {}  ARPA alias".format(nat.vrf, ip, mac))
 
             if bool(config):
                 self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
@@ -55,6 +66,12 @@ class StaticNatList(ssh_base.SSHBase):
                 self._edit_running_config(context, config, 'DELETE_ARP_LIST')
         else:
             LOG.debug('Skipping ARP delete, no NAT entries')
+
+    def get_neutron_nats(self):
+        result = []
+        for nat in self.base.static_nats:
+            result.append(ARP_MATCH.format(nat.global_ip, nat.mac_address))
+        return result
 
     def _get_existing(self,context):
         existing = self.execute(context, "show arp vrf {} alias | inc Internet".format(self.base.vrf))
