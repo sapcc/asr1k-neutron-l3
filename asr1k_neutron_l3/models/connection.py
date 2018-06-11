@@ -188,25 +188,16 @@ class ConnectionPool(object):
 
 
 
-    @retry(stop_max_attempt_number=5, wait_fixed=100,retry_on_exception=_retry_if_exhausted)
+    @retry(stop_max_attempt_number=25, wait_fixed=100, retry_on_exception=_retry_if_exhausted)
     def pop_connection(self,context=None, legacy=False):
         key = self._key(context,legacy)
         pool = self.devices.get(key)
-
-        if len(pool) == 0 :
-            retry = 0
-            while retry < cfg.CONF.asr1k.connection_pool_wait_retries:
-                retry += 1
-                if len(pool) > 0:
-                    connection = pool.pop(0)
-                    break
-
-                LOG.info("Waiting for connection in pool {} {}/{}".format(key,retry, cfg.CONF.asr1k.connection_pool_wait_retries))
-                time.sleep(cfg.CONF.asr1k.connection_pool_wait_interval)
-            if connection is None:
-                raise ConnectionPoolExhausted()
-        else:
+        connection = None
+        if len(pool) > 0:
             connection = pool.pop(0)
+
+        if connection is None:
+            raise ConnectionPoolExhausted()
 
         connection.lock.acquire()
 
