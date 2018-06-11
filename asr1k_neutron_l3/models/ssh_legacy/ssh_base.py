@@ -31,33 +31,17 @@ class SSHBase(object):
         self.base = base
 
 
-    def exists(self,context,config,matches,results=-1):
-
+    def execute(self,context,cmd):
         # return False
-        with ConnectionManager(context=context,legacy=True) as manager:
+        with ConnectionManager(context=context, legacy=True) as manager:
             try:
-                result = manager.run_cli_command(config)
+                return manager.run_cli_command(cmd)
 
-
-
-                if result is  not None:
-                    exists = True
-
-                    if results >=0 and len(result)!= results:
-                        return False
-
-                    reg_lst = []
-                    for raw_regex in matches:
-                        reg_lst.append(re.compile(raw_regex))
-
-                    for l in result :
-                        exists = exists and any(compiled_reg.match(l) for compiled_reg in reg_lst)
-
-                    return  exists
             except Exception as e:
                 LOG.exception(e)
                 raise e
-            return False
+
+
 
 
 

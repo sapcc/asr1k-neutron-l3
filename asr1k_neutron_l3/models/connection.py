@@ -27,6 +27,7 @@ from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common.instrument import instrument
 
 from ncclient import manager
+from oslo_utils import uuidutils
 from oslo_log import log as logging
 from oslo_config import cfg
 from oslo_service import loopingcall
@@ -96,13 +97,14 @@ class ConnectionManager(object):
         return self.connection
 
     def __exit__(self, type, value, traceback):
-        ConnectionPool().push_connection(self.connection,legacy=self.legacy)
+        ConnectionPool().push_connection(self.connection,context=self.context,legacy=self.legacy)
 
 
 class ConnectionPool(object):
     __instance = None
 
-
+    WAIT_RETRIES = 10
+    WAIT_TIME = 0.1
 
     def __new__(cls):
         if ConnectionPool.__instance is None:
@@ -193,25 +195,38 @@ class ConnectionPool(object):
         key = self._key(context,legacy)
         pool = self.devices.get(key)
 
-        if len(pool) == 0 :
-            raise ConnectionPoolExhausted()
 
-        connection = pool.pop(0)
+        if len(pool) == 0 :
+            retry = 0
+            while retry < self.WAIT_RETRIES:
+                retry += 1
+                if len(pool) > 0:
+                    connection = pool.pop(0)
+                    break
+
+                LOG.info("Waiting for connection in pool {}".format(key))
+                time.sleep(self.WAIT_TIME)
+            if connection is None:
+                raise ConnectionPoolExhausted()
+        else:
+            connection = pool.pop(0)
+
         connection.lock.acquire()
 
         # if legacy:
         #     self.devices.get(key).append(LegacyConnection(connection.context))
         # else:
 
-        pool = self.devices.get(key)
-        pool.append(connection)
+
 
         return connection
 
-    def push_connection(self,connection,legacy=False):
+    def push_connection(self,connection,context=None,legacy=False):
         connection.lock.release()
 
-
+        key = self._key(context,legacy)
+        pool = self.devices.get(key)
+        pool.append(connection)
 
     def get_connection(self,context,legacy=False):
 
@@ -326,6 +341,10 @@ class YangConnection(NCConnection):
 #         super(LegacyConnection,self).__init__(context,legacy=True,id=id)
 
 
+
+
+
+
 class SSHConnection(object):
 
     PROT = 'ssh'
@@ -336,7 +355,7 @@ class SSHConnection(object):
 <?xml version="1.0" encoding="UTF-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
   <soap12:Body>
-    <request xmlns="urn:cisco:wsma-exec" correlator="c-1">
+    <request xmlns="urn:cisco:wsma-exec" correlator="{}">
       <execCLI>
         <cmd>{}</cmd>
       </execCLI>
@@ -377,20 +396,29 @@ class SSHConnection(object):
         if self._ssh_channel is None  or self._ssh_transport is None:
             return True
         try:
-            self._ssh_channel.send("echo alive \r\n")
-            return False
+            return (self._ssh_channel.closed
+                    or self._ssh_channel.eof_received
+                    or self._ssh_channel.eof_sent
+                    or not self._ssh_channel.active)
+
         except BaseException as e :
             return True
 
     @property
     def is_wsma_inactive(self):
+
+
+
         if self._wsma_channel is None or self._wsma_transport is None:
             return True
         try:
+            return (self._wsma_channel.closed
+                    or self._wsma_channel.eof_received
+                    or self._wsma_channel.eof_sent
+                    or not self._wsma_channel.active)
 
-            self._wsma_channel.sendall(self.READ_SOAP12.format("echo alive"))
-            return False
         except BaseException as e :
+            LOG.exception(e)
             return True
 
 
@@ -474,12 +502,22 @@ class SSHConnection(object):
             wsma_transport = paramiko.Transport(wsma_sock)
             wsma_transport.connect(username=context.username, password=context.password)
 
-            wsma_channel = wsma_transport.open_session()
+            wsma_channel = wsma_transport.open_session(timeout=2)
             wsma_channel.set_name('wsma')
             wsma_channel.invoke_subsystem('wsma')
-            self._wsma_reply(wsma_channel)
             self._wsma_transport = wsma_transport
             self._wsma_channel = wsma_channel
+            self._wsma_channel.setblocking(True)
+
+            bytes = u''
+
+            while bytes.find(self.EOM) == -1:
+                start= time.time()
+                if time.time() - start > self.READ_TIMEOUT:
+                    LOG.error("Timeout on WSMA read")
+                    break
+                bytes += self._wsma_channel.recv(self.BUF)
+
 
 
     def close(self):
@@ -518,40 +556,68 @@ class SSHConnection(object):
     @instrument()
     def run_cli_command(self, command):
         start = time.time()
-        self.wsma_connection.sendall(self.READ_SOAP12.format(command))
 
-        LOG.debug("send all {} in {}s".format(command, time.time()-start))
+        uuid = uuidutils.generate_uuid()
 
-        response =  self._wsma_reply(self.wsma_connection)
+        self.wsma_connection.sendall(self.READ_SOAP12.format(uuid,command))
 
-        LOG.debug("get reply {} in {}s".format(command, time.time() - start))
+        LOG.debug("[{}] {} send all {} in {}s".format(self.context.host,uuid,command, time.time()-start))
+
+        response =  self._wsma_reply(self.wsma_connection,uuid)
+
+        LOG.debug("{}] {} get reply {} in {}s".format(self.context.host,uuid,command, time.time() - start))
 
         return response
 
-    def _wsma_reply(self,channel):
-        start = time.time()
-        bytes = u''
-        while bytes.find(self.EOM) == -1:
-            if time.time()- start > self.READ_TIMEOUT:
-                LOG.debug("Timeout on WSMA read")
-                break
-            bytes += channel.recv(self.BUF).decode('utf-8')
-        bytes = bytes.replace(self.EOM, '')
+    def _wsma_reply(self,channel,uuid=None):
+
+
+        bytes = self._wsma_read(channel)
+
+
+        if self._is_wsma_hello(bytes):
+            LOG.debug("Filtered hello for channel stdout ")
+            return []
+
+        response = bs(bytes, 'lxml').find('response')
+        if uuid is not None and response is not None:
+            if response.get("correlator") != uuid:
+                LOG.warning("*************** Failed to correlate reply {} with request {} in CLI execute".format(response.get("correlator"),uuid))
+                return []
+
+
+
 
         result = []
         return_text = bs(bytes, 'lxml').find('text')
         if return_text is not None:
             raw = bs(bytes, 'lxml').find('text').contents[0].splitlines()
-
             for l in raw:
                 if len(l.strip(" "))>0:
-                    result.append(l)
-        else:
-            return None
+                    result.append(l.strip(" "))
+
 
         return result
 
+    def _is_wsma_hello(self,bytes):
+        request = bs(bytes, 'lxml').find('request')
+        if request is not None:
+            if request.get("xmlns") == "urn:cisco:wsma-hello":
+                return True
 
+        return False
+
+    def _wsma_read(self,channel):
+        start = time.time()
+        bytes = u''
+        while bytes.find(self.EOM) == -1:
+
+            if time.time() - start > self.READ_TIMEOUT:
+                LOG.error("Timeout on WSMA read")
+                break
+            bytes += channel.recv(self.BUF).decode('utf-8')
+
+        return bytes.replace(self.EOM, '')
 
     @instrument()
     def edit_config(self,config='',target='running'):
@@ -562,8 +628,6 @@ class SSHConnection(object):
 
             if isinstance(config,list):
                 for cmd in config:
-                    print cmd
-
                     self.connection.send(cmd+" \r\n")
             elif isinstance(config,str):
                 self.connection.send(config+" \r\n")
@@ -575,8 +639,4 @@ class SSHConnection(object):
             raise DeviceUnreachable(host=self.context.host)
 
 
-    # def _get_reply(self, channel):
-    #     bytes = u''
-    #     while bytes.find(eom)==-1:
-    #         bytes += channel.recv(65535).decode('utf-8')
-    #     return bytes
+
