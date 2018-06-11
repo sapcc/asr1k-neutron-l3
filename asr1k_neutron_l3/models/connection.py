@@ -103,8 +103,6 @@ class ConnectionManager(object):
 class ConnectionPool(object):
     __instance = None
 
-    WAIT_RETRIES = 10
-    WAIT_TIME = 0.1
 
     def __new__(cls):
         if ConnectionPool.__instance is None:
@@ -195,17 +193,16 @@ class ConnectionPool(object):
         key = self._key(context,legacy)
         pool = self.devices.get(key)
 
-
         if len(pool) == 0 :
             retry = 0
-            while retry < self.WAIT_RETRIES:
+            while retry < cfg.CONF.asr1k.connection_pool_wait_retries:
                 retry += 1
                 if len(pool) > 0:
                     connection = pool.pop(0)
                     break
 
-                LOG.info("Waiting for connection in pool {} {}/{}".format(key,retry, self.WAIT_RETRIES))
-                time.sleep(self.WAIT_TIME)
+                LOG.info("Waiting for connection in pool {} {}/{}".format(key,retry, cfg.CONF.asr1k.connection_pool_wait_retries))
+                time.sleep(cfg.CONF.asr1k.connection_pool_wait_interval)
             if connection is None:
                 raise ConnectionPoolExhausted()
         else:
