@@ -379,15 +379,17 @@ class StaticNatList(NyBase):
     def update(self,context=None):
 
         self.clean_nat(context)
+        result = super(StaticNatList, self)._update(context=context, method=NC_OPERATION.PUT)
         self.ncc.update(context)
-        return super(StaticNatList, self)._update(context=context,method=NC_OPERATION.PUT)
+        return result
 
 
     @execute_on_pair()
     def delete(self,context=None):
         self.clean_nat(context)
+        result = super(StaticNatList, self)._delete(context=context)
         self.ncc.delete(context)
-        return super(StaticNatList, self)._delete(context=context)
+        return result
 
 
 

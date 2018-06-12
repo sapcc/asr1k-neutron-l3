@@ -44,7 +44,7 @@ class StaticNatList(ssh_base.SSHBase):
                     if match is not None:
                         ip = match.group(1)
                         mac = match.group(2)
-                        LOG.warning("Found stale AR entry for {} {} > {} it will be removed from device {}".format(nat.vrf, ip, mac,context.host))
+                        LOG.warning("Found stale ARP entry for {} {} > {} it will be removed from device {}".format(nat.vrf, ip, mac,context.host))
                         config.append("no arp vrf {} {} {}  ARPA alias".format(nat.vrf, ip, mac))
 
             if bool(config):
