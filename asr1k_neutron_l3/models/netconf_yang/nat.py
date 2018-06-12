@@ -632,6 +632,7 @@ class StaticNat(NyBase):
 
     @execute_on_pair()
     def delete(self, context=None):
-        self.ncc.delete(context)
         result = super(StaticNat, self)._delete(context=context)
+        self.ncc.delete(context)
+
         return result
