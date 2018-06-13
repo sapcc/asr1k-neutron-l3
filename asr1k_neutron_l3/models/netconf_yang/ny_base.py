@@ -148,9 +148,10 @@ class execute_on_pair(object):
 
 class retry_on_failure(object):
 
-    def __init__(self, retry_interval=0.5, max_retries=15):
+    def __init__(self, retry_interval=0.1, max_retry_interval=20, backoff=True):
         self.retry_interval = retry_interval
-        self.max_retries = max_retries
+        self.max_retry_interval = max_retry_interval
+        self.backoff = backoff
 
 
         super(retry_on_failure, self).__init__()
@@ -167,9 +168,14 @@ class retry_on_failure(object):
             if context is not None:
                 host = context.host
 
-            while retries < self.max_retries:
+            backoff = self.retry_interval
+            start = time.time()
+            total_retry = 0
+            while total_retry < self.max_retry_interval:
+                total_retry +=backoff
                 if retries > 0:
-                    LOG.debug("** [{}] Retry method {} on {} : {} of {}".format(host, f.__name__,args[0].__class__.__name__ ,retries,self.max_retries))
+                    LOG.debug("** [{}] Retry method {} on {} retries {} backoff {}s : {}s of {}s elapsed".format(host, f.__name__,args[0].__class__.__name__ ,retries,backoff,time.time()-start,self.max_retry_interval))
+                    backoff  = pow(2,retries)*self.retry_interval
 
                 try:
                     result = f(*args, **kwargs)
@@ -203,12 +209,13 @@ class retry_on_failure(object):
                             else:
                                 raise exc.InternalErrorException(host=host, entity = entity,operation = operation)
                         elif e.tag in ['in-use']:  # Lock
+
                             pass  # retry on lock
                         else:
                             LOG.debug(e.to_dict())
                     else:
                         LOG.exception(e)
-                    time.sleep(self.retry_interval)
+                    time.sleep(backoff)
                     retries += 1
                     exception = e
 
