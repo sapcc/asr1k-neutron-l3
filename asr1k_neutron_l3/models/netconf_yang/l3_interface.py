@@ -144,7 +144,6 @@ class BDIInterface(NyBase):
 
     @execute_on_pair()
     def delete(self,context=None):
-        self.ncc.delete(context)
         result = super(BDIInterface, self)._delete(context=context)
 
         return result
