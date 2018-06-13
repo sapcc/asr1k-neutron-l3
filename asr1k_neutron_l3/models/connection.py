@@ -37,6 +37,7 @@ from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import SSHError
 from ncclient.transport.errors import SessionCloseError
 from ncclient.transport.errors import TransportError
+from paramiko.ssh_exception import SSHException, NoValidConnectionsError,ChannelException
 
 from bs4 import BeautifulSoup as bs
 
@@ -430,7 +431,7 @@ class SSHConnection(object):
                 "Failed to connect via SSH due to '{}', connection will be attempted again in subsequent iterations".format(
                     e))
 
-            if isinstance(e,TimeoutExpiredError) or isinstance(e,SSHError) or isinstance(e,SessionCloseError):
+            if isinstance(e,SSHException) or isinstance(e,NoValidConnectionsError) or isinstance(e,ChannelException) or isinstance(e,EOFError):
                 self.context.alive = False
             else:
                 LOG.exception(e)
@@ -459,7 +460,7 @@ class SSHConnection(object):
                 "Failed to connect via WSMA due to '{}', connection will be attempted again in subsequent iterations".format(
                     e))
 
-            if isinstance(e,TimeoutExpiredError) or isinstance(e,SSHError) or isinstance(e,SessionCloseError):
+            if isinstance(e,SSHException) or isinstance(e,NoValidConnectionsError) or isinstance(e,ChannelException)or isinstance(e,EOFError):
                 self.context.alive = False
             else:
                 LOG.exception(e)
@@ -518,8 +519,6 @@ class SSHConnection(object):
                     "Failed to close SSH connection due to '{}', connection will be attempted again in subsequent iterations".format(
                         e))
                 LOG.exception(e)
-
-
         if self._wsma_transport is not None :
             try:
                 self._wsma_transport.close()
@@ -528,9 +527,6 @@ class SSHConnection(object):
                     "Failed to close WSMA connection due to '{}', connection will be attempted again in subsequent iterations".format(
                         e))
                 LOG.exception(e)
-
-
-
 
         self._ssh_transport = None
         self._ssh_channel = None
@@ -543,25 +539,21 @@ class SSHConnection(object):
 
     @instrument()
     def run_cli_command(self, command):
-        start = time.time()
+        if self.context.alive:
+            start = time.time()
+            uuid = uuidutils.generate_uuid()
+            self.wsma_connection.sendall(self.READ_SOAP12.format(uuid,command))
+            LOG.debug("[{}] {} send all {} in {}s".format(self.context.host,uuid,command, time.time()-start))
+            response =  self._wsma_reply(self.wsma_connection,uuid)
+            LOG.debug("{}] {} get reply {} in {}s".format(self.context.host,uuid,command, time.time() - start))
+            return response
+        else :
+            self.close()
+            raise DeviceUnreachable(host=self.context.host)
 
-        uuid = uuidutils.generate_uuid()
-
-        self.wsma_connection.sendall(self.READ_SOAP12.format(uuid,command))
-
-        LOG.debug("[{}] {} send all {} in {}s".format(self.context.host,uuid,command, time.time()-start))
-
-        response =  self._wsma_reply(self.wsma_connection,uuid)
-
-        LOG.debug("{}] {} get reply {} in {}s".format(self.context.host,uuid,command, time.time() - start))
-
-        return response
 
     def _wsma_reply(self,channel,uuid=None):
-
-
         bytes = self._wsma_read(channel)
-
 
         if self._is_wsma_hello(bytes):
             LOG.debug("Filtered hello for channel stdout ")
@@ -624,6 +616,7 @@ class SSHConnection(object):
 
 
         else :
+            self.close()
             raise DeviceUnreachable(host=self.context.host)
 
 

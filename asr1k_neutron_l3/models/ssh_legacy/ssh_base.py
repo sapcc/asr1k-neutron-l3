@@ -38,8 +38,10 @@ class SSHBase(object):
                 return manager.run_cli_command(cmd)
 
             except Exception as e:
-                LOG.exception(e)
-                raise e
+                #issue with manager return None and close
+                LOG.warning("Failed to execute command on connection, will return None and close connections")
+                manager.close()
+                return []
 
 
 
