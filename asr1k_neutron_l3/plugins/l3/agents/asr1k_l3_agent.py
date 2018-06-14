@@ -276,7 +276,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         self.yang_connection_pool_size = cfg.CONF.asr1k_l3.yang_connection_pool_size
         self.legacy_connection_pool_size = cfg.CONF.asr1k_l3.legacy_connection_pool_size
 
-        LOG.debug("Preparing connection pool  yang : {} ssh :{} max age : {]".format(self.yang_connection_pool_size,self.legacy_connection_pool_size,cfg.CONF.asr1k.connection_max_age))
+        LOG.debug("Preparing connection pool  yang : {} ssh :{} max age : {}".format(self.yang_connection_pool_size,self.legacy_connection_pool_size,cfg.CONF.asr1k.connection_max_age))
 
         connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size, legacy_connection_pool_size=self.legacy_connection_pool_size,max_age=cfg.CONF.asr1k.connection_max_age)
 
