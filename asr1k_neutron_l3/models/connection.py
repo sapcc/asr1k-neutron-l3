@@ -155,7 +155,7 @@ class ConnectionPool(object):
 
             if yang_pool_size < yang_connection_pool_size:
                 LOG.warning(
-                    "The yang connectopm pool size has been reduced to the system maximum its now {}".format(yang_pool_size))
+                    "The yang connection pool size has been reduced to the system maximum its now {}".format(yang_pool_size))
 
             self.yang_pool_size = yang_pool_size
             self.legacy_pool_size = legacy_connection_pool_size
@@ -164,7 +164,7 @@ class ConnectionPool(object):
 
             self.devices = {}
 
-            LOG.debug("Initializing connection pool of yang pool size {}, legacy pool size {}".format(self.yang_pool_size,self.legacy_pool_size))
+            LOG.info("Initializing connection pool with yang pool size {}, legacy pool size {}".format(self.yang_pool_size,self.legacy_pool_size))
 
             for context in self.pair_config.contexts:
                 yang = []
