@@ -19,10 +19,24 @@ from asr1k_neutron_l3.models.ssh_legacy import ssh_base
 
 class BDIInterface(ssh_base.SSHBase):
 
-    @retry_on_failure()
     def update(self, context):
+        self.no_shutdown(context)
+
+    @retry_on_failure()
+    def delete(self, context):
+        self.no_policy(context)
+
+    def no_shutdown(self, context):
         config = [member.format(**{'id': self.base.id}) for member in NO_SHUTDOWN]
         self._edit_running_config(context, config, 'NO_SHUTDOWN')
 
+    def no_policy(self, context):
+        config = [member.format(**{'id': self.base.id, 'vrf': self.base.vrf}) for member in NO_POLICY]
+        self._edit_running_config(context, config, 'NO_POLICY')
 
-NO_SHUTDOWN = ["interface BDI{id}","no shutdown"]
+
+NO_SHUTDOWN = ["interface BDI{id}", "no shutdown"]
+
+NO_POLICY = ["interface BDI{id}", "no ip policy route-map pbr-{vrf}"]
+
+

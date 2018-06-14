@@ -599,9 +599,6 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         try:
             if not self.pause_process:
                 for rp, update in self._queue.each_update_to_next_router():
-                    LOG.debug("Starting router update for %s, action %s, priority %s",
-                              update.id, update.action, update.priority)
-
 
                     router = self._ensure_snat_mode_config(update)
 
@@ -617,14 +614,11 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                             # processing queue (like events from fullsync) in order to
                             # prevent deleted router re-creation
                             rp.fetched_and_processed(update.timestamp)
-                            LOG.debug("Finished a router delete for %s  action %s, priority %s ", update.id,update.action, update.priority)
 
                         continue
 
                     if self._extra_atts_complete(router):
                         try:
-                            LOG.debug("Starting router update for {}".format(update.id))
-
                             router[constants.ADDRESS_SCOPE_CONFIG] = self.address_scopes
                             r = l3_router.Router(router)
 
@@ -637,7 +631,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                             self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
 
                             rp.fetched_and_processed(update.timestamp)
-                            LOG.debug("Finished a router update for {}".format(update.id))
+
                             self.retry_tracker.pop(update.id, None)
                         except exc.Asr1kException as  e:
                             LOG.exception(e)
@@ -654,7 +648,6 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                             else:
                                 raise e
                     else:
-                        LOG.debug("Resyncing router {}".format(update.id))
                         self._resync_router(update)
         except Exception as e:
             LOG.exception(e)
@@ -667,7 +660,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                 success = success and result.success
                 duration += result.duration
 
-        LOG.debug("***** Update of {} {} in {:10.3f}s".format(router.router_id,"succeeded" if success else "failed",duration))
+        LOG.debug("Update of {} {} in {:10.3f}s".format(router.router_id,"succeeded" if success else "failed",duration))
 
         # Callback to set router state based on update result
         if not success:

@@ -432,7 +432,7 @@ class SSHConnection(object):
                     e))
 
             if isinstance(e,SSHException) or isinstance(e,NoValidConnectionsError) or isinstance(e,ChannelException) or isinstance(e,EOFError):
-                self.context.alive = False
+                LOG.exception(e)
             else:
                 LOG.exception(e)
 
@@ -461,7 +461,7 @@ class SSHConnection(object):
                     e))
 
             if isinstance(e,SSHException) or isinstance(e,NoValidConnectionsError) or isinstance(e,ChannelException)or isinstance(e,EOFError):
-                self.context.alive = False
+                LOG.exception(e)
             else:
                 LOG.exception(e)
 
@@ -537,15 +537,14 @@ class SSHConnection(object):
     def get(self,filter=''):
         raise NotImplementedError()
 
-    @instrument()
     def run_cli_command(self, command):
         if self.context.alive:
             start = time.time()
             uuid = uuidutils.generate_uuid()
             self.wsma_connection.sendall(self.READ_SOAP12.format(uuid,command))
-            LOG.debug("[{}] {} send all {} in {}s".format(self.context.host,uuid,command, time.time()-start))
+
             response =  self._wsma_reply(self.wsma_connection,uuid)
-            LOG.debug("{}] {} get reply {} in {}s".format(self.context.host,uuid,command, time.time() - start))
+            LOG.debug("{}] {} run cli command {} in {}s".format(self.context.host,uuid,command, time.time() - start))
             return response
         else :
             self.close()
@@ -562,7 +561,7 @@ class SSHConnection(object):
         response = bs(bytes, 'lxml').find('response')
         if uuid is not None and response is not None:
             if response.get("correlator") != uuid:
-                LOG.warning("*************** Failed to correlate reply {} with request {} in CLI execute".format(response.get("correlator"),uuid))
+                LOG.warning("Failed to correlate reply {} with request {} in CLI execute".format(response.get("correlator"),uuid))
                 return []
 
 
@@ -599,7 +598,7 @@ class SSHConnection(object):
 
         return bytes.replace(self.EOM, '')
 
-    @instrument()
+
     def edit_config(self,config='',target='running'):
 
 
@@ -613,7 +612,6 @@ class SSHConnection(object):
                 self.connection.send(config+" \r\n")
 
             self.connection.send("end \r\n")
-
 
         else :
             self.close()

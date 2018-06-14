@@ -126,7 +126,17 @@ class BDIInterface(NyBase):
 
         return dict(result)
 
+    def to_delete_dict(self):
+        bdi = OrderedDict()
+        bdi[L3Constants.NAME] = self.name
+        # vrf = OrderedDict()
+        # vrf[L3Constants.FORWARDING] = self.vrf
+        # bdi[L3Constants.VRF] = vrf
 
+        result = OrderedDict()
+        result[L3Constants.BDI_INTERFACE] = bdi
+
+        return dict(result)
 
     @execute_on_pair()
     def update(self,context=None):
@@ -144,6 +154,8 @@ class BDIInterface(NyBase):
 
     @execute_on_pair()
     def delete(self,context=None):
+        self.ncc.delete(context)
+
         result = super(BDIInterface, self)._delete(context=context)
 
         return result

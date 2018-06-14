@@ -232,7 +232,7 @@ class Router(Base):
     def create(self):
         return self.update()
 
-    @instrument()
+
     def update(self):
 
         if self.gateway_interface is None and len(self.interfaces.internal_interfaces)==0:
@@ -288,7 +288,7 @@ class Router(Base):
 
         return results
 
-    @instrument()
+
     def delete(self):
         results = []
         # order is important here.
@@ -312,13 +312,16 @@ class Router(Base):
             results.append(self.dynamic_nat.get(key).delete())
         if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
             results.append(self.nat_pool.delete())
-        results.append(self.nat_acl.delete())
-        results.append(self.pbr_acl.delete())
+
 
         for interface in self.interfaces.all_interfaces:
             results.append(interface.delete())
 
         results.append(self.pbr_route_map.delete())
+
+        results.append(self.nat_acl.delete())
+        results.append(self.pbr_acl.delete())
+
 
         results.append(self.bgp_address_family.delete())
 
@@ -326,7 +329,7 @@ class Router(Base):
 
         return results
 
-    @instrument()
+
     def diff(self):
         diff_results = {}
 

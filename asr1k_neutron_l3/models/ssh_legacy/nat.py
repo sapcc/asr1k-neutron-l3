@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import re
+import  time
 from oslo_log import log as logging
 from asr1k_neutron_l3.models.ssh_legacy import ssh_base
 from asr1k_neutron_l3.models.netconf_yang.ny_base import retry_on_failure
@@ -22,7 +23,7 @@ LOG = logging.getLogger(__name__)
 
 ARP_REGEX = "^Internet(.*)-(.*)ARPA"
 ARP_MATCH = "Internet{}-{}ARPA"
-
+EXISTS_TIMEOUT = 0.5
 
 class StaticNatList(ssh_base.SSHBase):
 
@@ -49,8 +50,7 @@ class StaticNatList(ssh_base.SSHBase):
 
             if bool(config):
                 self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
-        else:
-            LOG.debug('Skipping ARP update, no NAT entries for {}'.format(self.base.vrf))
+                self._check_result(context,self.base.static_nats, exists=True)
 
     @retry_on_failure()
     def delete(self, context):
@@ -64,8 +64,7 @@ class StaticNatList(ssh_base.SSHBase):
 
             if bool(config):
                 self._edit_running_config(context, config, 'DELETE_ARP_LIST')
-        else:
-            LOG.debug('Skipping ARP delete, no NAT entries')
+                self._check_result(context,self.base.static_nats,exists=False)
 
     def get_neutron_nats(self):
         result = []
@@ -75,9 +74,6 @@ class StaticNatList(ssh_base.SSHBase):
 
     def _get_existing(self,context):
         existing = self.execute(context, "show arp vrf {} alias | inc Internet".format(self.base.vrf))
-
-
-
         result = []
         if existing is not None:
             for entry in existing:
@@ -85,6 +81,49 @@ class StaticNatList(ssh_base.SSHBase):
         LOG.debug("VRF {} has {}/{} ARP entries configured on {}".format(self.base.vrf,len(existing),len(self.base.static_nats),context.host))
 
         return result
+
+    def _check_result(self,context,config,exists=True):
+        start = time.time()
+        while True:
+            if time.time()-start > EXISTS_TIMEOUT:
+                LOG.debug("Failed to validate SSH result")
+                break
+            if exists :
+                if self._all_exist(context,config):
+                    return True
+            else:
+                if self._all_missing(context,config):
+                    return True
+
+        return True
+
+
+    def _all_exist(self,context,config):
+        on_device = self._check_on_device(context,config)
+
+        return len(on_device) == len(config)
+
+    def _all_missing(self,context, config):
+        on_device = self._check_on_device(context,config)
+
+        return len(on_device) == 0
+
+    def _check_on_device(self,context,config):
+        on_device = []
+        config = config
+
+        existing = self._get_existing(context)
+        for nat in config:
+           if ARP_MATCH.format(nat.global_ip, nat.mac_address) in existing:
+               on_device.append(nat)
+
+        return on_device
+
+
+
+
+
+
 
 class StaticNat(ssh_base.SSHBase):
 

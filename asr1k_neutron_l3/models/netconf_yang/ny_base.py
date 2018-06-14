@@ -23,6 +23,7 @@ from collections import OrderedDict
 
 eventlet.debug.hub_exceptions(False)
 from oslo_log import log as logging
+from oslo_utils import uuidutils
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.models import asr1k_pair
@@ -160,6 +161,7 @@ class retry_on_failure(object):
 
         @six.wraps(f)
         def wrapper(*args, **kwargs):
+            uuid = uuidutils.generate_uuid()
             retries = 0
             exception = None
 
@@ -174,7 +176,7 @@ class retry_on_failure(object):
             while total_retry < self.max_retry_interval:
                 total_retry +=backoff
                 if retries > 0:
-                    LOG.debug("** [{}] Retry method {} on {} retries {} backoff {}s : {}s of {}s elapsed".format(host, f.__name__,args[0].__class__.__name__ ,retries,backoff,time.time()-start,self.max_retry_interval))
+                    LOG.debug("** [{}] request {} :  Retry method {} on {} retries {} backoff {}s : {}s of {}s elapsed".format(host,uuid, f.__name__,args[0].__class__.__name__ ,retries,backoff,time.time()-start,self.max_retry_interval))
                     backoff  = pow(2,retries)*self.retry_interval
 
                 try:
@@ -184,6 +186,15 @@ class retry_on_failure(object):
                         time.sleep(self.retry_interval)
                         retries += 1
                     else:
+                        if retries >  0:
+                            LOG.debug(
+                                "** [{}] request {} :  Method {} on {} succeeded after {} attempts  in {}s".format(host,
+                                                                                                               uuid,
+                                                                                                               f.__name__,
+                                                                                                               args[
+                                                                                                                   0].__class__.__name__,
+                                                                                                               retries,
+                                                                                                               time.time() - start))
                         return result
                 except exc.DeviceUnreachable as e:
                     if context is not None:
@@ -209,18 +220,27 @@ class retry_on_failure(object):
                             else:
                                 raise exc.InternalErrorException(host=host, entity = entity,operation = operation)
                         elif e.tag in ['in-use']:  # Lock
+                            if total_retry < self.max_retry_interval:
+                                LOG.debug("** [{}] request {} :  retry {} of {} on {} hit config lock , will backoff and retry ".format(host,uuid,retries,f.__name__,args[0].__class__.__name__ ))
+                                pass  # retry on lock
+                            else:
+                                LOG.debug(
+                                    "** [{}] request {} :  retry {} of {} on {} hit config lock , retry limit reached, failing ".format(host, uuid, retries, f.__name__, args[0].__class__.__name__))
+                                raise exc.ConfigurationLockedException(host=host, entity = entity,operation = operation)
 
-                            pass  # retry on lock
                         else:
                             LOG.debug(e.to_dict())
                     else:
                         LOG.exception(e)
+
                     time.sleep(backoff)
                     retries += 1
                     exception = e
 
             if exception is not None:
               raise exception
+
+
 
         return wrapper
 

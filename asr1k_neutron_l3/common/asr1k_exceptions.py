@@ -56,6 +56,10 @@ class ReQueueException(DeviceOperationException):
 class InternalErrorException(DeviceOperationException):
     message = "An internal error executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
 
+
+class ConfigurationLockedException(ReQueueException):
+    message = "Encoutered a requeable lock exception executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
+
 class ReQueueableInternalErrorException(ReQueueException):
     message = "An requeable internal error executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
 
