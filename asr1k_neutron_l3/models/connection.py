@@ -538,7 +538,6 @@ class SSHConnection(object):
         raise NotImplementedError()
 
     def run_cli_command(self, command):
-        if self.context.alive:
             start = time.time()
             uuid = uuidutils.generate_uuid()
             self.wsma_connection.sendall(self.READ_SOAP12.format(uuid,command))
@@ -546,9 +545,6 @@ class SSHConnection(object):
             response =  self._wsma_reply(self.wsma_connection,uuid)
             LOG.debug("{}] {} run cli command {} in {}s".format(self.context.host,uuid,command, time.time() - start))
             return response
-        else :
-            self.close()
-            raise DeviceUnreachable(host=self.context.host)
 
 
     def _wsma_reply(self,channel,uuid=None):
