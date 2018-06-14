@@ -50,7 +50,7 @@ class StaticNatList(ssh_base.SSHBase):
 
             if bool(config):
                 self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
-                self._check_result(context,self.base.static_nats, exists=True)
+                #self._check_result(context,self.base.static_nats, exists=True)
 
     @retry_on_failure()
     def delete(self, context):
@@ -64,7 +64,7 @@ class StaticNatList(ssh_base.SSHBase):
 
             if bool(config):
                 self._edit_running_config(context, config, 'DELETE_ARP_LIST')
-                self._check_result(context,self.base.static_nats,exists=False)
+                #self._check_result(context,self.base.static_nats,exists=False)
 
     def get_neutron_nats(self):
         result = []
