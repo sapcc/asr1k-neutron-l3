@@ -28,7 +28,7 @@ from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.l3.schedulers import asr1k_scheduler_db
-from asr1k_neutron_l3.extensions import devices as devices_ext
+from asr1k_neutron_l3.extensions import asr1koperations as asr1k_ext
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
 from neutron.db import agentschedulers_db
 
@@ -105,7 +105,7 @@ class L3RpcNotifierMixin(object):
 
 class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
-                      dns_db.DNSDbMixin, L3RpcNotifierMixin,devices_ext.DevicePluginBase):
+                      dns_db.DNSDbMixin, L3RpcNotifierMixin,asr1k_ext.DevicePluginBase):
 
 
     def get_host_for_router(self, context, router_id):
@@ -223,6 +223,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
 
     def validate(self, context, id, fields=None):
+
         result = self.notify_router_validate(context, id)
         return {'diffs': result}
 

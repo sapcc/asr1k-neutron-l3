@@ -39,7 +39,7 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
                                    "extraroute",
                                    "l3_agent_scheduler",
                                    "router_availability_zone",
-                                   "asr1k_devices"]
+                                   "asr1k_operations"]
 
     def __init__(self):
         basepath = asr1k_neutron_l3.__path__[0]

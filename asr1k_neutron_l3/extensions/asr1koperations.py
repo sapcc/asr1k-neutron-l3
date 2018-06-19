@@ -1,5 +1,7 @@
 import abc
 
+from oslo_config import cfg
+
 from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
@@ -7,36 +9,29 @@ from neutron.api.v2 import base
 from neutron.plugins.common import constants as svc_constants
 from neutron import manager
 from neutron import wsgi
+from neutron import policy
 import webob.exc
 from oslo_log import log as logging
 from neutron.common import exceptions
 from oslo_serialization import jsonutils
+import webob.exc
 
 
 from neutron import api
 
 LOG = logging.getLogger(__name__)
 
-ASR1K_DEVICES_ALIAS = 'asr1k_devices'
+ASR1K_DEVICES_ALIAS = 'asr1k_operations'
+ACCESS_RULE = "context_is_cloud_admin"
+
+def check_access(request):
+    allowed = policy.check(request.context,ACCESS_RULE, {'project_id': request.context.project_id})
+
+    if not allowed:
+        raise webob.exc.HTTPForbidden()
 
 
-RESOURCE_NAME = 'device'
-RESOURCE_COLLECTION = 'devices'
-
-MEMBER_ACTIONS = {'validate':'GET','port_config':'GET','sync':'PUT','interface_statistics':'GET','teardown':'DELETE'}
-
-RESOURCE_ATTRIBUTE_MAP = {
-
-    RESOURCE_COLLECTION: {
-        'id': {'allow_post': True, 'allow_put': True,
-               'validate': {'type:string_or_none': None}, 'is_visible': True,
-               'default': None, 'primary_key': True},
-    }
-
-}
-
-
-class Devices(extensions.ExtensionDescriptor):
+class Asr1koperations(extensions.ExtensionDescriptor):
 
     @classmethod
     def get_name(cls):
@@ -63,28 +58,50 @@ class Devices(extensions.ExtensionDescriptor):
     @classmethod
     def get_resources(cls):
         resources = []
-        plural_mappings = {'devices': 'device'}
-        attr.PLURALS.update(plural_mappings)
+
+
 
         plugin = manager.NeutronManager.get_service_plugins().get(svc_constants.L3_ROUTER_NAT)
-        params = RESOURCE_ATTRIBUTE_MAP.get(RESOURCE_COLLECTION)
-        controller = base.create_resource(RESOURCE_COLLECTION,
-                                          RESOURCE_NAME,
-                                          plugin, params,
-                                          member_actions=MEMBER_ACTIONS.keys())
 
-        ex = extensions.ResourceExtension(RESOURCE_COLLECTION,
-                                          controller, member_actions=MEMBER_ACTIONS,attr_map=params)
 
-        resource = extensions.ResourceExtension('devices/orphans',
+
+        routers = extensions.ResourceExtension('asr1k/routers',
+                                                RoutersController(plugin))
+        orphans = extensions.ResourceExtension('asr1k/orphans',
                                                 OrphansController(plugin))
-        resources.append(resource)
-        resources.append(ex)
+        config = extensions.ResourceExtension('asr1k/config',
+                                                ConfigController(plugin))
+
+        interface_stats = extensions.ResourceExtension('asr1k/interface-statistics',
+                                                InterfaceStatisticsController(plugin))
+
+
+        resources.append(routers)
+        resources.append(orphans)
+        resources.append(config)
+        resources.append(interface_stats)
 
         return resources
 
     def get_extended_resources(self, version):
         return {}
+
+class RoutersController(wsgi.Controller):
+    def __init__(self,plugin):
+        super(RoutersController,self).__init__()
+        self.plugin = plugin
+
+    def show(self, request,id):
+        check_access(request)
+        return self.plugin.validate(request.context,id)
+
+    def update(self, request,id):
+        check_access(request)
+        return self.plugin.validate(request.context,id)
+
+    def delete(self, request,id):
+        check_access(request)
+        return self.plugin.teardown(request.context,id)
 
 class OrphansController(wsgi.Controller):
 
@@ -93,11 +110,33 @@ class OrphansController(wsgi.Controller):
         self.plugin = plugin
 
     def show(self, request,id):
-
+        check_access(request)
         return self.plugin.show_orphans(request.context,id)
 
     def delete(self, request,id):
+        check_access(request)
         return self.plugin.delete_orphans(request.context,id)
+
+class ConfigController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(ConfigController,self).__init__()
+        self.plugin = plugin
+
+    def show(self, request,id):
+        check_access(request)
+        return self.plugin.port_config(request.context,id)
+
+
+class InterfaceStatisticsController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(InterfaceStatisticsController,self).__init__()
+        self.plugin = plugin
+
+    def show(self, request,id):
+        check_access(request)
+        return self.plugin.interface_statistics(request.context,id)
 
 
 class DevicePluginBase(object):
