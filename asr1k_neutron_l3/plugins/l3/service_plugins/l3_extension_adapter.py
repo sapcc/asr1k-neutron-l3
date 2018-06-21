@@ -124,6 +124,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     @instrument()
     @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None,host=None):
+
         extra_atts = self._get_extra_atts(context, router_ids,host)
         router_atts = self._get_router_atts(context, router_ids)
 
@@ -208,16 +209,18 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
             return_dict[router_att.get('router_id')] = router_att
 
+
+
         return return_dict
+
+
 
 
     @log_helpers.log_method_call
     def create_router(self, context, router):
         result = super(ASR1KPluginBase, self).create_router(context, router)
-        router_atts_db = asr1k_db.RouterAttsDb(result.get('id'), context)
-        router_atts_db.update_router_atts()
 
-
+        asr1k_db.RouterAttsDb.ensure(result.get('id'), context)
 
         return result
 
@@ -236,11 +239,19 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         result = self.notify_router_sync(context,dry_run)
         return result
 
-    def port_config(self, context, id, fields=None):
+    def get_config(self, context, id):
+        router_atts = self._get_router_atts(context,[id])
+
         extra_atts = self._get_extra_atts(context,[id])
         atts = extra_atts.get(id,None)
-        result = {}
+        result = OrderedDict({'id':id,'rd':None})
+        if len(router_atts) > 0:
+            att = router_atts.get(id, None)
+            if att is not None:
+                result['rd'] = att.rd
+
         ports = []
+        result
         if atts is not None:
             for port_id in atts.keys():
                 port = OrderedDict({'port_id':port_id})
@@ -256,9 +267,21 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                     port['deleted_l3'] = att.deleted_l3
 
                 ports.append(port)
-        result[id] = ports
+        result['ports'] = ports
 
         return dict(result)
+
+    def ensure_config(self,context,id):
+        asr1k_db.RouterAttsDb.ensure(context,id)
+
+        db = asr1k_db.DBPlugin()
+        ports = db.get_router_ports(context,id)
+        for port in ports:
+            segment = db.get_router_segment_for_port(context,id,port.get('id'))
+            asr1k_db.ExtraAttsDb.ensure(context,id,port,segment)
+
+
+        return self.get_config(context,id)
 
     def interface_statistics(self, context, id, fields=None):
         result = self.notify_interface_statistics(context, id)

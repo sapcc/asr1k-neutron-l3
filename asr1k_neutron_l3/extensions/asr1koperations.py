@@ -97,7 +97,7 @@ class RoutersController(wsgi.Controller):
 
     def update(self, request,id):
         check_access(request)
-        return self.plugin.validate(request.context,id)
+        return self.plugin.sync(request.context,id)
 
     def delete(self, request,id):
         check_access(request)
@@ -125,7 +125,11 @@ class ConfigController(wsgi.Controller):
 
     def show(self, request,id):
         check_access(request)
-        return self.plugin.port_config(request.context,id)
+        return self.plugin.get_config(request.context,id)
+
+    def update(self, request, id):
+        check_access(request)
+        return self.plugin.ensure_config(request.context,id)
 
 
 class InterfaceStatisticsController(wsgi.Controller):
@@ -154,7 +158,11 @@ class DevicePluginBase(object):
         pass
 
     @abc.abstractmethod
-    def port_config(self, context, id, fields=None):
+    def get_config(self, context, id):
+        pass
+
+    @abc.abstractmethod
+    def ensure_config(self, context, id):
         pass
 
     @abc.abstractmethod

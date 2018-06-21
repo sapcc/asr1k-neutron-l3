@@ -83,7 +83,15 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         return ([p_constants.TYPE_VLAN])
 
     def update_port_postcommit(self, context):
-        pass
+        port_id = context.current.get('id')
+        db = asr1k_db.DBPlugin()
+        att  = db.get_extra_att(context,port_id)
+        if  att is None:
+            LOG.warning("Detected ,missing port extra atts for port {} attempting to recreate".format(port_id))
+            device_id = context.current.get('device_id',None)
+            segment = context.bottom_bound_segment
+            if not device_id or not segment:
+                asr1k_db.ExtraAttsDb.ensure(context, device_id,context.current, segment)
 
     def delete_port_precommit(self, context):
         pass
@@ -99,9 +107,9 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
             # We only do router devices
             device_owner = context.current['device_owner']
-            device_id = context.current['device_id']
+            device_id = context.current.get('device_id',None)
 
-            if not device_owner or not device_owner.startswith('network:router'):
+            if not device_id or not device_owner or not device_owner.startswith('network:router'):
                 return False
 
             if not agent.get('admin_state_up', False) \
@@ -118,8 +126,9 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
             LOG.debug("Creating extra atts for segment {}".format(segment))
 
-            extra_atts_db = asr1k_db.ExtraAttsDb(device_id, segment, context)
-            extra_atts_db.update_extra_atts()
+
+            asr1k_db.ExtraAttsDb.ensure(context,device_id,context.current, segment)
+
 
             context.set_binding(segment[api.ID],
                                 self.vif_type,

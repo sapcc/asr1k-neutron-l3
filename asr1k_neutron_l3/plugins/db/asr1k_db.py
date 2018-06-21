@@ -22,8 +22,11 @@ from neutron.db import external_net_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
 from neutron.db import l3_db
+from neutron.db import l3_agentschedulers_db
 from neutron.plugins.ml2 import models as ml2_models
+from neutron.plugins.ml2 import db as ml2_db
 from neutron.extensions.l3 import RouterNotFound
+from neutron.extensions import portbindings
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log
@@ -53,10 +56,13 @@ LOG = log.getLogger(__name__)
 
 
 class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
-               portbindings_db.PortBindingMixin,
                address_scope_db.AddressScopeDbMixin,
+               portbindings_db.PortBindingMixin,
                external_net_db.External_net_db_mixin,
-               l3_db.L3_NAT_dbonly_mixin
+               l3_db.L3_NAT_dbonly_mixin,
+               l3_agentschedulers_db.L3AgentSchedulerDbMixin,
+
+
                ):
 
     def __init__(self):
@@ -97,15 +103,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             self.update_router(context,router_id,router)
 
 
-
-
-    def get_ports_with_binding(self, context, network_id):
-        with context.session.begin(subtransactions=True):
-            query = context.session.query(models_v2.Port)
-            query1 = query.join(ml2_models.PortBinding)
-            bind_ports = query1.filter(models_v2.Port.network_id == network_id)
-
-            return bind_ports
 
     def get_ports_with_extra_atts(self, context, ports):
 
@@ -278,7 +275,30 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             return result
 
+    def get_router_ports(self,  context, id):
+        with context.session.begin(subtransactions=True):
+            query = context.session.query(models_v2.Port).join(ml2_models.PortBinding,ml2_models.PortBinding.port_id==models_v2.Port.id)
+            ports = query.filter(models_v2.Port.device_id == id)
 
+        result= []
+        for port in ports:
+            port_dict = self._make_port_dict(port)
+            port_dict[portbindings.HOST_ID]=port.port_binding.host
+
+            result.append(port_dict)
+
+        return result
+
+
+    def get_router_segment_for_port(self,context,router_id,port_id):
+
+        agents = self.get_l3_agents_hosting_routers(context, [router_id], admin_state_up=True)
+        if len(agents)>0:
+            host = agents[0].host
+            binding_levels = ml2_db.get_binding_levels(context.session,port_id,host)
+            if len(binding_levels) >1:
+                #Assuming only two levels for now
+                return ml2_db.get_segment_by_id(context.session,binding_levels[1].segment_id)
 
     def get_extra_atts(self, context, ports):
         # marks ports that can delete external service instance
@@ -363,11 +383,14 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     router_att.save(context.session)
 class ExtraAttsDb(object):
 
-    def __init__(self, router_id, segment, context):
+    @classmethod
+    def ensure(cls,context,router_id,port, segment):
+        ExtraAttsDb(context,router_id,port,segment)._ensure()
+
+    def __init__(self, context, router_id,port, segment ):
         self.session = db_api.get_session();
         self.context = context
 
-        port = self.context.current
 
         # check we have a port, segment and binding host
 
@@ -388,10 +411,6 @@ class ExtraAttsDb(object):
         self.second_dot1q = None
         self.deleted_l2 = False
         self.deleted_l3 = False
-
-    @property
-    def _port_data_complete(self):
-        return self.router_id is not None and self.port_id is not None and self.agent_host is not None and self.segment_id is not None
 
     @property
     def _record_exists(self):
@@ -430,11 +449,8 @@ class ExtraAttsDb(object):
                 self.second_dot1q = x;
                 break
 
-    def update_extra_atts(self):
+    def _ensure(self):
 
-        if not self._port_data_complete:
-            LOG.debug("Skipping L2 extra atts, port not ready")
-            return
 
         if not self._record_exists:
             LOG.debug("L2 extra atts not existing, attempting create")
@@ -457,8 +473,12 @@ class ExtraAttsDb(object):
 
 
 class RouterAttsDb(object):
+    @classmethod
+    def ensure(cls,context,id):
+        router_atts_db = RouterAttsDb(context,id)._ensure()
 
-    def __init__(self, router_id, context):
+
+    def __init__(self, context,router_id):
         self.session = db_api.get_session();
         self.context = context
 
@@ -467,16 +487,13 @@ class RouterAttsDb(object):
         self.rd = None
         self.deleted_at = None
 
-    @property
-    def _router_data_complete(self):
-        return self.router_id is not None and self.rd is not None
 
     @property
     def _record_exists(self):
         entry = self.session.query(asr1k_models.ASR1KRouterAttsModel).filter_by(router_id=self.router_id).first()
         return entry is not None
 
-    def set_next_entries(self):
+    def _set_next_entries(self):
         router_atts = self.session.query(asr1k_models.ASR1KRouterAttsModel).all()
 
         rds = []
@@ -490,20 +507,16 @@ class RouterAttsDb(object):
                 break
 
 
-    def update_router_atts(self):
+    def _ensure(self):
 
         if not self._record_exists:
             LOG.debug("Router atts not existing, attempting create")
-            self.set_next_entries()
+            self._set_next_entries()
 
-        if not self._router_data_complete:
-            LOG.debug("Skipping router atts, data not complete")
-            return
-
-        with self.session.begin(subtransactions=True):
-            router_atts = asr1k_models.ASR1KRouterAttsModel(
-                router_id=self.router_id,
-                rd=self.rd,
-                deleted_at = self.deleted_at
-            )
-            self.session.add(router_atts)
+            with self.session.begin(subtransactions=True):
+                router_atts = asr1k_models.ASR1KRouterAttsModel(
+                    router_id=self.router_id,
+                    rd=self.rd,
+                    deleted_at = self.deleted_at
+                )
+                self.session.add(router_atts)
