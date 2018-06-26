@@ -89,16 +89,16 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         device_owner = context.current.get('device_owner',None)
         device_id = context.current.get('device_id', None)
 
-        if not device_id or not device_owner or not device_owner.startswith('network:router'):
+        if device_id is None or device_owner is None or not device_owner.startswith('network:router'):
             return
 
         db = asr1k_db.DBPlugin()
         att  = db.get_extra_att(context,port_id)
-        if  att is None:
+        if att is None:
             LOG.warning("Detected ,missing port extra atts for port {} attempting to recreate".format(port_id))
             device_id = context.current.get('device_id',None)
             segment = context.bottom_bound_segment
-            if not device_id or not segment:
+            if device_id is not None and segment is not None:
                 asr1k_db.ExtraAttsDb.ensure(context, device_id,context.current, segment)
 
     def delete_port_precommit(self, context):
@@ -117,7 +117,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
             device_owner = context.current.get('device_owner', None)
             device_id = context.current.get('device_id',None)
 
-            if not device_id or not device_owner or not device_owner.startswith('network:router'):
+            if device_id is None or device_owner is None or not device_owner.startswith('network:router'):
                 return False
 
             if not agent.get('admin_state_up', False) \
