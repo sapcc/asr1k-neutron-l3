@@ -84,6 +84,14 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
     def update_port_postcommit(self, context):
         port_id = context.current.get('id')
+
+        # We only do router devices
+        device_owner = context.current.get('device_owner',None)
+        device_id = context.current.get('device_id', None)
+
+        if not device_id or not device_owner or not device_owner.startswith('network:router'):
+            return
+
         db = asr1k_db.DBPlugin()
         att  = db.get_extra_att(context,port_id)
         if  att is None:
@@ -106,7 +114,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
             LOG.info(context.current)
 
             # We only do router devices
-            device_owner = context.current['device_owner']
+            device_owner = context.current.get('device_owner', None)
             device_id = context.current.get('device_id',None)
 
             if not device_id or not device_owner or not device_owner.startswith('network:router'):
