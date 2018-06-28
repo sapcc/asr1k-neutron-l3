@@ -36,17 +36,17 @@ On the ASR L3 Agent server pod/host(s):
      
      pip intall git+https://github.com/sapcc/asr1k-neutron-l3.git#egg=asr1k_neutron_l3
      
-     Copy  etc/neutron/asr1k_devices.conf to /etc/neutron/asr1k_devices.conf
+     Copy  etc/neutron/asr1k.conf to /etc/neutron/devices.conf
      
-     Adjust settings in /etc/neutron/asr1k_devices.conf to your environment
+     Adjust settings in /etc/neutron/asr1k.conf to your environment
     
      Start L3 agent process :
         
-        asr1k-l3-agent --config-file /etc/neutron/neutron.conf  --config-file /etc/neutron/asr1k_devices.conf
+        asr1k-l3-agent --config-file /etc/neutron/neutron.conf  --config-file /etc/neutron/asr1k.conf
      
      Start ML2 agent process :   
         
-        asr1k-ml2-agent --config-file /etc/neutron/neutron.conf  --config-file /etc/neutron/asr1k_devices.conf
+        asr1k-ml2-agent --config-file /etc/neutron/neutron.conf  --config-file /etc/neutron/asr1k.conf
  
  
 ## Components 
@@ -61,10 +61,10 @@ On the ASR L3 Agent server pod/host(s):
     | |                        | |       | |                  |  |   u   | |   s   | | |            |              | |
     | +------------------------+ |       | |                  |  |   t   | |   t   | | |            |              | |
     | |   ASR1K Driver Shim    | |       | +------------------+  |   r   | |       | | |            |              | |
-    | |     ASR1K RPC API      | |       |                       |   o   | |   M   | | |            |              | |
-    | |   ASR1K Schedulers     | |  RPC  |                       |   n   | |   o   | | |  Restconf  |              | |
+    | |     ASR1K RPC API      | |       |                       |   o   | |   M   | | |   NetConf  |              | |
+    | |   ASR1K Schedulers     | |  RPC  |                       |   n   | |   o   | | |    YANG    |              | |
     | +------------------------+ |------>|                       |       | |   d   | |------------->|              | |
-    |                            |       |                       |   M   | |   e   | |(Netconf/WSMA)|              | |
+    |                            |       |                       |   M   | |   e   | | | (SSH/WSMA) |              | |
     | +------------------------+ |       | +------------------+  |   o   | |   l   | | |            |              | |
     | |        Core ML2        | |       | |  ASR1K ML2 Agent |  |   d   | |   s   | | |            |              | |
     | |                        | |       | |                  |  |   e   | |       | | |            |              | |
@@ -88,7 +88,7 @@ In the Neutron L3 reference implementation there is a clear separation of L2 and
 At all times the Neutron port status should reflect the L2 state of the port binding. If the binding and/or device 
  configuration fails the port status should be 'Down'. Similarly, and if possible, the Neutron router status should 
  reflect the device configuration state with values ACTIVE, DEGRADED, DOWN reflecting fully functional, floating IP(FIP) 
- or extra route configuration failue and interface or other catastrophic configuration failure respectively. 
+ or extra route configuration failure and interface or other configuration failure respectively. 
   
 ## Use of Neutron L3 reference DB models
 
@@ -125,19 +125,19 @@ Horizontal scale will be achieved by deploying additional L3 agent hosts and dev
     
 ## Device API 
 
-The agents primarily communicate with devices via the Restconf/Yang API. Initial prototyping exposed some limitations
- in the Restconf API (e.g. NAT configuration for BDI interfaces in missing from the Yang model). Until these are 
- addressed in firmware updates the Restconf configuration is augmented with Netconf or WSMA. The desired end goal
- is that all required configuration can be applied via Restconf.
+The agents primarily communicate with devices via the Netconf/Yang API. Due to current   limitations
+ in the Netconf API (e.g. ARP alias is  missing from the Yang model). Until these are 
+ addressed in firmware updates the Yang configuration is augmented with SSH or WSMA. The desired end goal
+ is that all required configuration can be applied via Netconf-YANG.
  
 In general the following sequence of calls a made for an configuration update :
 
-1. HEAD for entity id
-2. If 404 POST to create
-3. If 200 PATCH to apply configuration change
+1. get-config for entity id
+2. edit-config with merge operation for create/update
+3. edit-config with delete operation for delete
 
-The PUT method is used in some cased to replace entire entites, for example in the case of a route update an entire
- VRF's route list can be updated in a single API call. Further optimisation by 'batching' list updates via PUT needs 
+The replace operation is used in some cased to replace entire entites, for example in the case of a route update an entire
+ VRF's route list can be updated in a single API call. Further optimisation by 'batching' list updates via replace needs 
  investigation. 
 
 The agent device API access is designed to act as a psuedo ORM implementation providing basic CRUD operations and 
@@ -158,23 +158,56 @@ Optimisation of API operations is somewhat complicated due to the nature of L3 A
 
 Failure is inevitable, so we expect that at some point one or both devices with end up with configuration that differs
  from the Neutron DB. Neutron should be considered the source of truth regarding the configuration and the devices should
- be considered the source of truth regarding operational state. The following needs to be in place to support operational
+ be considered the source of truth regarding operational state. The following has been implemented to support operational
  and support/troubleshooting work.
 
- 1. Command line tools to (at a minimium) create, update, delete and validate the device configuration based on the
-  current Neutron state of entities. 
+ 1. API tools to create, update, delete and validate the device configuration for a Neutron router based on the
+  current Neutron state of entities. API can also be used to get expected config for L2/L3 interfaces, l3 interface statistics 
+  and any orphaned device configuration.   
  2. The entity status in Neutron should reflect as closely as possible the status of the device configuration as described
   above
- 3. The agent and driver should be instrumented to provide metric for performance (e.g. API operation execution time)
+  
+Further work should implement the following broad requirements:
+  
+ 1. The agent and driver should be instrumented to provide metric for performance (e.g. API operation execution time)
   , scale (e.g. number of routers, floating IPs etc) and errors (e.g. API failures). Key metrics should be exposed via Promethesus   
- 4. A seperate agent should be developed to gather metrics the operation state of the entities configured on the device. 
-  For example gather SNMP data, subscribing to Restconf events (when available) or querying via API. Key metrics should again be
+ 2. A seperate agent should be developed to gather metrics the operation state of the entities configured on the device. 
+  For example gather SNMP data, subscribing to Netconf events (when available) or querying via API. Key metrics should again be
   exposed via Prometheus     
    
      
-     
+### ASR1K APIs
+
+The following APIs have been integrated into the Neutron API. The PUT and DELETE operations should be used with caution. 
+There is currently no CLI implementation so the APIs can only be used via a rest client, they were tested with 
+[Postman](https://www.getpostman.com/apps). Use `openstack token issue` to generate an auth token (scoped to project that 
+gives `cloud_network_admin` role) and set the `X-Auth-Token` request header. The following APIs should then be accessible
+via the neutron V2.0  API endpoint  `http(s)://[neutron server FQDN/IP]:[port]/v2.0`  
  
- 
+|        |                                        |                                                                   |
+|--------|----------------------------------------|-------------------------------------------------------------------|
+| GET    | /asr1k/routers/[router-id]             | Returns a json string showing any diffs between device            |                       
+|        |                                        | configuration and that expected by Neutron.                       |
+|--------|----------------------------------------|-------------------------------------------------------------------|
+| PUT    | /asr1k/routers/[router-id]             | Attempts to sync the neutron config to the devices                |
+|--------|----------------------------------------|-------------------------------------------------------------------|
+| DELETE | /asr1k/routers/[router-id]             | Removes the router config from the devices. **Use with caution**  |
+|--------|----------------------------------------|-------------------------------------------------------------------|
+| GET    | /asr1k/config/[router-id]              | Returns a json string showing ASR1K specific configuration stored |                       
+|        |                                        | in Neutron, important when debugging L2 specific issues           |
+|--------|----------------------------------------|-------------------------------------------------------------------|
+| PUT    | /asr1k/config/[router-id]              | Creates ASR1K specific Neutron configuration. **Use with caution**|
+|--------|----------------------------------------|-------------------------------------------------------------------|
+| GET    | /asr1k/orphans/[agent-host]            | Returns a json string showing configuration regarded as redundant |                       
+|        |                                        | based on a check against Neutron. It uses pattern matching  to    |
+|        |                                        | identify potential candidates and cannot be 100% accurate.        |
+|--------|----------------------------------------|-------------------------------------------------------------------|
+| DELETE | /asr1k/orphans/[agent-host]            | Removes any orphaned configuration from the devices. ** Please ** |
+|        |                                        | **check** all configuration returned by the GET method is indeed  |
+|        |                                        | managed by the ASR1K driver before executing this method          |
+|--------|----------------------------------------|-------------------------------------------------------------------|
+| GET    | /asr1k/interface-statistics/[router-id]| Show L3 interface information and packet statistics for the       |                       
+|        |                                        | the Neutron router's interfaces on the devices.                   | 
  
  
   
