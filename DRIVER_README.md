@@ -186,28 +186,16 @@ via the neutron V2.0  API endpoint  `http(s)://[neutron server FQDN/IP]:[port]/v
  
 |        |                                        |                                                                   |
 |--------|----------------------------------------|-------------------------------------------------------------------|
-| GET    | /asr1k/routers/[router-id]             | Returns a json string showing any diffs between device            |                       
-|        |                                        | configuration and that expected by Neutron.                       |
-|--------|----------------------------------------|-------------------------------------------------------------------|
+| GET    | /asr1k/routers/[router-id]             | Returns a json string showing any diffs between device configuration and that expected by Neutron.           |                       
 | PUT    | /asr1k/routers/[router-id]             | Attempts to sync the neutron config to the devices                |
-|--------|----------------------------------------|-------------------------------------------------------------------|
 | DELETE | /asr1k/routers/[router-id]             | Removes the router config from the devices. **Use with caution**  |
-|--------|----------------------------------------|-------------------------------------------------------------------|
-| GET    | /asr1k/config/[router-id]              | Returns a json string showing ASR1K specific configuration stored |                       
-|        |                                        | in Neutron, important when debugging L2 specific issues           |
-|--------|----------------------------------------|-------------------------------------------------------------------|
+| GET    | /asr1k/config/[router-id]              | Returns a json string showing ASR1K specific configuration stored in Neutron, important when debugging L2 specific issues |                       
 | PUT    | /asr1k/config/[router-id]              | Creates ASR1K specific Neutron configuration. **Use with caution**|
-|--------|----------------------------------------|-------------------------------------------------------------------|
 | GET    | /asr1k/orphans/[agent-host]            | Returns a json string showing configuration regarded as redundant |                       
-|        |                                        | based on a check against Neutron. It uses pattern matching  to    |
-|        |                                        | identify potential candidates and cannot be 100% accurate.        |
-|--------|----------------------------------------|-------------------------------------------------------------------|
-| DELETE | /asr1k/orphans/[agent-host]            | Removes any orphaned configuration from the devices. ** Please ** |
-|        |                                        | **check** all configuration returned by the GET method is indeed  |
-|        |                                        | managed by the ASR1K driver before executing this method          |
-|--------|----------------------------------------|-------------------------------------------------------------------|
-| GET    | /asr1k/interface-statistics/[router-id]| Show L3 interface information and packet statistics for the       |                       
-|        |                                        | the Neutron router's interfaces on the devices.                   | 
+|        |                                        | based on a check against Neutron. It uses pattern matching to identify potential candidates and cannot be guarenteed 100% accurate.     |
+| DELETE | /asr1k/orphans/[agent-host]            | Removes any orphaned configuration from the devices. ** Please check** all configuration returned by the GET method is indeed managed by the ASR1K driver before executing this method|
+| GET    | /asr1k/interface-statistics/[router-id]| Show L3 interface information and packet statistics for the  the Neutron router's interfaces on the devices.     |                       
+
  
  
   
