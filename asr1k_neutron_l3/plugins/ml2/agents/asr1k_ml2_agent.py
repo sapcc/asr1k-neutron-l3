@@ -292,11 +292,10 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
     @instrument()
     def sync_known_ports(self):
-
-        LOG.debug('Checking device state')
-        connection.check_devices()
-
         if self.sync_active:
+            LOG.debug('Checking device state')
+            connection.check_devices()
+
             interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)
 
             LOG.debug("Syncing {} ports ".format(len(interface_ports)))
@@ -310,7 +309,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             l2_port.update_ports(interface_ports,callback=self._bound_ports)
 
             LOG.debug("Syncing {} ports completed".format(len(interface_ports)))
-
+        else:
+            LOG.info("Skipping sync, disabled in config")
 
     @instrument()
     def scavenge(self):

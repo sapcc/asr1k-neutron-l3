@@ -130,12 +130,13 @@ class DeviceCleanerMixin(object):
 
         all_service_instances = []
         all_segmentation_ids = []
+        all_ports = []
 
         for router_ports in all_extra_atts.values():
             for port_id,atts in router_ports.iteritems():
                 all_service_instances.append(atts.get('service_instance'))
                 all_segmentation_ids.append(atts.get('segmentation_id'))
-
+                all_ports.append(port_id)
         all_service_instances = list(set(all_service_instances))
         all_segmentation_ids = list(set(all_segmentation_ids))
 
@@ -143,7 +144,13 @@ class DeviceCleanerMixin(object):
             no_match_service_instance = False
             no_match_segmentation_id = False
 
+            if interface.description is not None and interface.description.startswith("Port : "):
 
+                interface_port =  interface.description[7:]
+
+                if interface_port not in all_ports:
+                    results.append(interface)
+                    continue
 
             if isinstance(interface,LoopbackInternalInterface) or isinstance(interface,LoopbackExternalInterface):
                 no_match_service_instance = int(interface.id) >= asr1k_db.MIN_SERVICE_INSTANCE and  int(interface.id) <= asr1k_db.MAX_SERVICE_INSTANCE and int(interface.id) not in all_service_instances

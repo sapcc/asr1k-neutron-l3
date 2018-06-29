@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 from oslo_config import cfg
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NC_OPERATION,NyBase, execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 class L2Constants(object):
@@ -118,7 +118,7 @@ class ServiceInstance(NyBase):
         return json
 
     def orphan_info(self):
-        return {self.__class__.__name__:{'service_instance':self.id,'port_channel':self.PORT_CHANNEL,'bridge_domain':self.bridge_domain}}
+        return {self.__class__.__name__:{'description':self.description, 'service_instance':self.id,'port_channel':self.PORT_CHANNEL,'bridge_domain':self.bridge_domain}}
 
 
     def _wrapper_preamble(self,dict):
@@ -186,28 +186,33 @@ class ServiceInstance(NyBase):
 
         return dict(result)
 
+    @execute_on_pair()
+    def update(self,context=None):
+        result = super(ServiceInstance, self)._update(context=context,method=NC_OPERATION.PUT)
+
+
 class ExternalInterface(ServiceInstance):
     REWRITE_INGRESS_TAG_POP_WAY = 1
-
+    PORT_CHANNEL="1"
 
     def __init__(self, **kwargs):
-        self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.external_interface
+        #self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.external_interface
         kwargs['bridge_domain'] = kwargs.get('id')
         kwargs['dot1q'] = kwargs.get('id')
         super(ExternalInterface, self).__init__(**kwargs)
 
 class LoopbackExternalInterface(ServiceInstance):
-
+    PORT_CHANNEL="2"
 
     def __init__(self, **kwargs):
-        self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_external_interface
+        #self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_external_interface
         kwargs['bridge_domain'] = kwargs.get('dot1q')
         kwargs['dot1q'] = kwargs.get('dot1q')
         super(LoopbackExternalInterface, self).__init__(**kwargs)
 
 
 class LoopbackInternalInterface(ServiceInstance):
-
+    PORT_CHANNEL="3"
     def __init__(self, **kwargs):
-        self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_internal_interface
+        #self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_internal_interface
         super(LoopbackInternalInterface, self).__init__(**kwargs)

@@ -94,7 +94,8 @@ class XMLUtils(object):
 
     @classmethod
     def _remove_base_wrapper(cls,dict):
-
+        if dict is None:
+            return
 
         dict = dict.get(RPC_REPLY,dict)
         dict = dict.get(DATA, dict)
