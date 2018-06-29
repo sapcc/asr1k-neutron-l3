@@ -278,7 +278,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         ports = db.get_router_ports(context,id)
         for port in ports:
             segment = db.get_router_segment_for_port(context,id,port.get('id'))
-            asr1k_db.ExtraAttsDb.ensure(context,id,port,segment)
+            asr1k_db.ExtraAttsDb.ensure(id,port,segment)
 
 
         return self.get_config(context,id)
