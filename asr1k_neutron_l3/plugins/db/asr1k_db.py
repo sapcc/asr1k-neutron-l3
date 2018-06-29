@@ -381,10 +381,12 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 else:
                     router_att.update({'deleted_at':timeutils.utcnow()})
                     router_att.save(context.session)
+
 class ExtraAttsDb(object):
 
     @classmethod
-    def ensure(cls,context,router_id,port, segment):
+    def ensure(cls,router_id,port, segment):
+        context = n_context.get_admin_context()
         ExtraAttsDb(context,router_id,port,segment)._ensure()
 
     def __init__(self, context, router_id,port, segment ):
