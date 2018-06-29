@@ -293,7 +293,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     @instrument()
     def sync_known_ports(self):
 
-        LOG.debug('Checking device states')
+        LOG.debug('Checking device state')
         connection.check_devices()
 
         if self.sync_active:
