@@ -95,7 +95,7 @@ class StaticNatList(ssh_base.SSHBase):
                 if self._all_missing(context,config):
                     return True
 
-        return True
+        return False
 
 
     def _all_exist(self,context,config):
