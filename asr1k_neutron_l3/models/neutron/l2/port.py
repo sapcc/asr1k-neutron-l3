@@ -25,6 +25,7 @@ LOG = logging.getLogger(__name__)
 
 
 def create_ports(ports, callback=None):
+    LOG.debug("Starting a batch create of {} ports".format(len(ports)))
     succeeded_ports = []
     for port in ports:
         l2_port = Port(port)
@@ -33,24 +34,30 @@ def create_ports(ports, callback=None):
 
     if callable(callback):
         callback(succeeded_ports, [])
-
+    LOG.debug("Batch create of completed {} ports successfully created".format(len(succeeded_ports)))
     return succeeded_ports
 
 def update_ports(ports, callback=None):
+    LOG.debug("Starting a batch update of {} ports".format(len(ports)))
+
     succeeded_ports = []
     for port in ports:
+        port_id = port.get('id')
+
         l2_port = Port(port)
         l2_port.update()
-        succeeded_ports.append(port.get('id'))
+        succeeded_ports.append(port_id)
+        LOG.debug("Processed Neutron port {} sucessfully".format(port_id))
 
     if callable(callback):
         callback(succeeded_ports, [])
-
+    LOG.debug("Batch update of completed {} ports successfully updated".format(len(succeeded_ports)))
     return succeeded_ports
 
 
 
 def delete_ports(port_extra_atts, callback=None):
+    LOG.debug("Starting a batch delete of {} ports".format(len(port_extra_atts)))
     succeeded_ports = []
 
     for port in port_extra_atts:
@@ -62,7 +69,7 @@ def delete_ports(port_extra_atts, callback=None):
     if callable(callback):
 
         callback(succeeded_ports, [])
-
+    LOG.debug("Batch delete of completed {} ports successfully deleted".format(len(succeeded_ports)))
     return succeeded_ports
 
 
