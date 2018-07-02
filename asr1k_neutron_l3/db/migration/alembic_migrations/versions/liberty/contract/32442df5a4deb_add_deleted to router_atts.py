@@ -16,8 +16,8 @@
 
 """ASRK1 BOOKKEEPING
 
-Revision ID: 27342df5a5fea
-Revises: 3746afa3a3bd
+Revision ID: 32442df5a4deb
+Revises: 27342df5a5fea
 Create Date: 2018-04-18 07:38:21.253453
 
 """
