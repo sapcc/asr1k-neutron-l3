@@ -27,6 +27,7 @@ from neutron.plugins.ml2 import models as ml2_models
 from neutron.plugins.ml2 import db as ml2_db
 from neutron.extensions.l3 import RouterNotFound
 from neutron.extensions import portbindings
+from neutron import context as n_context
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log
