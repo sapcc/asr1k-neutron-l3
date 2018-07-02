@@ -331,6 +331,9 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
     @log_helpers.log_method_call
     def _bound_ports(self, succeeded, failed):
+
+        LOG.debug('Updating device list with succeeded {} and failed {}'.format(succeeded, failed))
+
         self.pool.spawn(self._update_device_list, succeeded, failed)
 
     @log_helpers.log_method_call

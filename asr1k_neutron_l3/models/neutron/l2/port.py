@@ -137,47 +137,39 @@ class Port(object):
         return {"external_lb":lb_ext_interface.to_dict(),"internal_lb":lb_int_interface.to_dict()}
 
 
-    def update(self):
+    def update(self,callback=None):
+        failure = []
+        success = [self.id]
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
-        ext_interface.update()
-        lb_ext_interface.update()
-        lb_int_interface.update()
+        result = ext_interface.update()
 
+        if not result.success:
+            failure.append(self.id)
+            success = []
+
+        result = lb_ext_interface.update()
+
+        if not result.success:
+            failure.append(self.id)
+            success=[]
+
+        result = lb_int_interface.update()
+
+        if not result.success:
+            failure.append(self.id)
+            success = []
+
+
+        if callable(callback):
+            callback(success, failure)
 
     def create(self,callback=None):
 
-        self._create()
-        # TODO handle success/failure
-        if callable(callback):
-            callback([self.id], [])
+        return self.update(callback)
 
-        return self.id
-
-
-    def _create(self):
-
-        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
-
-        # ideally this bit would be transcational
-
-        ext_interface.create()
-        lb_ext_interface.create()
-        lb_int_interface.create()
-
-        # TODO handle success/failure
 
     def delete(self, callback=None):
-
-
-        self._delete()
-        # TODO handle success/failure
-        if callable(callback):
-            callback([self.id], [])
-
-        return self.id
-
-    def _delete(self):
 
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
@@ -190,4 +182,10 @@ class Port(object):
         lb_int_result = lb_int_interface.delete()
 
         # TODO handle success/failure
+        if callable(callback):
+            callback([self.id], [])
+
+        return self.id
+
+
 
