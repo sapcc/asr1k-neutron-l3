@@ -101,6 +101,18 @@ class L3RpcNotifierMixin(object):
 
         return notifier.delete_orphans(context,host)
 
+    @log_helpers.log_method_call
+    def notify_list_devices(self, context,host):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
+        return notifier.list_devices(context,host)
+
+
+    @log_helpers.log_method_call
+    def notify_show_device(self, context,host,device_id):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
+        return notifier.show_device(context,host,device_id)
 
 
 class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
@@ -124,10 +136,8 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     @instrument()
     @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None,host=None):
-
         extra_atts = self._get_extra_atts(context, router_ids,host)
         router_atts = self._get_router_atts(context, router_ids)
-
         routers = super(ASR1KPluginBase, self).get_sync_data(context, router_ids=router_ids, active=active)
 
         if not bool(routers):
@@ -169,14 +179,17 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                     gw_port['fixed_ips'] = sorted(ips, key=lambda k: k.get('ip_address'))
                     if gw_info is not None:
                         gw_info['external_fixed_ips']=gw_port['fixed_ips']
-
-
         return routers
 
 
     def get_deleted_router_atts(self,context):
         db = asr1k_db.DBPlugin()
         return db.get_deleted_router_atts(context)
+
+    def _get_device_info(self,context,host):
+        db = asr1k_db.DBPlugin()
+        return db.get_device_info(context,host)
+
 
     def _get_extra_atts(self, context, router_ids, host=None):
         db = asr1k_db.DBPlugin()
@@ -299,6 +312,42 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     def delete_orphans(self, context,host):
         result = self.notify_delete_orphans(context,host)
         return result
+
+
+    def list_devices(self, context,host):
+        result = self.notify_list_devices(context,host)
+        db = asr1k_db.DBPlugin()
+        device_info = db.get_device_info(context,host)
+        for id in result:
+            device = result.get(id)
+            self._add_device_enabled(device_info,device)
+        return result
+
+
+    def show_device(self, context, host, id):
+        db = asr1k_db.DBPlugin()
+        result = self.notify_show_device(context, host, id)
+        device_info = db.get_device_info(context, host)
+        self._add_device_enabled(device_info, result)
+        return result
+
+    def _add_device_enabled(self,device_info,device):
+        info = device_info.get(device.get('id'))
+        if info is None or info.enabled:
+            device['enabled'] = True
+        else:
+            device['enabled'] = False
+
+    def update_device(self, context, host, id, enabled):
+        device = self.notify_show_device(context, host, id)
+        if device is None:
+            return None
+
+        asr1k_db.DeviceInfoDb(context,id,host,enabled).update()
+
+        return {id:enabled}
+
+
 
 
     #

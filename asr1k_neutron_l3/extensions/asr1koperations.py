@@ -1,5 +1,5 @@
 import abc
-
+import json
 from oslo_config import cfg
 
 from neutron._i18n import _
@@ -28,7 +28,7 @@ def check_access(request):
     allowed = policy.check(request.context,ACCESS_RULE, {'project_id': request.context.project_id})
 
     if not allowed:
-        raise webob.exc.HTTPForbidden()
+        self.notify_show_device(context, host, id)
 
 
 class Asr1koperations(extensions.ExtensionDescriptor):
@@ -72,6 +72,9 @@ class Asr1koperations(extensions.ExtensionDescriptor):
         config = extensions.ResourceExtension('asr1k/config',
                                                 ConfigController(plugin))
 
+        devices = extensions.ResourceExtension('asr1k/devices',
+                                                DevicesController(plugin))
+
         interface_stats = extensions.ResourceExtension('asr1k/interface-statistics',
                                                 InterfaceStatisticsController(plugin))
 
@@ -79,6 +82,7 @@ class Asr1koperations(extensions.ExtensionDescriptor):
         resources.append(routers)
         resources.append(orphans)
         resources.append(config)
+        resources.append(devices)
         resources.append(interface_stats)
 
         return resources
@@ -132,6 +136,49 @@ class ConfigController(wsgi.Controller):
         return self.plugin.ensure_config(request.context,id)
 
 
+class DevicesController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(DevicesController,self).__init__()
+        self.plugin = plugin
+
+
+    def show(self, request,id):
+        check_access(request)
+        host = id
+        device_id = request.params.get('id',None)
+
+        if device_id is None:
+            return self.plugin.list_devices(request.context,host)
+        else:
+            return self.plugin.show_device(request.context,host,device_id)
+
+
+    def update(self, request,id):
+        check_access(request)
+        body = request.body
+
+        json_body = json.loads(body)
+
+        host = id
+        result ={}
+        for key in json_body:
+            enable  = json_body.get(key,'enable')
+            if enable =='disable':
+                enabled = False
+            else :
+                enabled =  True
+
+            device_result = self.plugin.update_device(request.context, host, key, enabled)
+
+            result[key] = device_result
+
+
+
+        return  result
+
+
+
 class InterfaceStatisticsController(wsgi.Controller):
 
     def __init__(self,plugin):
@@ -145,9 +192,6 @@ class InterfaceStatisticsController(wsgi.Controller):
 
 class DevicePluginBase(object):
 
-    @abc.abstractmethod
-    def get_device(self, context, id, fields=None):
-        pass
 
     @abc.abstractmethod
     def validate(self, context, id, fields=None):
@@ -179,4 +223,15 @@ class DevicePluginBase(object):
 
     @abc.abstractmethod
     def delete_orphans(self,host):
+        pass
+
+    def list_devices(self, context):
+        pass
+
+    @abc.abstractmethod
+    def show_device(self, context, id):
+        pass
+
+    @abc.abstractmethod
+    def update_device(self, context, id, enabled):
         pass

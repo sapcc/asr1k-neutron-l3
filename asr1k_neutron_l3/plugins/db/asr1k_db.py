@@ -138,6 +138,9 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             return result
 
+
+
+
     def get_all_extra_atts(self, context,host):
 
         if host is None:
@@ -383,6 +386,14 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     router_att.update({'deleted_at':timeutils.utcnow()})
                     router_att.save(context.session)
 
+    def get_device_info(self, context,host):
+        result={}
+
+        infos = context.session.query(asr1k_models.ASR1KDeviceInfoModel).filter(asr1k_models.ASR1KDeviceInfoModel.host==host).all()
+        for info in infos:
+            result[info.id] = info
+        return result;
+
 class ExtraAttsDb(object):
 
     @classmethod
@@ -523,3 +534,38 @@ class RouterAttsDb(object):
                     deleted_at = self.deleted_at
                 )
                 self.session.add(router_atts)
+
+
+class DeviceInfoDb(object):
+
+
+    def __init__(self, context,id,host,enabled):
+        self.session = db_api.get_session();
+        self.context = context
+        self.id= id
+        self.host = host
+        self.enabled = enabled
+
+
+    @property
+    def _record_exists(self):
+        entry = self.session.query(asr1k_models.ASR1KDeviceInfoModel).filter_by(id=self.id).first()
+        return entry
+
+
+
+    def update(self):
+        with self.session.begin(subtransactions=True):
+            device_info = asr1k_models.ASR1KDeviceInfoModel(
+                id=self.id,
+                host = self.host,
+                enabled=self.enabled
+            )
+
+            record = self._record_exists
+
+            if record is not None:
+                record.update(device_info)
+
+            else:
+                self.session.add(device_info)

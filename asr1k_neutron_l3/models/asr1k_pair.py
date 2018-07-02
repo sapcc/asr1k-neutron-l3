@@ -38,7 +38,8 @@ class ASR1KContext(object):
         self.headers = headers
         self.headers['content-type'] = headers.get('content-type', "application/yang-data+json")
         self.headers['accept'] = headers.get('accept', "application/yang-data+json")
-        self.alive = True
+        self.alive = False
+        self.enabled = True
 
 class ASR1KPair(object):
 

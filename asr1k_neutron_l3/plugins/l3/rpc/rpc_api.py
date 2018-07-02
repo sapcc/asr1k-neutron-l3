@@ -18,7 +18,6 @@ from neutron import context
 from neutron.api.rpc.handlers import l3_rpc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
-from oslo_config import cfg
 
 
 from asr1k_neutron_l3.plugins.db import asr1k_db
@@ -31,6 +30,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
     def __init__(self):
         self.db = asr1k_db.DBPlugin()
         self.context = context.get_admin_context()
+
 
     @log_helpers.log_method_call
     def delete_extra_atts_l3(self, context, **kwargs):
@@ -122,3 +122,9 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
             return []
 
         return self.l3plugin.get_sync_data(context, router_ids=routers, active=None,host=host)
+
+
+    @log_helpers.log_method_call
+    def get_device_info(self,context, **kwargs):
+        host = kwargs.get('host')
+        return self.db.get_device_info(context,host)

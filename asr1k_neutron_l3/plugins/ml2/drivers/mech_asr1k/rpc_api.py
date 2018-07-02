@@ -60,6 +60,9 @@ class ASR1KPluginApi(object):
         cctxt = self.client.prepare()
         return cctxt.call(self.rpc_context, 'get_interface_ports',limit=limit , offset=offset)
 
+    def get_device_info(self, host):
+        cctxt = self.client.prepare()
+        return cctxt.call(self.rpc_context, 'get_device_info',host=host)
 class ASR1KPluginCallback(object):
 
     def __init__(self):
@@ -94,3 +97,5 @@ class ASR1KPluginCallback(object):
 
         return ports
 
+    def get_device_info(self,context,host):
+        return self.db.get_device_info(context,host)

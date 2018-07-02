@@ -52,4 +52,11 @@ class ASR1KRouterAttsModel(model_base.BASEV2):
                           primary_key=True)
     rd = sa.Column(sa.Integer(), nullable=False)
     deleted_at = sa.Column(sa.DateTime)
-3
+
+
+class ASR1KDeviceInfoModel(model_base.BASEV2):
+    __tablename__ = 'asr1k_device_info'
+
+    id = sa.Column(sa.String(length=36), nullable=False, primary_key=True)
+    host = sa.Column(sa.String(length=36), nullable=False)
+    enabled = sa.Column('enabled', sa.Boolean())

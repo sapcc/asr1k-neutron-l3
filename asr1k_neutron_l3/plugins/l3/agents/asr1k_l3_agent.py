@@ -259,6 +259,10 @@ class L3PluginApi(object):
         cctxt = self.client.prepare(version='1.7')
         return cctxt.call(context, 'ensure_snat_mode', port_id=port_id,mode=mode)
 
+    def get_device_info(self,context):
+        cctxt = self.client.prepare(version='1.7')
+        return cctxt.call(context, 'get_device_info',host=self.host)
+
 class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     """Manager for L3 ASR Agent
 
@@ -343,7 +347,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     @log_helpers.log_method_call
     def after_start(self):
         self.periodic_refresh_address_scope_config(self.context)
-
+        self.check_devices_alive(self.context)
 
         if cfg.CONF.asr1k_l3.sync_active and cfg.CONF.asr1k_l3.sync_interval > 0:
             self.sync_loop = loopingcall.FixedIntervalLoopingCall(
@@ -426,7 +430,8 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
     @periodic_task.periodic_task(spacing=1, run_immediately=True)
     def check_devices_alive(self,context):
-        connection.check_devices()
+        device_info = self.plugin_rpc.get_device_info(context)
+        connection.check_devices(device_info)
 
     def _periodic_scavenge_task(self):
 

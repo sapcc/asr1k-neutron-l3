@@ -6,6 +6,8 @@ from asr1k_neutron_l3.models.neutron.l2.port import Port
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k.rpc_api import ASR1KPluginApi
+from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
+
 
 class OperationsMixin(object):
 
@@ -98,6 +100,36 @@ class OperationsMixin(object):
 
         return result
 
+
+    @log_helpers.log_method_call
+    def list_devices(self,context):
+        result ={}
+        for device_context in ASR1KPair().contexts:
+            result[device_context.host] = self._get_device_dict(device_context)
+        return result
+
+    @log_helpers.log_method_call
+    def show_device(self,context,device_id):
+        result = {}
+        for device_context in ASR1KPair().contexts:
+            if device_context.host==device_id:
+                result = self._get_device_dict(device_context)
+        return result
+
+    def _get_device_dict(self,context):
+        result = {}
+
+        result['id'] = context.host
+        result['name'] = context.name
+        result['host'] = context.host
+        result['http_port'] = context.http_port
+        result['legacy_port'] = context.legacy_port
+        result['yang_port'] = context.yang_port
+        result['nc_timeout'] = context.nc_timeout
+        result['username'] = context.username
+        result['password'] = "**************"
+
+        return result
 
     @log_helpers.log_method_call
     def show_orphans(self,context):

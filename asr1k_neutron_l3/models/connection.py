@@ -70,16 +70,23 @@ def ssh_connect(context,legacy):
 
     return True
 
-def check_devices():
+def check_devices(device_info):
     for context in ASR1KPair().contexts:
         device_reachable = ssh_connect(context, False) and ssh_connect(context, True)
-        if not device_reachable:
-            context.alive = device_reachable
-            LOG.debug("Device {} is not reachable, marked as dead".format(context.host))
+        info = device_info.get(context.host, None)
+
+        admin_up = True
+
+        if info is not None and not info.get('enabled'):
+            admin_up = False
+
+        if not device_reachable or not admin_up:
+            context.alive = False
+            LOG.debug("Device reachable {} and enabled {}, marked as dead".format(context.host,admin_up))
         else:
-            if not context.alive:
-                context.alive = device_reachable
-                LOG.debug("Device {} is now reachable, marked as alive".format(context.host))
+            if device_reachable and admin_up:
+                context.alive = True
+                LOG.debug("Device reachable {} and enabled {}, marked as alive".format(context.host, admin_up))
 
 class  ConnectionPoolExhausted(Exception):
     pass

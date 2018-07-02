@@ -67,9 +67,19 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
     def delete_orphans(self, context,host):
         return self._agent_rpc(context, 'delete_orphans',host=host)
 
+    @log_helpers.log_method_call
+    def list_devices(self, context,host):
+        return self._agent_rpc(context, 'list_devices',host=host)
 
     @log_helpers.log_method_call
-    def _agent_rpc(self, context, method, router_id=None,host=None):
+    def show_device(self, context,host,device_id):
+        return self._agent_rpc(context, 'show_device',host=host, device_id=device_id)
+
+
+
+
+    @log_helpers.log_method_call
+    def _agent_rpc(self, context, method, router_id=None,host=None,device_id=None):
         """Notify changed routers to hosting l3 agents."""
         adminContext = context if context.is_admin else context.elevated()
         plugin = manager.NeutronManager.get_service_plugins().get(
@@ -91,6 +101,8 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
         kwargs = {}
         if router_id is not None:
             kwargs['router_id'] = router_id
+        if device_id is not None:
+            kwargs['device_id'] = device_id
         return cctxt.call(context, method, **kwargs)
 
 
