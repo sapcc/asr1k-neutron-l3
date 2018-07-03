@@ -157,4 +157,5 @@ def get_address_scope_config(plugin_rpc,context):
     return result
 
 
-
+def to_bridge_domain(second_dot1q):
+    return 4096 + int(second_dot1q)

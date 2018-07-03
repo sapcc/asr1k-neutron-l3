@@ -59,7 +59,7 @@ class Interface(base.Base):
         self.router_port = router_port
         self.extra_atts = extra_atts
         self.id = self.router_port.get('id')
-        self.bridge_domain = extra_atts.get('bridge_domain')
+        self.bridge_domain = utils.to_bridge_domain(extra_atts.get('second_dot1q'))
         self.vrf = utils.uuid_to_vrf_id(self.router_id)
         self._primary_subnet_id = None
         self.ip_address = self._ip_address()

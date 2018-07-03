@@ -19,6 +19,7 @@ from oslo_log import log as logging
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.netconf_yang import l2_interface
 from asr1k_neutron_l3.models.netconf_yang import efp_stats
+from asr1k_neutron_l3.common import utils
 
 
 LOG = logging.getLogger(__name__)
@@ -81,9 +82,11 @@ class Port(object):
 
         self.id = self.port_info.get('port_id')
 
-        self.service_instance = self.port_info.get('service_instance')
-        self.bridge_domain = self.port_info.get('bridge_domain')
         self.second_dot1q = self.port_info.get('second_dot1q')
+
+        self.service_instance = utils.to_bridge_domain(self.second_dot1q)
+        self.bridge_domain = utils.to_bridge_domain(self.second_dot1q)
+
         self.segmentation_id = self.port_info.get('segmentation_id')
         self.network_id = self.port_info.get('network_id')
         self.external_deleteable = self.port_info.get('external_deleteable')

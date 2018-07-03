@@ -46,7 +46,7 @@ MAX_BRIDGE_DOMAIN = 16000
 MIN_DOT1Q = 100
 MAX_DOT1Q = 4096
 
-MIN_SECOND_DOT1Q = 1000
+MIN_SECOND_DOT1Q = 500
 MAX_SECOND_DOT1Q = MAX_DOT1Q
 
 MIN_RD = 1
@@ -435,6 +435,8 @@ class ExtraAttsDb(object):
                                                                                ).first()
         return entry is not None
 
+
+
     def set_next_entries(self):
         extra_atts = self.session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(agent_host=self.agent_host)
 
@@ -445,8 +447,7 @@ class ExtraAttsDb(object):
         for extra_att in extra_atts:
             service_instances.append(extra_att.service_instance)
             bridge_domains.append(extra_att.bridge_domain)
-            if extra_att.segment_id == self.segment_id:
-                second_dot1qs.append(extra_att.second_dot1q)
+            second_dot1qs.append(extra_att.second_dot1q)
 
         for x in range(MIN_SERVICE_INSTANCE, MAX_SERVICE_INSTANCE):
             if x not in service_instances:

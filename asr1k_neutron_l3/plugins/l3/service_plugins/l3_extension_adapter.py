@@ -15,8 +15,10 @@
 #    under the License.
 
 from  collections import OrderedDict
+import sqlalchemy as sa
 
-from neutron.api.rpc.agentnotifiers import l3_rpc_agent_api
+from neutron.db import api as db_api
+
 from neutron.db import common_db_mixin
 from neutron.db import dns_db
 from neutron.db import extraroute_db
@@ -27,10 +29,12 @@ from oslo_log import log
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
+from asr1k_neutron_l3.plugins.db import models as asr1k_models
+
 from asr1k_neutron_l3.plugins.l3.schedulers import asr1k_scheduler_db
 from asr1k_neutron_l3.extensions import asr1koperations as asr1k_ext
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
-from neutron.db import agentschedulers_db
+
 
 LOG = log.getLogger(__name__)
 
@@ -133,9 +137,39 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
 
 
+    def _ensure_second_dot1q(self, context):
+        session = db_api.get_session()
+        extra_atts = session.query(asr1k_models.ASR1KExtraAttsModel).all()
+        second_dot1qs = []
+
+        for extra_att in extra_atts:
+            second_dot1qs.append(extra_att.second_dot1q)
+
+        for extra_att in extra_atts:
+            if extra_att.second_dot1q==0:
+                for x in range(asr1k_db.MIN_SECOND_DOT1Q, asr1k_db.MAX_SECOND_DOT1Q):
+                    if x not in second_dot1qs:
+                        extra_att.second_dot1q = x;
+                        second_dot1qs.append(x)
+                        break
+
+                with context.session.begin(subtransactions=True):
+                    entry = session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(router_id=extra_att.router_id,
+                                                                                   agent_host=extra_att.agent_host,
+                                                                                   port_id=extra_att.port_id,
+                                                                                   segment_id=extra_att.segment_id
+                                                                                   ).first()
+                    if entry:
+                        entry.update(extra_att)
+
+
+
     @instrument()
     @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None,host=None):
+        #Temp for migration of second dot1q attribute
+        self._ensure_second_dot1q(context)
+
         extra_atts = self._get_extra_atts(context, router_ids,host)
         router_atts = self._get_router_atts(context, router_ids)
         routers = super(ASR1KPluginBase, self).get_sync_data(context, router_ids=router_ids, active=active)
