@@ -32,4 +32,4 @@ down_revision = '4766a8a955c5'
 
 def upgrade():
     op.drop_constraint("asr1k_extra_atts_router_id_agent_host_segment_id_second_dot_key", 'asr1k_extra_atts', 'unique')
-    op.create_unique_constraint('asr1k_extra_atts_router_id_agent_host_second_dot_key', 'asr1k_router_atts',['second_dot1q'])
+    op.create_unique_constraint('asr1k_extra_atts_router_id_agent_host_second_dot_key', 'asr1k_extra_atts',['second_dot1q'])
