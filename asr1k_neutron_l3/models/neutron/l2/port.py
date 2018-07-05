@@ -40,7 +40,7 @@ def create_ports(ports, callback=None):
 
     if callable(callback):
         callback(succeeded_ports, failed_ports)
-    LOG.debug("Batch create of completed {} ports successfully created".format(len(succeeded_ports)))
+    LOG.debug("Batch create of completed {}/{} ports successfully created".format(len(succeeded_ports),len(ports)))
     return succeeded_ports
 
 def update_ports(ports, callback=None):
@@ -60,7 +60,7 @@ def update_ports(ports, callback=None):
 
     if callable(callback):
         callback(succeeded_ports, failed_ports)
-    LOG.debug("Batch update of completed {}/ ports successfully updated".format(len(succeeded_ports),len(ports)))
+    LOG.debug("Batch update of completed {}/{} ports successfully updated".format(len(succeeded_ports),len(ports)))
     return succeeded_ports
 
 
@@ -77,7 +77,7 @@ def delete_ports(port_extra_atts, callback=None):
     if callable(callback):
 
         callback(succeeded_ports, [])
-    LOG.debug("Batch delete of completed {} ports successfully deleted".format(len(succeeded_ports)))
+    LOG.debug("Batch delete of completed {}/{} ports successfully deleted".format(len(succeeded_ports),len(port_extra_atts)))
     return succeeded_ports
 
 
@@ -174,6 +174,8 @@ class Port(object):
         if callable(callback):
             callback(success, failure)
 
+        LOG.debug("Port {} update {}".format(self.id,"successfull" if len(success) == 1 else "failed"))
+
         return len(success) == 1
 
     def create(self,callback=None):
@@ -185,19 +187,30 @@ class Port(object):
 
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
+        failure = []
+        success = [self.id]
+
         # TODO only on last port on network
         if self.external_deleteable:
-            ext_result = ext_interface.delete()
-
+            result = ext_interface.delete()
+            if not result.success:
+                failure.append(self.id)
+                success = []
         # For every port deletion
-        lb_ext_result = lb_ext_interface.delete()
-        lb_int_result = lb_int_interface.delete()
+        result = lb_ext_interface.delete()
+        if not result.success:
+            failure.append(self.id)
+            success = []
+        result = lb_int_interface.delete()
+        if not result.success:
+            failure.append(self.id)
+            success = []
 
         # TODO handle success/failure
         if callable(callback):
             callback([self.id], [])
 
-        return self.id
+        return len(success) == 1
 
 
 
