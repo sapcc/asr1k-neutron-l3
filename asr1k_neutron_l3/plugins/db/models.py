@@ -36,8 +36,6 @@ class ASR1KExtraAttsModel(model_base.BASEV2):
     port_id = sa.Column(sa.String(length=36), nullable=False, primary_key=True)
     segment_id = sa.Column(sa.String(length=36), nullable=False)
     segmentation_id = sa.Column(sa.BigInteger(), nullable=False)
-    service_instance = sa.Column(sa.BigInteger(), nullable=False)
-    bridge_domain = sa.Column(sa.BigInteger(), nullable=False)
     second_dot1q = sa.Column(sa.BigInteger(), nullable=False)
     deleted_l2 = sa.Column('deleted_l2', sa.Boolean())
     deleted_l3 = sa.Column('deleted_l3', sa.Boolean())

@@ -27,6 +27,7 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import  utils
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
@@ -308,8 +309,8 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                     port['segmentation_id'] = att.segmentation_id
                     port['second_dot1q'] = att.second_dot1q
                     port['external_service_instance'] = att.segmentation_id
-                    port['loopback_service_instance'] = att.service_instance
-                    port['bridge_domain'] = att.bridge_domain
+                    port['loopback_service_instance'] = utils.to_bridge_domain(att.second_dot1q)
+                    port['bridge_domain'] = utils.to_bridge_domain(att.second_dot1q)
                     port['deleted_l2'] = att.deleted_l2
                     port['deleted_l3'] = att.deleted_l3
 

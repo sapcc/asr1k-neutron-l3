@@ -38,10 +38,6 @@ from sqlalchemy import func
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
 from asr1k_neutron_l3.common import asr1k_constants as constants
 
-MIN_SERVICE_INSTANCE = 100
-MAX_SERVICE_INSTANCE = 8000
-MIN_BRIDGE_DOMAIN = 4097
-MAX_BRIDGE_DOMAIN = 16000
 
 MIN_DOT1Q = 100
 MAX_DOT1Q = 4096
@@ -111,8 +107,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             query = context.session.query(models_v2.Port.id,
                                           models_v2.Port.network_id,
                                           asr1k_models.ASR1KExtraAttsModel.router_id,
-                                          asr1k_models.ASR1KExtraAttsModel.service_instance,
-                                          asr1k_models.ASR1KExtraAttsModel.bridge_domain,
                                           asr1k_models.ASR1KExtraAttsModel.second_dot1q,
                                           asr1k_models.ASR1KExtraAttsModel.segmentation_id,
                                           asr1k_models.ASR1KExtraAttsModel.deleted_l2,
@@ -129,8 +123,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                'network_id': row.network_id,
                                'router_id': row.router_id,
                                'segmentation_id': row.segmentation_id,
-                               'service_instance': int(row.service_instance),
-                               'bridge_domain': int(row.bridge_domain),
                                'second_dot1q': int(row.second_dot1q),
                                'deleted_l2': int(row.deleted_l2),
                                'deleted_l3': int(row.deleted_l3)
@@ -252,8 +244,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             query = context.session.query(models_v2.Port.id,
                                           models_v2.Port.network_id,
                                           asr1k_models.ASR1KExtraAttsModel.router_id,
-                                          asr1k_models.ASR1KExtraAttsModel.service_instance,
-                                          asr1k_models.ASR1KExtraAttsModel.bridge_domain,
                                           asr1k_models.ASR1KExtraAttsModel.second_dot1q,
                                           asr1k_models.ASR1KExtraAttsModel.segmentation_id,
                                           asr1k_models.ASR1KExtraAttsModel.deleted_l2,
@@ -270,8 +260,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                'network_id': row.network_id,
                                'router_id': row.router_id,
                                'segmentation_id': row.segmentation_id,
-                               'service_instance': int(row.service_instance),
-                               'bridge_domain': int(row.bridge_domain),
                                'second_dot1q': int(row.second_dot1q),
                                'deleted_l2': int(row.deleted_l2),
                                'deleted_l3': int(row.deleted_l3)
@@ -305,18 +293,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 return ml2_db.get_segment_by_id(context.session,binding_levels[1].segment_id)
 
     def get_extra_atts(self, context, ports):
-        # marks ports that can delete external service instance
-        # network_port_count = self._get_router_ports_on_networks(context)
-        #
-        # query =context.session.query(models_v2.Port.id,models_v2.Port.network_id).filter(sa.cast(models_v2.Port.id, sa.Text()).in_(ports))
-        # LOG.debug(str(query))
-        #
-        # db_ports = self.get_ports(context,filters={'id':ports})#context.session.query(models_v2.Port).filter(sa.cast(models_v2.Port.id, sa.Text()).in_(ports)).all()
-        # LOG.debug("******* db ports {}".format(db_ports))
-        #
-        # port_dict = {}
-        # for port in db_ports:
-        #     port_dict[port.id] = port.network_id
 
         extra_atts = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
             sa.cast(asr1k_models.ASR1KExtraAttsModel.port_id, sa.Text()).in_(ports)).all()
@@ -420,8 +396,6 @@ class ExtraAttsDb(object):
             if self.segmentation_id < 1 or self.segmentation_id > 4096:
                 raise Exception("Invalid segmentation id {} on segment {}".format(self.segmentation_id, self.segment_id))
 
-        self.service_instance = None
-        self.bridge_domain = None
         self.second_dot1q = None
         self.deleted_l2 = False
         self.deleted_l3 = False
@@ -440,24 +414,11 @@ class ExtraAttsDb(object):
     def set_next_entries(self):
         extra_atts = self.session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(agent_host=self.agent_host)
 
-        service_instances = []
-        bridge_domains = []
         second_dot1qs = []
 
         for extra_att in extra_atts:
-            service_instances.append(extra_att.service_instance)
-            bridge_domains.append(extra_att.bridge_domain)
             second_dot1qs.append(extra_att.second_dot1q)
 
-        for x in range(MIN_SERVICE_INSTANCE, MAX_SERVICE_INSTANCE):
-            if x not in service_instances:
-                self.service_instance = x;
-                break
-
-        for x in range(MIN_BRIDGE_DOMAIN, MAX_BRIDGE_DOMAIN):
-            if x not in bridge_domains:
-                self.bridge_domain = x;
-                break
 
         for x in range(MIN_SECOND_DOT1Q, MAX_SECOND_DOT1Q):
             if x not in second_dot1qs:
@@ -478,8 +439,6 @@ class ExtraAttsDb(object):
                     port_id=self.port_id,
                     segment_id=self.segment_id,
                     segmentation_id=self.segmentation_id,
-                    service_instance=self.service_instance,
-                    bridge_domain=self.bridge_domain,
                     second_dot1q=self.second_dot1q,
                     deleted_l2=self.deleted_l2,
                     deleted_l3=self.deleted_l3

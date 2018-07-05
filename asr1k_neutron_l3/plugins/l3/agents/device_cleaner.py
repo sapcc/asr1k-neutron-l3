@@ -1,5 +1,6 @@
 import json
 
+from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.models.netconf_yang.bulk_operations import BulkOperations
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
@@ -134,7 +135,7 @@ class DeviceCleanerMixin(object):
 
         for router_ports in all_extra_atts.values():
             for port_id,atts in router_ports.iteritems():
-                all_service_instances.append(atts.get('service_instance'))
+                all_service_instances.append(utils.to_bridge_domain(atts.get('second_dot1q')))
                 all_segmentation_ids.append(atts.get('segmentation_id'))
                 all_ports.append(port_id)
         all_service_instances = list(set(all_service_instances))
@@ -153,7 +154,7 @@ class DeviceCleanerMixin(object):
                     continue
 
             if isinstance(interface,LoopbackInternalInterface) or isinstance(interface,LoopbackExternalInterface):
-                no_match_service_instance = int(interface.id) >= asr1k_db.MIN_SERVICE_INSTANCE and  int(interface.id) <= asr1k_db.MAX_SERVICE_INSTANCE and int(interface.id) not in all_service_instances
+                no_match_service_instance = int(interface.id) >= utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) and  int(interface.id) <= utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) and int(interface.id) not in all_service_instances
             elif isinstance(interface,ExternalInterface):
                 no_match_segmentation_id = int(interface.id) >= asr1k_db.MIN_DOT1Q and  int(interface.id) <= asr1k_db.MAX_DOT1Q and int(interface.id) not in all_segmentation_ids
 
