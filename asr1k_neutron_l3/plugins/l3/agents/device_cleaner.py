@@ -154,7 +154,7 @@ class DeviceCleanerMixin(object):
                     continue
 
             if isinstance(interface,LoopbackInternalInterface) or isinstance(interface,LoopbackExternalInterface):
-                no_match_service_instance = int(interface.id) >= utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) and  int(interface.id) <= utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) and int(interface.id) not in all_service_instances
+                no_match_service_instance = int(interface.id) >= utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) and  int(interface.id) <= utils.to_bridge_domain(asr1k_db.MAX_SECOND_DOT1Q) and int(interface.id) not in all_service_instances
             elif isinstance(interface,ExternalInterface):
                 no_match_segmentation_id = int(interface.id) >= asr1k_db.MIN_DOT1Q and  int(interface.id) <= asr1k_db.MAX_DOT1Q and int(interface.id) not in all_segmentation_ids
 
