@@ -31,6 +31,8 @@ from oslo_utils import uuidutils
 from oslo_log import log as logging
 from oslo_config import cfg
 from oslo_service import loopingcall
+from oslo_utils import importutils
+
 from paramiko.client import SSHClient,AutoAddPolicy
 import paramiko
 from ncclient.operations.errors import TimeoutExpiredError
@@ -38,7 +40,6 @@ from ncclient.transport.errors import SSHError
 from ncclient.transport.errors import SessionCloseError
 from ncclient.transport.errors import TransportError
 from paramiko.ssh_exception import SSHException, NoValidConnectionsError,ChannelException
-
 from bs4 import BeautifulSoup as bs
 
 LOG = logging.getLogger(__name__)
@@ -343,35 +344,16 @@ class YangConnection(NCConnection):
 
 class SSHConnection(object):
 
-    PROT = 'ssh'
-    EOM = ']]>]]>'
-    BUF = 1024 * 1024
-    READ_TIMEOUT = 3
-    READ_SOAP12 = '''
-<?xml version="1.0" encoding="UTF-8"?>
-<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
-  <soap12:Body>
-    <request xmlns="urn:cisco:wsma-exec" correlator="{}">
-      <execCLI>
-        <cmd>{}</cmd>
-      </execCLI>
-    </request>
-  </soap12:Body>
-</soap12:Envelope>
-]]>]]>'''
-
-
-
     def __init__(self, context,id=0):
         self.lock = Lock()
         self.context = context
-
         self._ssh_transport = None
-        self._wsma_transport = None
         self._ssh_channel = None
-        self._wsma_channel = None
         self.start = time.time()
         self.id = "{}-{}".format(context.host,id)
+        self.wsma_adapter  = importutils.import_object(cfg.CONF.asr1k.wsma_adapter,context,id)
+
+
 
     @property
     def age(self):
@@ -382,10 +364,7 @@ class SSHConnection(object):
        if not self.is_inactive and self._ssh_channel is not None and  self._ssh_transport is not None:
             return self._ssh_transport.session_id
 
-    @property
-    def wsma_session_id(self):
-        if not self.is_wsma_inactive and self._wsma_channel is not None and self._wsma_transport is not None:
-            return self._wsma_transport.session_id
+
 
     @property
     def is_inactive(self):
@@ -400,22 +379,6 @@ class SSHConnection(object):
         except BaseException as e :
             return True
 
-    @property
-    def is_wsma_inactive(self):
-
-
-
-        if self._wsma_channel is None or self._wsma_transport is None:
-            return True
-        try:
-            return (self._wsma_channel.closed
-                    or self._wsma_channel.eof_received
-                    or self._wsma_channel.eof_sent
-                    or not self._wsma_channel.active)
-
-        except BaseException as e :
-            LOG.exception(e)
-            return True
 
 
 
@@ -447,33 +410,7 @@ class SSHConnection(object):
         return self._ssh_channel
 
 
-    @property
-    def wsma_connection(self):
-        try:
-            if self.is_wsma_inactive:
-                if self.session_id:
-                    LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.wsma_session_id))
-                try:
-                    self.close()
-                except BaseException as e:
-                    LOG.warning(
-                        "Failed to close WSMA connection due to '{}', connection will be attempted again in subsequent iterations".format(
-                            e))
-                finally:
-                    self._connect(self.context,wsma=True)
 
-        except BaseException as e:
-            LOG.warning(
-                "Failed to connect via WSMA due to '{}', connection will be attempted again in subsequent iterations".format(
-                    e))
-
-            if isinstance(e,SSHException) or isinstance(e,NoValidConnectionsError) or isinstance(e,ChannelException)or isinstance(e,EOFError):
-                LOG.exception(e)
-            else:
-                LOG.exception(e)
-
-
-        return self._wsma_channel
 
 
     def _connect(self, context, wsma=False):
@@ -490,30 +427,8 @@ class SSHConnection(object):
             ssh_channel.invoke_shell()
             self._ssh_transport = ssh_transport
             self._ssh_channel = ssh_channel
-
         else:
-
-            wsma_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            wsma_sock.connect((context.host, port))
-            wsma_transport = paramiko.Transport(wsma_sock)
-            wsma_transport.connect(username=context.username, password=context.password)
-
-            wsma_channel = wsma_transport.open_session(timeout=2)
-            wsma_channel.set_name('wsma')
-            wsma_channel.invoke_subsystem('wsma')
-            self._wsma_transport = wsma_transport
-            self._wsma_channel = wsma_channel
-            self._wsma_channel.setblocking(True)
-
-            bytes = u''
-
-            while bytes.find(self.EOM) == -1:
-                start= time.time()
-                if time.time() - start > self.READ_TIMEOUT:
-                    LOG.error("Timeout on WSMA read")
-                    break
-                bytes += self._wsma_channel.recv(self.BUF)
-
+            self.wsma_adapter.connect(context)
 
 
     def close(self):
@@ -526,80 +441,19 @@ class SSHConnection(object):
                     "Failed to close SSH connection due to '{}', connection will be attempted again in subsequent iterations".format(
                         e))
                 LOG.exception(e)
-        if self._wsma_transport is not None :
-            try:
-                self._wsma_transport.close()
-            except BaseException as e:
-                LOG.warning(
-                    "Failed to close WSMA connection due to '{}', connection will be attempted again in subsequent iterations".format(
-                        e))
-                LOG.exception(e)
 
         self._ssh_transport = None
         self._ssh_channel = None
-        self._wsma_transport = None
-        self._wsma_channel = None
+
+        self.wsma_adapter.close()
+
         self.start = time.time()
 
     def get(self,filter=''):
         raise NotImplementedError()
 
     def run_cli_command(self, command):
-            start = time.time()
-            uuid = uuidutils.generate_uuid()
-            self.wsma_connection.sendall(self.READ_SOAP12.format(uuid,command))
-
-            response =  self._wsma_reply(self.wsma_connection,uuid)
-            LOG.debug("{}] {} run cli command {} in {}s".format(self.context.host,uuid,command, time.time() - start))
-            return response
-
-
-    def _wsma_reply(self,channel,uuid=None):
-        bytes = self._wsma_read(channel)
-
-        if self._is_wsma_hello(bytes):
-            LOG.debug("Filtered hello for channel stdout ")
-            return []
-
-        response = bs(bytes, 'lxml').find('response')
-        if uuid is not None and response is not None:
-            if response.get("correlator") != uuid:
-                LOG.warning("Failed to correlate reply {} with request {} in CLI execute".format(response.get("correlator"),uuid))
-                return []
-
-
-
-
-        result = []
-        return_text = bs(bytes, 'lxml').find('text')
-        if return_text is not None:
-            raw = bs(bytes, 'lxml').find('text').contents[0].splitlines()
-            for l in raw:
-                if len(l.strip(" "))>0:
-                    result.append(l.strip(" "))
-
-
-        return result
-
-    def _is_wsma_hello(self,bytes):
-        request = bs(bytes, 'lxml').find('request')
-        if request is not None:
-            if request.get("xmlns") == "urn:cisco:wsma-hello":
-                return True
-
-        return False
-
-    def _wsma_read(self,channel):
-        start = time.time()
-        bytes = u''
-        while bytes.find(self.EOM) == -1:
-
-            if time.time() - start > self.READ_TIMEOUT:
-                LOG.error("Timeout on WSMA read")
-                break
-            bytes += channel.recv(self.BUF).decode('utf-8')
-
-        return bytes.replace(self.EOM, '')
+        return self.wsma_adapter.run_cli_command( command)
 
 
     def edit_config(self,config='',target='running'):

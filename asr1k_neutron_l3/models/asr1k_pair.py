@@ -23,7 +23,7 @@ LOG = logging.getLogger(__name__)
 
 class ASR1KContext(object):
 
-    def __init__(self,name, host, http_port, legacy_port,yang_port, nc_timeout, username, password, protocol='https', insecure=False,
+    def __init__(self,name, host, http_port, legacy_port,yang_port, nc_timeout, username, password, protocol='https', insecure=True,
                  headers={}):
         self.protocol = protocol
         self.name = name
