@@ -61,8 +61,16 @@ class DeviceCleanerMixin(object):
                 items = entity.get_all_from_device_config(device_config)
 
                 for item in items:
+                    print " {} {} {} ".format(entity,item.id,item.neutron_router_id)
+
+
                     if item.neutron_router_id  and item.neutron_router_id not in all_router_ids:
 
+                        if(orphans.get(context) is None):
+                            orphans[context] = []
+                        orphans[context].append(item)
+
+                    elif item.neutron_router_id is None and item.in_neutron_namespace:
                         if(orphans.get(context) is None):
                             orphans[context] = []
                         orphans[context].append(item)
@@ -77,7 +85,7 @@ class DeviceCleanerMixin(object):
         else:
             for context, items in orphans.iteritems():
                 for item in items:
-                    item.delete(context=context)
+                    item._delete(context=context)
                 result[context.host] = json.dumps(items,cls=OrphanEncoder)
 
         return result

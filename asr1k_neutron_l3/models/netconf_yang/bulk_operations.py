@@ -51,3 +51,7 @@ class BulkOperations(xml_utils.XMLUtils):
             pass
         except Exception as e:
             LOG.exception(e)
+
+    @property
+    def in_neutron_namespace(self):
+        return False

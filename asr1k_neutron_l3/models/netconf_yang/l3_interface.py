@@ -19,6 +19,7 @@ from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.ssh_legacy import l3_interface as nc_l3_interface
 from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.plugins.db import asr1k_db
 
 class L3Constants(object):
     INTERFACE = "interface"
@@ -160,6 +161,15 @@ class BDIInterface(NyBase):
 
         return result
 
+    @property
+    def in_neutron_namespace(self):
+        max = utils.to_bridge_domain(asr1k_db.MAX_SECOND_DOT1Q)
+        min = utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q)
+
+        print "BDI{} in nn {}".format(self.id, min <= int(self.id) <= max)
+
+        return min <= int(self.id) <= max
+
 class BDISecondaryIpAddress(NyBase):
     ITEM_KEY = L3Constants.SECONDARY
     LIST_KEY = L3Constants.ADDRESS
@@ -243,6 +253,8 @@ class BDISecondaryIpAddress(NyBase):
         ip[L3Constants.SECONDARY] = secondary
 
         return ip
+
+
 
 class BDIPrimaryIpAddress(NyBase):
     ITEM_KEY = L3Constants.PRIMARY
