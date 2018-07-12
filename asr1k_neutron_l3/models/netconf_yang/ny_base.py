@@ -761,6 +761,8 @@ class NyBase(BulkOperations):
     def _update(self, context=None,method=NC_OPERATION.PATCH):
         if len(self._internal_validate(context=context)) > 0 :
 
+            self.preflight(context)
+
             # print "{} device configuration {} invalid or missing updating".format(self.__class__.__name__,context.host)
             # if not self._internal_exists(context):
             #     return self._create(context=context)
@@ -829,3 +831,7 @@ class NyBase(BulkOperations):
 
     def orphan_info(self):
         return {self.__class__.__name__:{'id':self.id}}
+
+
+    def preflight(self, context):
+        pass

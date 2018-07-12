@@ -46,6 +46,7 @@ ASR1K_OPTS = [
     cfg.StrOpt('monitor', default=('asr1k_neutron_l3.common.prometheus_monitor.PrometheusMonitor'), help=('')),
     cfg.IntOpt('connection_max_age', default=(3600), help=('')),
     cfg.StrOpt('wsma_adapter', default=('asr1k_neutron_l3.models.wsma_adapters.SshWsmaAdapter'), help=('')),
+    cfg.ListOpt('preflights', default=(''), help=('')),
 ]
 
 ASR1K_L3_OPTS = [

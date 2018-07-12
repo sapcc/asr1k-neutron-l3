@@ -14,11 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
+from oslo_log import log as logging
 from collections import OrderedDict
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,Requeable, NC_OPERATION,execute_on_pair
 
-
+LOG = logging.getLogger(__name__)
 
 class VrfConstants(object):
     VRF = 'vrf'
@@ -41,6 +43,17 @@ class VrfDefinition(NyBase,Requeable):
                     <vrf>
                         <definition>
                             <name>{id}</name>
+                        </definition>
+                    </vrf>
+                </native>            
+             """
+
+
+    RD_FILTER = """
+                <native>
+                    <vrf>
+                        <definition>
+                            <rd>{rd}</rd>
                         </definition>
                     </vrf>
                 </native>            
@@ -129,3 +142,23 @@ class VrfDefinition(NyBase,Requeable):
     def update(self,context=None):
 
         return super(VrfDefinition, self)._update(context=context,method=NC_OPERATION.PUT)
+
+
+    def preflight(self, context):
+
+        if self.__class__.__name__ in context.preflights:
+
+            LOG.debug("Running preflight check for VRF {}".format(self.id))
+
+            rd_filter =  self.RD_FILTER.format(**{'rd':self.rd})
+
+            rd_vrf = self._get(context=context, nc_filter=rd_filter)
+
+            if rd_vrf is not None:
+                if self.id != rd_vrf.id:
+                    LOG.warning("Preflight found existing VRF {} with RD {} - attempting to remove".format(rd_vrf.id,self.rd))
+                    rd_vrf._delete(context)
+
+            LOG.debug("Preflight check completed for VRF {}".format(self.id))
+        else:
+            LOG.info("Preflight check for {} disabled in configuration".format(self.__class__.__name__))
