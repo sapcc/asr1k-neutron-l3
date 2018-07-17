@@ -27,6 +27,7 @@ from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common.instrument import instrument
 
 from ncclient import manager
+from ncclient.xml_ import to_ele
 from oslo_utils import uuidutils
 from oslo_log import log as logging
 from oslo_config import cfg
@@ -328,6 +329,15 @@ class NCConnection(object):
             return self.connection.edit_config(target=target, config=config)
         else :
             raise DeviceUnreachable(host=self.context.host)
+
+
+    def rpc(self,command):
+        if self.context.alive and self.connection is not None:
+            return self.connection.dispatch(to_ele(command))
+        else :
+            raise DeviceUnreachable(host=self.context.host)
+
+
 
 class YangConnection(NCConnection):
     def __init__(self,context,id=0):

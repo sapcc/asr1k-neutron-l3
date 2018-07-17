@@ -13,7 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import time
 import eventlet
 import requests
 import urllib3
@@ -67,6 +67,7 @@ from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import config as asr1k_config
+from asr1k_neutron_l3.models.netconf_yang.copy_config import CopyConfig
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import connection
@@ -476,6 +477,17 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         prev_router_ids = set(self.router_info)
         curr_router_ids = set()
         timestamp = timeutils.utcnow()
+
+        LOG.info("Saving running device config to startup config")
+        start = time.time()
+        rpc = CopyConfig()
+        result = rpc.copy_config()
+
+        if not result.success:
+            LOG.error("Copy config failed, results : {} ".format(result))
+        else:
+            LOG.info("Saved running device config to startup config in {}s".format(time.time()-start))
+
 
         try:
             router_ids = self.plugin_rpc.get_router_ids(context)

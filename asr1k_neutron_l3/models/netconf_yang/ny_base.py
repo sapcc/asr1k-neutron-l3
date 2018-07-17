@@ -374,6 +374,11 @@ class NyBase(BulkOperations):
 
     EMPTY_TYPE = {}
 
+
+    @classmethod
+    def __parameters__(cls):
+        return []
+
     def __init__(self, **kwargs):
         # Should we delete even if object reports not existing
         #
@@ -794,7 +799,6 @@ class NyBase(BulkOperations):
                 result = connection.edit_config(config=self.to_xml(json=json,operation=method))
                 return result
 
-
     def _internal_validate(self,should_be_none=False, context=None):
         device_config = self._internal_get(context=context)
 
@@ -835,3 +839,5 @@ class NyBase(BulkOperations):
 
     def preflight(self, context):
         pass
+
+
