@@ -31,7 +31,7 @@ from asr1k_neutron_l3.models.connection import ConnectionManager
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict
 from asr1k_neutron_l3.models.netconf_yang.bulk_operations import BulkOperations
-
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 from ncclient.operations.rpc import RPCError
 from ncclient.transport.errors import SessionCloseError
@@ -203,6 +203,8 @@ class retry_on_failure(object):
 
                 except (RPCError , SessionCloseError,SSHError,TimeoutExpiredError) as e:
 
+
+
                     if isinstance(e,RPCError):
                         operation = f.__name__
                         entity = args[0]
@@ -211,6 +213,9 @@ class retry_on_failure(object):
                             return None
                         elif e.message =='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
                             LOG.debug(e.to_dict())
+
+                            PrometheusMonitor().inconsistency_errors.inc()
+
                             raise exc.InconsistentModelException(host=host,entity = entity,operation = operation)
                         elif e.message == 'internal error':  # something can't be configured maybe due to transient state e.g. BGP session active these should be requeued
                             LOG.debug(e.to_dict())
@@ -218,8 +223,12 @@ class retry_on_failure(object):
                             if isinstance(entity,Requeable) and operation in entity.requeable_operations():
                                 raise exc.ReQueueableInternalErrorException(host=host, entity = entity,operation = operation)
                             else:
+                                PrometheusMonitor().internal_errors.inc()
                                 raise exc.InternalErrorException(host=host, entity = entity,operation = operation)
                         elif e.tag in ['in-use']:  # Lock
+
+                            PrometheusMonitor().config_locks.inc()
+
                             if total_retry < self.max_retry_interval:
                                 LOG.debug("** [{}] request {} :  retry {} of {} on {} hit config lock , will backoff and retry ".format(host,uuid,retries,f.__name__,args[0].__class__.__name__ ))
                                 pass  # retry on lock
@@ -230,6 +239,10 @@ class retry_on_failure(object):
 
                         else:
                             LOG.debug(e.to_dict())
+                    elif isinstance(e,SSHError):
+                        PrometheusMonitor().nc_ssh_errors.inc()
+                        LOG.exception(e)
+
                     else:
                         LOG.exception(e)
 

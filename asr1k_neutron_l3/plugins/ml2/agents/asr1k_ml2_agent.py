@@ -41,6 +41,7 @@ from neutron.i18n import _LI, _LE
 from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
 from neutron.common import config as common_config, topics, constants as n_const
 
+from asr1k_neutron_l3.common.prometheus_monitor import  PrometheusMonitor
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import config as asr1k_config
@@ -151,18 +152,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
 
     def _initialize_monitor(self):
-        try:
-            monitor = importutils.import_object(
-                self.conf.asr1k.monitor)
-            monitor.start()
-            return monitor
-        except ImportError as e:
-            print("Error in loading monitor. Class "
-                  "specified is %(class)s. Reason:%(reason)s",
-                  {'class': self.conf.asr1k.monitor,
-                   'reason': e})
-            raise e
-
+        monitor = PrometheusMonitor(namespace="l2")
+        monitor.start()
 
     def port_update(self, context, **kwargs):
         port = kwargs.get('port')

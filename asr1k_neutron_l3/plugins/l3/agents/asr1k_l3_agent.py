@@ -63,7 +63,7 @@ from neutron.agent.l3 import router_processing_queue as queue
 
 from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
 
-
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import config as asr1k_config
@@ -387,19 +387,9 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
 
     def _initialize_monitor(self):
-        try:
-            monitor = importutils.import_object(
-                self.conf.asr1k.monitor)
-            monitor.start()
-            return monitor
-        except ImportError as e:
-            print("Error in loading monitor. Class "
-                  "specified is %(class)s. Reason:%(reason)s",
-                  {'class': self.conf.asr1k.monitor,
-                   'reason': e})
-            raise e
-
-
+        monitor = PrometheusMonitor(namespace="l3")
+        monitor.start()
+        return monitor
 
     def router_deleted(self, context, router_id):
         LOG.debug('Got router deleted notification for %s', router_id)

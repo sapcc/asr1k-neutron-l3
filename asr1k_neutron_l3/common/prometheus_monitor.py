@@ -31,15 +31,30 @@ LOG = logging.getLogger(__name__)
 
 class PrometheusMonitor(object):
 
-    def __new__(cls):
 
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(PrometheusMonitor, cls).__new__(cls)
 
-        return cls.instance
+    __instance = None
 
-    def __init__(self):
-        self.floating_ip = Gauge('asr_floating_ips', 'Number of managed Floating IPs', ['device'])
+    def __new__(cls,namespace=None):
+        if PrometheusMonitor.__instance is None:
+            PrometheusMonitor.__instance = object.__new__(cls)
+            PrometheusMonitor.__instance.__setup__(namespace=namespace)
+
+
+        return PrometheusMonitor.__instance
+
+    def __setup__(self,namespace=None):
+        self.ssh_banner_errors = Counter('ssh_banner_errors', 'Number of ssh banner errors',namespace=namespace)
+        self.inconsistency_errors = Counter('inconsistency_errors', 'Number of device inconsistency_errors',namespace=namespace)
+        self.internal_errors = Counter('internal_errors', 'Number of device API internal errors',namespace=namespace)
+        self.config_locks = Counter('config_locks', 'Number of device config_locks',namespace=namespace)
+        self.nc_ssh_errors = Counter('nc_ssh_errors', 'Number of netconf-yang SSH errors', namespace=namespace)
+
+
+    def __init__(self,namespace=None):
+        pass
+
+
 
 
     def start(self):
@@ -68,3 +83,5 @@ class PrometheusMonitor(object):
             s.close()
 
         return False
+
+

@@ -19,8 +19,10 @@ from oslo_log import log as logging
 from oslo_utils import importutils
 
 
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.models.connection import ConnectionManager
 from ncclient.operations.rpc import RPCError
+from paramiko.ssh_exception import SSHException
 
 LOG = logging.getLogger(__name__)
 
@@ -37,6 +39,8 @@ class SSHBase(object):
             try:
                 return manager.run_cli_command(cmd)
 
+            except SSHException as e:
+                self._check_banner_exception(e)
             except Exception as e:
                 LOG.exception(e)
                 #issue with manager return None and close
@@ -54,11 +58,18 @@ class SSHBase(object):
             try:
                 result = manager.edit_config(config)
 
+            except SSHException as e:
+                self._check_banner_exception(e)
             except RPCError as e:
                 if not accept_failure:
                     raise e
             except BaseException as e:
-                print e
                 LOG.exception(e)
                 raise e
 
+    def _check_banner_exception(self,e):
+        if str(e).startswith("Error reading SSH protocol banner"):
+            PrometheusMonitor().ssh_banner_errors.inc()
+
+        LOG.exception(e)
+        raise e
