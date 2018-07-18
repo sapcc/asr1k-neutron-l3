@@ -15,12 +15,12 @@
 #    under the License.
 
 from oslo_log import log as logging
-
+from oslo_utils import timeutils
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.netconf_yang import l2_interface
 from asr1k_neutron_l3.models.netconf_yang import efp_stats
 from asr1k_neutron_l3.common import utils
-
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 LOG = logging.getLogger(__name__)
 
@@ -30,13 +30,16 @@ def create_ports(ports, callback=None):
     succeeded_ports = []
     failed_ports = []
     for port in ports:
-        l2_port = Port(port)
-        port_id = port.get('id')
-        result = l2_port.create()
-        if result:
-            succeeded_ports.append(port_id)
-        else:
-            failed_ports.append(port_id)
+        with PrometheusMonitor().port_create_duration.time():
+            l2_port = Port(port)
+            port_id = port.get('id')
+            result = l2_port.create()
+            if result:
+                succeeded_ports.append(port_id)
+            else:
+                failed_ports.append(port_id)
+
+
 
     if callable(callback):
         callback(succeeded_ports, failed_ports)
@@ -49,14 +52,16 @@ def update_ports(ports, callback=None):
     failed_ports = []
 
     for port in ports:
-        port_id = port.get('id')
+        with PrometheusMonitor().port_update_duration.time():
+            port_id = port.get('id')
 
-        l2_port = Port(port)
-        result = l2_port.update()
-        if result:
-            succeeded_ports.append(port_id)
-        else:
-            failed_ports.append(port_id)
+            l2_port = Port(port)
+            result = l2_port.update()
+            if result:
+                succeeded_ports.append(port_id)
+            else:
+                failed_ports.append(port_id)
+
 
     if callable(callback):
         callback(succeeded_ports, failed_ports)
@@ -69,10 +74,12 @@ def delete_ports(port_extra_atts, callback=None):
     succeeded_ports = []
 
     for port in port_extra_atts:
+        with PrometheusMonitor().port_delete_duration.time():
+            l2_port = Port(port)
+            result = l2_port.delete()
+            succeeded_ports.append(l2_port.id)
 
-        l2_port = Port(port)
-        result = l2_port.delete()
-        succeeded_ports.append(l2_port.id)
+
 
     if callable(callback):
 

@@ -15,6 +15,7 @@
 #    under the License.
 
 from oslo_log import log as logging
+from oslo_utils import timeutils
 from oslo_config import cfg
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.neutron.l3 import access_list
@@ -27,7 +28,7 @@ from asr1k_neutron_l3.models.neutron.l3 import bgp
 from asr1k_neutron_l3.models.neutron.l3 import prefix
 from asr1k_neutron_l3.models.neutron.l3.base import Base
 from asr1k_neutron_l3.common import asr1k_constants as constants, utils
-from asr1k_neutron_l3.common.instrument import instrument
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 LOG = logging.getLogger(__name__)
 
@@ -230,15 +231,31 @@ class Router(Base):
         return self.extra_atts.get(port.get('id'),{})
 
     def create(self):
-        return self.update()
+        with PrometheusMonitor().router_create_duration.time():
+            result = self._update()
 
+        return result
 
     def update(self):
+        with PrometheusMonitor().router_update_duration.time():
+            result = self._update()
+
+        return result
+
+    def delete(self):
+        with PrometheusMonitor().router_delete_duration.time():
+            result =  self._delete()
+
+            return result
+
+    def _update(self):
 
         if self.gateway_interface is None and len(self.interfaces.internal_interfaces)==0:
             return self.delete()
 
         results = []
+
+
         for prefix_list in self.prefix_lists:
             results.append(prefix_list.update())
             results.append(self.route_map.update())
@@ -286,12 +303,16 @@ class Router(Base):
 
         results.append(self.floating_ips.update())
 
+
+
+
         return results
 
 
-    def delete(self):
+    def _delete(self):
         results = []
         # order is important here.
+
 
         for prefix_list in self.prefix_lists:
             results.append(prefix_list.delete())

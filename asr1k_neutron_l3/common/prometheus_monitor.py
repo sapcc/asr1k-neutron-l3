@@ -25,9 +25,14 @@ from oslo_log import log as logging
 from prometheus_client import start_http_server
 from prometheus_client import Counter
 from prometheus_client import Gauge
+from prometheus_client import core
+from prometheus_client import Histogram
 
 
 LOG = logging.getLogger(__name__)
+
+ACTION_BUCKETS=  (1.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0, 60, 120.0, core._INF)
+
 
 class PrometheusMonitor(object):
 
@@ -49,6 +54,13 @@ class PrometheusMonitor(object):
         self.internal_errors = Counter('internal_errors', 'Number of device API internal errors',namespace=namespace)
         self.config_locks = Counter('config_locks', 'Number of device config_locks',namespace=namespace)
         self.nc_ssh_errors = Counter('nc_ssh_errors', 'Number of netconf-yang SSH errors', namespace=namespace)
+        self.router_create_duration = Histogram("router_create_duration", "Router create duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
+        self.router_update_duration = Histogram("router_update_duration","Router update duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
+        self.router_delete_duration = Histogram("router_delete_duration", "Router delete duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
+
+        self.port_create_duration = Histogram("port_create_duration", "Port create duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
+        self.port_update_duration = Histogram("port_update_duration","Port update duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
+        self.port_delete_duration = Histogram("port_delete_duration", "Port delete duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
 
 
     def __init__(self,namespace=None):

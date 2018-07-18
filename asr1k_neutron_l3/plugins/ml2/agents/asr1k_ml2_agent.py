@@ -152,7 +152,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
 
     def _initialize_monitor(self):
-        monitor = PrometheusMonitor(namespace="l2")
+        monitor = PrometheusMonitor(namespace="neutron_asr1k_l2")
         monitor.start()
 
     def port_update(self, context, **kwargs):

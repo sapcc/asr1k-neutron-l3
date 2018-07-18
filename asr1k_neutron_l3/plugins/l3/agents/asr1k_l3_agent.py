@@ -387,7 +387,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
 
     def _initialize_monitor(self):
-        monitor = PrometheusMonitor(namespace="l3")
+        monitor = PrometheusMonitor(namespace="neutron_asr1k_l3")
         monitor.start()
         return monitor
 
