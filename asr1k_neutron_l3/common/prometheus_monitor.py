@@ -54,6 +54,8 @@ class PrometheusMonitor(object):
         self.internal_errors = Counter('internal_errors', 'Number of device API internal errors',namespace=namespace)
         self.config_locks = Counter('config_locks', 'Number of device config_locks',namespace=namespace)
         self.nc_ssh_errors = Counter('nc_ssh_errors', 'Number of netconf-yang SSH errors', namespace=namespace)
+        self.config_copy_errors = Counter('config_copy_errors', 'Number of config copy errors', namespace=namespace)
+
         self.router_create_duration = Histogram("router_create_duration", "Router create duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
         self.router_update_duration = Histogram("router_update_duration","Router update duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
         self.router_delete_duration = Histogram("router_delete_duration", "Router delete duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
@@ -61,6 +63,9 @@ class PrometheusMonitor(object):
         self.port_create_duration = Histogram("port_create_duration", "Port create duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
         self.port_update_duration = Histogram("port_update_duration","Port update duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
         self.port_delete_duration = Histogram("port_delete_duration", "Port delete duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
+
+
+        self.config_copy_duration = Histogram("config_copy_duration", "Running to starup config copy duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
 
 
     def __init__(self,namespace=None):
