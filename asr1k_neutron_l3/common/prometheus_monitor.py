@@ -31,7 +31,7 @@ from prometheus_client import Histogram
 
 LOG = logging.getLogger(__name__)
 
-ACTION_BUCKETS=  (1.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0, 60, 120.0, core._INF)
+ACTION_BUCKETS=  (1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40., 60.0, core._INF)
 
 
 class PrometheusMonitor(object):
