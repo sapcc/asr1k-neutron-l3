@@ -82,17 +82,19 @@ class execute_on_pair(object):
 
         method = kwargs.pop('_method')
         result = kwargs.pop('_result')
-
+        context = kwargs.get('context')
         try:
+            with PrometheusMonitor().detail_operation_duration.labels(device=context.host,entity=args[0].__class__.__name__).time():
 
-            response = method(*args, **kwargs)
 
-            # if we wrap in a wrapped method return the
-            # base result
-            if isinstance(response, self.result_type):
-                result = response
-            else:
-                result.append( kwargs.get('context'), response)
+                response = method(*args, **kwargs)
+
+                # if we wrap in a wrapped method return the
+                # base result
+                if isinstance(response, self.result_type):
+                    result = response
+                else:
+                    result.append( kwargs.get('context'), response)
 
 
 
@@ -127,6 +129,7 @@ class execute_on_pair(object):
                     kwargs['context'] = asr1k_pair.ASR1KPair().contexts[0]
 
                 try:
+
                     response = method(*args, **kwargs)
                     result = response
 

@@ -128,3 +128,9 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
     def get_device_info(self,context, **kwargs):
         host = kwargs.get('host')
         return self.db.get_device_info(context,host)
+
+
+    @log_helpers.log_method_call
+    def get_usage_stats(self,context, **kwargs):
+        host = kwargs.get('host')
+        return self.db.get_usage_stats(context,host)

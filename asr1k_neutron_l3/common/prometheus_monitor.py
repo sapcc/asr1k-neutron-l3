@@ -32,7 +32,14 @@ from prometheus_client import Histogram
 LOG = logging.getLogger(__name__)
 
 ACTION_BUCKETS=  (1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40., 60.0, core._INF)
+OPERATION_BUCKETS=  (0.1,0.3,0.5, 0.7,1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0,core._INF)
 
+DETAIL_LABELS = ['host','device', 'entity']
+BASIC_LABELS = ['host']
+STATS_LABELS = ['host','status']
+
+L2 = "l2"
+L3 = "l3"
 
 class PrometheusMonitor(object):
 
@@ -40,36 +47,67 @@ class PrometheusMonitor(object):
 
     __instance = None
 
-    def __new__(cls,namespace=None):
+    def __new__(cls,host=None,namespace=None,type=L3):
         if PrometheusMonitor.__instance is None:
             PrometheusMonitor.__instance = object.__new__(cls)
-            PrometheusMonitor.__instance.__setup__(namespace=namespace)
+            PrometheusMonitor.__instance.__setup__(host=host,namespace=namespace,type=type)
 
 
         return PrometheusMonitor.__instance
 
-    def __setup__(self,namespace=None):
-        self.ssh_banner_errors = Counter('ssh_banner_errors', 'Number of ssh banner errors',namespace=namespace)
-        self.inconsistency_errors = Counter('inconsistency_errors', 'Number of device inconsistency_errors',namespace=namespace)
-        self.internal_errors = Counter('internal_errors', 'Number of device API internal errors',namespace=namespace)
-        self.config_locks = Counter('config_locks', 'Number of device config_locks',namespace=namespace)
-        self.nc_ssh_errors = Counter('nc_ssh_errors', 'Number of netconf-yang SSH errors', namespace=namespace)
-        self.config_copy_errors = Counter('config_copy_errors', 'Number of config copy errors', namespace=namespace)
+    def __setup__(self,host=None,namespace=None,type=L3):
+        self.namespace = "{}_{}".format(namespace, type)
+        self.type = type
+        self.host = host
+        self._ssh_banner_errors = Counter('ssh_banner_errors', 'Number of ssh banner errors',DETAIL_LABELS,namespace=self.namespace)
+        self._inconsistency_errors = Counter('inconsistency_errors', 'Number of device inconsistency_errors',DETAIL_LABELS,namespace=self.namespace)
+        self._internal_errors = Counter('internal_errors', 'Number of device API internal errors',DETAIL_LABELS,namespace=self.namespace)
+        self._config_locks = Counter('config_locks', 'Number of device config_locks',DETAIL_LABELS,namespace=self.namespace,)
+        self._nc_ssh_errors = Counter('nc_ssh_errors', 'Number of netconf-yang SSH errors',DETAIL_LABELS,namespace=self.namespace)
 
-        self.router_create_duration = Histogram("router_create_duration", "Router create duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
-        self.router_update_duration = Histogram("router_update_duration","Router update duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
-        self.router_delete_duration = Histogram("router_delete_duration", "Router delete duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
+        self._detail_operation_duration = Histogram("detail_operation_duration", "Individual entity operation",DETAIL_LABELS,namespace=self.namespace, buckets=OPERATION_BUCKETS)
 
-        self.port_create_duration = Histogram("port_create_duration", "Port create duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
-        self.port_update_duration = Histogram("port_update_duration","Port update duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
-        self.port_delete_duration = Histogram("port_delete_duration", "Port delete duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
+        if self.type == L3:
+            self._router_create_duration = Histogram("router_create_duration", "Router create duration in seconds",BASIC_LABELS,namespace=self.namespace, buckets=ACTION_BUCKETS)
+            self._router_update_duration = Histogram("router_update_duration","Router update duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
+            self._router_delete_duration = Histogram("router_delete_duration", "Router delete duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
+            self._config_copy_duration = Histogram("config_copy_duration", "Running to starup config copy duration in seconds",BASIC_LABELS, namespace=namespace, buckets=ACTION_BUCKETS)
+            self._config_copy_errors = Counter('config_copy_errors', 'Number of config copy errors',BASIC_LABELS,namespace=self.namespace)
+            self._routers = Gauge('routers', 'Number of managed routers', STATS_LABELS, namespace=self.namespace)
+            self._interfaces = Gauge('interfaces', 'Number of managed interfaces', STATS_LABELS, namespace=self.namespace)
+            self._gateways = Gauge('gateways', 'Number of managed gateways', STATS_LABELS, namespace=self.namespace)
+            self._floating_ips = Gauge('floating_ips', 'Number of managed floating_ips', STATS_LABELS, namespace=self.namespace)
 
 
-        self.config_copy_duration = Histogram("config_copy_duration", "Running to starup config copy duration in seconds", namespace=namespace, buckets=ACTION_BUCKETS)
+        elif self.type == L2:
+            self._port_create_duration = Histogram("port_create_duration", "Port create duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
+            self._port_update_duration = Histogram("port_update_duration","Port update duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
+            self._port_delete_duration = Histogram("port_delete_duration", "Port delete duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
 
 
-    def __init__(self,namespace=None):
+    def __init__(self,host=None,namespace=None,type=L3):
         pass
+
+    # Some magic to to wrap metric to always inject the agent host
+    def __getattr__(self, item):
+        try:
+            attr =  super(PrometheusMonitor,self).__getattribute__(item)
+        except AttributeError as e:
+            try:
+                metric = super(PrometheusMonitor, self).__getattribute__("_{}".format(item))
+                if isinstance(metric,core._LabelWrapper):
+                    return MetricWrapper(metric,host=self.host)
+                elif isinstance(metric, core.Metric):
+                    return metric
+
+            except AttributeError:
+                pass
+            raise e
+
+
+        return attr
+
+
 
 
 
@@ -102,3 +140,15 @@ class PrometheusMonitor(object):
         return False
 
 
+class MetricWrapper(object):
+
+    def __init__(self, base,host=None):
+        self.base = base
+        self.host =  host
+
+    def __getattr__(self, item):
+        return self.base.labels(host=self.host).__getattribute__(item)
+
+    def labels(self,**labels):
+        labels['host'] = self.host
+        return self.base.labels(**labels)

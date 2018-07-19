@@ -28,6 +28,7 @@ from neutron.plugins.ml2 import db as ml2_db
 from neutron.extensions.l3 import RouterNotFound
 from neutron.extensions import portbindings
 from neutron import context as n_context
+from neutron.common import  constants as n_constants
 
 from oslo_log import helpers as log_helpers
 from oslo_log import log
@@ -281,6 +282,24 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return result
 
+    def get_ports_for_router_ids(self, context, ids):
+        with context.session.begin(subtransactions=True):
+            query = context.session.query(models_v2.Port).join(ml2_models.PortBinding,
+                                                               ml2_models.PortBinding.port_id == models_v2.Port.id)
+            ports = query.filter(sa.cast(models_v2.Port.device_id, sa.Text()).in_(ids))
+
+        result = []
+        for port in ports:
+            port_dict = self._make_port_dict(port)
+            port_dict[portbindings.HOST_ID] = port.port_binding.host
+
+            result.append(port_dict)
+
+        return result
+
+
+
+
 
     def get_router_segment_for_port(self,context,router_id,port_id):
 
@@ -369,6 +388,61 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         for info in infos:
             result[info.id] = info
         return result;
+
+    def get_usage_stats(self,context,host):
+
+        agent = self._get_agent_by_type_and_host(context,constants.AGENT_TYPE_ASR1K_L3,host)
+
+        active_router_ids = []
+        error_router_ids = []
+        active_interface_ids = []
+        error_interface_ids = []
+        active_gateway_ids = []
+        error_gateway_ids = []
+        active_floating_ip_ids = []
+        error_floating_ip_ids = []
+
+
+        if agent is not None:
+            routers = self.list_routers_on_l3_agent(context,agent.id).get('routers')
+            print routers
+            for router in routers:
+                router_id = router.get('id')
+                if router.get('status') == n_constants.ROUTER_STATUS_ACTIVE:
+                    active_router_ids.append(router_id)
+                else:
+                    error_router_ids.append(router_id)
+
+
+            routers = error_router_ids + active_router_ids
+            ports = self.get_ports_for_router_ids(context,routers)
+            for port in ports:
+                if port.get('device_owner') == 'network:router_interface' :
+                    self.__filter_port_stats(port,active_interface_ids,error_interface_ids)
+
+                if port.get('device_owner') == 'network:router_gateway' :
+                    self.__filter_port_stats(port, active_gateway_ids, error_gateway_ids)
+
+
+            floating_ips = self.get_floatingips(context,{'router_id':routers})
+            for floating_ip in floating_ips:
+                if floating_ip.get('status')==n_constants.ROUTER_STATUS_ACTIVE:
+                    active_floating_ip_ids.append(floating_ip.get('id'))
+                else:
+                    error_floating_ip_ids.append(floating_ip.get('id'))
+
+
+
+        return {'active':{'routers':len(active_router_ids),'gateway_ports':len(active_gateway_ids),'interface_ports':len(active_interface_ids),'floating_ips':len(active_floating_ip_ids)},
+                'error': {'routers':len(error_router_ids), 'gateway_ports': len(error_gateway_ids), 'interface_ports': len(error_interface_ids), 'floating_ips': len(error_floating_ip_ids)}}
+
+    def __filter_port_stats(self,port,active_port_list,error_port_list):
+        status = port.get('status')
+        port_id = port.get('id')
+        if status == n_constants.PORT_STATUS_ACTIVE:
+            active_port_list.append(port_id)
+        else:
+            error_port_list.append(port_id)
 
 class ExtraAttsDb(object):
 

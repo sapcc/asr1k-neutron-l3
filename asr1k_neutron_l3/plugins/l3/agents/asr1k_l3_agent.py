@@ -63,6 +63,7 @@ from neutron.agent.l3 import router_processing_queue as queue
 
 from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
 
+from asr1k_neutron_l3.common import prometheus_monitor
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
@@ -264,6 +265,11 @@ class L3PluginApi(object):
         cctxt = self.client.prepare(version='1.7')
         return cctxt.call(context, 'get_device_info',host=self.host)
 
+    def get_usage_stats(self,context):
+        cctxt = self.client.prepare(version='1.7')
+        return cctxt.call(context, 'get_usage_stats',host=self.host)
+
+
 class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     """Manager for L3 ASR Agent
 
@@ -288,7 +294,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         LOG.debug("Connection pool initialized")
 
         self.router_info = {}
-
+        self.host = host
         self.process_monitor = external_process.ProcessMonitor(
             config=self.conf,
             resource_type='router')
@@ -387,7 +393,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
 
     def _initialize_monitor(self):
-        monitor = PrometheusMonitor(namespace="neutron_asr1k_l3")
+        monitor = PrometheusMonitor(host=self.host,namespace="neutron_asr1k", type=prometheus_monitor.L3)
         monitor.start()
         return monitor
 
@@ -451,6 +457,15 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     def _periodic_sync_routers_task(self):
         try:
             LOG.debug("Starting fullsync, last full sync started {} seconds ago".format(int(timeutils.now()-self._last_full_sync)))
+
+            all_stats = self.plugin_rpc.get_usage_stats(self.context)
+            for status in all_stats.keys():
+                stats = all_stats.get(status,{})
+                PrometheusMonitor().routers.labels(status=status).set(stats.get('routers',0))
+                PrometheusMonitor().interfaces.labels(status=status).set(stats.get('interface_ports',0))
+                PrometheusMonitor().gateways.labels(status=status).set(stats.get('gateway_ports',0))
+                PrometheusMonitor().floating_ips.labels(status=status).set(stats.get('floating_ips',0))
+
 
             if not self.fullsync:
                 return

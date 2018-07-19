@@ -41,6 +41,7 @@ from neutron.i18n import _LI, _LE
 from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
 from neutron.common import config as common_config, topics, constants as n_const
 
+from asr1k_neutron_l3.common import prometheus_monitor
 from asr1k_neutron_l3.common.prometheus_monitor import  PrometheusMonitor
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import asr1k_constants as constants
@@ -152,7 +153,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
 
     def _initialize_monitor(self):
-        monitor = PrometheusMonitor(namespace="neutron_asr1k_l2")
+        monitor = PrometheusMonitor(namespace="neutron_asr1k",type=prometheus_monitor.L2)
         monitor.start()
 
     def port_update(self, context, **kwargs):
