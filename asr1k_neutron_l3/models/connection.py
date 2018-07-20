@@ -24,7 +24,7 @@ from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable
 from asr1k_neutron_l3.common import asr1k_constants
-from asr1k_neutron_l3.common.instrument import instrument
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 from ncclient import manager
 from ncclient.xml_ import to_ele
@@ -317,23 +317,27 @@ class NCConnection(object):
             self._ncc_connection = None
         self.start = time.time()
 
-    def get(self,filter=''):
+    def get(self,filter='',entity=None,action=None):
         if self.context.alive and self.connection is not None:
-            return self.connection.get(filter=('subtree', filter))
+            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
+                                                                      action=action).time():
+                return self.connection.get(filter=('subtree', filter))
         else :
             raise DeviceUnreachable(host=self.context.host)
 
 
-    def edit_config(self,config='',target='running'):
+    def edit_config(self,config='',target='running',entity=None,action=None):
         if self.context.alive and self.connection is not None:
-            return self.connection.edit_config(target=target, config=config)
+            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host,entity=entity,action=action).time():
+                return self.connection.edit_config(target=target, config=config)
         else :
             raise DeviceUnreachable(host=self.context.host)
 
 
-    def rpc(self,command):
+    def rpc(self,command,entity=None,action=None):
         if self.context.alive and self.connection is not None:
-            return self.connection.dispatch(to_ele(command))
+            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,action=action).time():
+                return self.connection.dispatch(to_ele(command))
         else :
             raise DeviceUnreachable(host=self.context.host)
 
@@ -462,27 +466,29 @@ class SSHConnection(object):
     def get(self,filter=''):
         raise NotImplementedError()
 
-    def run_cli_command(self, command):
-        return self.wsma_adapter.run_cli_command( command)
+    def run_cli_command(self, command,entity=None,action=None):
+        with PrometheusMonitor().ssh_operation_duration.labels(device=self.context.host, entity=entity,
+                                                                  action=action).time():
+            return self.wsma_adapter.run_cli_command( command)
 
 
-    def edit_config(self,config='',target='running'):
+    def edit_config(self,config='',target='running', entity=None,action=None):
 
+        with PrometheusMonitor().ssh_operation_duration.labels(device=self.context.host, entity=entity,action=action).time():
+            if self.context.alive :
+                self.connection.send("config t \r\n")
 
-        if self.context.alive :
-            self.connection.send("config t \r\n")
+                if isinstance(config,list):
+                    for cmd in config:
+                        self.connection.send(cmd+" \r\n")
+                elif isinstance(config,str):
+                    self.connection.send(config+" \r\n")
 
-            if isinstance(config,list):
-                for cmd in config:
-                    self.connection.send(cmd+" \r\n")
-            elif isinstance(config,str):
-                self.connection.send(config+" \r\n")
+                self.connection.send("end \r\n")
 
-            self.connection.send("end \r\n")
-
-        else :
-            self.close()
-            raise DeviceUnreachable(host=self.context.host)
+            else :
+                self.close()
+                raise DeviceUnreachable(host=self.context.host)
 
 
 

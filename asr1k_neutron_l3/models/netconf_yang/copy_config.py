@@ -26,9 +26,9 @@ class CopyConfig(NyBase):
     def copy_config(self, context=None, source='running-config',destination='startup-config'):
         try :
 
-            with PrometheusMonitor().config_copy_duration.time():
+            with PrometheusMonitor().config_copy_duration.labels(device=context.host,entity=self.__class__.__name__,action='copy').time():
                 with ConnectionManager(context=context) as connection:
-                    result = connection.rpc(self.COPY.format(source,destination))
+                    result = connection.rpc(self.COPY.format(source,destination),entity=self.__class__.__name__,action='copy')
                     parsed = etree.fromstring(result._raw.encode())
                     text = parsed.xpath('//*[local-name()="result"]')[0].text
 
@@ -37,5 +37,5 @@ class CopyConfig(NyBase):
                     else :
                         raise exc.DeviceOperationException()
         except BaseException as e:
-            PrometheusMonitor().config_copy_errors.inc()
+            PrometheusMonitor().config_copy_errors.labels(device=context.host,entity=self.__class__.__name__,action='copy').inc()
             raise e

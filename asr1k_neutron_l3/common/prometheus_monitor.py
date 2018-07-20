@@ -34,7 +34,7 @@ LOG = logging.getLogger(__name__)
 ACTION_BUCKETS=  (1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40., 60.0, core._INF)
 OPERATION_BUCKETS=  (0.1,0.3,0.5, 0.7,1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0,core._INF)
 
-DETAIL_LABELS = ['host','device', 'entity']
+DETAIL_LABELS = ['host','device', 'entity','action']
 BASIC_LABELS = ['host']
 STATS_LABELS = ['host','status']
 
@@ -59,20 +59,23 @@ class PrometheusMonitor(object):
         self.namespace = "{}_{}".format(namespace, type)
         self.type = type
         self.host = host
+        self._requeue = Counter('requeue', 'Number of operaton requeues',DETAIL_LABELS,namespace=self.namespace)
         self._ssh_banner_errors = Counter('ssh_banner_errors', 'Number of ssh banner errors',DETAIL_LABELS,namespace=self.namespace)
         self._inconsistency_errors = Counter('inconsistency_errors', 'Number of device inconsistency_errors',DETAIL_LABELS,namespace=self.namespace)
         self._internal_errors = Counter('internal_errors', 'Number of device API internal errors',DETAIL_LABELS,namespace=self.namespace)
         self._config_locks = Counter('config_locks', 'Number of device config_locks',DETAIL_LABELS,namespace=self.namespace,)
         self._nc_ssh_errors = Counter('nc_ssh_errors', 'Number of netconf-yang SSH errors',DETAIL_LABELS,namespace=self.namespace)
 
-        self._detail_operation_duration = Histogram("detail_operation_duration", "Individual entity operation",DETAIL_LABELS,namespace=self.namespace, buckets=OPERATION_BUCKETS)
+        self._yang_operation_duration = Histogram("yang_operation_duration", "Individual entity operation",DETAIL_LABELS,namespace=self.namespace, buckets=OPERATION_BUCKETS)
+        self._ssh_operation_duration = Histogram("ssh_operation_duration", "Individual entity operation",
+                                                DETAIL_LABELS, namespace=self.namespace,buckets=OPERATION_BUCKETS)
 
         if self.type == L3:
-            self._router_create_duration = Histogram("router_create_duration", "Router create duration in seconds",BASIC_LABELS,namespace=self.namespace, buckets=ACTION_BUCKETS)
-            self._router_update_duration = Histogram("router_update_duration","Router update duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
-            self._router_delete_duration = Histogram("router_delete_duration", "Router delete duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
-            self._config_copy_duration = Histogram("config_copy_duration", "Running to starup config copy duration in seconds",BASIC_LABELS, namespace=namespace, buckets=ACTION_BUCKETS)
-            self._config_copy_errors = Counter('config_copy_errors', 'Number of config copy errors',BASIC_LABELS,namespace=self.namespace)
+            self._router_create_duration = Histogram("router_create_duration", "Router create duration in seconds",BASIC_LABELS,namespace=self.namespace,buckets=ACTION_BUCKETS)
+            self._router_update_duration = Histogram("router_update_duration","Router update duration in seconds",BASIC_LABELS, namespace=self.namespace,buckets=ACTION_BUCKETS)
+            self._router_delete_duration = Histogram("router_delete_duration", "Router delete duration in seconds",BASIC_LABELS, namespace=self.namespace,buckets=ACTION_BUCKETS)
+            self._config_copy_duration = Histogram("config_copy_duration", "Running to starup config copy duration in seconds",DETAIL_LABELS, namespace=namespace,buckets=ACTION_BUCKETS)
+            self._config_copy_errors = Counter('config_copy_errors', 'Number of config copy errors',DETAIL_LABELS,namespace=self.namespace)
             self._routers = Gauge('routers', 'Number of managed routers', STATS_LABELS, namespace=self.namespace)
             self._interfaces = Gauge('interfaces', 'Number of managed interfaces', STATS_LABELS, namespace=self.namespace)
             self._gateways = Gauge('gateways', 'Number of managed gateways', STATS_LABELS, namespace=self.namespace)
@@ -80,9 +83,9 @@ class PrometheusMonitor(object):
 
 
         elif self.type == L2:
-            self._port_create_duration = Histogram("port_create_duration", "Port create duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
-            self._port_update_duration = Histogram("port_update_duration","Port update duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
-            self._port_delete_duration = Histogram("port_delete_duration", "Port delete duration in seconds",BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)
+            self._port_create_duration = Histogram("port_create_duration", "Port create duration in seconds",BASIC_LABELS, namespace=self.namespace,buckets=ACTION_BUCKETS)
+            self._port_update_duration = Histogram("port_update_duration","Port update duration in seconds",BASIC_LABELS, namespace=self.namespace,buckets=ACTION_BUCKETS)
+            self._port_delete_duration = Histogram("port_delete_duration", "Port delete duration in seconds",BASIC_LABELS, namespace=self.namespace,buckets=ACTION_BUCKETS)
 
 
     def __init__(self,host=None,namespace=None,type=L3):

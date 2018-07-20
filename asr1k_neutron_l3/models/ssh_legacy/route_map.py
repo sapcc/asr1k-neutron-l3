@@ -27,7 +27,7 @@ class RouteMap(ssh_base.SSHBase):
     def delete(self, context):
         config = [member.format(**{'name':self.base.name}) for member in CLEAR_ROUTE_MAP]
         try:
-            self._edit_running_config(context, config, 'CLEAR_ROUTE_MAP')
+            self._edit_running_config(context, config, action='no_route_map')
         except:
             LOG.warning("Error executing legacy NC call to delete route map {} on {} , this may be because its already deleted, in which case thie can be ignored.".format(self.base.name, context.host))
 

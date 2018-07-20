@@ -84,20 +84,14 @@ class execute_on_pair(object):
         result = kwargs.pop('_result')
         context = kwargs.get('context')
         try:
-            with PrometheusMonitor().detail_operation_duration.labels(device=context.host,entity=args[0].__class__.__name__).time():
+            response = method(*args, **kwargs)
 
-
-                response = method(*args, **kwargs)
-
-                # if we wrap in a wrapped method return the
-                # base result
-                if isinstance(response, self.result_type):
-                    result = response
-                else:
-                    result.append( kwargs.get('context'), response)
-
-
-
+            # if we wrap in a wrapped method return the
+            # base result
+            if isinstance(response, self.result_type):
+                result = response
+            else:
+                result.append( kwargs.get('context'), response)
         except BaseException as e:
             LOG.exception(e)
             result.append(kwargs.get('context'), e)
@@ -168,6 +162,8 @@ class retry_on_failure(object):
             retries = 0
             exception = None
 
+            entity =args[0]
+
             context = kwargs.get('context')
             host = None
             if context is not None:
@@ -179,7 +175,7 @@ class retry_on_failure(object):
             while total_retry < self.max_retry_interval:
                 total_retry +=backoff
                 if retries > 0:
-                    LOG.debug("** [{}] request {} :  Retry method {} on {} retries {} backoff {}s : {}s of {}s elapsed".format(host,uuid, f.__name__,args[0].__class__.__name__ ,retries,backoff,time.time()-start,self.max_retry_interval))
+                    LOG.debug("** [{}] request {} :  Retry method {} on {} retries {} backoff {}s : {}s of {}s elapsed".format(host,uuid, f.__name__,entity.__class__.__name__,retries,backoff,time.time()-start,self.max_retry_interval))
                     backoff  = pow(2,retries)*self.retry_interval
 
                 try:
@@ -194,8 +190,7 @@ class retry_on_failure(object):
                                 "** [{}] request {} :  Method {} on {} succeeded after {} attempts  in {}s".format(host,
                                                                                                                uuid,
                                                                                                                f.__name__,
-                                                                                                               args[
-                                                                                                                   0].__class__.__name__,
+                                                                                                               entity.__class__.__name__,
                                                                                                                retries,
                                                                                                                time.time() - start))
                         return result
@@ -210,27 +205,29 @@ class retry_on_failure(object):
 
                     if isinstance(e,RPCError):
                         operation = f.__name__
-                        entity = args[0]
 
                         if e.tag in  ['data-missing']:
                             return None
                         elif e.message =='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
                             LOG.debug(e.to_dict())
 
-                            PrometheusMonitor().inconsistency_errors.inc()
+                            PrometheusMonitor().inconsistency_errors.labels(device=context.host,entity=entity.__class__.__name__,action=operation).inc()
 
-                            raise exc.InconsistentModelException(host=host,entity = entity,operation = operation)
+                            raise exc.InconsistentModelException(device=context.host,host=host,entity = entity,operation = operation)
                         elif e.message == 'internal error':  # something can't be configured maybe due to transient state e.g. BGP session active these should be requeued
                             LOG.debug(e.to_dict())
 
                             if isinstance(entity,Requeable) and operation in entity.requeable_operations():
+                                PrometheusMonitor().requeue.labels(device=context.host,
+                                                                           entity=entity.__class__.__name__,
+                                                                           action=f.__name__).inc()
                                 raise exc.ReQueueableInternalErrorException(host=host, entity = entity,operation = operation)
                             else:
-                                PrometheusMonitor().internal_errors.inc()
+                                PrometheusMonitor().internal_errors.labels(device=context.host,entity=entity.__class__.__name__,action=f.__name__).inc()
                                 raise exc.InternalErrorException(host=host, entity = entity,operation = operation)
                         elif e.tag in ['in-use']:  # Lock
 
-                            PrometheusMonitor().config_locks.inc()
+                            PrometheusMonitor().config_locks.labels(device=context.host,entity=entity.__class__.__name__,action=f.__name__).inc()
 
                             if total_retry < self.max_retry_interval:
                                 LOG.debug("** [{}] request {} :  retry {} of {} on {} hit config lock , will backoff and retry ".format(host,uuid,retries,f.__name__,args[0].__class__.__name__ ))
@@ -243,7 +240,7 @@ class retry_on_failure(object):
                         else:
                             LOG.debug(e.to_dict())
                     elif isinstance(e,SSHError):
-                        PrometheusMonitor().nc_ssh_errors.inc()
+                        PrometheusMonitor().nc_ssh_errors.labels(device=context.host,entity=entity.__class__.__name__,action=f.__name__).inc()
                         LOG.exception(e)
 
                     else:
@@ -645,7 +642,7 @@ class NyBase(BulkOperations):
 
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
-                result = connection.get(filter=nc_filter)
+                result = connection.get(filter=nc_filter,entity=cls.__name__,action="get")
 
                 json = cls.to_json(result.xml)
 
@@ -676,7 +673,7 @@ class NyBase(BulkOperations):
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
 
-                rpc_result = connection.get(filter=nc_filter)
+                rpc_result = connection.get(filter=nc_filter,entity=cls.__name__,action="get_all")
 
                 json = cls.to_json(rpc_result.xml)
 
@@ -769,7 +766,7 @@ class NyBase(BulkOperations):
     def _create(self,context=None):
         with ConnectionManager(context=context) as connection:
 
-            result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT))
+            result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT),entity=self.__class__.__name__,action="create")
             return result
 
 
@@ -795,7 +792,7 @@ class NyBase(BulkOperations):
                 if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
                     raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
-                result = connection.edit_config(config=self.to_xml(operation=method))
+                result = connection.edit_config(config=self.to_xml(operation=method),entity=self.__class__.__name__,action="update")
                 return result
         # else:
             # print "{} device configuration {} already upto date".format(self.__class__.__name__,context.host)
@@ -812,7 +809,7 @@ class NyBase(BulkOperations):
 
             if self._internal_exists(context) or self.force_delete:
                 json = self.to_delete_dict()
-                result = connection.edit_config(config=self.to_xml(json=json,operation=method))
+                result = connection.edit_config(config=self.to_xml(json=json,operation=method),entity=self.__class__.__name__,action="delete")
                 return result
 
     def _internal_validate(self,should_be_none=False, context=None):

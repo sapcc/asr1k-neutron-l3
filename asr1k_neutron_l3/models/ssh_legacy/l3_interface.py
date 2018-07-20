@@ -28,11 +28,11 @@ class BDIInterface(ssh_base.SSHBase):
 
     def no_shutdown(self, context):
         config = [member.format(**{'id': self.base.id}) for member in NO_SHUTDOWN]
-        self._edit_running_config(context, config, 'NO_SHUTDOWN')
+        self._edit_running_config(context, config, action='no_shut')
 
     def no_policy(self, context):
         config = [member.format(**{'id': self.base.id, 'vrf': self.base.vrf}) for member in NO_POLICY]
-        self._edit_running_config(context, config, 'NO_POLICY')
+        self._edit_running_config(context, config, action='no_policy')
 
 
 NO_SHUTDOWN = ["interface BDI{id}", "no shutdown"]

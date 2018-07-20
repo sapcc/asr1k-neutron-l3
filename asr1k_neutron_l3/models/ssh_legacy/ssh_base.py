@@ -33,11 +33,12 @@ class SSHBase(object):
         self.base = base
 
 
-    def execute(self,context,cmd):
+    def execute(self,context,cmd, action=None):
         # return False
         with ConnectionManager(context=context, legacy=True) as manager:
             try:
-                return manager.run_cli_command(cmd)
+
+                return manager.run_cli_command(cmd,entity=self.__class__.__name__,action=action)
 
             except SSHException as e:
                 self._check_banner_exception(e)
@@ -52,11 +53,11 @@ class SSHBase(object):
 
 
 
-    def _edit_running_config(self, context, config, snippet, accept_failure=False):
+    def _edit_running_config(self, context, config, accept_failure=False,action=None):
 
         with ConnectionManager(context=context,legacy=True) as manager:
             try:
-                result = manager.edit_config(config)
+                result = manager.edit_config(config,entity=self.__class__.__name__,action=action)
 
             except SSHException as e:
                 self._check_banner_exception(e)

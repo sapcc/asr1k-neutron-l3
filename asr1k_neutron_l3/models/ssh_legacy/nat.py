@@ -49,7 +49,7 @@ class StaticNatList(ssh_base.SSHBase):
                         config.append("no arp vrf {} {} {}  ARPA alias".format(nat.vrf, ip, mac))
 
             if bool(config):
-                self._edit_running_config(context, config, 'UPDATE_ARP_LIST')
+                self._edit_running_config(context, config, action='arp_list_update')
                 self._check_result(context,self.base.static_nats, exists=True)
 
     @retry_on_failure()
@@ -63,7 +63,7 @@ class StaticNatList(ssh_base.SSHBase):
                     config.append("no arp vrf {} {} {}  ARPA alias".format(nat.vrf,nat.global_ip, nat.mac_address))
 
             if bool(config):
-                self._edit_running_config(context, config, 'DELETE_ARP_LIST')
+                self._edit_running_config(context, config, action='no_arp_list')
                 self._check_result(context,self.base.static_nats,exists=False)
 
     def get_neutron_nats(self):
@@ -73,7 +73,7 @@ class StaticNatList(ssh_base.SSHBase):
         return result
 
     def _get_existing(self,context):
-        existing = self.execute(context, "show arp vrf {} alias | inc Internet".format(self.base.vrf))
+        existing = self.execute(context, "show arp vrf {} alias | inc Internet".format(self.base.vrf),action='arp_get')
         result = []
         if existing is not None:
             for entry in existing:
@@ -132,17 +132,17 @@ class StaticNat(ssh_base.SSHBase):
         existing = self._get_existing(context)
         if ARP_MATCH.format(self.base.global_ip, self.base.mac_address) in existing:
             config = [member.format(**{'vrf': self.base.vrf,'global_ip':self.base.global_ip,'mac_address':self.base.mac_address}) for member in DELETE_ARP]
-            self._edit_running_config(context, config, 'DELETE_ARP')
+            self._edit_running_config(context, config,action='no_arp')
 
     @retry_on_failure()
     def update(self, context):
         existing = self._get_existing(context)
         if ARP_MATCH.format(self.base.global_ip, self.base.mac_address) not in existing:
             config = [member.format(**{'vrf': self.base.vrf,'global_ip':self.base.global_ip,'mac_address':self.base.mac_address}) for member in UPDATE_ARP]
-            self._edit_running_config(context, config, 'UPDATE_ARP')
+            self._edit_running_config(context, config, action='update_arp')
 
     def _get_existing(self,context):
-        existing = self.execute(context, "show arp vrf {} alias | inc Internet".format(self.base.vrf))
+        existing = self.execute(context, "show arp vrf {} alias | inc Internet".format(self.base.vrf),action='get_arp')
         result = []
         for entry in existing:
             result.append(entry.replace(' ',''))
@@ -153,12 +153,12 @@ class DynamicNat(ssh_base.SSHBase):
     @retry_on_failure()
     def delete_interface(self, context):
         config = [member.format(**{'vrf': self.base.vrf,'bridge_domain':self.base.bridge_domain}) for member in DELETE_DYNAMIC_NAT_INTERFACE_FORCED]
-        return self._edit_running_config(context, config, 'DELETE_DYNAMIC_NAT_INTERFACE_FORCED',accept_failure=True)
+        return self._edit_running_config(context, config, action='no_dymanic_nat',accept_failure=True)
 
     @retry_on_failure()
     def delete_pool(self, context):
         config = [member.format(**{'vrf': self.base.vrf}) for member in DELETE_DYNAMIC_NAT_POOL_FORCED]
-        return self._edit_running_config(context, config, 'DELETE_DYNAMIC_NAT_POOL_FORCED',accept_failure=True)
+        return self._edit_running_config(context, config,action='no_nat_pool',accept_failure=True)
 
 
 
