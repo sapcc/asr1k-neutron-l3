@@ -208,6 +208,12 @@ class retry_on_failure(object):
 
                         if e.tag in  ['data-missing']:
                             return None
+
+                        elif e.message== "resource denied: Sync is in progress":
+                            PrometheusMonitor().rpc_sync_errors.labels(device=context.host,
+                                                                            entity=entity.__class__.__name__,
+                                                                            action=operation).inc()
+                            raise exc.ReQueueableInternalErrorException(host=host, entity=entity, operation=operation)
                         elif e.message =='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
                             LOG.debug(e.to_dict())
 

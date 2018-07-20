@@ -42,4 +42,4 @@ class CopyConfig(NyBase):
 
 
     def to_dict(self):
-        return {}
+        return None
