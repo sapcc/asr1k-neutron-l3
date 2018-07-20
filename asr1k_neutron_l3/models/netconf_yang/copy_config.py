@@ -39,3 +39,7 @@ class CopyConfig(NyBase):
         except BaseException as e:
             PrometheusMonitor().config_copy_errors.labels(device=context.host,entity=self.__class__.__name__,action='copy').inc()
             raise e
+
+
+    def to_dict(self):
+        return {}

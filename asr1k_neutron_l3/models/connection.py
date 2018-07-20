@@ -323,6 +323,8 @@ class NCConnection(object):
                                                                       action=action).time():
                 return self.connection.get(filter=('subtree', filter))
         else :
+            PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
+                                                               action=action).inc()
             raise DeviceUnreachable(host=self.context.host)
 
 
@@ -331,6 +333,8 @@ class NCConnection(object):
             with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host,entity=entity,action=action).time():
                 return self.connection.edit_config(target=target, config=config)
         else :
+            PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
+                                                          action=action).inc()
             raise DeviceUnreachable(host=self.context.host)
 
 
@@ -339,6 +343,8 @@ class NCConnection(object):
             with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,action=action).time():
                 return self.connection.dispatch(to_ele(command))
         else :
+            PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
+                                                          action=action).inc()
             raise DeviceUnreachable(host=self.context.host)
 
 
@@ -488,6 +494,8 @@ class SSHConnection(object):
 
             else :
                 self.close()
+                PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
+                                                              action=action).inc()
                 raise DeviceUnreachable(host=self.context.host)
 
 
