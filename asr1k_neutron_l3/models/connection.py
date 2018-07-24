@@ -207,6 +207,7 @@ class ConnectionPool(object):
             connection = pool.pop(0)
 
         if connection is None:
+            PrometheusMonitor().connection_pool_exhausted.labels(device=context.host,legacy=legacy).inc()
             raise ConnectionPoolExhausted()
 
         connection.lock.acquire()

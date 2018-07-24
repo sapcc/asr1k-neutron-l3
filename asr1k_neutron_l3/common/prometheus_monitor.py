@@ -34,6 +34,7 @@ LOG = logging.getLogger(__name__)
 ACTION_BUCKETS=  (1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40., 60.0, core._INF)
 OPERATION_BUCKETS=  (0.1,0.3,0.5, 0.7,1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0,core._INF)
 
+CONNECTION_POOL_LABELS = ['host','device','legacy']
 DETAIL_LABELS = ['host','device', 'entity','action']
 BASIC_LABELS = ['host']
 STATS_LABELS = ['host','status']
@@ -67,6 +68,7 @@ class PrometheusMonitor(object):
         self._nc_ssh_errors = Counter('nc_ssh_errors', 'Number of netconf-yang SSH errors',DETAIL_LABELS,namespace=self.namespace)
         self._device_unreachable = Counter('device_unreachable', 'Unreachable device', DETAIL_LABELS, namespace=self.namespace)
         self._rpc_sync_errors = Counter('rpc_sync_errors', 'Sync block on RPC request', DETAIL_LABELS, namespace=self.namespace)
+        self._connection_pool_exhausted = Counter('connection_pool_exhausted', 'Connnection pool  exhausted', CONNECTION_POOL_LABELS, namespace=self.namespace)
 
         self._yang_operation_duration = Histogram("yang_operation_duration", "Individual entity operation",DETAIL_LABELS,namespace=self.namespace, buckets=OPERATION_BUCKETS)
         self._ssh_operation_duration = Histogram("ssh_operation_duration", "Individual entity operation",
