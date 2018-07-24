@@ -392,7 +392,7 @@ class NyBase(BulkOperations):
     PARENT = 'parent'
 
     EMPTY_TYPE = {}
-
+    LIST_KEY  =""
 
     @classmethod
     def __parameters__(cls):
