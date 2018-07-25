@@ -422,6 +422,9 @@ class SSHConnection(object):
                 "Failed to connect via SSH due to '{}', connection will be attempted again in subsequent iterations".format(
                     e))
 
+            if str(e).startswith("Error reading SSH protocol banner"):
+                PrometheusMonitor().ssh_banner_errors.inc()
+
             if isinstance(e,SSHException) or isinstance(e,NoValidConnectionsError) or isinstance(e,ChannelException) or isinstance(e,EOFError):
                 LOG.exception(e)
             else:
