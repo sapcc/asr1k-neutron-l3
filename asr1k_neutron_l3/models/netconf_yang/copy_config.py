@@ -32,7 +32,7 @@ class CopyConfig(NyBase):
                     parsed = etree.fromstring(result._raw.encode())
                     text = parsed.xpath('//*[local-name()="result"]')[0].text
 
-                    if re.match(".*\[OK\]$",text) is not None:
+                    if text =='RPC request successful':
                         return text
                     else :
                         raise exc.DeviceOperationException()

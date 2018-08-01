@@ -17,7 +17,7 @@
 from oslo_log import log as logging
 from oslo_config import cfg
 from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.netconf_yang import l3_interface
+from asr1k_neutron_l3.models.netconf_yang import arp as l3_arp
 from asr1k_neutron_l3.models.netconf_yang import nat as l3_nat
 from asr1k_neutron_l3.common import utils,asr1k_constants
 
@@ -87,59 +87,29 @@ class DynamicNAT(BaseNAT):
 
 
 
+class NatList(BaseNAT):
+    yang_model = None
 
-
-
-# def diff(self):
-    #
-    #     nat = self._rest_definition
-    #     return nat.diff()
-    #
-    # def get(self):
-    #     nat = l3_nat.DynamicNat.get(self.id)
-    #
-    #     return nat
-    #
-    # def update(self):
-    #     nat = self._rest_definition
-    #
-    #     # old_nat.delete()
-    #     nat.update()
-    #
-    # def delete(self):
-    #     nat = self._rest_definition
-    #     # old_nat.delete()
-    #     nat.delete()
-
-
-class FloatingIpList(BaseNAT):
 
     def __init__(self, router_id):
         self.router_id = utils.uuid_to_vrf_id(router_id)
-        self.floating_ips = []
+        self.items = []
         self.count = 0
-    @property
-    def _rest_definition(self):
-        rest_static_nats = []
-        for floating_ip in self.floating_ips:
-            rest_static_nats.append(floating_ip._rest_definition)
 
-        return l3_nat.StaticNatList(vrf=self.router_id, static_nats=rest_static_nats)
-
-    def append(self, floating_ip):
-        self.floating_ips.append(floating_ip)
+    def append(self, item):
+        self.items.append(item)
 
 
     def get(self):
-        return l3_nat.StaticNatList.get(self.router_id)
+        if self.yang_model is not None:
+            return self.yang_model.get(self.router_id)
 
     def delete(self):
-        return l3_nat.StaticNatList(vrf=self.router_id).delete()
+        if self.yang_model is not None:
+            return self.yang_model(vrf=self.router_id).delete()
 
     def update(self):
-
-
-        return super(FloatingIpList,self).update()
+        return super(NatList,self).update()
 
 
     def __iter__(self):
@@ -147,34 +117,38 @@ class FloatingIpList(BaseNAT):
 
     def next(self):
         self.count += 1
-        if self.count >= len(self.floating_ips):
+        if self.count >= len(self.items):
             raise StopIteration
 
-        return self.floating_ips[-1]
+        return self.items[-1]
+
+
+class FloatingIpList(NatList):
+
+    yang_model = l3_nat.StaticNatList
+
+    @property
+    def _rest_definition(self):
+        rest_static_nats = []
+        for floating_ip in self.items:
+            rest_static_nats.append(floating_ip._rest_definition)
+
+        return l3_nat.StaticNatList(vrf=self.router_id, static_nats=rest_static_nats)
+
+
+class ArpList(NatList):
+    yang_model = l3_arp.VrfArpList
+
+    @property
+    def _rest_definition(self):
+        rest_arps = []
+        for arp in self.items:
+            rest_arps.append(arp._rest_definition)
+
+        return l3_arp.VrfArpList(vrf=self.router_id, arp_entry=rest_arps)
 
 
 class FloatingIp(BaseNAT):
-
-    # @classmethod
-    # def clean_floating_ips(cls, router):
-    #     result = []
-    #     vrf = router.vrf.name
-    #     fips = router.floating_ips
-    #
-    #     ids = []
-    #     for fip in fips:
-    #         ids.append(fip.id)
-    #
-    #     nat_entries = l3_nat.StaticNat.get_all(filter={l3_nat.NATConstants.VRF: vrf})
-    #
-    #     for nat_entry in nat_entries:
-    #         if not nat_entry.id in ids:
-    #             fip = FloatingIp(vrf,
-    #                              {'fixed_ip_address': nat_entry.local_ip, 'floating_ip_address': nat_entry.global_ip},
-    #                              router.gateway_interface)
-    #             fip.delete()
-    #
-    #     return result
 
     def __init__(self, router_id, floating_ip, gateway_interface, redundancy=None, mapping_id=None):
         super(FloatingIp, self).__init__(router_id, gateway_interface, redundancy, mapping_id)
@@ -196,9 +170,26 @@ class FloatingIp(BaseNAT):
 
     def get(self):
         static_nat =  l3_nat.StaticNat.get(self.local_ip,self.global_ip)
-        # secondary_ip = l3_interface.BDISecondaryIpAddress.get(self.bridge_domain,self.global_ip)
-
-        # return static_nat,secondary_ip
-
         return static_nat
+
+
+class ArpEntry(BaseNAT):
+
+    def __init__(self, router_id, floating_ip, gateway_interface):
+        super(ArpEntry, self).__init__(router_id, gateway_interface)
+
+        self.ip = floating_ip.get("floating_ip_address")
+        self.id = self.ip
+        self.mac_address = None
+        if self.gateway_interface:
+            self.mac_address = self.gateway_interface.mac_address
+
+        self._rest_definition = l3_arp.ArpEntry(vrf=self.router_id, ip=self.ip, hardware_address=self.mac_address)
+
+
+    def get(self):
+        arp_entry =  l3_arp.ArpEntry.get(self.vrf,self.ip)
+
+        return arp_entry
+
 

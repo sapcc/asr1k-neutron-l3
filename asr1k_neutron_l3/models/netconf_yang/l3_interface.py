@@ -166,8 +166,6 @@ class BDIInterface(NyBase):
         max = utils.to_bridge_domain(asr1k_db.MAX_SECOND_DOT1Q)
         min = utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q)
 
-        print "BDI{} in nn {}".format(self.id, min <= int(self.id) <= max)
-
         return min <= int(self.id) <= max
 
 class BDISecondaryIpAddress(NyBase):

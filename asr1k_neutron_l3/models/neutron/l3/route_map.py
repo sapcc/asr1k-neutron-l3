@@ -59,6 +59,6 @@ class PBRRouteMap(base.Base):
         seq = 10
 
         if gateway_interface is not None:
-            sequences.append(route_map.MapSequence(seq_no=seq, operation='permit', access_list='PBR-{}'.format(self.vrf),next_hop=gateway_interface.primary_gateway_ip))
+            sequences.append(route_map.MapSequence(seq_no=seq, operation='permit', access_list='PBR-{}'.format(self.vrf),next_hop=gateway_interface.primary_gateway_ip,force=True))
 
         self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)

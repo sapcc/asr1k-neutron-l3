@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,xml_utils,execute_on_pair,NC_OPERATION
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,xml_utils,execute_on_pair,NC_OPERATION,YANG_TYPE
 from asr1k_neutron_l3.models.ssh_legacy import route_map as nc_route_map
 from asr1k_neutron_l3.common import utils
 
@@ -34,7 +34,9 @@ class RouteMapConstants(object):
     ADDITIVE = 'additive'
     MATCH = "match"
     IP = "ip"
+    FORCE = "force"
     NEXT_HOP = "next-hop"
+    NEXT_HOP_ADDR ="next-hop-addr"
     ADDRESS = "address"
     ASN = "asn-nn"
     PREFIX_LIST = "prefix-list"
@@ -134,7 +136,8 @@ class MapSequence(NyBase):
             {'key': 'seq_no','yang-key':'seq_no','id':True},
             {'key': 'operation'},
             {'key': 'asn','yang-key':'asn-nn','yang-path':'set/extcommunity/rt','type':[str]},
-            {'key': 'next_hop', 'yang-key': 'address', 'yang-path': 'set/ip/next-hop/address'},
+            {'key': 'next_hop', 'yang-key': 'address', 'yang-path': 'set/ip/next-hop/next-hop-addr'},
+            {'key': 'force', 'yang-path': 'set/ip/next-hop/next-hop-addr','default':False,'yang-type':YANG_TYPE.EMPTY},
             {'key': 'prefix_list', 'yang-key':'prefix-list','yang-path':'match/ip/address'},
             {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
         ]
@@ -158,8 +161,9 @@ class MapSequence(NyBase):
 
         if self.next_hop is not None:
             seq[RouteMapConstants.SET] = {
-                RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP:{RouteMapConstants.ADDRESS:self.next_hop}}}
-
+                RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP:{RouteMapConstants.NEXT_HOP_ADDR:{RouteMapConstants.ADDRESS:self.next_hop}}}}
+            if self.force:
+                seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE]=""
         if self.prefix_list is not None:
             seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
                                                                                RouteMapConstants.PREFIX_LIST: self.prefix_list}}}

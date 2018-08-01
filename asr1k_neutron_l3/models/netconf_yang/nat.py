@@ -31,7 +31,10 @@ class NATConstants(object):
     IP = 'ip'
     NAT = 'nat'
     POOL = "pool"
+    POOL_WITH_VRF = 'pool-with-vrf'
+    NAME = "name"
     INTERFACE = "interface"
+    INTERFACE_WITH_VRF = 'interface-with-vrf'
     BDI = "BDI"
     ID = "id"
     START_ADDRESS = "start-address"
@@ -135,43 +138,17 @@ class NatPool(NyBase):
 
 class DynamicNat(NyBase):
 
-    ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:list>
-                              <ios-nat:id>{id}</ios-nat:id>
-                              <ios-nat:vrf>{vrf}</ios-nat:vrf>
-                            </ios-nat:list>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
-    
-                """
+
+
 
     LIST_KEY = NATConstants.SOURCE
     ITEM_KEY = NATConstants.LIST
 
-    @classmethod
-    def __parameters__(cls):
-        return [
-            {"key": "id", "mandatory": True},
-            {'key': 'vrf'},
-            {'key': 'pool'},
-            {'key': 'bridge_domain', 'yang-key': 'BDI', 'yang-path': 'interface'},
-            {'key': 'redundancy'},
-            {'key': 'mapping_id'},
-            {'key': 'overload','default':False,'yang-type':YANG_TYPE.EMPTY}
-        ]
 
 
-    @classmethod
-    def get_primary_filter(cls,**kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'vrf':kwargs.get('vrf')})
+    # @classmethod
+    # def get_primary_filter(cls,**kwargs):
+    #     return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'vrf':kwargs.get('vrf')})
 
     @classmethod
     def remove_wrapper(cls,dict):
@@ -201,31 +178,74 @@ class DynamicNat(NyBase):
         self.mapping_id = utils.uuid_to_mapping_id(self.vrf)
         self.redundancy=None
 
-        self.ncc = nc_nat.DynamicNat(self)
 
     @property
     def neutron_router_id(self):
         if self.vrf is not None:
             return utils.vrf_id_to_uuid(self.vrf)
 
+
+
+
+    @execute_on_pair()
+    def update(self,context=None):
+
+        return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
+
+
+
+class InterfaceDynamicNat(DynamicNat):
+    ID_FILTER = """
+                      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                        <ip>
+                          <ios-nat:nat>
+                            <ios-nat:inside>
+                              <ios-nat:source>
+                                <ios-nat:list>
+                                  <ios-nat:id>{id}</ios-nat:id>
+                                </ios-nat:list>
+                              </ios-nat:source>
+                            </ios-nat:inside>
+                          </ios-nat:nat>
+                        </ip>
+                      </native>
+
+                    """
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {"key": "id", "mandatory": True},
+            {'key': 'interface','yang-key': 'name','yang-path':"interface-with-vrf/interface"},
+            {'key': 'redundancy'},
+            {'key': 'mapping_id'},
+            {'key': 'vrf','yang-key':'name','yang-path': "interface-with-vrf/interface/vrf"},
+            {'key': 'overload','yang-path':"interface-with-vrf/interface/vrf",'default':False,'yang-type':YANG_TYPE.EMPTY}
+        ]
+
+
+    def __init__(self, **kwargs):
+        super(InterfaceDynamicNat, self).__init__(**kwargs)
+        bd = kwargs.get("bridge_domain",None)
+        if bd is not None:
+            self.interface = "BDI{}".format(bd)
+
     def to_dict(self):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
 
-        entry[NATConstants.VRF] = self.vrf
-
-
-        if cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_INTERFACE and self.bridge_domain is not None:
-            entry[NATConstants.INTERFACE] = {NATConstants.BDI:self.bridge_domain}
-        elif cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_POOL:
-            entry[NATConstants.POOL] = self.pool
-
+        entry[NATConstants.INTERFACE_WITH_VRF]   ={}
+        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE] = {}
+        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.NAME] = self.interface
+        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF] = {}
+        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.NAME] = self.vrf
+        if self.overload:
+            entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.OVERLOAD] = ""
 
         if self.redundancy is not None:
             entry[NATConstants.REDUNDANCY] = self.redundancy
             entry[NATConstants.MAPPING_ID] = self.mapping_id
-        if self.overload:
-            entry[NATConstants.OVERLOAD] = ""
+
 
 
 
@@ -239,11 +259,13 @@ class DynamicNat(NyBase):
     def to_delete_dict(self):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
-        entry[NATConstants.VRF] = self.vrf
-        # if self.bridge_domain is not None:
-        #     entry[NATConstants.INTERFACE] = {NATConstants.BDI:self.bridge_domain}
-        # else:
-        #     entry[NATConstants.POOL] = self.pool
+
+        entry[NATConstants.INTERFACE_WITH_VRF]   ={}
+        entry[NATConstants.INTERFACE_WITH_VRF][xml_utils.OPERATION] = "delete"
+        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE] = {}
+        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.NAME] = self.interface
+        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF] = {}
+        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.NAME] = self.vrf
 
         result = OrderedDict()
         result[NATConstants.LIST] = []
@@ -251,33 +273,104 @@ class DynamicNat(NyBase):
 
         return dict(result)
 
-
     @execute_on_pair()
-    def update(self,context=None):
+    def delete(self,context=None):
 
-        return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
+        return super(InterfaceDynamicNat, self)._delete(context=context,method=NC_OPERATION.OVERRIDE)
 
-
-
-class InterfaceDynamicNat(DynamicNat):
-    @execute_on_pair()
-    def delete(self, context=None):
-        device = self._internal_get(context=context)
-        if (device is not None and device.bridge_domain is not None) or self.force_delete:
-            self.ncc.delete_interface(context)
-        # Check again since we likely deleted it via legacy
-        # if self._internal_exists(context) or self.force_delete:
-        #     return super(DynamicNat, self)._delete(context=context,method=NC_OPERATION.REMOVE)
+    # @execute_on_pair()
+    # def delete(self, context=None):
+    #     device = self._internal_get(context=context)
+    #     if (device is not None and device.interface is not None) or self.force_delete:
+    #         self.ncc.delete_interface(context)
+    #     # Check again since we likely deleted it via legacy
+    #     # if self._internal_exists(context) or self.force_delete:
+    #     #     return super(DynamicNat, self)._delete(context=context,method=NC_OPERATION.REMOVE)
 
 
 
 
 class PoolDynamicNat(DynamicNat):
+    ID_FILTER = """
+                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                    <ip>
+                      <ios-nat:nat>
+                        <ios-nat:inside>
+                          <ios-nat:source>
+                            <ios-nat:list>
+                              <ios-nat:id>{id}</ios-nat:id>
+                            </ios-nat:list>
+                          </ios-nat:source>
+                        </ios-nat:inside>
+                      </ios-nat:nat>
+                    </ip>
+                  </native>
+
+                """
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {"key": "id", "mandatory": True},
+            {'key': 'vrf','yang-key': 'name','yang-path':"pool-with-vrf/pool/vrf"},
+            {'key': 'redundancy'},
+            {'key': 'mapping_id'},
+            {'key': 'pool','yang-key': 'name','yang-path': "pool-with-vrf/pool"},
+            {'key': 'overload','yang-path':"pool-with-vrf/pool/vrf",'default':False,'yang-type':YANG_TYPE.EMPTY}
+        ]
+
+    def to_dict(self):
+        entry = OrderedDict()
+        entry[NATConstants.ID] = self.id
+
+        entry[NATConstants.POOL_WITH_VRF]   ={}
+        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL] = {}
+        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.NAME] = self.pool
+        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF] = {}
+        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF][NATConstants.NAME] = self.vrf
+        if self.overload:
+            entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF][NATConstants.OVERLOAD] = ""
+
+        if self.redundancy is not None:
+            entry[NATConstants.REDUNDANCY] = self.redundancy
+            entry[NATConstants.MAPPING_ID] = self.mapping_id
+
+
+
+
+
+        result = OrderedDict()
+        result[NATConstants.LIST] = []
+        result[NATConstants.LIST].append(entry)
+
+        return dict(result)
+
+    def to_delete_dict(self):
+        entry = OrderedDict()
+        entry[NATConstants.ID] = self.id
+
+        entry[NATConstants.POOL_WITH_VRF]   ={}
+        entry[NATConstants.POOL_WITH_VRF][xml_utils.OPERATION] = "delete"
+        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL] = {}
+        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.NAME] = self.pool
+        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF] = {}
+        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF][NATConstants.NAME] = self.vrf
+        result = OrderedDict()
+        result[NATConstants.LIST] = []
+        result[NATConstants.LIST].append(entry)
+
+        return dict(result)
+
     @execute_on_pair()
-    def delete(self, context=None):
-        device = self._internal_get(context=context)
-        if (device is not None and device.pool is not None) or self.force_delete:
-            self.ncc.delete_pool(context)
+    def delete(self,context=None):
+
+        return super(PoolDynamicNat, self)._delete(context=context,method=NC_OPERATION.OVERRIDE)
+
+    # @execute_on_pair()
+    # def delete(self, context=None):
+    #     device = self._internal_get(context=context)
+    #     if (device is not None and device.pool is not None) or self.force_delete:
+    #         self.ncc.delete_pool(context)
 
 
 
@@ -344,7 +437,6 @@ class StaticNatList(NyBase):
 
     def __init__(self, **kwargs):
         super(StaticNatList, self).__init__( **kwargs)
-        self.ncc = nc_nat.StaticNatList(self)
 
     def to_dict(self):
 
@@ -380,7 +472,6 @@ class StaticNatList(NyBase):
 
         self.clean_nat(context)
         result = super(StaticNatList, self)._update(context=context, method=NC_OPERATION.PUT)
-        self.ncc.update(context)
         return result
 
 
@@ -388,7 +479,6 @@ class StaticNatList(NyBase):
     def delete(self,context=None):
         self.clean_nat(context)
         result = super(StaticNatList, self)._delete(context=context)
-        self.ncc.delete(context)
         return result
 
 
@@ -546,7 +636,6 @@ class StaticNat(NyBase):
         self.bridge_domain = kwargs.get("bridge_domain")
         self.mac_address = kwargs.get("mac_address")
 
-        self.ncc = nc_nat.StaticNat(self)
 
     @property
     def neutron_router_id(self):
@@ -601,7 +690,6 @@ class StaticNat(NyBase):
         self._check_and_clean_mapping_id(context=context)
         self._check_and_clean_local_ip(context=context)
         result = super(StaticNat, self)._update(context=context)
-        self.ncc.update(context)
         return result
 
     def _check_and_clean_mapping_id(self,context):
@@ -633,6 +721,6 @@ class StaticNat(NyBase):
     @execute_on_pair()
     def delete(self, context=None):
         result = super(StaticNat, self)._delete(context=context)
-        self.ncc.delete(context)
+
 
         return result

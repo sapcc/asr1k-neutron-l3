@@ -28,6 +28,7 @@ class BGPConstants(object):
     ADDRESS_FAMILY = "address-family"
     IPV4 = "ipv4"
     IPV6 = "ipv6"
+    IPV4_UNICAST = "ipv4-unicast"
     WITH_VRF = "with-vrf"
     AF_NAME = "af-name"
     NAME = "name"
@@ -66,8 +67,8 @@ class AddressFamily(NyBase):
         return [
             {'key': 'asn','id':True,'yang-key':'id'},
             {'key': 'vrf','yang-key':'name'},
-            {'key': 'connected', 'yang-path':'redistribute','default':False,'yang-type':YANG_TYPE.EMPTY},
-            {'key': 'static', 'yang-path': 'redistribute', 'default': False, 'yang-type': YANG_TYPE.EMPTY}
+            {'key': 'connected', 'yang-path':'ipv4-unicast/redistribute','default':False,'yang-type':YANG_TYPE.EMPTY},
+            {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute', 'default': False, 'yang-type': YANG_TYPE.EMPTY}
 
 
         ]
@@ -128,11 +129,12 @@ class AddressFamily(NyBase):
         if self.vrf is not None:
             vrf = OrderedDict()
             vrf[BGPConstants.NAME] = self.vrf
-            vrf[BGPConstants.REDISTRIBUTE] = {}
+            vrf[BGPConstants.IPV4_UNICAST] = {}
+            vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE] = {}
             if self.connected :
-                vrf[BGPConstants.REDISTRIBUTE][BGPConstants.CONNECTED] =''
+                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.CONNECTED] =''
             if self.static:
-                vrf[BGPConstants.REDISTRIBUTE][BGPConstants.STATIC] =''
+                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.STATIC] =''
 
 
             result[BGPConstants.VRF] = vrf

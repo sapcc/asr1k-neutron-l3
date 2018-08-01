@@ -51,6 +51,7 @@ class NC_OPERATION(object):
     CREATE = 'create'
     PUT = 'replace'
     PATCH = 'merge'
+    OVERRIDE="override"
 
 class YANG_TYPE(object):
     EMPTY = 'empty'
@@ -502,8 +503,6 @@ class NyBase(BulkOperations):
         else:
             other_json = self.EMPTY_TYPE
 
-
-
         return self.__json_diff(self_json,other_json)
 
 
@@ -515,12 +514,6 @@ class NyBase(BulkOperations):
                 ignore.append(param.get('key',param.get('yang-key')))
 
         diff =  self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=ignore))
-
-        # if self.__class__.__name__ == 'StaticNatList':
-        #     print "***** Neutron {}".format(self_json)
-        #     print "***** Device {}".format(other_json)
-
-
 
         return diff
 
@@ -553,6 +546,7 @@ class NyBase(BulkOperations):
             if not bool(json):
                 return None
             params = {}
+
             for param in cls.__parameters__():
                 if param.get('deserialise',True):
 
@@ -609,8 +603,6 @@ class NyBase(BulkOperations):
 
                         if isinstance(value, dict) and value =={}:
                             value = True
-
-
 
                         params[key] = value
         except Exception as e:
@@ -711,13 +703,16 @@ class NyBase(BulkOperations):
 
     @classmethod
     def __ensure_primary_keys(cls,item,**kwargs):
+
         # Add missing primary keys from get
         params = cls.__parameters_as_dict()
 
         for key in kwargs.keys():
 
             param = params.get(key, {})
+
             if key != 'context' and param.get('primary_key', False):
+
                 setattr(item, key, kwargs.get(key))
 
 
@@ -735,10 +730,12 @@ class NyBase(BulkOperations):
 
     @classmethod
     def _exists(cls, **kwargs):
+
+
         try:
             result = cls._get(**kwargs)
         except Exception as e:
-            # raise e
+            LOG.exception(e)
             result = None
 
         if result is not None:
@@ -749,6 +746,8 @@ class NyBase(BulkOperations):
     def _internal_exists(self,context=None):
         kwargs = self.__dict__
         kwargs['context'] = context
+
+
         return self.__class__._exists(**kwargs)
 
     def _internal_get(self,context=None):
@@ -810,11 +809,11 @@ class NyBase(BulkOperations):
 
     @retry_on_failure()
     def _delete(self,context=None,method=NC_OPERATION.DELETE):
-
         with ConnectionManager(context=context) as connection:
 
             if self._internal_exists(context) or self.force_delete:
                 json = self.to_delete_dict()
+
                 result = connection.edit_config(config=self.to_xml(json=json,operation=method),entity=self.__class__.__name__,action="delete")
                 return result
 
