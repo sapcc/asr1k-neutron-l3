@@ -8,7 +8,7 @@ from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
 from asr1k_neutron_l3.models.netconf_yang.route_map import RouteMap
 from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
 from asr1k_neutron_l3.models.netconf_yang.access_list import AccessList
-from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat,DynamicNat,NatPool
+from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat,DynamicNat,NatPool,InterfaceDynamicNat,PoolDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.arp import ArpEntry
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface
@@ -32,8 +32,7 @@ class OrphanEncoder(json.JSONEncoder):
 
 class DeviceCleanerMixin(object):
 
-    #L3_ENTITIES = [RouteMap,Prefix,AccessList,StaticNat,ArpEntry, DynamicNat,NatPool, VrfRoute,BDIInterface, VrfDefinition]
-    L3_ENTITIES = [RouteMap, Prefix, AccessList, StaticNat, DynamicNat, NatPool, VrfRoute, BDIInterface,
+    L3_ENTITIES = [RouteMap, Prefix, AccessList, StaticNat,ArpEntry,PoolDynamicNat,InterfaceDynamicNat, NatPool, VrfRoute, BDIInterface,
                    VrfDefinition]
     L2_ENTITIES = [LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface]
 

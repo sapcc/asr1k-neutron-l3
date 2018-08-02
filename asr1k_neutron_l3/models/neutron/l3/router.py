@@ -312,7 +312,7 @@ class Router(Base):
 
         results.append(self.floating_ips.update())
 
-        #results.append(self.arp_entries.update())
+        results.append(self.arp_entries.update())
 
 
 
@@ -338,7 +338,7 @@ class Router(Base):
 
 
         results.append(self.floating_ips.delete())
-       #results.append(self.arp_entries.delete())
+        results.append(self.arp_entries.delete())
 
         results.append(self.routes.delete())
         for key in self.dynamic_nat.keys():
@@ -408,9 +408,9 @@ class Router(Base):
         if not floating_ips_diff.valid:
             diff_results['static_nat'] = floating_ips_diff.to_dict()
 
-        #arp_entries_diff = self.arp_entries.diff()
-        #if not arp_entries_diff.valid:
-        #    diff_results['arp_entries'] = arp_entries_diff.to_dict()
+        arp_entries_diff = self.arp_entries.diff()
+        if not arp_entries_diff.valid:
+            diff_results['arp_entries'] = arp_entries_diff.to_dict()
 
         for interface in self.interfaces.internal_interfaces:
             interface_diff = interface.diff()

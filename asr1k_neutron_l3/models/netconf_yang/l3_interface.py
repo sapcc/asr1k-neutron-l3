@@ -142,24 +142,12 @@ class BDIInterface(NyBase):
     @execute_on_pair()
     def update(self,context=None):
         result = super(BDIInterface, self)._update(context=context)
-        if result is not None: # We had a diff and need to run the legacy update
-            self.ncc.update(context)
+        if result is not None: # We had a diff and need may need to  PUT to unshut
+            print "***************** Second BDI Put"
 
+            result = super(BDIInterface, self)._update(context=context,method=NC_OPERATION.PUT)
         return result
 
-    @execute_on_pair()
-    def create(self,context=None):
-        result = super(BDIInterface, self)._create(context=context)
-        self.ncc.update(context)
-        return result
-
-    @execute_on_pair()
-    def delete(self,context=None):
-        self.ncc.delete(context)
-
-        result = super(BDIInterface, self)._delete(context=context)
-
-        return result
 
     @property
     def in_neutron_namespace(self):

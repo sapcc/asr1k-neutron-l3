@@ -86,38 +86,19 @@ class VrfArpList(NyBase):
         return {ARPConstants.VRF:arp_list}
 
 
-    def clean_arp(self,context=None):
-        arp_list = self._internal_get(context)
-        neutron_ids = []
-        neutron_ips = {}
-
-        for arp in self.arp_entry:
-            neutron_ids.append(arp.ip)
-            neutron_ips[arp.ip] = arp.hardware_address
-        if arp_list is not None:
-            for arp_entry in arp_list.arp_entry:
-                arp_entry.vrf = self.vrf
-                if not arp_entry.ip in neutron_ids:
-                    LOG.debug('Removing unknown arp {} > {} from vrf {}'.format(arp_entry.ip,arp_entry.hardware_address, self.vrf))
-                    arp_entry.delete()
-                hardware_address = neutron_ips.get(arp_entry.ip)
-                if hardware_address is not None and hardware_address != arp_entry.hardware_address:
-                    LOG.debug('Removing invalid arp {} > {} from vrf {}'.format(arp_entry.ip,arp_entry.hardware_address, self.vrf))
-                    arp_entry.delete()
     @execute_on_pair()
     def update(self,context=None):
-        self.clean_arp(context)
         if len(self.arp_entry) > 0 :
-            result = super(VrfArpList, self)._update(context=context, method=NC_OPERATION.PUT)
-            return result
+            return super(VrfArpList, self)._update(context=context, method=NC_OPERATION.PUT)
+
+        else:
+            return self._delete(context=context)
 
 
     @execute_on_pair()
     def delete(self,context=None):
-        self.clean_arp(context)
-        #result = super(VrfArpList, self)._delete(context=context)
 
-        #return result
+        return  super(VrfArpList, self)._delete(context=context)
 
 
 

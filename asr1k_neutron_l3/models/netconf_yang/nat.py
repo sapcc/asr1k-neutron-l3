@@ -223,6 +223,21 @@ class InterfaceDynamicNat(DynamicNat):
             {'key': 'overload','yang-path':"interface-with-vrf/interface/vrf",'default':False,'yang-type':YANG_TYPE.EMPTY}
         ]
 
+    @classmethod
+    def _exists(cls, **kwargs):
+
+
+        try:
+            result = cls._get(**kwargs)
+        except Exception as e:
+            LOG.exception(e)
+            result = None
+
+        if result is not None and result.interface is not None:
+            return True
+
+        return False
+
 
     def __init__(self, **kwargs):
         super(InterfaceDynamicNat, self).__init__(**kwargs)
@@ -256,27 +271,27 @@ class InterfaceDynamicNat(DynamicNat):
 
         return dict(result)
 
-    def to_delete_dict(self):
-        entry = OrderedDict()
-        entry[NATConstants.ID] = self.id
-
-        entry[NATConstants.INTERFACE_WITH_VRF]   ={}
-        entry[NATConstants.INTERFACE_WITH_VRF][xml_utils.OPERATION] = "delete"
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE] = {}
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.NAME] = self.interface
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF] = {}
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.NAME] = self.vrf
-
-        result = OrderedDict()
-        result[NATConstants.LIST] = []
-        result[NATConstants.LIST].append(entry)
-
-        return dict(result)
-
-    @execute_on_pair()
-    def delete(self,context=None):
-
-        return super(InterfaceDynamicNat, self)._delete(context=context,method=NC_OPERATION.OVERRIDE)
+    # def to_delete_dict(self):
+    #     entry = OrderedDict()
+    #     entry[NATConstants.ID] = self.id
+    #
+    #     entry[NATConstants.INTERFACE_WITH_VRF]   ={}
+    #     entry[NATConstants.INTERFACE_WITH_VRF][xml_utils.OPERATION] = "delete"
+    #     entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE] = {}
+    #     entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.NAME] = self.interface
+    #     entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF] = {}
+    #     entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.NAME] = self.vrf
+    #
+    #     result = OrderedDict()
+    #     result[NATConstants.LIST] = []
+    #     result[NATConstants.LIST].append(entry)
+    #
+    #     return dict(result)
+    #
+    # @execute_on_pair()
+    # def delete(self,context=None):
+    #
+    #     return super(InterfaceDynamicNat, self)._delete(context=context,method=NC_OPERATION.OVERRIDE)
 
     # @execute_on_pair()
     # def delete(self, context=None):
@@ -319,6 +334,23 @@ class PoolDynamicNat(DynamicNat):
             {'key': 'overload','yang-path':"pool-with-vrf/pool/vrf",'default':False,'yang-type':YANG_TYPE.EMPTY}
         ]
 
+
+    @classmethod
+    def _exists(cls, **kwargs):
+
+
+        try:
+            result = cls._get(**kwargs)
+        except Exception as e:
+            LOG.exception(e)
+            result = None
+
+        if result is not None and result.pool is not None:
+            return True
+
+        return False
+
+
     def to_dict(self):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
@@ -345,26 +377,29 @@ class PoolDynamicNat(DynamicNat):
 
         return dict(result)
 
-    def to_delete_dict(self):
-        entry = OrderedDict()
-        entry[NATConstants.ID] = self.id
 
-        entry[NATConstants.POOL_WITH_VRF]   ={}
-        entry[NATConstants.POOL_WITH_VRF][xml_utils.OPERATION] = "delete"
-        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL] = {}
-        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.NAME] = self.pool
-        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF] = {}
-        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF][NATConstants.NAME] = self.vrf
-        result = OrderedDict()
-        result[NATConstants.LIST] = []
-        result[NATConstants.LIST].append(entry)
 
-        return dict(result)
 
-    @execute_on_pair()
-    def delete(self,context=None):
-
-        return super(PoolDynamicNat, self)._delete(context=context,method=NC_OPERATION.OVERRIDE)
+    # def to_delete_dict(self):
+    #     entry = OrderedDict()
+    #     entry[NATConstants.ID] = self.id
+    #
+    #     entry[NATConstants.POOL_WITH_VRF]   ={}
+    #     entry[NATConstants.POOL_WITH_VRF][xml_utils.OPERATION] = "delete"
+    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL] = {}
+    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.NAME] = self.pool
+    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF] = {}
+    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF][NATConstants.NAME] = self.vrf
+    #     result = OrderedDict()
+    #     result[NATConstants.LIST] = []
+    #     result[NATConstants.LIST].append(entry)
+    #
+    #     return dict(result)
+    #
+    # @execute_on_pair()
+    # def delete(self,context=None):
+    #
+    #     return super(PoolDynamicNat, self)._delete(context=context,method=NC_OPERATION.OVERRIDE)
 
     # @execute_on_pair()
     # def delete(self, context=None):

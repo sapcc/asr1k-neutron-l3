@@ -542,6 +542,7 @@ class NyBase(BulkOperations):
 
     @classmethod
     def from_json(cls, json,parent=None):
+
         try:
             if not bool(json):
                 return None
@@ -785,11 +786,6 @@ class NyBase(BulkOperations):
         if len(self._internal_validate(context=context)) > 0 :
 
             self.preflight(context)
-
-            # print "{} device configuration {} invalid or missing updating".format(self.__class__.__name__,context.host)
-            # if not self._internal_exists(context):
-            #     return self._create(context=context)
-            # else:
 
             with ConnectionManager(context=context) as connection:
 

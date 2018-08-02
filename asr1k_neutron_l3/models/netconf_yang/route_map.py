@@ -64,7 +64,6 @@ class RouteMap(NyBase):
 
     def __init__(self,**kwargs):
         super(RouteMap, self).__init__(**kwargs)
-        self.ncc = nc_route_map.RouteMap(self)
         self.force_delete = False
 
     @property
@@ -111,17 +110,7 @@ class RouteMap(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def delete(self,context=None,method=NC_OPERATION.DELETE):
-        if super(RouteMap, self)._internal_exists(context) or self.force_delete:
-            self.ncc.delete(context)
-            # result = super(RouteMap, self)._delete(context=context,method=method)
-            # print result
-
-
-
-    @execute_on_pair()
     def update(self,context=None):
-
         return super(RouteMap, self)._update(context=context,method=NC_OPERATION.PUT)
 
 
