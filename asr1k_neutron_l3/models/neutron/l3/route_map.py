@@ -26,6 +26,13 @@ class RouteMap(base.Base):
         self.vrf = utils.uuid_to_vrf_id(name)
         self.name = "exp-{}".format(self.vrf)
         self.rt = rt
+        self.secondary_rt = None
+        if rt is not None:
+            components  = rt.split(":")
+            if len(components) == 2:
+                self.secondary_rt = components[0]+":"+str(int(components[1])+1000)
+
+
         self.routeable_interface  = routeable_interface
 
         self.enable_bgp = False
@@ -37,6 +44,11 @@ class RouteMap(base.Base):
         if self.routeable_interface:
             sequences.append(route_map.MapSequence(seq_no=seq, operation='permit', prefix_list='snat-{}'.format(self.vrf), asn=[self.rt,'additive'],enable_bgp=self.enable_bgp))
             seq += 10
+            if self.secondary_rt:
+                sequences.append(route_map.MapSequence(seq_no=seq, operation='permit', prefix_list='route-{}'.format(self.vrf),
+                                                       asn=[self.secondary_rt, 'additive'], enable_bgp=self.enable_bgp))
+                seq += 10
+
         sequences.append(route_map.MapSequence(seq_no=seq, operation='deny', prefix_list='exp-{}'.format(self.vrf)))
 
         self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)

@@ -229,6 +229,8 @@ class Router(Base):
 
         result.append(prefix.SnatPrefix(router_id=self.router_id,gateway_interface=self.gateway_interface,internal_interfaces=no_snat_interfaces))
 
+        result.append(prefix.RoutePrefix(router_id=self.router_id, gateway_interface=self.gateway_interface, internal_interfaces=no_snat_interfaces))
+
         return result
 
     def _primary_route(self):
@@ -267,8 +269,9 @@ class Router(Base):
 
         for prefix_list in self.prefix_lists:
             results.append(prefix_list.update())
-            results.append(self.route_map.update())
-            results.append(self.vrf.update())
+
+        results.append(self.route_map.update())
+        results.append(self.vrf.update())
 
         if self.gateway_interface is not None:
             results.append(self.pbr_route_map.update())
@@ -331,6 +334,7 @@ class Router(Base):
         if len(self.prefix_lists) ==0:
             results.append(prefix.SnatPrefix(router_id=self.router_id).delete())
             results.append(prefix.ExtPrefix(router_id=self.router_id).delete())
+            results.append(prefix.RoutePrefix(router_id=self.router_id).delete())
 
         results.append(self.route_map.delete())
 

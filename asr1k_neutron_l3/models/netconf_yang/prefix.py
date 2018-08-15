@@ -29,6 +29,8 @@ class PrefixConstants(object):
     NUMBER = 'no'
     DENY = 'deny'
     PERMIT = 'permit'
+    GE = 'ge'
+    LE = 'le'
 
 
 class Prefix(NyBase):
@@ -127,8 +129,11 @@ class PrefixSeq(NyBase):
 
             {'key': 'no', 'id':True},
             {'key': 'deny_ip','yang-key':'ip','yang-path':'deny'},
-            {'key': 'permit_ip','yang-key':'ip','yang-path':'permit'}
-
+            {'key': 'deny_ge', 'yang-key': 'ge', 'yang-path': 'deny'},
+            {'key': 'deny_le', 'yang-key': 'le', 'yang-path': 'deny'},
+            {'key': 'permit_ip','yang-key':'ip','yang-path':'permit'},
+            {'key': 'permit_ge', 'yang-key': 'ge', 'yang-path': 'permit'},
+            {'key': 'permit_le', 'yang-key': 'le', 'yang-path': 'permit'}
         ]
 
 
@@ -148,8 +153,17 @@ class PrefixSeq(NyBase):
         seq[PrefixConstants.NUMBER] = self.no
         if self.deny_ip is not None:
             seq[PrefixConstants.DENY] = {PrefixConstants.IP:self.deny_ip}
+            if self.deny_ge is not None:
+                seq[PrefixConstants.DENY][PrefixConstants.GE] = self.deny_ge
+            if self.deny_le is not None:
+                seq[PrefixConstants.DENY][PrefixConstants.LE] = self.deny_le
+
         if self.permit_ip is not None:
             seq[PrefixConstants.PERMIT] = {PrefixConstants.IP: self.permit_ip}
+            if self.permit_ge is not None:
+                seq[PrefixConstants.PERMIT][PrefixConstants.GE] = self.permit_ge
+            if self.permit_le is not None:
+                seq[PrefixConstants.PERMIT][PrefixConstants.LE] = self.permit_le
 
 
 

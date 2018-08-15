@@ -64,3 +64,17 @@ class SnatPrefix(BasePrefix):
                 self.has_prefixes = True
                 self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
                 i += 1
+
+class RoutePrefix(BasePrefix):
+    def __init__(self, router_id=None,gateway_interface=None, internal_interfaces=None):
+        super(RoutePrefix,self).__init__(router_id=router_id,gateway_interface=gateway_interface, internal_interfaces=internal_interfaces)
+        self.name = 'route-{}'.format(self.vrf)
+
+        self._rest_definition = prefix.Prefix(name=self.name)
+        i=0
+        for interface in self.internal_interfaces:
+            i += 1
+            for subnet in interface.subnets:
+                self.has_prefixes = True
+                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr'),permit_ge=25))
+                i += 1
