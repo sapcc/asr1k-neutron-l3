@@ -365,6 +365,12 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
             self._periodic_scavenge_task)
             self.scavenge_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
 
+        if cfg.CONF.asr1k.clean_orphans:
+            LOG.info("Orphan clean is active, starting cleaning loop")
+            self.orphan_loop = loopingcall.FixedIntervalLoopingCall(
+            self. clean_device,dry_run=False)
+            self.orphan_loop.start(interval=cfg.CONF.asr1k.clean_orphan_interval)
+
         eventlet.spawn_n(self._process_routers_loop)
 
         LOG.info(_LI("L3 agent started"))

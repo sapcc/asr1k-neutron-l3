@@ -14,7 +14,10 @@ from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface
 
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
+from oslo_log import log as logging
 
+
+LOG = logging.getLogger(__name__)
 
 class OrphanEncoder(json.JSONEncoder):
 
@@ -42,6 +45,8 @@ class DeviceCleanerMixin(object):
         result["l3"]= self.clean_l3(dry_run=dry_run)
         result["l2"] = self.clean_l2(dry_run=dry_run)
 
+        LOG.info("Orphan deletion results {}".format(result))
+
         return result
 
 
@@ -63,8 +68,6 @@ class DeviceCleanerMixin(object):
                 items = entity.get_all_from_device_config(device_config)
 
                 for item in items:
-                    print " {} {} {} ".format(entity,item.id,item.neutron_router_id)
-
 
                     if item.neutron_router_id  and item.neutron_router_id not in all_router_ids:
 
@@ -87,6 +90,7 @@ class DeviceCleanerMixin(object):
         else:
             for context, items in orphans.iteritems():
                 for item in items:
+                    LOG.debug("Cleaning {}".format(item))
                     item._delete(context=context)
                 result[context.host] = json.dumps(items,cls=OrphanEncoder)
 
@@ -129,6 +133,7 @@ class DeviceCleanerMixin(object):
                 items = orphans.get(context)
                 if bool(items):
                     for item in items:
+                        LOG.debug("Cleaning {}".format(item))
                         item.delete(context=context)
                     result[context.host] = json.dumps(items,cls=OrphanEncoder)
 

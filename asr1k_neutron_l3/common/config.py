@@ -46,6 +46,10 @@ ASR1K_OPTS = [
     cfg.IntOpt('connection_max_age', default=(3600), help=('')),
     cfg.StrOpt('wsma_adapter', default=('asr1k_neutron_l3.models.wsma_adapters.SshWsmaAdapter'), help=('')),
     cfg.ListOpt('preflights', default=(''), help=('')),
+    cfg.BoolOpt('clean_orphans', default=True, help=_("Activate regular orphan cleanup")),
+
+    cfg.IntOpt('clean_orphan_interval', default=(120), help=_("Interval for regular orphan cleanup")),
+
 ]
 
 ASR1K_L3_OPTS = [
