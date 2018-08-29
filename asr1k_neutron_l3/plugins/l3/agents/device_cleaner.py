@@ -91,7 +91,10 @@ class DeviceCleanerMixin(object):
             for context, items in orphans.iteritems():
                 for item in items:
                     LOG.debug("Cleaning {}".format(item))
-                    item._delete(context=context)
+                    try:
+                        item._delete(context=context)
+                    except BaseException as e:
+                        LOG.exception(e)
                 result[context.host] = json.dumps(items,cls=OrphanEncoder)
 
         return result
@@ -134,7 +137,11 @@ class DeviceCleanerMixin(object):
                 if bool(items):
                     for item in items:
                         LOG.debug("Cleaning {}".format(item))
-                        item.delete(context=context)
+                        try:
+                            item.delete(context=context)
+                        except BaseException as e:
+                            LOG.exception(e)
+
                     result[context.host] = json.dumps(items,cls=OrphanEncoder)
 
         return result
