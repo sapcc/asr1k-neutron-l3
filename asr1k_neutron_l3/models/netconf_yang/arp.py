@@ -76,6 +76,9 @@ class VrfArpList(NyBase):
 
 
     def to_dict(self):
+        if len(self.arp_entry) == 0:
+            return self.EMPTY_TYPE
+
         arp_list = OrderedDict()
         arp_list[ARPConstants.VRF_NAME]=self.vrf
         arp_list[ARPConstants.ARP_ENTRY]= []
