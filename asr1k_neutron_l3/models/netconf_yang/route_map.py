@@ -68,7 +68,7 @@ class RouteMap(NyBase):
 
     @property
     def neutron_router_id(self):
-        if self.name is not None and (self.name.startswith('ext-') or self.name.startswith('pbr-')):
+        if self.name is not None and (self.name.startswith('exp-') or self.name.startswith('pbr-')):
             return utils.vrf_id_to_uuid(self.name[4:])
 
 

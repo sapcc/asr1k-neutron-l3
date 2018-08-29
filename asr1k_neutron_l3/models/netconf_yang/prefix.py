@@ -82,7 +82,8 @@ class Prefix(NyBase):
             return utils.vrf_id_to_uuid(self.name[4:])
         elif self.name is not None and self.name.startswith('snat-'):
             return utils.vrf_id_to_uuid(self.name[5:])
-
+        elif self.name is not None and self.name.startswith('route-'):
+            return utils.vrf_id_to_uuid(self.name[6:])
 
 
     def add_seq(self, seq):

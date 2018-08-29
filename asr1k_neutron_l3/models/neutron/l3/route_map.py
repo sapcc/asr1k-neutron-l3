@@ -49,7 +49,7 @@ class RouteMap(base.Base):
                                                        asn=[self.secondary_rt, 'additive'], enable_bgp=self.enable_bgp))
                 seq += 10
 
-        sequences.append(route_map.MapSequence(seq_no=seq, operation='deny', prefix_list='exp-{}'.format(self.vrf)))
+        sequences.append(route_map.MapSequence(seq_no=seq, operation='deny', prefix_list='ext-{}'.format(self.vrf)))
 
         self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)
 
