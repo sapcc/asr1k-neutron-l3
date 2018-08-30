@@ -102,7 +102,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
 
 
-    def get_ports_with_extra_atts(self, context, ports):
+    def get_ports_with_extra_atts(self, context, ports,host):
 
         with context.session.begin(subtransactions=True):
             query = context.session.query(models_v2.Port.id,
@@ -114,6 +114,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                           asr1k_models.ASR1KExtraAttsModel.deleted_l3
                                           ).filter(
                 sa.cast(models_v2.Port.id, sa.Text()).in_(ports)
+            ).filter(asr1k_models.ASR1KExtraAttsModel.agent_host==host
             ).join(asr1k_models.ASR1KExtraAttsModel,
                    and_(asr1k_models.ASR1KExtraAttsModel.port_id == models_v2.Port.id))
             result = []
@@ -239,7 +240,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
 
 
-    def get_interface_ports(self, context, limit=1, offset=1):
+    def get_interface_ports(self, context, limit=1, offset=1,host=None):
 
         with context.session.begin(subtransactions=True):
             query = context.session.query(models_v2.Port.id,
@@ -250,7 +251,9 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                                           asr1k_models.ASR1KExtraAttsModel.deleted_l2,
                                           asr1k_models.ASR1KExtraAttsModel.deleted_l3
                                           ).filter(
-                models_v2.Port.device_owner.like("network:router%")
+                models_v2.Port.device_owner.like("network:router%")).filter(
+                    asr1k_models.ASR1KExtraAttsModel.agent_host==host
+
             ).join(asr1k_models.ASR1KExtraAttsModel,
                    and_(asr1k_models.ASR1KExtraAttsModel.port_id == models_v2.Port.id)).limit(limit).offset(offset)
             result = []
@@ -311,14 +314,16 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 #Assuming only two levels for now
                 return ml2_db.get_segment_by_id(context.session,binding_levels[1].segment_id)
 
-    def get_extra_atts(self, context, ports):
+    def get_extra_atts(self, context, ports,host):
 
         extra_atts = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
-            sa.cast(asr1k_models.ASR1KExtraAttsModel.port_id, sa.Text()).in_(ports)).all()
+            sa.cast(asr1k_models.ASR1KExtraAttsModel.port_id, sa.Text()).in_(ports)
+            ).filter(asr1k_models.ASR1KExtraAttsModel.agent_host==host
+            ).all()
 
         for att in extra_atts:
 
-            ports_on_segment = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel.segment_id==att.segment_id).all()
+            ports_on_segment = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel.segment_id==att.segment_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host==host).all()
 
             if len(ports_on_segment) > 1:
                 att.set_external_deleteable(False)

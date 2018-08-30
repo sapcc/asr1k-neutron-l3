@@ -105,8 +105,6 @@ class DeviceCleanerMixin(object):
 
         all_extra_atts = self.plugin_rpc.get_all_extra_atts(self.context)
 
-        all_router_ids = all_extra_atts.keys()
-
         orphans  = {}
 
         for context in ASR1KPair().contexts:

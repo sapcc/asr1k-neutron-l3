@@ -20,6 +20,8 @@ from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.ssh_legacy import l3_interface as nc_l3_interface
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.plugins.db import asr1k_db
+from oslo_log import log as logging
+LOG = logging.getLogger(__name__)
 
 class L3Constants(object):
     INTERFACE = "interface"
@@ -140,13 +142,13 @@ class BDIInterface(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self,context=None):
+    def update(self,context=None,method=NC_OPERATION.PATCH):
         result = super(BDIInterface, self)._update(context=context)
         if result is not None: # We had a diff and need may need to  PUT to unshut
-            print "***************** Second BDI Put"
-
             result = super(BDIInterface, self)._update(context=context,method=NC_OPERATION.PUT)
         return result
+
+
 
 
     @property
@@ -155,6 +157,15 @@ class BDIInterface(NyBase):
         min = utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q)
 
         return min <= int(self.id) <= max
+
+
+    def postflight(self, context):
+        LOG.debug("Running postflight for BDI {}".format(self.name))
+        device = self._internal_get(context=context)
+        if device is not None:
+            device.route_map = None
+            device._update(context=context,method=NC_OPERATION.PUT)
+
 
 class BDISecondaryIpAddress(NyBase):
     ITEM_KEY = L3Constants.SECONDARY
@@ -223,7 +234,6 @@ class BDISecondaryIpAddress(NyBase):
     @execute_on_pair(return_raw=True)
     def exists(cls, bridge_domain,id, context=None):
         return super(BDISecondaryIpAddress, cls)._exists(id=id, bridge_domain=bridge_domain, context=context)
-
 
 
     def __init__(self, **kwargs):

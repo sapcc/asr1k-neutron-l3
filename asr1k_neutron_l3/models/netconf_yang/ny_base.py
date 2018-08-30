@@ -216,7 +216,7 @@ class retry_on_failure(object):
                                                                             action=operation).inc()
                             raise exc.ReQueueableInternalErrorException(host=host, entity=entity, operation=operation)
                         elif e.message =='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
-                            LOG.debug(e.to_dict())
+                            LOG.debug("{} {} {}".format(entity.__class__.__name__,operation,e.to_dict()))
 
                             PrometheusMonitor().inconsistency_errors.labels(device=context.host,entity=entity.__class__.__name__,action=operation).inc()
 
@@ -795,16 +795,19 @@ class NyBase(BulkOperations):
 
                 result = connection.edit_config(config=self.to_xml(operation=method),entity=self.__class__.__name__,action="update")
                 return result
-        # else:
-            # print "{} device configuration {} already upto date".format(self.__class__.__name__,context.host)
 
     @execute_on_pair()
     def delete(self, context=None,method=NC_OPERATION.DELETE):
+
+
         return self._delete(context=context,method=method)
 
 
     @retry_on_failure()
     def _delete(self,context=None,method=NC_OPERATION.DELETE):
+
+        self.postflight(context)
+
         with ConnectionManager(context=context) as connection:
 
             if self._internal_exists(context) or self.force_delete:
@@ -854,4 +857,5 @@ class NyBase(BulkOperations):
     def preflight(self, context):
         pass
 
-
+    def postflight(self, context):
+        pass

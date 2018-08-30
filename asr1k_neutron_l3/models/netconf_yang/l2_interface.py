@@ -110,6 +110,9 @@ class ServiceInstance(NyBase):
             for pc in json:
                 if pc.get("name") == cls.PORT_CHANNEL:
                     service = pc.get(L2Constants.SERVICE, pc)
+                    if not isinstance(service.get(L2Constants.SERVICE_INSTANCE,None),list):
+                        if service.get(L2Constants.SERVICE_INSTANCE,None) is not None:
+                            service[L2Constants.SERVICE_INSTANCE]=[service.get(L2Constants.SERVICE_INSTANCE)]
                     result.append(service)
 
             json = result
@@ -196,7 +199,7 @@ class ExternalInterface(ServiceInstance):
     PORT_CHANNEL="1"
 
     def __init__(self, **kwargs):
-        #self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.external_interface
+
         kwargs['bridge_domain'] = kwargs.get('id')
         kwargs['dot1q'] = kwargs.get('id')
         super(ExternalInterface, self).__init__(**kwargs)
@@ -205,7 +208,7 @@ class LoopbackExternalInterface(ServiceInstance):
     PORT_CHANNEL="2"
 
     def __init__(self, **kwargs):
-        #self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_external_interface
+
         kwargs['bridge_domain'] = kwargs.get('dot1q')
         kwargs['dot1q'] = kwargs.get('dot1q')
         super(LoopbackExternalInterface, self).__init__(**kwargs)
@@ -214,5 +217,5 @@ class LoopbackExternalInterface(ServiceInstance):
 class LoopbackInternalInterface(ServiceInstance):
     PORT_CHANNEL="3"
     def __init__(self, **kwargs):
-        #self.__class__.PORT_CHANNEL = cfg.CONF.asr1k_l2.loopback_internal_interface
+
         super(LoopbackInternalInterface, self).__init__(**kwargs)

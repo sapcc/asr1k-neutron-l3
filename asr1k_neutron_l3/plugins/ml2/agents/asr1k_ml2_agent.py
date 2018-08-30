@@ -291,13 +291,13 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         if self.sync_active:
 
-            interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)
+            interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset,host=self.conf.host)
 
             LOG.debug("Syncing {} ports ".format(len(interface_ports)))
 
             if len(interface_ports)==0:
                 self.sync_offset = 0
-                interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset)
+                interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset,host=self.conf.host)
             else:
                 self.sync_offset = self.sync_offset+self.sync_chunk_size
 
