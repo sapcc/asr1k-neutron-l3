@@ -266,11 +266,12 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
     @log_helpers.log_method_call
     def create_router(self, context, router):
-        result = super(ASR1KPluginBase, self).create_router(context, router)
+        with context.session.begin(subtransactions=True):
+            result = super(ASR1KPluginBase, self).create_router(context, router)
 
-        asr1k_db.RouterAttsDb.ensure(context,result.get('id'))
+            asr1k_db.RouterAttsDb.ensure(context,result.get('id'))
 
-        return result
+            return result
 
 
     def validate(self, context, id, fields=None):

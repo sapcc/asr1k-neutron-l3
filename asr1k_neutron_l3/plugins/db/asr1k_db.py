@@ -38,7 +38,7 @@ from sqlalchemy import func
 
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
 from asr1k_neutron_l3.common import asr1k_constants as constants
-
+from asr1k_neutron_l3.common import asr1k_exceptions
 
 MIN_DOT1Q = 100
 MAX_DOT1Q = 4096
@@ -547,18 +547,23 @@ class RouterAttsDb(object):
         return entry is not None
 
     def _set_next_entries(self):
-        router_atts = self.session.query(asr1k_models.ASR1KRouterAttsModel).all()
+        router_att = self.session.query(asr1k_models.ASR1KRouterAttsModel).order_by(asr1k_models.ASR1KRouterAttsModel.rd.desc()).first()
 
-        rds = []
+        if router_att.rd <= MAX_RD:
+            self.rd = router_att.rd + 1
+        else:
+            rds = []
+            router_atts = self.session.query(asr1k_models.ASR1KRouterAttsModel).all()
+            for router_att in router_atts:
+                rds.append(router_att.rd)
 
-        for router_att in router_atts:
-            rds.append(router_att.rd)
+            for x in range(MIN_RD, MAX_RD):
+                if x not in rds:
+                    self.rd = x;
+                    break
 
-        for x in range(MIN_RD, MAX_RD):
-            if x not in rds:
-                self.rd = x;
-                break
-
+        if self.rd is None:
+            raise asr1k_exceptions.RdPoolExhausted()
 
     def _ensure(self):
 

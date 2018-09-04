@@ -14,8 +14,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from neutron.common import exceptions as nexception
+
 class Asr1kException(BaseException):
     pass
+
+
+
+class RdPoolExhausted(nexception.NotFound):
+    message = "No free RD could be allocated to the router. Please raise an issue with support."
+
 
 
 class DeviceUnreachable(BaseException):
