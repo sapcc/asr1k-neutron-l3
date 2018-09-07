@@ -150,6 +150,11 @@ class BDIInterface(NyBase):
             result = super(BDIInterface, self)._update(context=context,method=NC_OPERATION.PUT)
         return result
 
+    @execute_on_pair()
+    def delete(self,context=None):
+            # To work around removal of interface NAT we clear everything off the BDI and let the
+            # cleaner tidy up
+            return super(BDIInterface, self)._update(context=context,json=self.to_delete_dict(),method=NC_OPERATION.PUT)
 
 
 
@@ -167,6 +172,7 @@ class BDIInterface(NyBase):
         if device is not None:
             device.route_map = None
             device._update(context=context,method=NC_OPERATION.PUT)
+
 
 
 class BDISecondaryIpAddress(NyBase):

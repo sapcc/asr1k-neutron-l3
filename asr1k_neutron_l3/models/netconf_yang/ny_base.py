@@ -791,18 +791,19 @@ class NyBase(BulkOperations):
 
 
     @retry_on_failure()
-    def _update(self, context=None,method=NC_OPERATION.PATCH):
+    def _update(self, context=None,method=NC_OPERATION.PATCH,json=None):
         if len(self._internal_validate(context=context)) > 0 :
 
             self.preflight(context)
 
             with ConnectionManager(context=context) as connection:
-
+                if json is None:
+                    json = self.to_dict()
 
                 if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
                     raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
-                result = connection.edit_config(config=self.to_xml(operation=method),entity=self.__class__.__name__,action="update")
+                result = connection.edit_config(config=self.to_xml(operation=method,json=json),entity=self.__class__.__name__,action="update")
                 return result
 
     @execute_on_pair()
