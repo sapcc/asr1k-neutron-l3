@@ -95,6 +95,11 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
             return_dict[router_id][extra_att.get('port_id')] = extra_att
         return return_dict
 
+    @log_helpers.log_method_call
+    def get_all_router_ids(self, context, host=None):
+        db = asr1k_db.DBPlugin()
+        return db.get_all_router_ids(context, host=host)
+
     def ensure_snat_mode(self,context, port_id=None,mode=None):
         db = asr1k_db.DBPlugin()
         return db.ensure_snat_mode(context,port_id,mode)

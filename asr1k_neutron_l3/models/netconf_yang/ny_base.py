@@ -199,8 +199,17 @@ class retry_on_failure(object):
                     if context is not None:
                         context.alive = False
                     break
-
-                except (RPCError , SessionCloseError,SSHError,TimeoutExpiredError) as e:
+                except exc.EntityNotEmptyException as e:
+                    if total_retry < self.max_retry_interval:
+                        LOG.debug("** [{}] request {} :  retry {} of {} on {} entity has child config , will backoff and retry ".format(host,uuid,retries,f.__name__,args[0].__class__.__name__ ))
+                        pass  # retry on lock
+                    else:
+                        LOG.debug(
+                            "** [{}] request {} :  retry {} of {} on {}entity has child config , retry limit reached, failing ".format(host, uuid, retries, f.__name__, args[0].__class__.__name__))
+                    time.sleep(backoff)
+                    retries += 1
+                    exception = e
+                except (RPCError , SessionCloseError,SSHError,TimeoutExpiredError,) as e:
 
 
 

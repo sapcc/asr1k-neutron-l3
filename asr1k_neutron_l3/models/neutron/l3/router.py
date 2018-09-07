@@ -13,7 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import os
 from oslo_log import log as logging
 from oslo_utils import timeutils
 from oslo_config import cfg
@@ -34,18 +34,6 @@ LOG = logging.getLogger(__name__)
 
 
 class Router(Base):
-
-    @classmethod
-    def purge(cls, router_id):
-
-        # floating ips
-        # static nat
-        # routes
-        # bdi
-        # ACL
-        # VRF
-        neutron_vrf = vrf.Vrf(router_id)
-        neutron_vrf.purge()
 
     def __init__(self, router_info):
         super(Router, self).__init__()
@@ -285,18 +273,8 @@ class Router(Base):
         else:
             results.append(self.bgp_address_family.delete())
 
-        for interface in self.interfaces.all_interfaces:
-            results.append(interface.update())
-
-        if self.nat_acl:
-            results.append(self.nat_acl.update())
-
-        if self.pbr_acl:
-            results.append(self.pbr_acl.update())
-        # Working assumption is that any NAT mode migration is completed
 
         # We don't remove NAT statement or pool if enabling/disabling snat - instead update ACL
-
         if self.gateway_interface is not None:
             if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
                 results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].delete())
@@ -311,6 +289,18 @@ class Router(Base):
             results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].delete())
             results.append(self.nat_pool.delete())
 
+        for interface in self.interfaces.all_interfaces:
+            results.append(interface.update())
+
+        if self.nat_acl:
+            results.append(self.nat_acl.update())
+
+        if self.pbr_acl:
+            results.append(self.pbr_acl.update())
+        # Working assumption is that any NAT mode migration is completed
+
+
+
         results.append(self.routes.update())
 
         results.append(self.floating_ips.update())
@@ -322,11 +312,12 @@ class Router(Base):
 
         return results
 
+    def _ping(self):
+        return os.system("ping -c 1 10.44.30.206")
 
     def _delete(self):
         results = []
         # order is important here.
-
 
         for prefix_list in self.prefix_lists:
             results.append(prefix_list.delete())
@@ -338,27 +329,24 @@ class Router(Base):
 
         results.append(self.route_map.delete())
 
-
-
-
         results.append(self.floating_ips.delete())
+
         results.append(self.arp_entries.delete())
 
         results.append(self.routes.delete())
-        for key in self.dynamic_nat.keys():
-            results.append(self.dynamic_nat.get(key).delete())
-        if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
-            results.append(self.nat_pool.delete())
 
+        # for interface in self.interfaces.all_interfaces:
+        #     results.append(interface.delete())
 
-        for interface in self.interfaces.all_interfaces:
-            results.append(interface.delete())
+        # for key in self.dynamic_nat.keys():
+        #     results.append(self.dynamic_nat.get(key).delete())
+        # if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
+        #     results.append(self.nat_pool.delete())
 
         results.append(self.pbr_route_map.delete())
 
         results.append(self.nat_acl.delete())
         results.append(self.pbr_acl.delete())
-
 
         results.append(self.bgp_address_family.delete())
 

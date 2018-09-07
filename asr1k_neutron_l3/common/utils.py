@@ -158,4 +158,7 @@ def get_address_scope_config(plugin_rpc,context):
 
 
 def to_bridge_domain(second_dot1q):
-    return 4096 + int(second_dot1q)
+    if second_dot1q is not None:
+        return 4096 + int(second_dot1q)
+    else:
+        LOG.error('Have been asked to convert a null second dot1q tag to a bridge domain, router att for port is missing : probable cause is a port binding failing. ')

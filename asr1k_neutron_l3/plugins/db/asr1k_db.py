@@ -15,30 +15,30 @@
 #    under the License.
 
 import sqlalchemy as sa
-from neutron.db import address_scope_db
-from neutron.db import api as db_api
-from neutron.db import db_base_plugin_v2
-from neutron.db import external_net_db
-from neutron.db import models_v2
-from neutron.db import portbindings_db
-from neutron.db import l3_db
-from neutron.db import l3_agentschedulers_db
-from neutron.plugins.ml2 import models as ml2_models
-from neutron.plugins.ml2 import db as ml2_db
-from neutron.extensions.l3 import RouterNotFound
-from neutron.extensions import portbindings
-from neutron import context as n_context
-from neutron.common import  constants as n_constants
-
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 from oslo_utils import timeutils
 from sqlalchemy import and_
 from sqlalchemy import func
 
-from asr1k_neutron_l3.plugins.db import models as asr1k_models
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import asr1k_exceptions
+from asr1k_neutron_l3.plugins.db import models as asr1k_models
+from neutron import context as n_context
+from neutron.common import constants as n_constants
+from neutron.db import address_scope_db
+from neutron.db import agents_db
+from neutron.db import api as db_api
+from neutron.db import db_base_plugin_v2
+from neutron.db import external_net_db
+from neutron.db import l3_agentschedulers_db
+from neutron.db import l3_db
+from neutron.db import models_v2
+from neutron.db import portbindings_db
+from neutron.extensions import portbindings
+from neutron.extensions.l3 import RouterNotFound
+from neutron.plugins.ml2 import db as ml2_db
+from neutron.plugins.ml2 import models as ml2_models
 
 MIN_DOT1Q = 100
 MAX_DOT1Q = 4096
@@ -48,7 +48,6 @@ MAX_SECOND_DOT1Q = MAX_DOT1Q
 
 MIN_RD = 1
 MAX_RD = 65535
-
 
 LOG = log.getLogger(__name__)
 
@@ -60,116 +59,110 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                l3_db.L3_NAT_dbonly_mixin,
                l3_agentschedulers_db.L3AgentSchedulerDbMixin,
 
-
                ):
 
     def __init__(self):
-        super(DBPlugin,self).__init__()
+        super(DBPlugin, self).__init__()
 
-    def ensure_snat_mode(self,context,port_id,mode):
+    def ensure_snat_mode(self, context, port_id, mode):
         if port_id is None:
             LOG.warning("Asked to ensure SNAT mode for port==None, can't do anything.")
             return
-        port = self.get_port(context,port_id)
+        port = self.get_port(context, port_id)
 
         LOG.debug(port)
 
-        fixed_ips = port.get('fixed_ips',[])
+        fixed_ips = port.get('fixed_ips', [])
         update = False
         if mode == constants.SNAT_MODE_POOL and len(fixed_ips) == 1:
             gw_ip = fixed_ips[0]
-            fixed_ips.append({'subnet_id':gw_ip.get('subnet_id')})
+            fixed_ips.append({'subnet_id': gw_ip.get('subnet_id')})
             update = True
         elif mode == constants.SNAT_MODE_INTERFACE and len(fixed_ips) == 2:
             update = True
             fixed_ips.pop()
 
         if update:
-            self.update_port(context,port_id,{'port':port})
+            self.update_port(context, port_id, {'port': port})
 
-
-
-    def update_router_status(self, context, router_id,status):
+    def update_router_status(self, context, router_id, status):
         try:
-            self.get_router(context,router_id)
+            self.get_router(context, router_id)
+
+            router = {'router': {'status': status}}
+            self.update_router(context, router_id, router)
+
         except RouterNotFound:
-            LOG.info("Update to status to {} for router {} failed, router not found.".format(status,router_id))
+            LOG.info("Update to status to {} for router {} failed, router not found.".format(status, router_id))
             return
 
-        with context.session.begin(subtransactions=True):
-            router = {'router': {'status':status}}
-            self.update_router(context,router_id,router)
 
 
+    def get_ports_with_extra_atts(self, context, ports, host):
+        query = context.session.query(models_v2.Port.id,
+                                      models_v2.Port.network_id,
+                                      asr1k_models.ASR1KExtraAttsModel.router_id,
+                                      asr1k_models.ASR1KExtraAttsModel.second_dot1q,
+                                      asr1k_models.ASR1KExtraAttsModel.segmentation_id,
+                                      asr1k_models.ASR1KExtraAttsModel.deleted_l2,
+                                      asr1k_models.ASR1KExtraAttsModel.deleted_l3
+                                      ).filter(
+            sa.cast(models_v2.Port.id, sa.Text()).in_(ports)
+        ).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host
+                 ).join(asr1k_models.ASR1KExtraAttsModel,
+                        and_(asr1k_models.ASR1KExtraAttsModel.port_id == models_v2.Port.id))
+        result = []
 
-    def get_ports_with_extra_atts(self, context, ports,host):
+        for row in query.all():
+            result.append({'id': row.id,
+                           'port_id': row.id,
+                           'network_id': row.network_id,
+                           'router_id': row.router_id,
+                           'segmentation_id': row.segmentation_id,
+                           'second_dot1q': int(row.second_dot1q),
+                           'deleted_l2': int(row.deleted_l2),
+                           'deleted_l3': int(row.deleted_l3)
+                           })
 
-        with context.session.begin(subtransactions=True):
-            query = context.session.query(models_v2.Port.id,
-                                          models_v2.Port.network_id,
-                                          asr1k_models.ASR1KExtraAttsModel.router_id,
-                                          asr1k_models.ASR1KExtraAttsModel.second_dot1q,
-                                          asr1k_models.ASR1KExtraAttsModel.segmentation_id,
-                                          asr1k_models.ASR1KExtraAttsModel.deleted_l2,
-                                          asr1k_models.ASR1KExtraAttsModel.deleted_l3
-                                          ).filter(
-                sa.cast(models_v2.Port.id, sa.Text()).in_(ports)
-            ).filter(asr1k_models.ASR1KExtraAttsModel.agent_host==host
-            ).join(asr1k_models.ASR1KExtraAttsModel,
-                   and_(asr1k_models.ASR1KExtraAttsModel.port_id == models_v2.Port.id))
-            result = []
+        return result
 
-            for row in query.all():
-                result.append({'id': row.id,
-                               'port_id': row.id,
-                               'network_id': row.network_id,
-                               'router_id': row.router_id,
-                               'segmentation_id': row.segmentation_id,
-                               'second_dot1q': int(row.second_dot1q),
-                               'deleted_l2': int(row.deleted_l2),
-                               'deleted_l3': int(row.deleted_l3)
-                               })
-
-            return result
-
-
-
-
-    def get_all_extra_atts(self, context,host):
-
+    def get_all_extra_atts(self, context, host):
         if host is None:
             return context.session.query(asr1k_models.ASR1KExtraAttsModel).all()
         else:
-            return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel.agent_host==host).all()
+            return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
+                asr1k_models.ASR1KExtraAttsModel.agent_host == host).all()
 
     def get_extra_atts_for_routers(self, context, routers):
         if routers is None:
             return []
 
         return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
-            sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers)).all()
+                sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers)).all()
 
     def get_extra_atts_for_ports(self, context, ports):
         if ports is None:
             return []
-
         return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
             sa.cast(asr1k_models.ASR1KExtraAttsModel.port_id, sa.Text()).in_(ports)).all()
 
     def _get_router_ports_on_networks(self, context):
-        query = context.session.query(models_v2.Port.network_id, func.count(models_v2.Port.id).label('port_count')).filter(models_v2.Port.device_owner.like("network:router%")).group_by(models_v2.Port.network_id)
+        query = context.session.query(models_v2.Port.network_id,
+                                      func.count(models_v2.Port.id).label('port_count')).filter(
+            models_v2.Port.device_owner.like("network:router%")).group_by(models_v2.Port.network_id)
         result = {}
         for row in query.all():
             result[row.network_id] = row.port_count
 
         return result
 
-    def get_orphaned_extra_atts_router_ids(self,context,host):
-
+    def get_orphaned_extra_atts_router_ids(self, context, host):
         subquery = context.session.query(l3_db.Router.id)
 
-        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
-        result=[]
+        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter(
+            asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(
+            asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
+        result = []
         for row in query.all():
             result.append(row.router_id)
 
@@ -188,12 +181,13 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return result
 
-    def get_orphaned_extra_atts_port_ids(self,context,host):
-
+    def get_orphaned_extra_atts_port_ids(self, context, host):
         subquery = context.session.query(models_v2.Port.id)
 
-        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.port_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(asr1k_models.ASR1KExtraAttsModel.port_id.notin_(subquery))
-        result=[]
+        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.port_id).filter(
+            asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(
+            asr1k_models.ASR1KExtraAttsModel.port_id.notin_(subquery))
+        result = []
         for row in query.all():
             result.append(row.port_id)
 
@@ -202,10 +196,10 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return result
 
+    def get_orphaned_extra_atts(self, context, host):
 
-    def get_orphaned_extra_atts(self,context,host):
-        routers = self.get_orphaned_extra_atts_router_ids(context,host)
-        router_extra_atts = self.get_extra_atts_for_routers(context,routers)
+        routers = self.get_orphaned_extra_atts_router_ids(context, host)
+        router_extra_atts = self.get_extra_atts_for_routers(context, routers)
 
         ports = self.get_orphaned_extra_atts_port_ids(context, host)
 
@@ -213,83 +207,61 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return router_extra_atts + list(set(port_extra_atts) - set(router_extra_atts))
 
-
-    def get_orphaned_router_atts_router_ids(self,context,host):
-
+    def get_orphaned_router_atts_router_ids(self, context, host):
         subquery = context.session.query(l3_db.Router.id)
 
-        #TODO filter
-        query = context.session.query(asr1k_models.ASR1KRouterAttsModel.router_id).filter(asr1k_models.ASR1KRouterAttsModel.router_id.notin_(subquery)).filter(asr1k_models.ASR1KRouterAttsModel.deleted_at.is_(None))
-        result=[]
+        # TODO filter
+        query = context.session.query(asr1k_models.ASR1KRouterAttsModel.router_id).filter(
+            asr1k_models.ASR1KRouterAttsModel.router_id.notin_(subquery)).filter(
+            asr1k_models.ASR1KRouterAttsModel.deleted_at.is_(None))
+        result = []
         for row in query.all():
             result.append(row.router_id)
-
-
 
         if not bool(result):
             result = None
 
         return result
 
-    def get_orphaned_router_atts(self,context,host):
-        routers = self.get_orphaned_router_atts_router_ids(context,host)
-        router_atts = self.get_router_atts_for_routers(context,routers)
-
+    def get_orphaned_router_atts(self, context, host):
+        routers = self.get_orphaned_router_atts_router_ids(context, host)
+        router_atts = self.get_router_atts_for_routers(context, routers)
 
         return router_atts
 
+    def get_interface_ports(self, context, limit=1, offset=1, host=None):
+        query = context.session.query(models_v2.Port.id,
+                                      models_v2.Port.network_id,
+                                      asr1k_models.ASR1KExtraAttsModel.router_id,
+                                      asr1k_models.ASR1KExtraAttsModel.second_dot1q,
+                                      asr1k_models.ASR1KExtraAttsModel.segmentation_id,
+                                      asr1k_models.ASR1KExtraAttsModel.deleted_l2,
+                                      asr1k_models.ASR1KExtraAttsModel.deleted_l3
+                                      ).filter(
+            models_v2.Port.device_owner.like("network:router%")).filter(
+            asr1k_models.ASR1KExtraAttsModel.agent_host == host
 
+        ).join(asr1k_models.ASR1KExtraAttsModel,
+               and_(asr1k_models.ASR1KExtraAttsModel.port_id == models_v2.Port.id)).limit(limit).offset(offset)
+        result = []
 
-    def get_interface_ports(self, context, limit=1, offset=1,host=None):
-
-        with context.session.begin(subtransactions=True):
-            query = context.session.query(models_v2.Port.id,
-                                          models_v2.Port.network_id,
-                                          asr1k_models.ASR1KExtraAttsModel.router_id,
-                                          asr1k_models.ASR1KExtraAttsModel.second_dot1q,
-                                          asr1k_models.ASR1KExtraAttsModel.segmentation_id,
-                                          asr1k_models.ASR1KExtraAttsModel.deleted_l2,
-                                          asr1k_models.ASR1KExtraAttsModel.deleted_l3
-                                          ).filter(
-                models_v2.Port.device_owner.like("network:router%")).filter(
-                    asr1k_models.ASR1KExtraAttsModel.agent_host==host
-
-            ).join(asr1k_models.ASR1KExtraAttsModel,
-                   and_(asr1k_models.ASR1KExtraAttsModel.port_id == models_v2.Port.id)).limit(limit).offset(offset)
-            result = []
-
-            for row in query.all():
-                result.append({'id': row.id,
-                               'port_id': row.id,
-                               'network_id': row.network_id,
-                               'router_id': row.router_id,
-                               'segmentation_id': row.segmentation_id,
-                               'second_dot1q': int(row.second_dot1q),
-                               'deleted_l2': int(row.deleted_l2),
-                               'deleted_l3': int(row.deleted_l3)
-                               })
-
-            return result
-
-    def get_router_ports(self,  context, id):
-        with context.session.begin(subtransactions=True):
-            query = context.session.query(models_v2.Port).join(ml2_models.PortBinding,ml2_models.PortBinding.port_id==models_v2.Port.id)
-            ports = query.filter(models_v2.Port.device_id == id)
-
-        result= []
-        for port in ports:
-            port_dict = self._make_port_dict(port)
-            port_dict[portbindings.HOST_ID]=port.port_binding.host
-
-            result.append(port_dict)
+        for row in query.all():
+            result.append({'id': row.id,
+                           'port_id': row.id,
+                           'network_id': row.network_id,
+                           'router_id': row.router_id,
+                           'segmentation_id': row.segmentation_id,
+                           'second_dot1q': int(row.second_dot1q),
+                           'deleted_l2': int(row.deleted_l2),
+                           'deleted_l3': int(row.deleted_l3)
+                           })
 
         return result
 
-    def get_ports_for_router_ids(self, context, ids):
-        with context.session.begin(subtransactions=True):
-            query = context.session.query(models_v2.Port).join(ml2_models.PortBinding,
-                                                               ml2_models.PortBinding.port_id == models_v2.Port.id)
-            ports = query.filter(sa.cast(models_v2.Port.device_id, sa.Text()).in_(ids))
+    def get_router_ports(self, context, id):
+        query = context.session.query(models_v2.Port).join(ml2_models.PortBinding,
+                                                           ml2_models.PortBinding.port_id == models_v2.Port.id)
+        ports = query.filter(models_v2.Port.device_id == id)
 
         result = []
         for port in ports:
@@ -300,30 +272,41 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return result
 
+    def get_ports_for_router_ids(self, context, ids):
+        query = context.session.query(models_v2.Port).join(ml2_models.PortBinding,
+                                                           ml2_models.PortBinding.port_id == models_v2.Port.id)
+        ports = query.filter(sa.cast(models_v2.Port.device_id, sa.Text()).in_(ids))
 
+        result = []
+        for port in ports:
+            port_dict = self._make_port_dict(port)
+            port_dict[portbindings.HOST_ID] = port.port_binding.host
 
+            result.append(port_dict)
 
+        return result
 
-    def get_router_segment_for_port(self,context,router_id,port_id):
+    def get_router_segment_for_port(self, context, router_id, port_id):
 
         agents = self.get_l3_agents_hosting_routers(context, [router_id], admin_state_up=True)
-        if len(agents)>0:
+        if len(agents) > 0:
             host = agents[0].host
-            binding_levels = ml2_db.get_binding_levels(context.session,port_id,host)
-            if len(binding_levels) >1:
-                #Assuming only two levels for now
-                return ml2_db.get_segment_by_id(context.session,binding_levels[1].segment_id)
+            binding_levels = ml2_db.get_binding_levels(context.session, port_id, host)
+            if len(binding_levels) > 1:
+                # Assuming only two levels for now
+                return ml2_db.get_segment_by_id(context.session, binding_levels[1].segment_id)
 
-    def get_extra_atts(self, context, ports,host):
-
+    def get_extra_atts(self, context, ports, host):
         extra_atts = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
             sa.cast(asr1k_models.ASR1KExtraAttsModel.port_id, sa.Text()).in_(ports)
-            ).filter(asr1k_models.ASR1KExtraAttsModel.agent_host==host
-            ).all()
+        ).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host
+                 ).all()
 
         for att in extra_atts:
 
-            ports_on_segment = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel.segment_id==att.segment_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host==host).all()
+            ports_on_segment = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
+                asr1k_models.ASR1KExtraAttsModel.segment_id == att.segment_id).filter(
+                asr1k_models.ASR1KExtraAttsModel.agent_host == host).all()
 
             if len(ports_on_segment) > 1:
                 att.set_external_deleteable(False)
@@ -333,13 +316,34 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return extra_atts
 
     def get_extra_att(self, context, port):
-        return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
-            asr1k_models.ASR1KExtraAttsModel.port_id == port).first()
+        with context.session.begin(subtransactions=True):
+            return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
+                asr1k_models.ASR1KExtraAttsModel.port_id == port).first()
+
+    def get_all_router_ids(self, context, host):
+        if host is None:
+            result =  context.session.query(l3_db.Router.id).all()
+        else:
+            routers = context.session.query(l3_db.Router.id).join(
+                l3_agentschedulers_db.RouterL3AgentBinding,
+                l3_db.Router.id == l3_agentschedulers_db.RouterL3AgentBinding.router_id)\
+                .join(agents_db.Agent, l3_agentschedulers_db.RouterL3AgentBinding.l3_agent_id == agents_db.Agent.id).filter(
+                agents_db.Agent.host == host).all()
+            result=[]
+            for entry in routers:
+                result +=  entry
+
+
+
+        if result is  None :
+            result = []
+
+        return result
 
     def get_router_atts_for_routers(self, context, routers):
+
         if routers is None:
             return []
-
         return context.session.query(asr1k_models.ASR1KRouterAttsModel).filter(
             sa.cast(asr1k_models.ASR1KRouterAttsModel.router_id, sa.Text()).in_(routers)).all()
 
@@ -350,7 +354,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_deleted_router_atts(self, context):
         return context.session.query(asr1k_models.ASR1KRouterAttsModel).filter(
             asr1k_models.ASR1KRouterAttsModel.deleted_at.isnot(None)).all()
-
 
     @log_helpers.log_method_call
     def delete_extra_att(self, context, port_id, l2=None, l3=None):
@@ -367,7 +370,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             with context.session.begin(subtransactions=True):
                 if delete:
 
-                        context.session.delete(extra_att)
+                    context.session.delete(extra_att)
                 else:
                     updates = {}
                     if l2: updates['deleted_l2'] = l2
@@ -383,20 +386,21 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 if router_att.deleted_at is not None:
                     context.session.delete(router_att)
                 else:
-                    router_att.update({'deleted_at':timeutils.utcnow()})
+                    router_att.update({'deleted_at': timeutils.utcnow()})
                     router_att.save(context.session)
 
-    def get_device_info(self, context,host):
-        result={}
+    def get_device_info(self, context, host):
+        result = {}
 
-        infos = context.session.query(asr1k_models.ASR1KDeviceInfoModel).filter(asr1k_models.ASR1KDeviceInfoModel.host==host).all()
+        infos = context.session.query(asr1k_models.ASR1KDeviceInfoModel).filter(
+            asr1k_models.ASR1KDeviceInfoModel.host == host).all()
         for info in infos:
             result[info.id] = info
         return result;
 
-    def get_usage_stats(self,context,host):
+    def get_usage_stats(self, context, host):
 
-        agent = self._get_agent_by_type_and_host(context,constants.AGENT_TYPE_ASR1K_L3,host)
+        agent = self._get_agent_by_type_and_host(context, constants.AGENT_TYPE_ASR1K_L3, host)
 
         active_router_ids = []
         error_router_ids = []
@@ -407,10 +411,8 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         active_floating_ip_ids = []
         error_floating_ip_ids = []
 
-
         if agent is not None:
-            routers = self.list_routers_on_l3_agent(context,agent.id).get('routers')
-            print routers
+            routers = self.list_routers_on_l3_agent(context, agent.id).get('routers')
             for router in routers:
                 router_id = router.get('id')
                 if router.get('status') == n_constants.ROUTER_STATUS_ACTIVE:
@@ -418,30 +420,28 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 else:
                     error_router_ids.append(router_id)
 
-
             routers = error_router_ids + active_router_ids
-            ports = self.get_ports_for_router_ids(context,routers)
+            ports = self.get_ports_for_router_ids(context, routers)
             for port in ports:
-                if port.get('device_owner') == 'network:router_interface' :
-                    self.__filter_port_stats(port,active_interface_ids,error_interface_ids)
+                if port.get('device_owner') == 'network:router_interface':
+                    self.__filter_port_stats(port, active_interface_ids, error_interface_ids)
 
-                if port.get('device_owner') == 'network:router_gateway' :
+                if port.get('device_owner') == 'network:router_gateway':
                     self.__filter_port_stats(port, active_gateway_ids, error_gateway_ids)
 
-
-            floating_ips = self.get_floatingips(context,{'router_id':routers})
+            floating_ips = self.get_floatingips(context, {'router_id': routers})
             for floating_ip in floating_ips:
-                if floating_ip.get('status')==n_constants.ROUTER_STATUS_ACTIVE:
+                if floating_ip.get('status') == n_constants.ROUTER_STATUS_ACTIVE:
                     active_floating_ip_ids.append(floating_ip.get('id'))
                 else:
                     error_floating_ip_ids.append(floating_ip.get('id'))
 
+        return {'active': {'routers': len(active_router_ids), 'gateway_ports': len(active_gateway_ids),
+                           'interface_ports': len(active_interface_ids), 'floating_ips': len(active_floating_ip_ids)},
+                'error': {'routers': len(error_router_ids), 'gateway_ports': len(error_gateway_ids),
+                          'interface_ports': len(error_interface_ids), 'floating_ips': len(error_floating_ip_ids)}}
 
-
-        return {'active':{'routers':len(active_router_ids),'gateway_ports':len(active_gateway_ids),'interface_ports':len(active_interface_ids),'floating_ips':len(active_floating_ip_ids)},
-                'error': {'routers':len(error_router_ids), 'gateway_ports': len(error_gateway_ids), 'interface_ports': len(error_interface_ids), 'floating_ips': len(error_floating_ip_ids)}}
-
-    def __filter_port_stats(self,port,active_port_list,error_port_list):
+    def __filter_port_stats(self, port, active_port_list, error_port_list):
         status = port.get('status')
         port_id = port.get('id')
         if status == n_constants.PORT_STATUS_ACTIVE:
@@ -449,17 +449,17 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         else:
             error_port_list.append(port_id)
 
+
 class ExtraAttsDb(object):
 
     @classmethod
-    def ensure(cls,router_id,port, segment):
+    def ensure(cls, router_id, port, segment):
         context = n_context.get_admin_context()
-        ExtraAttsDb(context,router_id,port,segment)._ensure()
+        ExtraAttsDb(context, router_id, port, segment)._ensure()
 
-    def __init__(self, context, router_id,port, segment ):
+    def __init__(self, context, router_id, port, segment):
         self.session = db_api.get_session();
         self.context = context
-
 
         # check we have a port, segment and binding host
 
@@ -473,7 +473,8 @@ class ExtraAttsDb(object):
             self.segment_id = segment.get('id')
             self.segmentation_id = segment.get('segmentation_id')
             if self.segmentation_id < 1 or self.segmentation_id > 4096:
-                raise Exception("Invalid segmentation id {} on segment {}".format(self.segmentation_id, self.segment_id))
+                raise Exception(
+                    "Invalid segmentation id {} on segment {}".format(self.segmentation_id, self.segment_id))
 
         self.second_dot1q = None
         self.deleted_l2 = False
@@ -488,8 +489,6 @@ class ExtraAttsDb(object):
                                                                                ).first()
         return entry is not None
 
-
-
     def set_next_entries(self):
         extra_atts = self.session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(agent_host=self.agent_host)
 
@@ -498,14 +497,12 @@ class ExtraAttsDb(object):
         for extra_att in extra_atts:
             second_dot1qs.append(extra_att.second_dot1q)
 
-
         for x in range(MIN_SECOND_DOT1Q, MAX_SECOND_DOT1Q):
             if x not in second_dot1qs:
                 self.second_dot1q = x;
                 break
 
     def _ensure(self):
-
 
         if not self._record_exists:
             LOG.debug("L2 extra atts not existing, attempting create")
@@ -527,19 +524,16 @@ class ExtraAttsDb(object):
 
 class RouterAttsDb(object):
     @classmethod
-    def ensure(cls,context,id):
-        router_atts_db = RouterAttsDb(context,id)._ensure()
+    def ensure(cls, context, id):
+        router_atts_db = RouterAttsDb(context, id)._ensure()
 
-
-    def __init__(self, context,router_id):
+    def __init__(self, context, router_id):
         self.session = db_api.get_session();
         self.context = context
-
 
         self.router_id = router_id
         self.rd = None
         self.deleted_at = None
-
 
     @property
     def _record_exists(self):
@@ -547,7 +541,8 @@ class RouterAttsDb(object):
         return entry is not None
 
     def _set_next_entries(self):
-        router_att = self.session.query(asr1k_models.ASR1KRouterAttsModel).order_by(asr1k_models.ASR1KRouterAttsModel.rd.desc()).first()
+        router_att = self.session.query(asr1k_models.ASR1KRouterAttsModel).order_by(
+            asr1k_models.ASR1KRouterAttsModel.rd.desc()).first()
 
         if router_att.rd <= MAX_RD:
             self.rd = router_att.rd + 1
@@ -575,34 +570,30 @@ class RouterAttsDb(object):
                 router_atts = asr1k_models.ASR1KRouterAttsModel(
                     router_id=self.router_id,
                     rd=self.rd,
-                    deleted_at = self.deleted_at
+                    deleted_at=self.deleted_at
                 )
                 self.session.add(router_atts)
 
 
 class DeviceInfoDb(object):
 
-
-    def __init__(self, context,id,host,enabled):
+    def __init__(self, context, id, host, enabled):
         self.session = db_api.get_session();
         self.context = context
-        self.id= id
+        self.id = id
         self.host = host
         self.enabled = enabled
-
 
     @property
     def _record_exists(self):
         entry = self.session.query(asr1k_models.ASR1KDeviceInfoModel).filter_by(id=self.id).first()
         return entry
 
-
-
     def update(self):
         with self.session.begin(subtransactions=True):
             device_info = asr1k_models.ASR1KDeviceInfoModel(
                 id=self.id,
-                host = self.host,
+                host=self.host,
                 enabled=self.enabled
             )
 

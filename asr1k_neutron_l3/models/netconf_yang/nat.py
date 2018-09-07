@@ -19,10 +19,11 @@ from collections import OrderedDict
 from oslo_log import log as logging
 from asr1k_neutron_l3.models.ssh_legacy import nat as nc_nat
 from oslo_config import cfg
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE,NC_OPERATION
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.common import utils,asr1k_constants
-
+from asr1k_neutron_l3.common import asr1k_exceptions as exc
 
 LOG = logging.getLogger(__name__)
 
@@ -189,7 +190,6 @@ class DynamicNat(NyBase):
 
     @execute_on_pair()
     def update(self,context=None):
-
         return super(DynamicNat, self)._update(context=context,method=NC_OPERATION.PUT)
 
 
@@ -241,9 +241,18 @@ class InterfaceDynamicNat(DynamicNat):
 
     def __init__(self, **kwargs):
         super(InterfaceDynamicNat, self).__init__(**kwargs)
-        bd = kwargs.get("bridge_domain",None)
-        if bd is not None:
-            self.interface = "BDI{}".format(bd)
+
+        self.interface = kwargs.get("interface", None)
+
+
+
+        if self.interface is None:
+            self.bd = kwargs.get("bridge_domain", None)
+            if self.bd is not None:
+                self.interface = "BDI{}".format(self.bd)
+        else:
+            self.bd = int(self.interface[3:])
+
 
     def to_dict(self):
         entry = OrderedDict()
@@ -270,39 +279,6 @@ class InterfaceDynamicNat(DynamicNat):
         result[NATConstants.LIST].append(entry)
 
         return dict(result)
-
-    # def to_delete_dict(self):
-    #     entry = OrderedDict()
-    #     entry[NATConstants.ID] = self.id
-    #
-    #     entry[NATConstants.INTERFACE_WITH_VRF]   ={}
-    #     entry[NATConstants.INTERFACE_WITH_VRF][xml_utils.OPERATION] = "delete"
-    #     entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE] = {}
-    #     entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.NAME] = self.interface
-    #     entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF] = {}
-    #     entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.NAME] = self.vrf
-    #
-    #     result = OrderedDict()
-    #     result[NATConstants.LIST] = []
-    #     result[NATConstants.LIST].append(entry)
-    #
-    #     return dict(result)
-    #
-    # @execute_on_pair()
-    # def delete(self,context=None):
-    #
-    #     return super(InterfaceDynamicNat, self)._delete(context=context,method=NC_OPERATION.OVERRIDE)
-
-    # @execute_on_pair()
-    # def delete(self, context=None):
-    #     device = self._internal_get(context=context)
-    #     if (device is not None and device.interface is not None) or self.force_delete:
-    #         self.ncc.delete_interface(context)
-    #     # Check again since we likely deleted it via legacy
-    #     # if self._internal_exists(context) or self.force_delete:
-    #     #     return super(DynamicNat, self)._delete(context=context,method=NC_OPERATION.REMOVE)
-
-
 
 
 class PoolDynamicNat(DynamicNat):

@@ -16,9 +16,13 @@
 
 
 from oslo_log import log as logging
+from oslo_config import cfg
 from collections import OrderedDict
-from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.common import utils, asr1k_constants
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,Requeable, NC_OPERATION,execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
+from asr1k_neutron_l3.common import asr1k_exceptions as exc
 
 LOG = logging.getLogger(__name__)
 
@@ -150,6 +154,7 @@ class VrfDefinition(NyBase,Requeable):
 
             LOG.debug("Running preflight check for VRF {}".format(self.id))
 
+            # check for VRFs with the same RD
             rd_filter =  self.RD_FILTER.format(**{'rd':self.rd})
 
             rd_vrf = self._get(context=context, nc_filter=rd_filter)
@@ -162,3 +167,19 @@ class VrfDefinition(NyBase,Requeable):
             LOG.debug("Preflight check completed for VRF {}".format(self.id))
         else:
             LOG.info("Preflight check for {} disabled in configuration".format(self.__class__.__name__))
+
+    def postflight(self, context):
+
+        LOG.debug("Running postflight check for VRF {}".format(self.id))
+        if cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_INTERFACE:
+            # Check for interface NAT
+            dyn_nat = InterfaceDynamicNat.get("NAT-{}".format(self.id))
+            if dyn_nat is not None:
+
+                interface = BDIInterface.get(dyn_nat.bd, context=context)
+
+                if interface is not None:
+                    LOG.warning("Postflight failed for vrf {} due interface presence of interface {} used in dynamic NAT".format(self.id,
+                                                                                                             dyn_nat.interface))
+                    raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
+

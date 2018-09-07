@@ -78,3 +78,6 @@ class InconsistentModelException(DeviceOperationException):
 
 class DeviceConnectionException(DeviceOperationException):
     message = "Cannot connect to device %(host)s"
+
+class EntityNotEmptyException(ReQueueException):
+    message = "The config for entity %(entity_name)s is not empty and cannot be deleted without side effects"

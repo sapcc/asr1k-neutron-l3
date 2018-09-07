@@ -35,7 +35,7 @@ class OrphanEncoder(json.JSONEncoder):
 
 class DeviceCleanerMixin(object):
 
-    L3_ENTITIES = [RouteMap, Prefix, AccessList, StaticNat,ArpEntry,PoolDynamicNat,InterfaceDynamicNat, NatPool, VrfRoute, BDIInterface,
+    L3_ENTITIES = [RouteMap, Prefix, AccessList, StaticNat,ArpEntry,PoolDynamicNat, NatPool, VrfRoute, BDIInterface,
                    VrfDefinition]
     L2_ENTITIES = [LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface]
 
@@ -52,10 +52,8 @@ class DeviceCleanerMixin(object):
 
     def clean_l3(self,dry_run=True):
 
+        all_router_ids = self.plugin_rpc.get_all_router_ids(self.context)
 
-        all_extra_atts = self.plugin_rpc.get_all_extra_atts(self.context)
-
-        all_router_ids = all_extra_atts.keys()
 
         orphans  = {}
 

@@ -17,7 +17,8 @@
 from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
-from asr1k_neutron_l3.models.ssh_legacy import l3_interface as nc_l3_interface
+from asr1k_neutron_l3.models.connection import ConnectionManager
+from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from oslo_log import log as logging
@@ -84,9 +85,10 @@ class BDIInterface(NyBase):
         ]
 
 
+
     def __init__(self, **kwargs):
         super(BDIInterface, self).__init__(**kwargs)
-        self.ncc = nc_l3_interface.BDIInterface(self)
+
 
     @property
     def neutron_router_id(self):

@@ -48,6 +48,7 @@ class AddressFamily(NyBase):
                         <ios-bgp:address-family>
                             <ios-bgp:with-vrf>
                                 <ios-bgp:ipv4>
+                                    <ios-bgp:af-name>unicast</ios-bgp:af-name>
                                     <ios-bgp:vrf>
                                     <ios-bgp:name>{vrf}</ios-bgp:name>
                                     </ios-bgp:vrf>

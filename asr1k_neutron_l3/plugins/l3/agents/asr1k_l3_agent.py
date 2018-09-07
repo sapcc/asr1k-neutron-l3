@@ -269,6 +269,11 @@ class L3PluginApi(object):
         cctxt = self.client.prepare(version='1.7')
         return cctxt.call(context, 'get_usage_stats',host=self.host)
 
+    @instrument()
+    def get_all_router_ids(self, context):
+        """Make a remote process call to retrieve the orphans in extra atts table."""
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_all_router_ids', host=self.host)
 
 class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     """Manager for L3 ASR Agent
@@ -437,28 +442,31 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         connection.check_devices(device_info)
 
     def _periodic_scavenge_task(self):
+        try:
+            LOG.debug('Starting to scavenge orphans from extra atts')
 
-        LOG.debug('Starting to scavenge orphans from extra atts')
+            routers = self.plugin_rpc.get_extra_atts_orphans(self.context)
 
-        routers = self.plugin_rpc.get_extra_atts_orphans(self.context)
+            for router in routers:
+                try:
+                    result = l3_router.Router(router).delete()
+                    self._check_delete_result(router,result)
 
-        for router in routers:
-            try:
-                result = l3_router.Router(router).delete()
-                self._check_delete_result(router,result)
+                except Exception as e:
+                    LOG.exception(e)
 
-            except Exception as e:
-                LOG.exception(e)
+            routers = self.plugin_rpc.get_router_atts_orphans(self.context)
 
-        routers = self.plugin_rpc.get_router_atts_orphans(self.context)
+            for router in routers:
+                try:
+                    result = l3_router.Router(router).delete()
+                    self._check_delete_result(router,result)
 
-        for router in routers:
-            try:
-                result = l3_router.Router(router).delete()
-                self._check_delete_result(router,result)
+                except Exception as e:
+                    LOG.exception(e)
 
-            except Exception as e:
-                LOG.exception(e)
+        except Exception as e:
+            LOG.exception(e)
 
     def _periodic_sync_routers_task(self):
         try:
