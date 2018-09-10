@@ -273,6 +273,20 @@ class Router(Base):
         else:
             results.append(self.bgp_address_family.delete())
 
+        if self.nat_acl:
+            results.append(self.nat_acl.update())
+
+        if self.pbr_acl:
+            results.append(self.pbr_acl.update())
+        # Working assumption is that any NAT mode migration is completed
+
+
+
+        results.append(self.routes.update())
+
+        results.append(self.floating_ips.update())
+
+        results.append(self.arp_entries.update())
 
         for interface in self.interfaces.all_interfaces:
             results.append(interface.update())
@@ -295,20 +309,7 @@ class Router(Base):
 
 
 
-        if self.nat_acl:
-            results.append(self.nat_acl.update())
 
-        if self.pbr_acl:
-            results.append(self.pbr_acl.update())
-        # Working assumption is that any NAT mode migration is completed
-
-
-
-        results.append(self.routes.update())
-
-        results.append(self.floating_ips.update())
-
-        results.append(self.arp_entries.update())
 
 
 
@@ -338,8 +339,6 @@ class Router(Base):
 
         results.append(self.routes.delete())
 
-        # for interface in self.interfaces.all_interfaces:
-        #     results.append(interface.delete())
 
         # for key in self.dynamic_nat.keys():
         #     results.append(self.dynamic_nat.get(key).delete())
@@ -352,6 +351,10 @@ class Router(Base):
         results.append(self.pbr_acl.delete())
 
         results.append(self.bgp_address_family.delete())
+
+        for interface in self.interfaces.all_interfaces:
+            results.append(interface.delete())
+
 
         results.append(self.vrf.delete())
 
