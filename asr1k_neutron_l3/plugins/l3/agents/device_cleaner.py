@@ -12,7 +12,7 @@ from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat,DynamicNat,NatPoo
 from asr1k_neutron_l3.models.netconf_yang.arp import ArpEntry
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface
-
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from oslo_log import log as logging
 
@@ -60,8 +60,7 @@ class DeviceCleanerMixin(object):
         for context in ASR1KPair().contexts:
             device_config =  BulkOperations.get_device_config(context)
 
-
-
+            PrometheusMonitor().l3_orphan_count.labels(device=context.host).set(0)
             for entity in self.L3_ENTITIES:
                 items = entity.get_all_from_device_config(device_config)
 
@@ -72,11 +71,12 @@ class DeviceCleanerMixin(object):
                         if(orphans.get(context) is None):
                             orphans[context] = []
                         orphans[context].append(item)
-
+                        PrometheusMonitor().l3_orphan_count.labels(device=context.host).inc()
                     elif item.neutron_router_id is None and item.in_neutron_namespace:
                         if(orphans.get(context) is None):
                             orphans[context] = []
                         orphans[context].append(item)
+                        PrometheusMonitor().l3_orphan_count.labels(device=context.host).inc()
 
 
 
@@ -106,6 +106,7 @@ class DeviceCleanerMixin(object):
         orphans  = {}
 
         for context in ASR1KPair().contexts:
+            PrometheusMonitor().l3_orphan_count.labels(device=context.host).set(0)
             device_config =  BulkOperations.get_device_config(context)
 
             for entity in self.L2_ENTITIES:
@@ -118,8 +119,11 @@ class DeviceCleanerMixin(object):
 
                 if isinstance(items,list):
                     orphans[context]+=filtered
+                    PrometheusMonitor().l3_orphan_count.labels(device=context.host).inc(len(filtered))
                 else:
                     orphans[context].append(filtered)
+                    PrometheusMonitor().l3_orphan_count.labels(device=context.host).inc()
+
 
         result = {}
         if dry_run:
