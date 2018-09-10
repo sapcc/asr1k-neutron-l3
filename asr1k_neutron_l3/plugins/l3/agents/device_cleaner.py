@@ -41,13 +41,18 @@ class DeviceCleanerMixin(object):
 
 
     def clean_device(self,dry_run=True):
-        result={}
-        result["l3"]= self.clean_l3(dry_run=dry_run)
-        result["l2"] = self.clean_l2(dry_run=dry_run)
+        try:
+            result={}
+            result["l3"]= self.clean_l3(dry_run=dry_run)
+            result["l2"] = self.clean_l2(dry_run=dry_run)
 
-        LOG.info("Orphan deletion results {}".format(result))
+            LOG.info("Orphan deletion results {}".format(result))
 
-        return result
+            return result
+        except BaseException as e:
+            LOG.error("Clean failed to complate to to exception {}".format(e))
+            LOG.exception(e)
+
 
 
     def clean_l3(self,dry_run=True):

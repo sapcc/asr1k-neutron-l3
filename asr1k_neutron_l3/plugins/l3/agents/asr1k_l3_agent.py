@@ -373,7 +373,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         if cfg.CONF.asr1k.clean_orphans:
             LOG.info("Orphan clean is active, starting cleaning loop")
             self.orphan_loop = loopingcall.FixedIntervalLoopingCall(
-            self. clean_device,dry_run=False)
+            self.clean_device,dry_run=False)
             self.orphan_loop.start(interval=cfg.CONF.asr1k.clean_orphan_interval)
 
         eventlet.spawn_n(self._process_routers_loop)
