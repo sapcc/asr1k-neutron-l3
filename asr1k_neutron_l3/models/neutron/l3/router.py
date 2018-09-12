@@ -294,19 +294,19 @@ class Router(Base):
 
         # We don't remove NAT statement or pool if enabling/disabling snat - instead update ACL
 
-        # if self.gateway_interface is not None:
-        #     if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
-        #         results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].delete())
-        #         results.append(self.nat_pool.update())
-        #         results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].update())
-        #     elif cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_INTERFACE:
-        #         results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].delete())
-        #         results.append(self.nat_pool.delete())
-        #         results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].update())
-        # else:
-        #     results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].delete())
-        #     results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].delete())
-        #     results.append(self.nat_pool.delete())
+        if self.gateway_interface is not None:
+            if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
+                results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].delete())
+                results.append(self.nat_pool.update())
+                results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].update())
+            elif cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_INTERFACE:
+                results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].delete())
+                results.append(self.nat_pool.delete())
+                results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].update())
+        else:
+            results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].delete())
+            results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].delete())
+            results.append(self.nat_pool.delete())
 
 
 
