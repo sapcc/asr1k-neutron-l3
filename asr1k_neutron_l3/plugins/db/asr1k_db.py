@@ -532,7 +532,7 @@ class RouterAttsDb(object):
         self.context = context
 
         self.router_id = router_id
-        self.rd = None
+        self.rd = 0
         self.deleted_at = None
 
     @property
