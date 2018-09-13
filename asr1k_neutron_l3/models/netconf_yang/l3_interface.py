@@ -62,7 +62,8 @@ class BDIInterface(NyBase):
 
     LIST_KEY = L3Constants.INTERFACE
     ITEM_KEY = L3Constants.BDI_INTERFACE
-
+    MIN_MTU = 1500
+    MAX_MTU = 9216
 
     @classmethod
     def __parameters__(cls):
@@ -72,7 +73,7 @@ class BDIInterface(NyBase):
             {"key": "name", "id": True},
             {'key': 'description'},
             {'key': 'mac_address'},
-            {'key': 'mtu', 'default': 1500},
+            {'key': 'mtu', 'default': BDIInterface.MIN_MTU},
             {'key': 'vrf','yang-path':'vrf','yang-key':"forwarding"},
             {'key': 'ip_address','yang-path':'ip/address','yang-key':"primary",'type':BDIPrimaryIpAddress},
             {'key': 'secondary_ip_addresses','yang-path':'ip/address','yang-key':"secondary",'type':[BDISecondaryIpAddress], 'default': [], 'validate':False},
@@ -88,7 +89,10 @@ class BDIInterface(NyBase):
 
     def __init__(self, **kwargs):
         super(BDIInterface, self).__init__(**kwargs)
-
+        if self.mtu < self.MIN_MTU:
+            self.mtu = self.MIN_MTU
+        if self.mtu > self.MAX_MTU:
+            self.mtu = self.MAX_MTU
 
     @property
     def neutron_router_id(self):
