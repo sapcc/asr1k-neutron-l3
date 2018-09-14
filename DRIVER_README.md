@@ -198,6 +198,32 @@ via the neutron V2.0  API endpoint  `http(s)://[neutron server FQDN/IP]:[port]/v
 | PUT    | `/asr1k/device/[agent-host]`                | Use with a JSON body in format `{[device1_id]}:[enable][disable],[device2_id]}:[enable][disable]`  to enable or disable a specific device. Disabled means config will not be applied to the device  |
  
 
-  
+### Migration from Cisco ASR driver
+This driver is intended to act as a improved replacement for the ASR driver provided by Cisco, hereafter the 'legacy' driver. In order to support migration from the legacy driver there are a number of steps that need to be executed to remove legacy artifacts and prepare remaining entities to work with the new driver. There are several REST APIs/endpoint to support this process:
+
+|        |                                             |                                                                   |
+|--------|---------------------------------------------|-------------------------------------------------------------------|
+| GET    | `/asr1k/cisco_teardown`          | Shows Cisco HA routers and ports tat need to be removed  |
+| DELETE | `/asr1k/cisco_teardown`          | Removes Cisco HA routers and ports, and removes the content of Cisco routing DB tables  |
+| GET    | `/asr1k/init_scheduler`          | Initiates scheduling of routers to the ASR1K agents           |
+| GET    | `/asr1k/init_bindings`           | Updates the binding host of router interface ports to the ASR1K agents|   
+| GET    | `/asr1k/init_atts`               | Creates ASR1K specific DB content for additional L2 and L3 config|
+| GET    | `/asr1k/init_config/[agent-host]`| Generates a device config 'script' to preload the ASR devices with VRF and BDI configuration, this is required to prevent extended sync locks in the current device firmware|
+
+If you use two or more devices, its possible to migrate without dataplane downtime. The description below assumes 2 ASR devices A and B in an active/passive HA state with A active and B in cold standby. 
+
+1. Stop the Cisco config agent. This will 'freeze' the device configuration. 
+2. Ensure uplink from B device is shutdown. 
+2. Deploy and start the ASR1K driver and agents. The L3 and L2 agents should be started in init mode. The ASR1K configuration file for neutron server and the l3 and l2 agents should target the standby, B device. 
+3. Execute a `DELETE` request against `/asr1k/cisco_teardown`. You will need to include an authentication token as described abive. Depending on the scale of your deployment this request may time out.  You can check the remaining Cisco HA entities via GET request. When the GET request yields no results, you can proceed to the next step.
+4. Issue a GET request to `/asr1k/init_scheduler` , this will schedule all routers to available agents. Again, this request may timeout but will run to completion. You can verify completion by comparing the number of entries in tables `routerl3agentbindings` they should be equal. 
+5. Issue a GET request to `/asr1k/init_bindings` this will update all router ports with a binding host corresponding to the scheduled agent. A port binding will be attempted but will no complete until the ML2 agent is no longer in init mode. 
+6. Issue a GET request to `/asr1k/init_atts` to create ASR1K specific DB content. 
+7. For each agent perform a GET to `/asr1k/init_config/[agent-host]`. This will return a text file containing configuration to be applied to the device(s) for each agent. 
+
+After this is completed the agents can be redeployed without init mode active and the agents should begin to prepare the device configuration. 
+
+
+
   
   
