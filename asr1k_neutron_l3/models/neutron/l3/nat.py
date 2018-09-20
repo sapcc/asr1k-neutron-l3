@@ -56,7 +56,7 @@ class NATPool(base.Base):
                                   netmask=gateway_netmask)
 class DynamicNAT(BaseNAT):
 
-    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None, mode=asr1k_constants.SNAT_MODE_POOL):
+    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None, mode=asr1k_constants.SNAT_MODE_POOL,bridge_domain=None):
         super(DynamicNAT, self).__init__(router_id, gateway_interface,redundancy, mapping_id)
 
 
@@ -66,22 +66,23 @@ class DynamicNAT(BaseNAT):
         self.mode = mode
 
         self.id = utils.vrf_to_access_list_id(self.router_id)
-
+        self.bridge_domain = bridge_domain
 
     @property
     def _rest_definition(self):
 
-        bridge_domain=None
+
         if self.gateway_interface is not None:
-            bridge_domain  = self.gateway_interface.bridge_domain
+            self.bridge_domain  = self.gateway_interface.bridge_domain
+
 
         if self.mode == asr1k_constants.SNAT_MODE_POOL:
-            return l3_nat.PoolDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id, bridge_domain=bridge_domain,
+            return l3_nat.PoolDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id, bridge_domain=self.bridge_domain,
                                      redundancy=self.redundancy,
                                      mapping_id=self.mapping_id, overload=True)
 
         elif self.mode == asr1k_constants.SNAT_MODE_INTERFACE:
-            return l3_nat.InterfaceDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id, bridge_domain=bridge_domain,
+            return l3_nat.InterfaceDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id, bridge_domain=self.bridge_domain,
                                      redundancy=self.redundancy,
                                      mapping_id=self.mapping_id, overload=True)
 

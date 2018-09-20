@@ -16,6 +16,7 @@
 
 from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
+import asr1k_neutron_l3.models.netconf_yang.nat
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.connection import ConnectionManager
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
@@ -89,10 +90,10 @@ class BDIInterface(NyBase):
 
     def __init__(self, **kwargs):
         super(BDIInterface, self).__init__(**kwargs)
-        if self.mtu < self.MIN_MTU:
-            self.mtu = self.MIN_MTU
-        if self.mtu > self.MAX_MTU:
-            self.mtu = self.MAX_MTU
+        if int(self.mtu) < self.MIN_MTU:
+            self.mtu = str(self.MIN_MTU)
+        if int(self.mtu) > self.MAX_MTU:
+            self.mtu = str(self.MAX_MTU)
 
     @property
     def neutron_router_id(self):
@@ -138,6 +139,7 @@ class BDIInterface(NyBase):
     def to_delete_dict(self):
         bdi = OrderedDict()
         bdi[L3Constants.NAME] = self.name
+        bdi[L3Constants.DESCRIPTION] = self.description
         # vrf = OrderedDict()
         # vrf[L3Constants.FORWARDING] = self.vrf
         # bdi[L3Constants.VRF] = vrf
@@ -158,6 +160,7 @@ class BDIInterface(NyBase):
     def delete(self,context=None):
             # To work around removal of interface NAT we clear everything off the BDI and let the
             # cleaner tidy up
+            self.description = "Deleted from vrf {}".format(self.vrf)
             return super(BDIInterface, self)._update(context=context,json=self.to_delete_dict(),method=NC_OPERATION.PUT)
 
 
@@ -171,11 +174,20 @@ class BDIInterface(NyBase):
 
 
     def postflight(self, context):
-        LOG.debug("Running postflight for BDI {}".format(self.name))
-        device = self._internal_get(context=context)
-        if device is not None:
-            device.route_map = None
-            device._update(context=context,method=NC_OPERATION.PUT)
+        dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
+        if dyn_nat is not None:
+                if dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
+                    LOG.warning(
+                        "Postflight failed for interface {} due to configured interface presence of interface {}".format(
+                            self.id,
+                            dyn_nat))
+                    raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
+
+    #     LOG.debug("Running postflight for BDI {}".format(self.name))
+    #     device = self._internal_get(context=context)
+    #     if device is not None:
+    #         device.route_map = None
+    #         device._update(context=context,method=NC_OPERATION.PUT)
 
 
 

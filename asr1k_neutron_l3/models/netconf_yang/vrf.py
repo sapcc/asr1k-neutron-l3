@@ -179,7 +179,10 @@ class VrfDefinition(NyBase,Requeable):
                 interface = BDIInterface.get(dyn_nat.bd, context=context)
 
                 if interface is not None:
-                    LOG.warning("Postflight failed for vrf {} due interface presence of interface {} used in dynamic NAT".format(self.id,
-                                                                                                             dyn_nat.interface))
-                    raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
+                    if interface.ip_address is not None and interface.vrf == self.id:
+                        LOG.warning(
+                            "Postflight failed for vrf {} due to configured interface presence of interface {} used in dynamic NAT".format(
+                                self.id,
+                                dyn_nat.interface))
+                        raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
 
