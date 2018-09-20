@@ -70,6 +70,7 @@ class VrfArpList(NyBase):
     def _wrapper_preamble(self,dict):
         result = {}
         result[self.LIST_KEY] = dict
+
         result[self.LIST_KEY][xml_utils.NS] = xml_utils.NS_CISCO_ARP
         return result
 
@@ -77,7 +78,7 @@ class VrfArpList(NyBase):
 
     def to_dict(self):
         if len(self.arp_entry) == 0:
-            return self.EMPTY_TYPE
+            return {ARPConstants.VRF:self.EMPTY_TYPE}
 
         arp_list = OrderedDict()
         arp_list[ARPConstants.VRF_NAME]=self.vrf
