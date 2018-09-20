@@ -107,12 +107,12 @@ class Port(object):
 
 
     def _rest_definition(self):
-        ext_interface = l2_interface.ExternalInterface(id=self.segmentation_id, description="Network : {}".format(self.network_id))
+        ext_interface = l2_interface.ExternalInterface(id=self.segmentation_id, description="Network : {}".format(self.network_id),way=1,mode="symmetric")
         lb_ext_interface = l2_interface.LoopbackExternalInterface(id=self.service_instance, description="Port : {}".format(self.id),
-                                                                  dot1q=self.segmentation_id, second_dot1q=self.second_dot1q)
+                                                                  dot1q=self.segmentation_id, second_dot1q=self.second_dot1q,way=2,mode="symmetric")
         lb_int_interface = l2_interface.LoopbackInternalInterface(id=self.service_instance, description="Port : {}".format(self.id),
                                                                   bridge_domain=self.bridge_domain,
-                                                                  dot1q=self.segmentation_id, second_dot1q=self.second_dot1q)
+                                                                  dot1q=self.segmentation_id, second_dot1q=self.second_dot1q,way=2,mode="symmetric")
         return ext_interface, lb_ext_interface, lb_int_interface
 
     def diff(self):

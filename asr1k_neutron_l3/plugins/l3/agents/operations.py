@@ -33,7 +33,7 @@ class OperationsMixin(object):
             for interface in router.interfaces.internal_interfaces:
                 port_ids.append(interface.id)
 
-        ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context,port_ids)
+        ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context,port_ids,host=self.host)
 
         for port in ports:
             l2_port = Port(port)
@@ -61,7 +61,7 @@ class OperationsMixin(object):
             router.delete()
 
 
-        ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context,port_ids)
+        ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context,port_ids,host=self.host)
 
         for port in ports:
             l2_port = Port(port)
@@ -89,9 +89,7 @@ class OperationsMixin(object):
 
             result = router.diff()
 
-
-
-        ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context,port_ids)
+        ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context,port_ids,host=self.host)
 
         for port in ports:
             l2_port = Port(port)

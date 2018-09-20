@@ -41,7 +41,7 @@ class L2Constants(object):
     REWRITE = "rewrite"
     REWRITE_WAY = "way"
     REWRITE_MODE = "mode"
-    SYMMETRIC = "symmetric"
+
 
 class BridgeDomain(NyBase):
     pass
@@ -66,8 +66,6 @@ class ServiceInstance(NyBase):
               </native>        
              """
 
-    REWRITE_INGRESS_TAG_POP_WAY = 2
-
     LIST_KEY = L2Constants.SERVICE
     ITEM_KEY = L2Constants.SERVICE_INSTANCE
 
@@ -80,7 +78,9 @@ class ServiceInstance(NyBase):
             {"key": "description"},
             {"key": "bridge_domain",'yang-path':'bridge-domain','yang-key':'bridge-id'},
             {"key": "dot1q",'yang-path':'encapsulation/dot1q','yang-key':'id'},
-            {"key": "second_dot1q",'yang-path':'encapsulation/dot1q','yang-key':'second-dot1q'}
+            {"key": "second_dot1q",'yang-path':'encapsulation/dot1q','yang-key':'second-dot1q'},
+            {"key": "way", 'yang-path': 'rewrite/ingress/tag/pop'},
+            {"key": "mode", 'yang-path': 'rewrite/ingress/tag/pop'}
         ]
 
     @classmethod
@@ -157,11 +157,13 @@ class ServiceInstance(NyBase):
 
         rewrite = OrderedDict()
         rewrite[L2Constants.INGRESS] = OrderedDict()
+
         rewrite[L2Constants.INGRESS][L2Constants.TAG] = OrderedDict()
-        rewrite[L2Constants.INGRESS][L2Constants.TAG][L2Constants.POP] = OrderedDict()
-        rewrite[L2Constants.INGRESS][L2Constants.TAG][L2Constants.POP][
-            L2Constants.REWRITE_WAY] = self.REWRITE_INGRESS_TAG_POP_WAY
-        rewrite[L2Constants.INGRESS][L2Constants.TAG][L2Constants.POP][L2Constants.REWRITE_MODE] = L2Constants.SYMMETRIC
+        if self.way is not None and self.mode is not None:
+            rewrite[L2Constants.INGRESS][L2Constants.TAG][L2Constants.POP] = OrderedDict()
+            rewrite[L2Constants.INGRESS][L2Constants.TAG][L2Constants.POP][
+                L2Constants.REWRITE_WAY] = self.way
+            rewrite[L2Constants.INGRESS][L2Constants.TAG][L2Constants.POP][L2Constants.REWRITE_MODE] = self.mode
 
         instance = OrderedDict()
         instance[L2Constants.ID] = "{}".format(str(self.id))
@@ -195,7 +197,6 @@ class ServiceInstance(NyBase):
 
 
 class ExternalInterface(ServiceInstance):
-    REWRITE_INGRESS_TAG_POP_WAY = 1
     PORT_CHANNEL="1"
 
     def __init__(self, **kwargs):
