@@ -143,7 +143,14 @@ class BDIInterface(NyBase):
         vrf = OrderedDict()
         vrf[L3Constants.FORWARDING] = self.vrf
         bdi[L3Constants.VRF] = vrf
+        ip = OrderedDict()
+        if self.nat_inside:
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
 
+        elif self.nat_outside:
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
+
+        bdi[L3Constants.IP] = ip
         result = OrderedDict()
         result[L3Constants.BDI_INTERFACE] = bdi
 
