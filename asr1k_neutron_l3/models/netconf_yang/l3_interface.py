@@ -140,9 +140,9 @@ class BDIInterface(NyBase):
         bdi = OrderedDict()
         bdi[L3Constants.NAME] = self.name
         bdi[L3Constants.DESCRIPTION] = self.description
-        # vrf = OrderedDict()
-        # vrf[L3Constants.FORWARDING] = self.vrf
-        # bdi[L3Constants.VRF] = vrf
+        vrf = OrderedDict()
+        vrf[L3Constants.FORWARDING] = self.vrf
+        bdi[L3Constants.VRF] = vrf
 
         result = OrderedDict()
         result[L3Constants.BDI_INTERFACE] = bdi
