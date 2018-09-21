@@ -17,6 +17,7 @@
 from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
 import asr1k_neutron_l3.models.netconf_yang.nat
+from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackInternalInterface
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.connection import ConnectionManager
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
@@ -164,9 +165,9 @@ class BDIInterface(NyBase):
             # cleaner tidy up
 
             existing = self.get(self.name)
-            if existing.nat_outside:
+            if existing is None or existing.nat_outside:
                 self.description = "Deleted from vrf {}".format(self.vrf)
-                return super(BDIInterface, self)._update(context=context,json=self.to_delete_dict(existing=existing),method=NC_OPERATION.PUT)
+                return super(BDIInterface, self)._update(context=context,json=self.to_delete_dict(existing=existing),method=NC_OPERATION.PUT,postflight=True)
             else:
                 return super(BDIInterface, self)._delete(context=context)
 
@@ -180,14 +181,24 @@ class BDIInterface(NyBase):
 
 
     def postflight(self, context):
-        dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
-        if dyn_nat is not None:
-                if dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
-                    LOG.warning(
-                        "Postflight failed for interface {} due to configured interface presence of interface {}".format(
-                            self.id,
-                            dyn_nat))
-                    raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
+        l2 = LoopbackInternalInterface.get(self.name)
+        if l2 is not None:
+            LOG.warning(
+                "Postflight failed for interface {} due to configured L2 EFP {}".format(self.name,l2))
+            raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
+        else:
+            LOG.warning(
+                "Postflight check passed for interface {} no configured L2 EFP {}".format(self.name,self.name))
+
+
+        # dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
+        # if dyn_nat is not None:
+        #         if dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
+        #             LOG.warning(
+        #                 "Postflight failed for interface {} due to configured interface presence of dynamic NAT {}".format(
+        #                     self.id,
+        #                     dyn_nat))
+        #             raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
 
     #     LOG.debug("Running postflight for BDI {}".format(self.name))
     #     device = self._internal_get(context=context)

@@ -209,7 +209,7 @@ class retry_on_failure(object):
                     time.sleep(backoff)
                     retries += 1
                     exception = e
-                except (RPCError , SessionCloseError,SSHError,TimeoutExpiredError,) as e:
+                except (RPCError , SessionCloseError,SSHError,TimeoutExpiredError,exc.EntityNotEmptyException) as e:
 
 
 
@@ -258,7 +258,8 @@ class retry_on_failure(object):
                     elif isinstance(e,SSHError):
                         PrometheusMonitor().nc_ssh_errors.labels(device=context.host,entity=entity.__class__.__name__,action=f.__name__).inc()
                         LOG.exception(e)
-
+                    elif isinstance(e, exc.EntityNotEmptyException):
+                        raise exc.ReQueueableInternalErrorException(host=host, entity=entity, operation=operation)
                     else:
                         LOG.exception(e)
 
@@ -791,10 +792,13 @@ class NyBase(BulkOperations):
 
 
     @retry_on_failure()
-    def _update(self, context=None,method=NC_OPERATION.PATCH,json=None):
+    def _update(self, context=None,method=NC_OPERATION.PATCH,json=None,postflight=False):
         if len(self._internal_validate(context=context)) > 0 :
 
             self.preflight(context)
+
+            if postflight:
+                self.postflight(context)
 
             with ConnectionManager(context=context) as connection:
                 if json is None:
