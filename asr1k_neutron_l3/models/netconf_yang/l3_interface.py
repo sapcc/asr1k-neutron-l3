@@ -136,21 +136,16 @@ class BDIInterface(NyBase):
 
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self,existing=None):
         bdi = OrderedDict()
         bdi[L3Constants.NAME] = self.name
         bdi[L3Constants.DESCRIPTION] = self.description
-        vrf = OrderedDict()
-        vrf[L3Constants.FORWARDING] = self.vrf
-        bdi[L3Constants.VRF] = vrf
-        ip = OrderedDict()
-        if self.nat_inside:
-            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
 
-        elif self.nat_outside:
+        if existing is not None and existing.nat_outside:
+            ip = OrderedDict()
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
+            bdi[L3Constants.IP] = ip
 
-        bdi[L3Constants.IP] = ip
         result = OrderedDict()
         result[L3Constants.BDI_INTERFACE] = bdi
 
@@ -167,9 +162,13 @@ class BDIInterface(NyBase):
     def delete(self,context=None):
             # To work around removal of interface NAT we clear everything off the BDI and let the
             # cleaner tidy up
-            self.description = "Deleted from vrf {}".format(self.vrf)
-            return super(BDIInterface, self)._update(context=context,json=self.to_delete_dict(),method=NC_OPERATION.PUT)
 
+            existing = self.get(self.name)
+            if existing.nat_outside:
+                self.description = "Deleted from vrf {}".format(self.vrf)
+                return super(BDIInterface, self)._update(context=context,json=self.to_delete_dict(existing=existing),method=NC_OPERATION.PUT)
+            else:
+                return super(BDIInterface, self)._delete(context=context)
 
 
     @property
