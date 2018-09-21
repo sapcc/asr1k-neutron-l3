@@ -13,7 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import time
 from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
 import asr1k_neutron_l3.models.netconf_yang.nat
@@ -167,7 +167,9 @@ class BDIInterface(NyBase):
             existing = self.get(self.name)
             if existing is None or existing.nat_outside:
                 self.description = "Deleted from vrf {}".format(self.vrf)
-                return super(BDIInterface, self)._update(context=context,json=self.to_delete_dict(existing=existing),method=NC_OPERATION.PUT,postflight=True)
+                result =  super(BDIInterface, self)._update(context=context,json=self.to_delete_dict(existing=existing),method=NC_OPERATION.PUT,postflight=True)
+                time.sleep(10)
+                return result
             else:
                 return super(BDIInterface, self)._delete(context=context)
 
