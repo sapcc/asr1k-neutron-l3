@@ -280,19 +280,6 @@ class InterfaceDynamicNat(DynamicNat):
 
         return dict(result)
 
-    def postflight(self, context):
-        nat = self.get(self.id,context=context)
-        interface   = None
-        if nat is not None:
-            interface = asr1k_neutron_l3.models.netconf_yang.l3_interface.BDIInterface.get(nat.bd, context=context)
-
-            if interface is not None:
-                if interface.ip_address is not None and interface.vrf == nat.vrf:
-                    LOG.warning(
-                        "Postflight failed for interface dyn nat {} due to configured interface presence of interface {}".format(
-                            self.id,
-                            interface))
-                    raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
 
 
 class PoolDynamicNat(DynamicNat):

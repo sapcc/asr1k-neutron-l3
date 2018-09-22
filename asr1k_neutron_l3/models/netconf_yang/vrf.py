@@ -168,21 +168,4 @@ class VrfDefinition(NyBase,Requeable):
         else:
             LOG.info("Preflight check for {} disabled in configuration".format(self.__class__.__name__))
 
-    def postflight(self, context):
-
-        LOG.debug("Running postflight check for VRF {}".format(self.id))
-        if cfg.CONF.asr1k_l3.snat_mode == asr1k_constants.SNAT_MODE_INTERFACE:
-            # Check for interface NAT
-            dyn_nat = InterfaceDynamicNat.get("NAT-{}".format(self.id))
-            if dyn_nat is not None:
-
-                interface = BDIInterface.get(dyn_nat.bd, context=context)
-
-                if interface is not None:
-                    if interface.ip_address is not None and interface.vrf == self.id:
-                        LOG.warning(
-                            "Postflight failed for vrf {} due to configured interface presence of interface {} used in dynamic NAT".format(
-                                self.id,
-                                dyn_nat.interface))
-                        raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
 

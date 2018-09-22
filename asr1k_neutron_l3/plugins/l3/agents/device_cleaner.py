@@ -35,7 +35,7 @@ class OrphanEncoder(json.JSONEncoder):
 
 class DeviceCleanerMixin(object):
 
-    L3_ENTITIES = [RouteMap, Prefix, AccessList, StaticNat,ArpEntry,PoolDynamicNat, NatPool, VrfRoute, BDIInterface,
+    L3_ENTITIES = [RouteMap, Prefix, AccessList, StaticNat,ArpEntry,PoolDynamicNat,InterfaceDynamicNat, NatPool, VrfRoute, BDIInterface,
                    VrfDefinition]
     L2_ENTITIES = [LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface]
 

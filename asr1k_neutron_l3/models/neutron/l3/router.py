@@ -341,10 +341,10 @@ class Router(Base):
         results.append(self.routes.delete())
 
 
-        # for key in self.dynamic_nat.keys():
-        #     results.append(self.dynamic_nat.get(key).delete())
-        # if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
-        #     results.append(self.nat_pool.delete())
+        for key in self.dynamic_nat.keys():
+            results.append(self.dynamic_nat.get(key).delete())
+        if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
+            results.append(self.nat_pool.delete())
 
         results.append(self.pbr_route_map.delete())
 
