@@ -119,14 +119,11 @@ class L3RpcNotifierMixin(object):
 
         return notifier.show_device(context,host,device_id)
 
-
-    def asr1k_init(self, context):
-        LOG.debug('asrk1_init')
-        Initializer.asr1k_init(context)
-
-    def agent_initial_config(self, context, host):
+    @log_helpers.log_method_call
+    def notify_agent_init_config(self, context, host,router_infos):
         LOG.debug('agent_initial_config')
-        Initializer.agent_initial_config(context, host)
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+        return notifier.agent_init_config(context, host,router_infos)
 
 class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,

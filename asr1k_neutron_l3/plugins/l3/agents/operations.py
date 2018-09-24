@@ -199,3 +199,13 @@ class OperationsMixin(object):
        if self.__l2_plugin_rpc is None:
         self.__l2_plugin_rpc = ASR1KPluginApi(context)
        return self.__l2_plugin_rpc
+
+
+    def agent_init_config(self,context,router_info=None):
+        result = []
+        for router in router_info:
+
+            router = Router(router)
+            result.append(router.init_config())
+
+        return result

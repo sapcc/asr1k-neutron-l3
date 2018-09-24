@@ -79,7 +79,13 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
 
 
     @log_helpers.log_method_call
-    def _agent_rpc(self, context, method, router_id=None,host=None,device_id=None):
+    def agent_init_config(self, context,host,router_info):
+        return self._agent_rpc(context, 'agent_init_config',host=host, router_info=router_info)
+
+
+
+    @log_helpers.log_method_call
+    def _agent_rpc(self, context, method, router_id=None,host=None,device_id=None,router_info=None):
         """Notify changed routers to hosting l3 agents."""
         adminContext = context if context.is_admin else context.elevated()
         plugin = manager.NeutronManager.get_service_plugins().get(
@@ -103,6 +109,8 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
             kwargs['router_id'] = router_id
         if device_id is not None:
             kwargs['device_id'] = device_id
+        if router_info is not None:
+            kwargs['router_info'] = router_info
         return cctxt.call(context, method, **kwargs)
 
 
