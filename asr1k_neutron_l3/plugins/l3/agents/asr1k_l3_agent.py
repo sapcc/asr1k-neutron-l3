@@ -461,10 +461,8 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
             routers = self.plugin_rpc.get_extra_atts_orphans(self.context)
 
-            print "************************ scavenger extra atts orphans"
-            print routers
-
             for router in routers:
+
                 try:
                     if router.get(constants.ASR1K_EXTRA_ATTS_KEY) is not None:
                         result = l3_router.Router(router).delete()
@@ -473,7 +471,6 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                 except Exception as e:
                     LOG.exception(e)
 
-            print "************************ scavenger router atts orphans"
             routers = self.plugin_rpc.get_router_atts_orphans(self.context)
 
             LOG.debug('Starting to scavenge orphans from router atts')

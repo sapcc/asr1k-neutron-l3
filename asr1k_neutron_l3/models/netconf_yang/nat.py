@@ -251,9 +251,6 @@ class InterfaceDynamicNat(DynamicNat):
             if self.bd is not None:
                 self.interface = "BDI{}".format(self.bd)
         else:
-            LOG.debug("****** using  interface from device in NAT check")
-            LOG.debug(self.interface)
-            LOG.debug(self.interface[3:])
             self.bd = int(self.interface[3:])
 
 

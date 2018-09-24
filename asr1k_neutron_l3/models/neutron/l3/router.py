@@ -232,10 +232,6 @@ class Router(Base):
             return self.extra_atts.get(port.get('id'), {})
         except BaseException as e:
             LOG.error("Cannot get  extra atts from {} for port {} on router {}".format(self.extra_atts, port, self.router_id))
-
-            print "************************* start {}".format(self.router_id)
-            print self.router_info
-            print "************************* end {}".format(self.router_id)
             raise e
 
     def create(self):

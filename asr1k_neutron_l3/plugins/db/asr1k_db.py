@@ -201,10 +201,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         # for row in query.all():
         #     result.append(row.router_id)
 
-        print "************************* extra atts"
-        print "*** {}".format(result)
-        print "*************************"
-
         if not bool(result):
             result = None
 
@@ -247,11 +243,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         result = []
         for row in query.all():
             result.append(row.router_id)
-
-        print "************************* router atts"
-        print "*** {}".format(result)
-        print "*************************"
-
 
         if not bool(result):
             result = None
