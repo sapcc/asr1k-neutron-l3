@@ -20,7 +20,7 @@ from neutron.common import rpc as n_rpc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 
-from asr1k_neutron_l3.common import asr1k_constants
+from asr1k_neutron_l3.common import asr1k_constants, instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
 
 LOG = log.getLogger(__name__)
@@ -71,10 +71,11 @@ class ASR1KPluginCallback(object):
         self.db = asr1k_db.DBPlugin()
         self.context = context.get_admin_context()
 
-    @log_helpers.log_method_call
+    @instrument.instrument()
     def get_ports_with_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
         return self.db.get_ports_with_extra_atts(self.context, ports,host)
 
+    @instrument.instrument()
     def get_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
         return self.db.get_extra_atts(self.context, ports,host)
 
@@ -88,8 +89,7 @@ class ASR1KPluginCallback(object):
         for port_id in ports:
             self.db.delete_extra_att(self.context, port_id, l2=True)
 
-
-    @log_helpers.log_method_call
+    @instrument.instrument()
     def get_interface_ports(self, rpc_context, limit=None, offset=None,host=None):
 
 
@@ -99,5 +99,6 @@ class ASR1KPluginCallback(object):
 
         return ports
 
+    @instrument.instrument()
     def get_device_info(self,context,host):
         return self.db.get_device_info(context,host)

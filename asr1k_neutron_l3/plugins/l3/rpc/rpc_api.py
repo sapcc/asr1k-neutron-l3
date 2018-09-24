@@ -13,13 +13,15 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import time
+
 
 from neutron import context
 from neutron.api.rpc.handlers import l3_rpc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 
-
+from asr1k_neutron_l3.common.instrument import  instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
 
 LOG = log.getLogger(__name__)
@@ -31,15 +33,17 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         self.db = asr1k_db.DBPlugin()
         self.context = context.get_admin_context()
 
-
-    @log_helpers.log_method_call
+    @instrument()
     def delete_extra_atts_l3(self, context, **kwargs):
+        start = time.time()
+
         ports = kwargs.get('ports', [])
 
         for port_id in ports:
             self.db.delete_extra_att(self.context, port_id, l3=True)
 
-    @log_helpers.log_method_call
+
+    @instrument()
     def get_address_scopes(self, context, **kwargs):
 
         scopes = kwargs.get('scopes', [])
@@ -53,8 +57,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
         return result
 
-
-    @log_helpers.log_method_call
+    @instrument()
     def update_router_status(self, context, **kwargs):
 
         router_id = kwargs.get('router_id')
@@ -63,7 +66,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         if router_id is not None and status is not None:
             self.db.update_router_status(self.context, router_id,status)
 
-    @log_helpers.log_method_call
+    @instrument()
     def get_deleted_routers(self,context, **kwargs):
         host = kwargs.get('host')
         router_ids = kwargs.get('router_ids')
@@ -71,7 +74,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         return self.l3plugin.get_sync_data(context, router_ids=router_ids, active=None,host=host)
 
 
-    @log_helpers.log_method_call
+    @instrument()
     def get_extra_atts_orphans(self,context, **kwargs):
         host = kwargs.get('host')
         routers = self.db.get_orphaned_extra_atts_router_ids(self.context,host)
@@ -81,7 +84,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
         return self.l3plugin.get_sync_data(context, router_ids=routers, active=None,host=host)
 
-    @log_helpers.log_method_call
+    @instrument()
     def get_all_extra_atts(self, context, host=None):
         db = asr1k_db.DBPlugin()
         extra_atts = db.get_all_extra_atts(context, host=host)
@@ -95,30 +98,31 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
             return_dict[router_id][extra_att.get('port_id')] = extra_att
         return return_dict
 
-    @log_helpers.log_method_call
+    @instrument()
     def get_all_router_ids(self, context, host=None):
         db = asr1k_db.DBPlugin()
         return db.get_all_router_ids(context, host=host)
 
+    @instrument()
     def ensure_snat_mode(self,context, port_id=None,mode=None):
         db = asr1k_db.DBPlugin()
         return db.ensure_snat_mode(context,port_id,mode)
 
-
+    @instrument()
     def get_deleted_router_atts(self,context,**kwargs):
         db = asr1k_db.DBPlugin()
         router_atts = db.get_deleted_router_atts(context)
 
         return router_atts
 
-    @log_helpers.log_method_call
+    @instrument()
     def delete_router_atts(self, context, **kwargs):
         router_ids = kwargs.get('router_ids', [])
         for router_id in router_ids:
             self.db.delete_router_att(self.context, router_id)
 
 
-    @log_helpers.log_method_call
+    @instrument()
     def get_router_atts_orphans(self,context, **kwargs):
         host = kwargs.get('host')
         routers = self.db.get_orphaned_router_atts_router_ids(self.context,host)
@@ -129,13 +133,13 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         return self.l3plugin.get_sync_data(context, router_ids=routers, active=None,host=host)
 
 
-    @log_helpers.log_method_call
+    @instrument()
     def get_device_info(self,context, **kwargs):
         host = kwargs.get('host')
         return self.db.get_device_info(context,host)
 
 
-    @log_helpers.log_method_call
+    @instrument()
     def get_usage_stats(self,context, **kwargs):
         host = kwargs.get('host')
         return self.db.get_usage_stats(context,host)

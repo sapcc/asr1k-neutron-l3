@@ -79,11 +79,32 @@ class Asr1koperations(extensions.ExtensionDescriptor):
                                                 InterfaceStatisticsController(plugin))
 
 
+        init_scheduler = extensions.ResourceExtension('asr1k/init_scheduler',
+                                                InitSchedulerController(plugin))
+
+        init_bindings = extensions.ResourceExtension('asr1k/init_bindings',
+                                                InitBindingsController(plugin))
+
+        init_atts = extensions.ResourceExtension('asr1k/init_atts',
+                                                InitAttsController(plugin))
+
+        init_config = extensions.ResourceExtension('asr1k/init_config',
+                                                InitConfigController(plugin))
+
+        cisco_teardown = extensions.ResourceExtension('asr1k/cisco_teardown',
+                                            CiscoTeardownController(plugin))
+
+
         resources.append(routers)
         resources.append(orphans)
         resources.append(config)
         resources.append(devices)
         resources.append(interface_stats)
+        resources.append(init_scheduler)
+        resources.append(init_bindings)
+        resources.append(init_atts)
+        resources.append(init_config)
+        resources.append(cisco_teardown)
 
         return resources
 
@@ -189,6 +210,68 @@ class InterfaceStatisticsController(wsgi.Controller):
         check_access(request)
         return self.plugin.interface_statistics(request.context,id)
 
+class InitSchedulerController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(InitSchedulerController,self).__init__()
+
+        self.plugin = plugin
+
+    def index(self, request):
+        check_access(request)
+        return self.plugin.init_scheduler(request.context)
+
+
+class InitBindingsController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(InitBindingsController,self).__init__()
+
+        self.plugin = plugin
+
+    def index(self, request):
+        check_access(request)
+        return self.plugin.init_bindings(request.context)
+
+class InitAttsController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(InitAttsController,self).__init__()
+
+        self.plugin = plugin
+
+    def index(self, request):
+        check_access(request)
+        return self.plugin.init_atts(request.context)
+
+class InitConfigController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(InitConfigController,self).__init__()
+
+        self.plugin = plugin
+
+    def show(self, request,id):
+        check_access(request)
+        return self.plugin.init_config(request.context,id)
+
+
+class CiscoTeardownController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(CiscoTeardownController,self).__init__()
+
+        self.plugin = plugin
+
+    def index(self, request):
+        check_access(request)
+        return self.plugin.cisco_teardown(request.context)
+
+    def delete(self, request,id):
+        check_access(request)
+        return self.plugin.cisco_teardown(request.context,dry_run=False)
+
+
 
 class DevicePluginBase(object):
 
@@ -234,4 +317,29 @@ class DevicePluginBase(object):
 
     @abc.abstractmethod
     def update_device(self, context, id, enabled):
+        pass
+
+    @abc.abstractmethod
+    def show_device(self, context, id):
+        pass
+
+    @abc.abstractmethod
+    def init_scheduler(self,context):
+        pass
+
+    @abc.abstractmethod
+    def init_bindings(self,context):
+        pass
+
+    @abc.abstractmethod
+    def init_atts(self,context):
+        pass
+
+
+    @abc.abstractmethod
+    def init_config(self,context,id):
+        pass
+
+    @abc.abstractmethod
+    def cisco_teardown(self,context,dry_run=True):
         pass

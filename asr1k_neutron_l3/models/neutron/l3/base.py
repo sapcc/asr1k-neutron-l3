@@ -46,3 +46,6 @@ class Base(object):
 
     def diff(self,should_be_none=False):
         return self._rest_definition.diff(should_be_none=should_be_none)
+
+    def init_config(self):
+        return self._rest_definition.init_config()

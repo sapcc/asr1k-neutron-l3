@@ -24,6 +24,7 @@ import oslo_messaging
 import requests
 import six
 import urllib3
+import time
 
 from greenlet import greenlet
 
@@ -380,18 +381,27 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                        'elapsed': elapsed})
         self.iter_num += 1
 
+    def _run_first(self):
+        LOG.debug("Init mode active - in noop mode")
+        while self._check_and_handle_signal():
+            with timeutils.StopWatch() as w:
+                time.sleep(5)
+                self.loop_count_and_wait(w.elapsed(),60)
+
     def daemon_loop(self):
         # Start everything.
         signal.signal(signal.SIGTERM, self._handle_sigterm)
 
         if hasattr(signal, 'SIGHUP'):
             signal.signal(signal.SIGHUP, self._handle_sighup)
-
-        self.loop_pool.spawn(self.rpc_loop)
-        self.loop_pool.spawn(self.sync_loop)
-        self.loop_pool.spawn(self.scavenge_loop)
-        # if self.api:
-        #     self.api.stop()
+        if self.conf.asr1k.init_mode:
+            self.loop_pool.spawn(self._run_first)
+        else:
+            self.loop_pool.spawn(self.rpc_loop)
+            self.loop_pool.spawn(self.sync_loop)
+            self.loop_pool.spawn(self.scavenge_loop)
+            # if self.api:
+            #     self.api.stop()
 
 
 

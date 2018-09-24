@@ -27,6 +27,7 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import importutils
 
+from asr1k_neutron_l3.common import  config as asr1k_config
 from asr1k_neutron_l3.plugins.l3.rpc import rpc_api
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
 from asr1k_neutron_l3.plugins.l3.service_plugins import l3_extension_adapter
@@ -57,6 +58,8 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
         self.router_scheduler = importutils.import_object(cfg.CONF.router_scheduler_driver)
 
         # self.l3_rpc_notifier=ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+        asr1k_config.register_l2_opts()
+        asr1k_config.register_l3_opts()
 
         self.start_periodic_l3_agent_status_check()
         l3_db.subscribe()

@@ -43,6 +43,8 @@ DEVICE_OPTS = [
 ]
 
 ASR1K_OPTS = [
+    cfg.BoolOpt('init_mode', default=True, help=_("Activate initialization mode")),
+    cfg.BoolOpt('save_config', default=True, help=_("Periodically sasve configuration")),
     cfg.IntOpt('connection_max_age', default=(3600), help=('')),
     cfg.StrOpt('wsma_adapter', default=('asr1k_neutron_l3.models.wsma_adapters.SshWsmaAdapter'), help=('')),
     cfg.ListOpt('preflights', default=(''), help=('')),

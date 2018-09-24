@@ -292,11 +292,13 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         self.yang_connection_pool_size = cfg.CONF.asr1k_l3.yang_connection_pool_size
         self.legacy_connection_pool_size = cfg.CONF.asr1k_l3.legacy_connection_pool_size
 
-        LOG.debug("Preparing connection pool  yang : {} ssh :{} max age : {}".format(self.yang_connection_pool_size,self.legacy_connection_pool_size,cfg.CONF.asr1k.connection_max_age))
+        if not cfg.CONF.asr1k.init_mode:
 
-        connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size, legacy_connection_pool_size=self.legacy_connection_pool_size,max_age=cfg.CONF.asr1k.connection_max_age)
+            LOG.debug("Preparing connection pool  yang : {} ssh :{} max age : {}".format(self.yang_connection_pool_size,self.legacy_connection_pool_size,cfg.CONF.asr1k.connection_max_age))
 
-        LOG.debug("Connection pool initialized")
+            connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size, legacy_connection_pool_size=self.legacy_connection_pool_size,max_age=cfg.CONF.asr1k.connection_max_age)
+
+            LOG.debug("Connection pool initialized")
 
         self.router_info = {}
         self.host = host
@@ -358,27 +360,38 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
     @log_helpers.log_method_call
     def after_start(self):
-        self.periodic_refresh_address_scope_config(self.context)
-        self.check_devices_alive(self.context)
 
-        if cfg.CONF.asr1k_l3.sync_active and cfg.CONF.asr1k_l3.sync_interval > 0:
-            self.sync_loop = loopingcall.FixedIntervalLoopingCall(
-                self._periodic_sync_routers_task)
-            self.sync_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
+        if cfg.CONF.asr1k.init_mode:
+            LOG.info("Init mode is activated")
+            eventlet.spawn_n(self._init_noop)
 
-            self.scavenge_loop = loopingcall.FixedIntervalLoopingCall(
-            self._periodic_scavenge_task)
-            self.scavenge_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
+        else:
 
-        if cfg.CONF.asr1k.clean_orphans:
-            LOG.info("Orphan clean is active, starting cleaning loop")
-            self.orphan_loop = loopingcall.FixedIntervalLoopingCall(
-            self.clean_device,dry_run=False)
-            self.orphan_loop.start(interval=cfg.CONF.asr1k.clean_orphan_interval)
+            self.periodic_refresh_address_scope_config(self.context)
 
-        eventlet.spawn_n(self._process_routers_loop)
+            if cfg.CONF.asr1k_l3.sync_active and cfg.CONF.asr1k_l3.sync_interval > 0:
+                self.sync_loop = loopingcall.FixedIntervalLoopingCall(
+                    self._periodic_sync_routers_task)
+                self.sync_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
 
-        LOG.info(_LI("L3 agent started"))
+                self.scavenge_loop = loopingcall.FixedIntervalLoopingCall(
+                self._periodic_scavenge_task)
+                self.scavenge_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
+
+                self.device_check_loop = loopingcall.FixedIntervalLoopingCall(
+                self._check_devices_alive,self.context)
+                self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval/2)
+
+
+            if cfg.CONF.asr1k.clean_orphans:
+                LOG.info("Orphan clean is active, starting cleaning loop")
+                self.orphan_loop = loopingcall.FixedIntervalLoopingCall(
+                self.clean_device,dry_run=False)
+                self.orphan_loop.start(interval=cfg.CONF.asr1k.clean_orphan_interval)
+
+            eventlet.spawn_n(self._process_routers_loop)
+
+            LOG.info(_LI("L3 agent started"))
 
     def trigger_sync(self,signum, frame):
         LOG.info("Setup full sync based on external signal")
@@ -436,8 +449,9 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         LOG.debug('Got router added to agent :%r', payload)
         self.routers_updated(context, payload)
 
-    @periodic_task.periodic_task(spacing=1, run_immediately=True)
-    def check_devices_alive(self,context):
+
+    def _check_devices_alive(self,context):
+
         device_info = self.plugin_rpc.get_device_info(context)
         connection.check_devices(device_info)
 
@@ -447,20 +461,27 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
             routers = self.plugin_rpc.get_extra_atts_orphans(self.context)
 
+            print "************************ scavenger extra atts orphans"
+            print routers
+
             for router in routers:
                 try:
-                    result = l3_router.Router(router).delete()
-                    self._check_delete_result(router,result)
+                    if router.get(constants.ASR1K_EXTRA_ATTS_KEY) is not None:
+                        result = l3_router.Router(router).delete()
+                        self._check_delete_result(router,result)
 
                 except Exception as e:
                     LOG.exception(e)
 
+            print "************************ scavenger router atts orphans"
             routers = self.plugin_rpc.get_router_atts_orphans(self.context)
 
+            LOG.debug('Starting to scavenge orphans from router atts')
             for router in routers:
                 try:
-                    result = l3_router.Router(router).delete()
-                    self._check_delete_result(router,result)
+                    if router.get(constants.ASR1K_EXTRA_ATTS_KEY) is not None:
+                        result = l3_router.Router(router).delete()
+                        self._check_delete_result(router,result)
 
                 except Exception as e:
                     LOG.exception(e)
@@ -497,16 +518,18 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         curr_router_ids = set()
         timestamp = timeutils.utcnow()
 
-        LOG.info("Saving running device config to startup config")
-        start = time.time()
-        rpc = CopyConfig()
-        result = rpc.copy_config()
+        if cfg.CONF.asr1k.save_config:
+            LOG.info("Saving running device config to startup config")
+            start = time.time()
+            rpc = CopyConfig()
+            result = rpc.copy_config()
 
-        if not result.success:
-            LOG.error("Copy config failed, results : {} ".format(result))
+            if not result.success:
+                LOG.error("Copy config failed, results : {} ".format(result))
+            else:
+                LOG.info("Saved running device config to startup config in {}s".format(time.time()-start))
         else:
-            LOG.info("Saved running device config to startup config in {}s".format(time.time()-start))
-
+            LOG.info("Saving running device config disabled in ASR1K config")
 
         try:
             router_ids = self.plugin_rpc.get_router_ids(context)
@@ -610,7 +633,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         if update.action != queue.DELETE_ROUTER and not router:
             update.timestamp = timeutils.utcnow()
 
-            routers = routers = self.plugin_rpc.get_routers(self.context, [update.id])
+            routers = self.plugin_rpc.get_routers(self.context, [update.id])
             if routers:
                 router = routers[0]
 
@@ -635,10 +658,12 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
         return router
 
+    @instrument()
     def _process_router_update(self):
         try:
             if not self.pause_process:
                 for rp, update in self._queue.each_update_to_next_router():
+
 
                     router = self._ensure_snat_mode_config(update)
 
@@ -668,7 +693,8 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
                             # set L3 deleted for all ports on the router that have disappeared
                             deleted_ports = utils.calculate_deleted_ports(router)
-                            self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
+                            if len(deleted_ports) > 0 :
+                                self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
 
                             rp.fetched_and_processed(update.timestamp)
 
@@ -689,6 +715,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                                 raise e
                     else:
                         self._resync_router(update)
+
         except Exception as e:
             LOG.exception(e)
 
@@ -765,7 +792,8 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         success = self.check_success(result)
         if success:
             deleted_ports = utils.calculate_deleted_ports(router)
-            self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
+            if len(deleted_ports) > 0:
+                self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
 
             if self._clean(router):
                 self.plugin_rpc.delete_router_atts(self.context, [router.get('id')])
@@ -797,6 +825,15 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                     success = success and result.success
         return success
 
+    def _init_noop(self):
+        LOG.debug("Init mode active - in noop mode")
+        pool = eventlet.GreenPool(size=1)
+        while True:
+            pool.spawn_n(self._agent_init)
+
+    def _agent_init (self):
+        if not self.init_complete:
+            time.sleep(5)
 
 class L3ASRAgentWithStateReport(L3ASRAgent):
 

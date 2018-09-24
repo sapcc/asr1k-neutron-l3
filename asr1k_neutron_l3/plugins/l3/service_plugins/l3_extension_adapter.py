@@ -35,7 +35,7 @@ from asr1k_neutron_l3.plugins.db import models as asr1k_models
 from asr1k_neutron_l3.plugins.l3.schedulers import asr1k_scheduler_db
 from asr1k_neutron_l3.extensions import asr1koperations as asr1k_ext
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
-
+from asr1k_neutron_l3.plugins.l3.service_plugins.initializer import Initializer
 
 LOG = log.getLogger(__name__)
 
@@ -120,21 +120,33 @@ class L3RpcNotifierMixin(object):
         return notifier.show_device(context,host,device_id)
 
 
+    def asr1k_init(self, context):
+        LOG.debug('asrk1_init')
+        Initializer.asr1k_init(context)
+
+    def agent_initial_config(self, context, host):
+        LOG.debug('agent_initial_config')
+        Initializer.agent_initial_config(context, host)
+
 class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
                       dns_db.DNSDbMixin, L3RpcNotifierMixin,asr1k_ext.DevicePluginBase):
 
-
-    def get_host_for_router(self, context, router_id):
+    def get_agent_for_router(self, context, router_id):
         """Returns all hosts to send notification about router update"""
         agents = self.list_l3_agents_hosting_router(context, router_id)
 
-        agents_list = agents.get('agents',[])
+        agents_list = agents.get('agents', [])
 
         if len(agents_list) == 1:
-            return agents_list[0].get('host')
+            return agents_list[0]
         else:
             LOG.error('get host for router: there should be one and only one agent, got {}'.format(agents_list))
+
+    def get_host_for_router(self, context, router_id):
+        agent = self.get_agent_for_router(context,router_id)
+        if agent is not None:
+            return agent.get('host')
 
 
 
@@ -168,8 +180,10 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     @instrument()
     @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None,host=None):
-        #Temp for migration of second dot1q attribute
-        self._ensure_second_dot1q(context)
+        db = asr1k_db.DBPlugin()
+        if host is not None:
+            host_router_ids =db.get_all_router_ids(context,host)
+            router_ids = [ r for r in router_ids if r in host_router_ids]
 
         extra_atts = self._get_extra_atts(context, router_ids,host)
         router_atts = self._get_router_atts(context, router_ids)
@@ -181,7 +195,14 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                 routers.append({'id':router_id,constants.ASR1K_ROUTER_ATTS_KEY:router_atts.get(router_id, {})})
 
         for router in routers:
-            extra_att = extra_atts.get(router['id'], {})
+            extra_att = extra_atts.get(router['id'])
+            if extra_atts is None :
+                if host is None:
+                    LOG.debug("Not including router {} in sync its extra atts are missing.".format(router['id']))
+                else:
+                    LOG.debug("Not including router {} in sync its extra atts are missing for host {}.".format(router['id'],host))
+                continue
+
             router[constants.ASR1K_EXTRA_ATTS_KEY] = extra_att
 
             router_att = router_atts.get(router['id'], {})
@@ -214,6 +235,9 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                     gw_port['fixed_ips'] = sorted(ips, key=lambda k: k.get('ip_address'))
                     if gw_info is not None:
                         gw_info['external_fixed_ips']=gw_port['fixed_ips']
+
+        print "neutron_l3.common.instrument {}".format(len(routers))
+
         return routers
 
 
@@ -228,7 +252,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
     def _get_extra_atts(self, context, router_ids, host=None):
         db = asr1k_db.DBPlugin()
-        extra_atts = db.get_extra_atts_for_routers(context, router_ids)
+        extra_atts = db.get_extra_atts_for_routers(context, router_ids, host=host)
 
         return_dict = {}
 
@@ -382,6 +406,24 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
         return {id:enabled}
 
+
+    def init_scheduler(self, context):
+
+        return Initializer(self,context).init_scheduler()
+
+    def init_bindings(self, context):
+        return Initializer(self,context).init_bindings()
+
+    def init_atts(self, context):
+        return Initializer(self,context).init_atts()
+
+    def init_config(self, context, host):
+
+        return Initializer(self,context).init_config(host)
+
+    def cisco_teardown(self,context,dry_run=True):
+
+        return Initializer(self,context).cisco_teardown(dry_run=dry_run)
 
 
 

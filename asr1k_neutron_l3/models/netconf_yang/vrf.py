@@ -23,6 +23,7 @@ from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,Requeable, NC_OP
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
+from asr1k_neutron_l3.common import cli_snippets
 
 LOG = logging.getLogger(__name__)
 
@@ -72,6 +73,13 @@ class VrfDefinition(NyBase,Requeable):
                     </vrf>
                 </native>            
              """
+
+    CLI_INIT =\
+"""vrf definition {}
+    description {}
+    rd {}
+    address-family ipv4
+        export map exp-{}"""
 
 
     LIST_KEY = VrfConstants.VRF
@@ -169,3 +177,5 @@ class VrfDefinition(NyBase,Requeable):
             LOG.info("Preflight check for {} disabled in configuration".format(self.__class__.__name__))
 
 
+    def init_config(self):
+        return cli_snippets.VRF_CLI_INIT.format(**{'name':self.name,'description':self.description,'rd':self.rd})

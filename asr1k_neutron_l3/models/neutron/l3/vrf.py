@@ -37,7 +37,7 @@ class Vrf(base.Base):
         if self.routeable_interface:
             self.enable_bgp = True
 
-        self._rest_definition = vrf.VrfDefinition(name=self.name, description="Router {}".format(self.description), rd=self.rd,enable_bgp=self.enable_bgp)
+        self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description, rd=self.rd,enable_bgp=self.enable_bgp)
 
 
 

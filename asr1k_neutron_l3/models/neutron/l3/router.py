@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import os
+import json
 from oslo_log import log as logging
 from oslo_utils import timeutils
 from oslo_config import cfg
@@ -57,7 +58,7 @@ class Router(Base):
         description = self.router_info.get('description')
 
         if description is None or len(description) == 0:
-            description = self.router_id
+            description = "Router {}".format(self.router_id)
 
         #TODO : get rt's from config for router
         address_scope_config = router_info.get(constants.ADDRESS_SCOPE_CONFIG,{})
@@ -227,7 +228,15 @@ class Router(Base):
             return route.Route(self.router_id, "0.0.0.0", "0.0.0.0", self.gateway_interface.primary_gateway_ip)
 
     def _port_extra_atts(self, port):
-        return self.extra_atts.get(port.get('id'),{})
+        try:
+            return self.extra_atts.get(port.get('id'), {})
+        except BaseException as e:
+            LOG.error("Cannot get  extra atts from {} for port {} on router {}".format(self.extra_atts, port, self.router_id))
+
+            print "************************* start {}".format(self.router_id)
+            print self.router_info
+            print "************************* end {}".format(self.router_id)
+            raise e
 
     def create(self):
         with PrometheusMonitor().router_create_duration.time():
@@ -424,3 +433,20 @@ class Router(Base):
             diff_results['nat_acl'] = nat_acl_diff.to_dict()
 
         return diff_results
+
+
+
+    def init_config(self):
+        result = []
+
+        result.append(self.vrf.init_config())
+        result.append('\n')
+        if self.gateway_interface:
+            result.append(self.gateway_interface.init_config())
+            result.append('\n')
+
+        for interface in self.interfaces.internal_interfaces:
+            result.append(interface.init_config())
+            result.append('\n')
+
+        return ''.join(result)

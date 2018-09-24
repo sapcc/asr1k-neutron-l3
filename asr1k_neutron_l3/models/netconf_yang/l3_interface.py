@@ -19,8 +19,8 @@ from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
 import asr1k_neutron_l3.models.netconf_yang.nat
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackInternalInterface
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
-from asr1k_neutron_l3.models.connection import ConnectionManager
-from asr1k_neutron_l3.common import asr1k_exceptions as exc
+
+from asr1k_neutron_l3.common import cli_snippets
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from oslo_log import log as logging
@@ -179,6 +179,24 @@ class BDIInterface(NyBase):
                      raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
 
 
+    def init_config(self):
+
+        if self.nat_inside:
+            nat = L3Constants.NAT_MODE_INSIDE
+
+        elif self.nat_outside:
+            nat = L3Constants.NAT_MODE_OUTSIDE
+
+        if self.route_map is not None:
+            return cli_snippets.BDI_POLICY_CLI_INIT.format(**{'id': self.id, 'description': self.description,
+                                                                 'mac': self.mac_address, 'mtu': self.mtu,
+                                                                 'vrf': self.vrf, 'ip': self.ip_address.address,
+                                                                 'netmask':self.ip_address.mask, 'nat': nat,'route_map':self.route_map})
+        else:
+            return cli_snippets.BDI_NO_POLICY_CLI_INIT.format(**{'id': self.id, 'description': self.description,
+                                                                 'mac': self.mac_address, 'mtu': self.mtu,
+                                                                 'vrf': self.vrf, 'ip': self.ip_address.address,
+                                                                 'netmask':self.ip_address.mask, 'nat': nat})
 
 
 class BDISecondaryIpAddress(NyBase):

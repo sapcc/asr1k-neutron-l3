@@ -875,3 +875,7 @@ class NyBase(BulkOperations):
 
     def postflight(self, context):
         pass
+
+
+    def init_config(self):
+        return ""
