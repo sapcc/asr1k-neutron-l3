@@ -574,6 +574,8 @@ class NyBase(BulkOperations):
                         for path_item in path:
                             if bool(values):
                                 values = values.get(path_item)
+                                if isinstance(values,list):
+                                    LOG.debug("******* unexpected list found for {} path".format(cls.__name__, yang_path))
                                 if bool(values) is None:
                                     LOG.warning("Invalid yang segment {} in {} please check against yang model. Values: {}".format(path_item,yang_path,values))
 
