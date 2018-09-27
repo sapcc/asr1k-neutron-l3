@@ -184,7 +184,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_orphaned_extra_atts_router_ids(self, context, host):
         subquery = context.session.query(l3_db.Router.id)
 
-        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter(
+        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter( asr1k_models.ASR1KExtraAttsModel.agent_host==host).filter(
             asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
         result = []
         for row in query.all():
