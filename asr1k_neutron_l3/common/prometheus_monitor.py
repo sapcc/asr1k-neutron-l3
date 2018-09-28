@@ -35,7 +35,7 @@ ACTION_BUCKETS=  (1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40
 OPERATION_BUCKETS=  (0.1,0.3,0.5, 0.7,1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0,core._INF)
 
 ORPHANS_LABELS = ['host','device']
-CONNECTION_POOL_LABELS = ['host','device','legacy']
+CONNECTION_POOL_LABELS = ['host','device']
 DETAIL_LABELS = ['host','device', 'entity','action']
 BASIC_LABELS = ['host']
 STATS_LABELS = ['host','status']
@@ -72,8 +72,6 @@ class PrometheusMonitor(object):
         self._connection_pool_exhausted = Counter('connection_pool_exhausted', 'Connnection pool  exhausted', CONNECTION_POOL_LABELS, namespace=self.namespace)
 
         self._yang_operation_duration = Histogram("yang_operation_duration", "Individual entity operation",DETAIL_LABELS,namespace=self.namespace, buckets=OPERATION_BUCKETS)
-        self._ssh_operation_duration = Histogram("ssh_operation_duration", "Individual entity operation",
-                                                DETAIL_LABELS, namespace=self.namespace,buckets=OPERATION_BUCKETS)
 
         self._l3_orphan_count = Gauge('l3_orphan_count', 'Number of L3 orphans found on device', ORPHANS_LABELS,namespace=self.namespace )
         self._l2_orphan_count = Gauge('l2_orphan_count', 'Number of L2 orphans found on device', ORPHANS_LABELS, namespace=self.namespace)

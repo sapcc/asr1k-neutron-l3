@@ -120,8 +120,6 @@ class OperationsMixin(object):
         result['id'] = context.host
         result['name'] = context.name
         result['host'] = context.host
-        result['http_port'] = context.http_port
-        result['legacy_port'] = context.legacy_port
         result['yang_port'] = context.yang_port
         result['nc_timeout'] = context.nc_timeout
         result['username'] = context.username

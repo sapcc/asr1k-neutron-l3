@@ -30,10 +30,7 @@ LOG = logging.getLogger(__name__)
 
 DEVICE_OPTS = [
     cfg.ListOpt('host', default=('10.0.0.1'), help=('')),
-    cfg.StrOpt('protocol', default=('https'), help=('')),
-    cfg.IntOpt('http_port', default=(443), help=('')),
     cfg.IntOpt('yang_port', default=(830), help=('')),
-    cfg.IntOpt('legacy_port', default=(22), help=('')),
     cfg.IntOpt('nc_timeout', default=(5), help=('')),
     cfg.StrOpt('user_name', default=('admin'), help=('')),
     cfg.StrOpt('password', default=('secret'), help=('')),
@@ -46,7 +43,6 @@ ASR1K_OPTS = [
     cfg.BoolOpt('init_mode', default=False, help=_("Activate initialization mode")),
     cfg.BoolOpt('save_config', default=True, help=_("Periodically sasve configuration")),
     cfg.IntOpt('connection_max_age', default=(3600), help=('')),
-    cfg.StrOpt('wsma_adapter', default=('asr1k_neutron_l3.models.wsma_adapters.SshWsmaAdapter'), help=('')),
     cfg.ListOpt('preflights', default=(''), help=('')),
     cfg.BoolOpt('clean_orphans', default=True, help=_("Activate regular orphan cleanup")),
 
@@ -56,7 +52,6 @@ ASR1K_OPTS = [
 
 ASR1K_L3_OPTS = [
     cfg.IntOpt('yang_connection_pool_size', default=(5), help=('')),
-    cfg.IntOpt('legacy_connection_pool_size', default=(5), help=('')),
     cfg.IntOpt('fabric_asn', default=(65192), help=('')),
     cfg.IntOpt('max_requeue_attempts', default=(10), help=('')),
     cfg.BoolOpt('sync_active', default=True, help=_("Activate regular config sync")),
@@ -71,7 +66,6 @@ ASR1K_L3_OPTS = [
 
 ASR1K_L2_OPTS = [
     cfg.IntOpt('yang_connection_pool_size', default=(5), help=('')),
-    cfg.IntOpt('legacy_connection_pool_size', default=(0), help=('')),
     cfg.BoolOpt('sync_active', default=True, help=_("Activate regular config sync")),
     cfg.IntOpt('sync_interval', default=60, help=_("Polling interval for sync task")),
     cfg.IntOpt('sync_chunk_size', default=10,help=_("Number of ports to process in on poll")),
@@ -159,4 +153,4 @@ def register_l2_opts():
     common_config.setup_logging()
 
     cfg.CONF.asr1k.yang_connection_pool_size = cfg.CONF.asr1k_l2.yang_connection_pool_size
-    cfg.CONF.asr1k.legacy_connection_pool_size =  cfg.CONF.asr1k_l2.legacy_connection_pool_size
+

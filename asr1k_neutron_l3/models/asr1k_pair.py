@@ -23,13 +23,10 @@ LOG = logging.getLogger(__name__)
 
 class ASR1KContext(object):
 
-    def __init__(self,name, host, http_port, legacy_port,yang_port, nc_timeout, username, password, protocol='https', insecure=True,
+    def __init__(self,name, host,yang_port, nc_timeout, username, password, insecure=True,
                  headers={}, preflights=[]):
-        self.protocol = protocol
         self.name = name
         self.host = host
-        self.http_port = http_port
-        self.legacy_port = legacy_port
         self.yang_port = yang_port
         self.nc_timeout = nc_timeout
         self.username = username
@@ -65,7 +62,6 @@ class ASR1KPair(object):
         for device_name in device_config.keys():
             config = device_config.get(device_name)
 
-            self.contexts.append(ASR1KContext(device_name,config.get('host'), config.get('http_port',self.config.asr1k_devices.http_port), config.get('legacy_port',self.config.asr1k_devices.legacy_port),config.get('yang_port',self.config.asr1k_devices.yang_port),
+            self.contexts.append(ASR1KContext(device_name,config.get('host'), config.get('yang_port',self.config.asr1k_devices.yang_port),
                                               int(config.get('nc_timeout',self.config.asr1k_devices.nc_timeout)), config.get('user_name'),
-                                              config.get('password'),
-                                              protocol=config.get('protocol',self.config.asr1k_devices.protocol), insecure=True, preflights=self.config.asr1k.preflights))
+                                              config.get('password'), insecure=True, preflights=self.config.asr1k.preflights))

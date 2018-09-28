@@ -290,13 +290,13 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
             self.conf = cfg.CONF
 
         self.yang_connection_pool_size = cfg.CONF.asr1k_l3.yang_connection_pool_size
-        self.legacy_connection_pool_size = cfg.CONF.asr1k_l3.legacy_connection_pool_size
+
 
         if not cfg.CONF.asr1k.init_mode:
 
-            LOG.debug("Preparing connection pool  yang : {} ssh :{} max age : {}".format(self.yang_connection_pool_size,self.legacy_connection_pool_size,cfg.CONF.asr1k.connection_max_age))
+            LOG.debug("Preparing connection pool  yang : {} max age : {}".format(self.yang_connection_pool_size,cfg.CONF.asr1k.connection_max_age))
 
-            connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size, legacy_connection_pool_size=self.legacy_connection_pool_size,max_age=cfg.CONF.asr1k.connection_max_age)
+            connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size,max_age=cfg.CONF.asr1k.connection_max_age)
 
             LOG.debug("Connection pool initialized")
 
@@ -735,7 +735,12 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     def _extra_atts_complete(self, router):
         extra_atts = router.get(constants.ASR1K_EXTRA_ATTS_KEY)
 
-        return set(utils.get_router_ports(router)).issubset(extra_atts.keys())
+        complete = False
+
+        if extra_atts.keys() is not None:
+            complete = set(utils.get_router_ports(router)).issubset(extra_atts.keys())
+
+        return complete
 
     def _process_routers_loop(self):
         poolsize = min(self.conf.asr1k_l3.threadpool_maxsize,self.yang_connection_pool_size,constants.MAX_CONNECTIONS)
