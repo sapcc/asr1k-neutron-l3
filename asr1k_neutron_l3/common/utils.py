@@ -33,7 +33,12 @@ def calculate_deleted_ports(router):
 
     router_ports = get_router_ports(router)
 
-    return list(set(extra_atts.keys()) - set(router_ports))
+    extra_atts_ports = []
+    if extra_atts is not None:
+        extra_atts_ports = extra_atts.keys()
+
+
+    return list(set(extra_atts_ports) - set(router_ports))
 
 
 def get_router_ports(router):

@@ -229,9 +229,14 @@ class Router(Base):
 
     def _port_extra_atts(self, port):
         try:
-            return self.extra_atts.get(port.get('id'), {})
+            if self.extra_atts is not None:
+                return self.extra_atts.get(port.get('id'), {})
+            else:
+                LOG.error(
+                    "Cannot get  extra atts from {} for port {} on router {}".format(self.extra_atts, port.get('id'),self.router_id))
+                return {}
         except BaseException as e:
-            LOG.error("Cannot get  extra atts from {} for port {} on router {}".format(self.extra_atts, port, self.router_id))
+
             raise e
 
     def create(self):
