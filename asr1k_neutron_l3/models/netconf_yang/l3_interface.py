@@ -20,8 +20,9 @@ import asr1k_neutron_l3.models.netconf_yang.nat
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackInternalInterface
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
-from asr1k_neutron_l3.common import cli_snippets
-from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.common import cli_snippets, utils
+from asr1k_neutron_l3.common import asr1k_exceptions as exc
+
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
@@ -152,12 +153,6 @@ class BDIInterface(NyBase):
 
         return dict(result)
 
-    @execute_on_pair()
-    def update(self,context=None,method=NC_OPERATION.PATCH):
-        result = super(BDIInterface, self)._update(context=context)
-        if result is not None: # We had a diff and need may need to  PUT to unshut
-            result = super(BDIInterface, self)._update(context=context,method=NC_OPERATION.PUT)
-        return result
 
     @property
     def in_neutron_namespace(self):
@@ -170,7 +165,7 @@ class BDIInterface(NyBase):
     def postflight(self, context):
 
          dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
-         if dyn_nat is not None:
+         if self.nat_outside and dyn_nat is not None:
                  if dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
                      LOG.warning(
                          "Postflight failed for interface {} due to configured interface presence of dynamic NAT {}".format(

@@ -33,6 +33,7 @@ class NATConstants(object):
     POOL = "pool"
     POOL_WITH_VRF = 'pool-with-vrf'
     NAME = "name"
+    VRF_NAME = "vrf-name"
     INTERFACE = "interface"
     INTERFACE_WITH_VRF = 'interface-with-vrf'
     BDI = "BDI"
@@ -218,7 +219,7 @@ class InterfaceDynamicNat(DynamicNat):
             {'key': 'interface','yang-key': 'name','yang-path':"interface-with-vrf/interface"},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
-            {'key': 'vrf','yang-key':'name','yang-path': "interface-with-vrf/interface/vrf"},
+            {'key': 'vrf','yang-key':'vrf-name','yang-path': "interface-with-vrf/interface/vrf"},
             {'key': 'overload','yang-path':"interface-with-vrf/interface/vrf",'default':False,'yang-type':YANG_TYPE.EMPTY}
         ]
 
@@ -261,7 +262,7 @@ class InterfaceDynamicNat(DynamicNat):
         entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE] = {}
         entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.NAME] = self.interface
         entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF] = {}
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.NAME] = self.vrf
+        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.VRF_NAME] = self.vrf
         if self.overload:
             entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.OVERLOAD] = ""
 
