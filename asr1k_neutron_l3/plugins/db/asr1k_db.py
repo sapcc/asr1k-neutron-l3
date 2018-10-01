@@ -360,7 +360,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         for entry in routers:
             result.append(entry.id)
 
-        if result is  None :
             result = []
 
         return result
