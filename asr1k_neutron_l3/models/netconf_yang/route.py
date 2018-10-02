@@ -16,9 +16,14 @@
 
 from collections import OrderedDict
 
+from oslo_log import log as logging
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION
 from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.common import  asr1k_exceptions as exc
 
+import asr1k_neutron_l3.models.netconf_yang.vrf as yang_vrf
+
+LOG = logging.getLogger(__name__)
 
 class RouteConstants(object):
     DEFINITION = "vrf"
@@ -112,6 +117,18 @@ class VrfRoute(NyBase):
         result[RouteConstants.DEFINITION] = vrf_route
 
         return dict(result)
+
+    def preflight(self, context):
+
+        LOG.debug("Running preflight check for route {}".format(self.id))
+
+        vrf = yang_vrf.VrfDefinition.get(self.name,context=context)
+
+        if vrf is None:
+            raise exc.MissingParentException(device=context.host,entity=self,action="create")
+
+
+        LOG.debug("Preflight check completed for route {}".format(self.id))
 
 
 class IpRoute(NyBase):

@@ -24,7 +24,7 @@ LOG = logging.getLogger(__name__)
 class ASR1KContext(object):
 
     def __init__(self,name, host,yang_port, nc_timeout, username, password, insecure=True,
-                 headers={}, preflights=[]):
+                 headers={}):
         self.name = name
         self.host = host
         self.yang_port = yang_port
@@ -37,7 +37,6 @@ class ASR1KContext(object):
         self.headers['accept'] = headers.get('accept', "application/yang-data+json")
         self.alive = False
         self.enabled = True
-        self.preflights = preflights
 
 class ASR1KPair(object):
 
@@ -64,4 +63,4 @@ class ASR1KPair(object):
 
             self.contexts.append(ASR1KContext(device_name,config.get('host'), config.get('yang_port',self.config.asr1k_devices.yang_port),
                                               int(config.get('nc_timeout',self.config.asr1k_devices.nc_timeout)), config.get('user_name'),
-                                              config.get('password'), insecure=True, preflights=self.config.asr1k.preflights))
+                                              config.get('password'), insecure=True))

@@ -81,3 +81,7 @@ class DeviceConnectionException(DeviceOperationException):
 
 class EntityNotEmptyException(ReQueueException):
     message = "The config for entity %(entity_name)s is not empty and cannot be deleted without side effects"
+
+
+class MissingParentException(ReQueueException):
+    message = "The parent config for entity %(entity_name)s is missing, cannot create %(entity_name)s"

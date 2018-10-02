@@ -13,7 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import time
 from  collections import OrderedDict
 import sqlalchemy as sa
 
@@ -177,14 +177,24 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     @instrument()
     @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None,host=None):
+
         db = asr1k_db.DBPlugin()
         if host is not None:
             host_router_ids =db.get_all_router_ids(context,host)
             router_ids = [ r for r in router_ids if r in host_router_ids]
 
+        if not bool(router_ids):
+            return []
+
         extra_atts = self._get_extra_atts(context, router_ids,host)
         router_atts = self._get_router_atts(context, router_ids)
-        routers = super(ASR1KPluginBase, self).get_sync_data(context, router_ids=router_ids, active=active)
+
+        try:
+            routers = super(ASR1KPluginBase, self).get_sync_data(context, router_ids=router_ids, active=active)
+        except TypeError:
+            # We may have a race in the L3/L2 scavengers, lets back of and try again
+            time.sleep(.25)
+            routers = super(ASR1KPluginBase, self).get_sync_data(context, router_ids=router_ids, active=active)
 
         if not bool(routers):
             routers = []
@@ -233,7 +243,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                     if gw_info is not None:
                         gw_info['external_fixed_ips']=gw_port['fixed_ips']
 
-        print "neutron_l3.common.instrument {}".format(len(routers))
+
 
         return routers
 
@@ -288,10 +298,33 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     @log_helpers.log_method_call
     def create_router(self, context, router):
         result = super(ASR1KPluginBase, self).create_router(context, router)
-
         asr1k_db.RouterAttsDb.ensure(context,result.get('id'))
-
         return result
+
+
+    @log_helpers.log_method_call
+    def update_router(self, context, id, router):
+        result = super(ASR1KPluginBase, self).update_router(context, id, router)
+        asr1k_db.RouterAttsDb.ensure(context, result.get('id'))
+        return result
+
+    @log_helpers.log_method_call
+    def get_router(self, context, id, fields=None):
+        return super(ASR1KPluginBase, self).get_router(context, id, fields)
+
+    @log_helpers.log_method_call
+    def delete_router(self, context, id):
+        return super(ASR1KPluginBase, self).delete_router( context, id)
+
+    @log_helpers.log_method_call
+    def add_router_interface(self, context, router_id, interface_info):
+        return super(ASR1KPluginBase,self).add_router_interface(context, router_id, interface_info)
+
+    @log_helpers.log_method_call
+    def remove_router_interface(self, context, router_id, interface_info):
+        return super(ASR1KPluginBase,self).remove_router_interface(context, router_id, interface_info)
+
+
 
 
     def validate(self, context, id, fields=None):

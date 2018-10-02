@@ -35,7 +35,6 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
     @instrument()
     def delete_extra_atts_l3(self, context, **kwargs):
-        start = time.time()
 
         ports = kwargs.get('ports', [])
 
@@ -75,14 +74,13 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
 
     @instrument()
-    def get_extra_atts_orphans(self,context, **kwargs):
+    def delete_extra_atts_orphans(self,context, **kwargs):
         host = kwargs.get('host')
-        routers = self.db.get_orphaned_extra_atts_router_ids(self.context,host)
+        extra_atts = self.db.get_orphaned_extra_atts(self.context,host)
+        for att in extra_atts:
+            self.db.delete_extra_att(context,att.get('port_id'),l3=True)
 
-        if routers is None:
-            return []
 
-        return self.l3plugin.get_sync_data(context, router_ids=routers, active=None,host=host)
 
     @instrument()
     def get_all_extra_atts(self, context, host=None):
@@ -118,19 +116,20 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
     @instrument()
     def delete_router_atts(self, context, **kwargs):
         router_ids = kwargs.get('router_ids', [])
+        LOG.debug("********** delete_router_atts {}".format(router_ids))
         for router_id in router_ids:
             self.db.delete_router_att(self.context, router_id)
 
 
     @instrument()
-    def get_router_atts_orphans(self,context, **kwargs):
+    def delete_router_atts_orphans(self,context, **kwargs):
         host = kwargs.get('host')
-        routers = self.db.get_orphaned_router_atts_router_ids(self.context,host)
+        router_atts = self.db.get_orphaned_router_atts(self.context,host)
+        LOG.debug("********** delete_router_atts_orphans {}".format(router_atts))
+        for att in router_atts:
+            self.db.delete_router_att(context, att.get('router_id'))
 
-        if routers is None:
-            return []
 
-        return self.l3plugin.get_sync_data(context, router_ids=routers, active=None,host=host)
 
 
     @instrument()

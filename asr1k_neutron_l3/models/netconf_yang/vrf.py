@@ -158,23 +158,19 @@ class VrfDefinition(NyBase,Requeable):
 
     def preflight(self, context):
 
-        if self.__class__.__name__ in context.preflights:
+        LOG.debug("Running preflight check for VRF {}".format(self.id))
 
-            LOG.debug("Running preflight check for VRF {}".format(self.id))
+        # check for VRFs with the same RD
+        rd_filter =  self.RD_FILTER.format(**{'rd':self.rd})
 
-            # check for VRFs with the same RD
-            rd_filter =  self.RD_FILTER.format(**{'rd':self.rd})
+        rd_vrf = self._get(context=context, nc_filter=rd_filter)
 
-            rd_vrf = self._get(context=context, nc_filter=rd_filter)
+        if rd_vrf is not None:
+            if self.id != rd_vrf.id:
+                LOG.warning("Preflight found existing VRF {} with RD {} - attempting to remove".format(rd_vrf.id,self.rd))
+                rd_vrf._delete(context)
 
-            if rd_vrf is not None:
-                if self.id != rd_vrf.id:
-                    LOG.warning("Preflight found existing VRF {} with RD {} - attempting to remove".format(rd_vrf.id,self.rd))
-                    rd_vrf._delete(context)
-
-            LOG.debug("Preflight check completed for VRF {}".format(self.id))
-        else:
-            LOG.info("Preflight check for {} disabled in configuration".format(self.__class__.__name__))
+        LOG.debug("Preflight check completed for VRF {}".format(self.id))
 
 
     def init_config(self):

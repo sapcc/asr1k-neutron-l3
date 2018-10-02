@@ -155,17 +155,17 @@ class L3PluginApi(object):
                           router_ids=router_ids)
 
     @instrument()
-    def get_extra_atts_orphans(self, context, router_ids=None):
+    def delete_extra_atts_orphans(self, context, router_ids=None):
         """Make a remote process call to retrieve the orphans in extra atts table."""
         cctxt = self.client.prepare()
-        return cctxt.call(context, 'get_extra_atts_orphans', host=self.host)
+        return cctxt.call(context, 'delete_extra_atts_orphans', host=self.host)
 
 
     @instrument()
-    def get_router_atts_orphans(self, context):
+    def delete_router_atts_orphans(self, context):
         """Make a remote process call to retrieve the orphans in extra atts table."""
         cctxt = self.client.prepare()
-        return cctxt.call(context, 'get_router_atts_orphans', host=self.host)
+        return cctxt.call(context, 'delete_router_atts_orphans', host=self.host)
 
     @instrument()
     def get_all_extra_atts(self, context):
@@ -300,6 +300,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
             LOG.debug("Connection pool initialized")
 
+
         self.router_info = {}
         self.host = host
         self.process_monitor = external_process.ProcessMonitor(
@@ -378,9 +379,9 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                 self._periodic_scavenge_task)
                 self.scavenge_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
 
-                self.device_check_loop = loopingcall.FixedIntervalLoopingCall(
-                self._check_devices_alive,self.context)
-                self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval/2)
+            self.device_check_loop = loopingcall.FixedIntervalLoopingCall(
+            self._check_devices_alive,self.context)
+            self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval/2)
 
 
             if cfg.CONF.asr1k.clean_orphans:
@@ -422,7 +423,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         return monitor
 
     def router_deleted(self, context, router_id):
-        LOG.debug('Got router deleted notification for %s', router_id)
+        LOG.debug('************** Got router deleted notification for %s', router_id)
         update = queue.RouterUpdate(router_id,
                                     queue.PRIORITY_RPC,
                                     action=queue.DELETE_ROUTER)
@@ -430,7 +431,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
 
     def routers_updated(self, context, routers=[], operation=None):
-        LOG.debug('Got routers updated notification :%s %s', routers, operation)
+        LOG.debug('************** Got routers updated notification :%s %s', routers, operation)
         if routers:
             for id in routers:
                 update = queue.RouterUpdate(id, queue.PRIORITY_RPC)
@@ -459,29 +460,13 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         try:
             LOG.debug('Starting to scavenge orphans from extra atts')
 
-            routers = self.plugin_rpc.get_extra_atts_orphans(self.context)
-
-            for router in routers:
-
-                try:
-                    if router.get(constants.ASR1K_EXTRA_ATTS_KEY) is not None:
-                        result = l3_router.Router(router).delete()
-                        self._check_delete_result(router,result)
-
-                except Exception as e:
-                    LOG.exception(e)
-
-            routers = self.plugin_rpc.get_router_atts_orphans(self.context)
+            self.plugin_rpc.delete_extra_atts_orphans(self.context)
 
             LOG.debug('Starting to scavenge orphans from router atts')
-            for router in routers:
-                try:
-                    if router.get(constants.ASR1K_EXTRA_ATTS_KEY) is not None:
-                        result = l3_router.Router(router).delete()
-                        self._check_delete_result(router,result)
 
-                except Exception as e:
-                    LOG.exception(e)
+            self.plugin_rpc.delete_router_atts_orphans(self.context)
+
+
 
         except Exception as e:
             LOG.exception(e)
@@ -544,6 +529,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                     update = queue.RouterUpdate(
                         r['id'],
                         queue.PRIORITY_SYNC_ROUTERS_TASK,
+                        action= queue.PRIORITY_SYNC_ROUTERS_TASK,
                         router=r,
                         timestamp=timestamp)
                     self._queue.add(update)
@@ -709,8 +695,12 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                                     self.retry_tracker.pop(update.id,None)
                                     raise e
                             else:
+
                                 raise e
+                        except BaseException as e:
+                            LOG.exception(e)
                     else:
+                        LOG.debug("Requeuing update for router {}".format(update.id))
                         self._resync_router(update)
 
         except Exception as e:
@@ -737,7 +727,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
         complete = False
 
-        if extra_atts.keys() is not None:
+        if extra_atts is not None and extra_atts.keys() is not None:
             complete = set(utils.get_router_ports(router)).issubset(extra_atts.keys())
 
         return complete
@@ -778,10 +768,12 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         LOG.debug('Got router deleted notification for %s', router_id)
 
         routers = self.plugin_rpc.get_deleted_routers(self.context, [router_id])
-        router = None
-        if routers:
-            router = routers[0]
 
+        router = None
+        if bool(routers):
+            router = routers[0]
+        else:
+            return True
 
         result = l3_router.Router(router).delete()
 

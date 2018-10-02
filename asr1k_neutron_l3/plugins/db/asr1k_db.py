@@ -234,12 +234,10 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     def get_orphaned_router_atts_router_ids(self, context, host):
         subquery = context.session.query(l3_db.Router.id)
-
-
         # TODO filter
         query = context.session.query(asr1k_models.ASR1KRouterAttsModel.router_id).filter(
-            asr1k_models.ASR1KRouterAttsModel.router_id.notin_(subquery)).filter(
-            asr1k_models.ASR1KRouterAttsModel.deleted_at.is_(None))
+            asr1k_models.ASR1KRouterAttsModel.router_id.notin_(subquery))\
+
         result = []
         for row in query.all():
             result.append(row.router_id)
@@ -360,7 +358,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         for entry in routers:
             result.append(entry.id)
 
-            result = []
 
         return result
 

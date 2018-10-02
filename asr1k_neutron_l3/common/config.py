@@ -43,7 +43,6 @@ ASR1K_OPTS = [
     cfg.BoolOpt('init_mode', default=False, help=_("Activate initialization mode")),
     cfg.BoolOpt('save_config', default=True, help=_("Periodically sasve configuration")),
     cfg.IntOpt('connection_max_age', default=(3600), help=('')),
-    cfg.ListOpt('preflights', default=(''), help=('')),
     cfg.BoolOpt('clean_orphans', default=True, help=_("Activate regular orphan cleanup")),
 
     cfg.IntOpt('clean_orphan_interval', default=(120), help=_("Interval for regular orphan cleanup")),
