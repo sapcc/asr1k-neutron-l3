@@ -118,6 +118,18 @@ class VrfRoute(NyBase):
 
         return dict(result)
 
+    def to_delete_dict(self):
+
+        vrf_route = OrderedDict()
+        vrf_route[RouteConstants.NAME] = self.name
+
+        vrf_route[RouteConstants.FOWARDING] = []
+
+        result = OrderedDict()
+        result[RouteConstants.DEFINITION] = vrf_route
+
+        return dict(result)
+
     def preflight(self, context):
 
         LOG.debug("Running preflight check for route {}".format(self.id))
