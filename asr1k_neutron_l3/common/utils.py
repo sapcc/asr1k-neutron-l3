@@ -103,6 +103,12 @@ def from_cidr(cidr):
 
     return ip, netmask\
 
+def prefix_from_cidr(cidr):
+    split = cidr.split('/')
+    return int(split[1])
+
+
+
 def to_cidr(ip,netmask):
     if isinstance(netmask,str):
         nm = IPAddress(netmask)

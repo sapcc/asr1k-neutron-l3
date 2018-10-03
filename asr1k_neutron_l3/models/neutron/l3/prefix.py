@@ -76,5 +76,7 @@ class RoutePrefix(BasePrefix):
             i += 1
             for subnet in interface.subnets:
                 self.has_prefixes = True
-                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr'),permit_ge=25))
+                cidr = subnet.get('cidr')
+                permit_ge = utils.prefix_from_cidr(cidr)+1
+                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=cidr,permit_ge=permit_ge))
                 i += 1
