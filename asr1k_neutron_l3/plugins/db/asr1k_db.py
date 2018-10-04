@@ -49,7 +49,7 @@ try:
 except BaseException:
     pass
 
-MIN_DOT1Q = 100
+MIN_DOT1Q = 1000
 MAX_DOT1Q = 4096
 
 MIN_SECOND_DOT1Q = 500
