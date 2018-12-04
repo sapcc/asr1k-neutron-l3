@@ -164,6 +164,8 @@ def get_address_scope_config(plugin_rpc,context):
         else:
             LOG.warning('Could not find DB config for configured scope {}'.format(name))
 
+    LOG.debug("Address scopes from config")
+    LOG.debug(result)
 
     return result
 
