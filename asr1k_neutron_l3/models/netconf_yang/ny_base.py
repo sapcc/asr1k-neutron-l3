@@ -316,7 +316,7 @@ class PairResult(object):
         if hasattr(self.entity, check_attr):
             should_raise = getattr(self.entity, check_attr)
 
-        for host, error in self.errors.iteritems():
+        for host, error in six.iteritems(self.errors):
             if should_raise and isinstance(error,exc.DeviceOperationException) and error.raise_exception:
                 raise error
 

@@ -16,9 +16,8 @@
 import time
 
 
-from neutron import context
+from neutron_lib import context
 from neutron.api.rpc.handlers import l3_rpc
-from oslo_log import helpers as log_helpers
 from oslo_log import log
 
 from asr1k_neutron_l3.common.instrument import  instrument

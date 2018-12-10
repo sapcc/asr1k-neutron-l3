@@ -1,5 +1,7 @@
 import json
 
+import six
+
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.models.netconf_yang.bulk_operations import BulkOperations
@@ -91,7 +93,7 @@ class DeviceCleanerMixin(object):
             for context in orphans:
                 result[context.host] = json.dumps(orphans.get(context), cls=OrphanEncoder)
         else:
-            for context, items in orphans.iteritems():
+            for context, items in six.iteritems(orphans):
                 for item in items:
                     LOG.debug("Cleaning {}".format(item))
                     try:
@@ -137,7 +139,7 @@ class DeviceCleanerMixin(object):
                 if bool(items):
                     result[context.host] = json.dumps(items, cls=OrphanEncoder)
         else:
-            for context, items in orphans.iteritems():
+            for context, items in six.iteritems(orphans):
                 items = orphans.get(context)
                 if bool(items):
                     for item in items:
@@ -161,7 +163,7 @@ class DeviceCleanerMixin(object):
         all_ports = []
 
         for router_ports in all_extra_atts.values():
-            for port_id,atts in router_ports.iteritems():
+            for port_id,atts in six.iteritems(router_ports):
                 all_service_instances.append(utils.to_bridge_domain(atts.get('second_dot1q')))
                 all_segmentation_ids.append(atts.get('segmentation_id'))
                 all_ports.append(port_id)

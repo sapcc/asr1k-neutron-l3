@@ -15,12 +15,11 @@
 #    under the License.
 
 
-from neutron import context as n_context
+from neutron_lib import context as n_context
 from neutron.common import rpc as n_rpc
-from neutron.extensions import portbindings
-from neutron.i18n import _LI
-from neutron.plugins.common import constants as p_constants
-from neutron.plugins.ml2 import driver_api as api
+from neutron_lib.api.definitions import portbindings
+from neutron_lib import constants as p_constants
+from neutron_lib.plugins.ml2 import api
 from neutron.plugins.ml2.drivers import mech_agent
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
@@ -39,7 +38,7 @@ cfg.CONF.import_group('ml2_asr1k',
 
 class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
     def __init__(self):
-        LOG.info(_LI("ASR mechanism driver initializing..."))
+        LOG.info("ASR mechanism driver initializing...")
 
         self.agent_type = asr1k_constants.AGENT_TYPE_ASR1K_ML2
         self.vif_type = constants.VIF_TYPE_ASR1K

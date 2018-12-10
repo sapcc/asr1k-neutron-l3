@@ -1,23 +1,15 @@
 import abc
 import json
-from oslo_config import cfg
 
-from neutron._i18n import _
+from neutron_lib.api import extensions as api_extensions
 from neutron.api import extensions
-from neutron.api.v2 import attributes as attr
-from neutron.api.v2 import base
-from neutron.plugins.common import constants as svc_constants
-from neutron import manager
+from neutron.api.v2.resource import Resource
+from neutron_lib.plugins import constants as plugin_constants
+from neutron_lib.plugins import directory
 from neutron import wsgi
 from neutron import policy
-import webob.exc
 from oslo_log import log as logging
-from neutron.common import exceptions
-from oslo_serialization import jsonutils
-import webob.exc
 
-
-from neutron import api
 
 LOG = logging.getLogger(__name__)
 
@@ -31,7 +23,7 @@ def check_access(request):
         self.notify_show_device(context, host, id)
 
 
-class Asr1koperations(extensions.ExtensionDescriptor):
+class Asr1koperations(api_extensions.ExtensionDescriptor):
 
     @classmethod
     def get_name(cls):
@@ -59,40 +51,36 @@ class Asr1koperations(extensions.ExtensionDescriptor):
     def get_resources(cls):
         resources = []
 
-
-
-        plugin = manager.NeutronManager.get_service_plugins().get(svc_constants.L3_ROUTER_NAT)
-
-
+        plugin = directory.get_plugin(plugin_constants.L3)
 
         routers = extensions.ResourceExtension('asr1k/routers',
-                                                RoutersController(plugin))
+                                                Resource(RoutersController(plugin)))
         orphans = extensions.ResourceExtension('asr1k/orphans',
-                                                OrphansController(plugin))
+                                               Resource(OrphansController(plugin)))
         config = extensions.ResourceExtension('asr1k/config',
-                                                ConfigController(plugin))
+                                              Resource(ConfigController(plugin)))
 
         devices = extensions.ResourceExtension('asr1k/devices',
-                                                DevicesController(plugin))
+                                               Resource(DevicesController(plugin)))
 
         interface_stats = extensions.ResourceExtension('asr1k/interface-statistics',
-                                                InterfaceStatisticsController(plugin))
+                                                       Resource(InterfaceStatisticsController(plugin)))
 
 
         init_scheduler = extensions.ResourceExtension('asr1k/init_scheduler',
-                                                InitSchedulerController(plugin))
+                                                      Resource(InitSchedulerController(plugin)))
 
         init_bindings = extensions.ResourceExtension('asr1k/init_bindings',
-                                                InitBindingsController(plugin))
+                                                     Resource(InitBindingsController(plugin)))
 
         init_atts = extensions.ResourceExtension('asr1k/init_atts',
-                                                InitAttsController(plugin))
+                                                 Resource(InitAttsController(plugin)))
 
         init_config = extensions.ResourceExtension('asr1k/init_config',
-                                                InitConfigController(plugin))
+                                                   Resource(InitConfigController(plugin)))
 
         cisco_teardown = extensions.ResourceExtension('asr1k/cisco_teardown',
-                                            CiscoTeardownController(plugin))
+                                                      Resource(CiscoTeardownController(plugin)))
 
 
         resources.append(routers)

@@ -7,8 +7,7 @@ from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.models.neutron.l3.router import Router
 
 from neutron.plugins.ml2.plugin import Ml2Plugin
-from neutron.db.db_base_plugin_v2 import NeutronDbPluginV2
-from neutron.extensions import portbindings
+from neutron_lib.api.definitions import portbindings
 
 LOG = log.getLogger(__name__)
 

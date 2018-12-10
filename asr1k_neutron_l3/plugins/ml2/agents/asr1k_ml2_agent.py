@@ -37,8 +37,7 @@ from oslo_utils import timeutils
 from oslo_utils import importutils
 from oslo_service import loopingcall
 
-import neutron.context
-from neutron.i18n import _LI, _LE
+from neutron_lib import context as n_context
 from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
 from neutron.common import config as common_config, topics, constants as n_const
 
@@ -188,7 +187,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     def setup_rpc(self):
         # RPC network init
 
-        self.context = neutron.context.get_admin_context_without_session()
+        self.context = n_context.get_admin_context_without_session()
         self.agent_id = 'asr1k-ml2-agent-%s' % self.conf.host
         self.topic = topics.AGENT
         self.plugin_rpc = agent_rpc.PluginApi(topics.PLUGIN)
@@ -222,16 +221,16 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
             self.agent_state.pop('start_flag', None)
         except (oslo_messaging.MessagingTimeout, oslo_messaging.RemoteError, oslo_messaging.MessageDeliveryFailure):
-            LOG.exception(_LE("Failed reporting state!"))
+            LOG.exception("Failed reporting state!")
 
     def _check_and_handle_signal(self):
         if self.catch_sigterm:
-            LOG.info(_LI("Agent caught SIGTERM, quitting daemon loop."))
+            LOG.info("Agent caught SIGTERM, quitting daemon loop.")
             self.run_daemon_loop = False
             self.catch_sigterm = False
 
         if self.catch_sighup:
-            LOG.info(_LI("Agent caught SIGHUP, resetting."))
+            LOG.info("Agent caught SIGHUP, resetting.")
             self.conf.reload_config_files()
             common_config.setup_logging()
             LOG.debug('Full set of CONF:')
@@ -422,7 +421,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
             self.agent_state.pop('start_flag', None)
         except (oslo_messaging.MessagingTimeout, oslo_messaging.RemoteError, oslo_messaging.MessageDeliveryFailure):
-            LOG.exception(_LE("Failed reporting state!"))
+            LOG.exception("Failed reporting state!")
 
 
 

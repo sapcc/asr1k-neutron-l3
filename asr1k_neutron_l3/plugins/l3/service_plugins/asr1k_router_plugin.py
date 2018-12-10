@@ -16,18 +16,16 @@
 
 import asr1k_neutron_l3
 
-from neutron.api.rpc.agentnotifiers import l3_rpc_agent_api
-from neutron.common import constants as n_const
+from neutron_lib import constants as n_const
 from neutron.common import rpc as n_rpc
-from neutron.common import topics
-from neutron.db import l3_db
-from neutron.plugins.common import constants as svc_constants
+from neutron_lib.agent import topics
+from neutron_lib import constants as svc_constants
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 from oslo_utils import importutils
 
-from asr1k_neutron_l3.common import  config as asr1k_config
+from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.plugins.l3.rpc import rpc_api
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
 from asr1k_neutron_l3.plugins.l3.service_plugins import l3_extension_adapter
@@ -61,8 +59,7 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
         asr1k_config.register_l2_opts()
         asr1k_config.register_l3_opts()
 
-        self.start_periodic_l3_agent_status_check()
-        l3_db.subscribe()
+        self.add_periodic_l3_agent_status_check()
         self.start_rpc_listeners()
 
     @log_helpers.log_method_call
@@ -78,9 +75,10 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
         return self.conn.consume_in_threads()
 
     def get_plugin_type(self):
-        return svc_constants.L3_ROUTER_NAT
+        return svc_constants.L3
 
     def get_plugin_description(self):
         return ("ASR1K Router Service Plugin for basic L3 forwarding"
                 " between (L2) Neutron networks and access to external"
                 " networks via a NAT gateway.")
+

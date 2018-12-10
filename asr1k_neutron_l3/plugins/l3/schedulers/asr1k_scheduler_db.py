@@ -19,7 +19,7 @@ import six
 from neutron.db import agents_db
 from neutron.db import agentschedulers_db
 from neutron.db import l3_agentschedulers_db
-from neutron.extensions import agent as n_agent
+from neutron_lib.exceptions import agent as n_agent
 from neutron.extensions import l3agentscheduler
 from neutron.extensions import router_availability_zone as router_az
 from oslo_log import helpers as log_helpers

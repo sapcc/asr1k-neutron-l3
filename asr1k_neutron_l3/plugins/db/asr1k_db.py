@@ -25,8 +25,8 @@ from sqlalchemy import func
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import asr1k_exceptions
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
-from neutron import context as n_context
-from neutron.common import constants as n_constants
+from neutron_lib import context as n_context
+from neutron_lib import constants as n_constants
 from neutron.db import address_scope_db
 from neutron.db import agents_db
 from neutron.db import api as db_api
@@ -36,8 +36,8 @@ from neutron.db import l3_agentschedulers_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
-from neutron.extensions import portbindings
-from neutron.extensions.l3 import RouterNotFound
+from neutron_lib.api.definitions import portbindings
+from neutron_lib.exceptions import l3 as l3_exc
 from neutron.plugins.ml2 import db as ml2_db
 from neutron.plugins.ml2 import models as ml2_models
 
@@ -113,7 +113,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             router = {'router': {'status': status}}
             self.update_router(context, router_id, router)
 
-        except RouterNotFound:
+        except l3_exc.RouterNotFound:
             LOG.info("Update to status to {} for router {} failed, router not found.".format(status, router_id))
             return
 
@@ -436,7 +436,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             routers = self.list_routers_on_l3_agent(context, agent.id).get('routers')
             for router in routers:
                 router_id = router.get('id')
-                if router.get('status') == n_constants.ROUTER_STATUS_ACTIVE:
+                if router.get('status') == n_constants.ACTIVE:
                     active_router_ids.append(router_id)
                 else:
                     error_router_ids.append(router_id)
@@ -452,7 +452,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
             floating_ips = self.get_floatingips(context, {'router_id': routers})
             for floating_ip in floating_ips:
-                if floating_ip.get('status') == n_constants.ROUTER_STATUS_ACTIVE:
+                if floating_ip.get('status') == n_constants.ACTIVE:
                     active_floating_ip_ids.append(floating_ip.get('id'))
                 else:
                     error_floating_ip_ids.append(floating_ip.get('id'))

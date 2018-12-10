@@ -45,18 +45,17 @@ from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1
 import oslo_messaging
 from oslo_service import loopingcall
 from oslo_service import periodic_task
-from neutron._i18n import _LE, _LI, _LW
 from neutron.agent.linux import external_process
-from neutron.callbacks import events
-from neutron.callbacks import registry
-from neutron.callbacks import resources
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
 
 from neutron.agent import rpc as agent_rpc
 from neutron.common import constants as l3_constants
 from neutron.common import exceptions as n_exc
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
-from neutron import context as n_context
+from neutron_lib import context as n_context
 from neutron import manager
 
 from neutron.agent.l3 import router_processing_queue as queue
