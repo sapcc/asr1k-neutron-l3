@@ -23,6 +23,7 @@ from neutron.db import common_db_mixin
 from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db as l3_db
+
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 
@@ -455,7 +456,8 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
         return Initializer(self,context).cisco_teardown(dry_run=dry_run)
 
-
+    def get_router(self,context,id):
+        return self._get_router(context,id)
 
     #
     # @log_helpers.log_method_call
