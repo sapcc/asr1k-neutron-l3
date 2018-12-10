@@ -69,6 +69,7 @@ from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.models.netconf_yang.copy_config import CopyConfig
+from asr1k_neutron_l3.models.netconf_yang.nat_statistics import NatStatistics
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import connection
@@ -310,6 +311,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         self.context = n_context.get_admin_context_without_session()
         self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, host)
         self.fullsync = cfg.CONF.asr1k_l3.sync_active
+        self.report_nat_stats = cfg.CONF.asr1k_l3.report_nat_stats
         self.pause_process = False
         self.sync_routers_chunk_size = cfg.CONF.asr1k_l3.sync_chunk_size
 
@@ -483,6 +485,24 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                 PrometheusMonitor().gateways.labels(status=status).set(stats.get('gateway_ports',0))
                 PrometheusMonitor().floating_ips.labels(status=status).set(stats.get('floating_ips',0))
 
+            if self.report_nat_stats:
+                all_nat_stats = self._get_nat_stats(self.context)
+
+                for host in all_nat_stats.keys():
+                    nat_stats = all_nat_stats.get(host, {})
+
+                    print host
+
+                    PrometheusMonitor().nat_entries.labels(host=host).set(nat_stats.get('entries', 0))
+                    PrometheusMonitor().nat_statics.labels(host=host).set(nat_stats.get('statics', 0))
+                    PrometheusMonitor().nat_flows.labels(host=host).set(nat_stats.get('flows', 0))
+                    PrometheusMonitor().nat_insides.labels(host=host).set(nat_stats.get('insides', 0))
+                    PrometheusMonitor().nat_outsides.labels(host=host).set(nat_stats.get('outsides', 0))
+                    PrometheusMonitor().nat_hits.labels(host=host).set(nat_stats.get('hits', 0))
+                    PrometheusMonitor().nat_misses.labels(host=host).set(nat_stats.get('misses', 0))
+                    PrometheusMonitor().nat_in2out_drops.labels(host=host).set(nat_stats.get('in2out-drops', 0))
+                    PrometheusMonitor().nat_out2in_drops.labels(host=host).set(nat_stats.get('out2in-drops', 0))
+                    PrometheusMonitor().nat_packets_punted.labels(host=host).set(nat_stats.get('packets-punted', 0))
 
             if not self.fullsync:
                 return
@@ -828,6 +848,14 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     def _agent_init (self):
         if not self.init_complete:
             time.sleep(5)
+
+
+    def _get_nat_stats(self,context):
+        rpc = NatStatistics()
+        result = rpc.get_stats()
+
+        return result
+
 
 class L3ASRAgentWithStateReport(L3ASRAgent):
 

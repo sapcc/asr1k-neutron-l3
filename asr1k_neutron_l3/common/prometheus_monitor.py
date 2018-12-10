@@ -39,6 +39,7 @@ CONNECTION_POOL_LABELS = ['host','device']
 DETAIL_LABELS = ['host','device', 'entity','action']
 BASIC_LABELS = ['host']
 STATS_LABELS = ['host','status']
+NAT_LABELS = ['host']
 
 L2 = "l2"
 L3 = "l3"
@@ -73,6 +74,18 @@ class PrometheusMonitor(object):
 
         self._yang_operation_duration = Histogram("yang_operation_duration", "Individual entity operation",DETAIL_LABELS,namespace=self.namespace, buckets=OPERATION_BUCKETS)
 
+        self._nat_entries = Gauge('nat_entries', 'Total translations', NAT_LABELS, namespace=self.namespace)
+        self._nat_statics = Gauge('nat_statics', 'Total static translations', NAT_LABELS, namespace=self.namespace)
+        self._nat_flows = Gauge('nat_flows', 'Total flows', NAT_LABELS, namespace=self.namespace)
+        self._nat_insides = Gauge('nat_insides', 'Number of inside interfaces', NAT_LABELS, namespace=self.namespace)
+        self._nat_outsides = Gauge('nat_outsides', 'Number of outside interfaces', NAT_LABELS, namespace=self.namespace)
+        self._nat_hits = Gauge('nat_hits', 'Successful searches with matching NAT session', NAT_LABELS, namespace=self.namespace)
+        self._nat_misses = Gauge('nat_misses', 'Unsuccessful searches without matching NAT session', NAT_LABELS, namespace=self.namespace)
+        self._nat_in2out_drops = Gauge('nat_in2out_drops', 'Counter for NAT inside->outside drops', NAT_LABELS, namespace=self.namespace)
+        self._nat_out2in_drops = Gauge('nat_out2in_drops', 'Counter for NAT outside->inside drop', NAT_LABELS, namespace=self.namespace)
+        self._nat_packets_punted = Gauge('nat_packets_punted', 'Packets punted to process', NAT_LABELS, namespace=self.namespace)
+
+
         self._l3_orphan_count = Gauge('l3_orphan_count', 'Number of L3 orphans found on device', ORPHANS_LABELS,namespace=self.namespace )
         self._l2_orphan_count = Gauge('l2_orphan_count', 'Number of L2 orphans found on device', ORPHANS_LABELS, namespace=self.namespace)
 
@@ -80,8 +93,13 @@ class PrometheusMonitor(object):
             self._router_create_duration = Histogram("router_create_duration", "Router create duration in seconds",BASIC_LABELS,namespace=self.namespace,buckets=ACTION_BUCKETS)
             self._router_update_duration = Histogram("router_update_duration","Router update duration in seconds",BASIC_LABELS, namespace=self.namespace,buckets=ACTION_BUCKETS)
             self._router_delete_duration = Histogram("router_delete_duration", "Router delete duration in seconds",BASIC_LABELS, namespace=self.namespace,buckets=ACTION_BUCKETS)
-            self._config_copy_duration = Histogram("config_copy_duration", "Running to starup config copy duration in seconds",DETAIL_LABELS, namespace=namespace,buckets=ACTION_BUCKETS)
+            self._config_copy_duration = Histogram("config_copy_duration", "Running to startup config copy duration in seconds",DETAIL_LABELS, namespace=namespace,buckets=ACTION_BUCKETS)
             self._config_copy_errors = Counter('config_copy_errors', 'Number of config copy errors',DETAIL_LABELS,namespace=self.namespace)
+
+            self._nat_stats_duration = Histogram("stabt_stats_duration", "Get NAT stats duration in seconds",DETAIL_LABELS, namespace=namespace,buckets=ACTION_BUCKETS)
+            self._nat_stats_errors = Counter('nat_stats_errors', 'Number of get NAT stats errors',DETAIL_LABELS,namespace=self.namespace)
+
+
             self._routers = Gauge('routers', 'Number of managed routers', STATS_LABELS, namespace=self.namespace)
             self._interfaces = Gauge('interfaces', 'Number of managed interfaces', STATS_LABELS, namespace=self.namespace)
             self._gateways = Gauge('gateways', 'Number of managed gateways', STATS_LABELS, namespace=self.namespace)

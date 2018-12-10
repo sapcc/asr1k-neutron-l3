@@ -33,7 +33,9 @@ NS_CISCO_BGP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-bgp'
 NS_CISCO_ROUTE_MAP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-route-map'
 NS_CISCO_EFP_OPER = 'http://cisco.com/ns/yang/Cisco-IOS-XE-efp-oper'
 NS_CISCO_ARP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-arp'
+NS_CISCO_NAT_OPER="http://cisco.com/ns/yang/Cisco-IOS-XE-nat-oper"
 NS_IETF_INTERFACE = "urn:ietf:params:xml:ns:yang:ietf-interfaces"
+
 
 
 RPC_REPLY = 'rpc-reply'
@@ -62,6 +64,7 @@ class XMLUtils(object):
         NS_CISCO_ROUTE_MAP: None,
         NS_CISCO_EFP_OPER: None,
         NS_CISCO_ARP: None,
+        NS_CISCO_NAT_OPER: None,
         NS_IETF_INTERFACE: None
     }
 
