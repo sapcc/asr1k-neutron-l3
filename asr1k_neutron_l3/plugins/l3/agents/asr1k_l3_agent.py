@@ -490,19 +490,16 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
                 for host in all_nat_stats.keys():
                     nat_stats = all_nat_stats.get(host, {})
-
-                    print host
-
-                    PrometheusMonitor().nat_entries.labels(host=host).set(nat_stats.get('entries', 0))
-                    PrometheusMonitor().nat_statics.labels(host=host).set(nat_stats.get('statics', 0))
-                    PrometheusMonitor().nat_flows.labels(host=host).set(nat_stats.get('flows', 0))
-                    PrometheusMonitor().nat_insides.labels(host=host).set(nat_stats.get('insides', 0))
-                    PrometheusMonitor().nat_outsides.labels(host=host).set(nat_stats.get('outsides', 0))
-                    PrometheusMonitor().nat_hits.labels(host=host).set(nat_stats.get('hits', 0))
-                    PrometheusMonitor().nat_misses.labels(host=host).set(nat_stats.get('misses', 0))
-                    PrometheusMonitor().nat_in2out_drops.labels(host=host).set(nat_stats.get('in2out-drops', 0))
-                    PrometheusMonitor().nat_out2in_drops.labels(host=host).set(nat_stats.get('out2in-drops', 0))
-                    PrometheusMonitor().nat_packets_punted.labels(host=host).set(nat_stats.get('packets-punted', 0))
+                    PrometheusMonitor().nat_entries.labels(device=host).set(nat_stats.get('entries', 0))
+                    PrometheusMonitor().nat_statics.labels(device=host).set(nat_stats.get('statics', 0))
+                    PrometheusMonitor().nat_flows.labels(device=host).set(nat_stats.get('flows', 0))
+                    PrometheusMonitor().nat_insides.labels(device=host).set(nat_stats.get('insides', 0))
+                    PrometheusMonitor().nat_outsides.labels(device=host).set(nat_stats.get('outsides', 0))
+                    PrometheusMonitor().nat_hits.labels(device=host).set(nat_stats.get('hits', 0))
+                    PrometheusMonitor().nat_misses.labels(device=host).set(nat_stats.get('misses', 0))
+                    PrometheusMonitor().nat_in2out_drops.labels(device=host).set(nat_stats.get('in2out-drops', 0))
+                    PrometheusMonitor().nat_out2in_drops.labels(device=host).set(nat_stats.get('out2in-drops', 0))
+                    PrometheusMonitor().nat_packets_punted.labels(device=host).set(nat_stats.get('packets-punted', 0))
 
             if not self.fullsync:
                 return

@@ -39,7 +39,7 @@ CONNECTION_POOL_LABELS = ['host','device']
 DETAIL_LABELS = ['host','device', 'entity','action']
 BASIC_LABELS = ['host']
 STATS_LABELS = ['host','status']
-NAT_LABELS = ['host']
+NAT_LABELS = ['host','device']
 
 L2 = "l2"
 L3 = "l3"
