@@ -345,11 +345,7 @@ class PairResult(object):
         for host in self.results:
             host_result = self.results.get(host)
             if host_result is not None:
-
-                if isinstance(host_result,dict):
-                    result[host] = host_result
-                else:
-                    result[host] = host_result.to_dict()
+                result[host] = self.results.get(host).to_dict()
             else:
                 result[host] = {}
 
