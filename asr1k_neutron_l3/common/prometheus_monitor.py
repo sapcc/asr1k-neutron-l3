@@ -96,7 +96,7 @@ class PrometheusMonitor(object):
             self._config_copy_duration = Histogram("config_copy_duration", "Running to startup config copy duration in seconds",DETAIL_LABELS, namespace=namespace,buckets=ACTION_BUCKETS)
             self._config_copy_errors = Counter('config_copy_errors', 'Number of config copy errors',DETAIL_LABELS,namespace=self.namespace)
 
-            self._nat_stats_duration = Histogram("nat_stats_duration", "Get NAT stats duration in seconds",DETAIL_LABELS, namespace=namespace,buckets=ACTION_BUCKETS)
+            self._nat_stats_duration = Histogram("stabt_stats_duration", "Get NAT stats duration in seconds",DETAIL_LABELS, namespace=namespace,buckets=ACTION_BUCKETS)
             self._nat_stats_errors = Counter('nat_stats_errors', 'Number of get NAT stats errors',DETAIL_LABELS,namespace=self.namespace)
 
 
