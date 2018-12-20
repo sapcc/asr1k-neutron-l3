@@ -6,7 +6,6 @@ from neutron._i18n import _
 from neutron.api import extensions
 from neutron.api.v2 import attributes as attr
 from neutron.api.v2 import base
-from neutron.extensions import l3
 from neutron.plugins.common import constants as svc_constants
 from neutron import manager
 from neutron import wsgi
@@ -29,8 +28,7 @@ def check_access(request):
     allowed = policy.check(request.context,ACCESS_RULE, {'project_id': request.context.project_id})
 
     if not allowed:
-        raise webob.exc.HTTPForbidden()
-
+        self.notify_show_device(context, host, id)
 
 
 class Asr1koperations(extensions.ExtensionDescriptor):
@@ -113,37 +111,21 @@ class Asr1koperations(extensions.ExtensionDescriptor):
     def get_extended_resources(self, version):
         return {}
 
-
-class BaseRouterController(wsgi.Controller):
-
+class RoutersController(wsgi.Controller):
     def __init__(self,plugin):
-        super(BaseRouterController,self).__init__()
+        super(RoutersController,self).__init__()
         self.plugin = plugin
 
-    def _check_router(self,request,id):
-            try:
-                router = self.plugin.get_router(request.context,id)
-            except l3.RouterNotFound:
-                raise webob.exc.HTTPNotFound()
-
-
-class RoutersController(BaseRouterController):
-
-
     def show(self, request,id):
-
         check_access(request)
-        self._check_router(request,id)
         return self.plugin.validate(request.context,id)
 
     def update(self, request,id):
         check_access(request)
-        self._check_router(request, id)
         return self.plugin.sync(request.context,id)
 
     def delete(self, request,id):
         check_access(request)
-        self._check_router(request, id)
         return self.plugin.teardown(request.context,id)
 
 class OrphansController(wsgi.Controller):
@@ -160,15 +142,18 @@ class OrphansController(wsgi.Controller):
         check_access(request)
         return self.plugin.delete_orphans(request.context,id)
 
-class ConfigController(BaseRouterController):
+class ConfigController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(ConfigController,self).__init__()
+        self.plugin = plugin
 
     def show(self, request,id):
-        self._check_router(request, id)
+        check_access(request)
         return self.plugin.get_config(request.context,id)
 
     def update(self, request, id):
         check_access(request)
-        self._check_router(request, id)
         return self.plugin.ensure_config(request.context,id)
 
 
@@ -215,11 +200,14 @@ class DevicesController(wsgi.Controller):
 
 
 
-class InterfaceStatisticsController(BaseRouterController):
+class InterfaceStatisticsController(wsgi.Controller):
+
+    def __init__(self,plugin):
+        super(InterfaceStatisticsController,self).__init__()
+        self.plugin = plugin
 
     def show(self, request,id):
         check_access(request)
-        self._check_router(request,id)
         return self.plugin.interface_statistics(request.context,id)
 
 class InitSchedulerController(wsgi.Controller):
