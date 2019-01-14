@@ -55,6 +55,7 @@ from neutron.common import constants as l3_constants
 from neutron.common import exceptions as n_exc
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
+from neutron.common import config as common_config
 from neutron_lib import context as n_context
 from neutron import manager
 
@@ -93,6 +94,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWithStateReport'):
     asr1k_config.register_l3_opts()
+    common_config.init(sys.argv[1:])
+    common_config.setup_logging()
     # set periodic interval to 10 seconds, as I understand the code this means
     # the
     server = neutron_service.Service.create(
@@ -839,14 +842,6 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
             'availability_zone': self.conf.AGENT.availability_zone,
             'topic': topics.L3_AGENT,
             'configurations': {
-                'agent_mode': self.conf.agent_mode,
-                'router_id': self.conf.router_id,
-                'handle_internal_only_routers':
-                    self.conf.handle_internal_only_routers,
-                'external_network_bridge': self.conf.external_network_bridge,
-                'gateway_external_network_id':
-                    self.conf.gateway_external_network_id,
-                'interface_driver': self.conf.interface_driver,
                 'log_agent_heartbeats': self.conf.AGENT.log_agent_heartbeats},
             'start_flag': True,
             'agent_type': constants.AGENT_TYPE_ASR1K_L3}

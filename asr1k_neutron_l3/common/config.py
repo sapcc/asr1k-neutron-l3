@@ -16,7 +16,7 @@
 
 from oslo_log import log as logging
 from oslo_config import cfg
-
+from neutron.conf.agent import common
 
 LOG = logging.getLogger(__name__)
 
@@ -66,6 +66,21 @@ ASR1K_L2_OPTS = [
     cfg.StrOpt('loopback_internal_interface', default=('3'), help=(''))
 ]
 
+AGENT_STATE_OPTS = [
+    cfg.FloatOpt('report_interval', default=30,
+                 help=_('Seconds between nodes reporting state to server; '
+                        'should be less than agent_down_time, best if it '
+                        'is half or less than agent_down_time.')),
+    cfg.BoolOpt('log_agent_heartbeats', default=False,
+                help=_('Log agent heartbeats')),
+]
+
+AVAILABILITY_ZONE_OPTS = [
+    # The default AZ name "nova" is selected to match the default
+    # AZ name in Nova and Cinder.
+    cfg.StrOpt('availability_zone', max_length=255, default='nova',
+               help=_("Availability zone of this node")),
+]
 
 
 def _get_specific_config(name):
@@ -120,12 +135,17 @@ def create_address_scope_dict():
 
     return address_scope_dict
 
-
 def register_l3_opts():
     cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
     cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
     cfg.CONF.register_opts(ASR1K_L3_OPTS, "asr1k_l3")
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
+    cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
+    cfg.CONF.register_opts(AVAILABILITY_ZONE_OPTS, 'AGENT')
+    cfg.CONF.register_opts(common.EXT_NET_BRIDGE_OPTS)
+    common.register_interface_opts()
+    common.register_interface_driver_opts_helper(cfg.CONF)
+
 
 def register_l2_opts():
     cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
