@@ -30,15 +30,13 @@ import signal
 
 from oslo_service import service
 from oslo_utils import timeutils
-from oslo_utils import importutils
-
 
 from neutron import service as neutron_service
 
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_log import helpers as log_helpers
-from asr1k_neutron_l3.common import asr1k_constants as constants, config as asr1k_config, utils
+from asr1k_neutron_l3.common import asr1k_constants as constants, utils
 
 
 
@@ -51,12 +49,13 @@ from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 
 from neutron.agent import rpc as agent_rpc
-from neutron.common import constants as l3_constants
 from neutron.common import exceptions as n_exc
 from neutron.common import rpc as n_rpc
 from neutron.common import topics
 from neutron.common import config as common_config
 from neutron_lib import context as n_context
+from neutron_lib import constants as lib_constants
+from neutron_lib.agent import constants as agent_consts
 from neutron import manager
 
 from neutron.agent.l3 import router_processing_queue as queue
@@ -75,7 +74,7 @@ from asr1k_neutron_l3.models import connection
 from asr1k_neutron_l3.plugins.l3.agents import operations
 from asr1k_neutron_l3.plugins.l3.agents.device_cleaner import DeviceCleanerMixin
 
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
+import urllib3
 
 # try:
 #     from neutron_fwaas.services.firewall.agents.l3reference \
@@ -86,7 +85,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 LOG = logging.getLogger(__name__)
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+requests.packages.urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -106,9 +105,6 @@ def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWi
         periodic_fuzzy_delay=10,
         manager=manager)
     service.launch(cfg.CONF, server).wait()
-
-
-LOG = logging.getLogger(__name__)
 
 # Number of routers to fetch from server at a time on resync.
 # Needed to reduce load on server side and to speed up resync on agent side.
@@ -332,22 +328,22 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         #     except oslo_messaging.RemoteError as e:
         #         with excutils.save_and_reraise_exception() as ctx:
         #             ctx.reraise = False
-        #             LOG.warning(_LW('l3-agent cannot check service plugins '
+        #             LOG.warning('l3-agent cannot check service plugins '
         #                             'enabled at the neutron server when '
         #                             'startup due to RPC error. It happens '
         #                             'when the server does not support this '
         #                             'RPC API. If the error is '
         #                             'UnsupportedVersion you can ignore this '
-        #                             'warning. Detail message: %s'), e)
+        #                             'warning. Detail message: %s', e)
         #         self.neutron_service_plugins = None
         #     except oslo_messaging.MessagingTimeout as e:
         #         with excutils.save_and_reraise_exception() as ctx:
         #             ctx.reraise = False
-        #             LOG.warning(_LW('l3-agent cannot contact neutron server '
+        #             LOG.warning('l3-agent cannot contact neutron server '
         #                             'to retrieve service plugins enabled. '
         #                             'Check connectivity to neutron server. '
         #                             'Retrying... '
-        #                             'Detailed message: %(msg)s.') % {'msg': e})
+        #                             'Detailed message: %(msg)s.' % {'msg': e})
         #             continue
         #     break
 
@@ -394,7 +390,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
             eventlet.spawn_n(self._process_routers_loop)
 
-            LOG.info(_LI("L3 agent started"))
+            LOG.info("L3 agent started")
 
     def trigger_sync(self,signum, frame):
         LOG.info("Setup full sync based on external signal")
@@ -540,18 +536,18 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
                 self.sync_routers_chunk_size = max(
                     self.sync_routers_chunk_size / 2,
                     SYNC_ROUTERS_MIN_CHUNK_SIZE)
-                LOG.error(_LE('Server failed to return info for routers in '
-                              'required time, decreasing chunk size to: %s'),
+                LOG.error('Server failed to return info for routers in '
+                              'required time, decreasing chunk size to: %s',
                           self.sync_routers_chunk_size)
             else:
-                LOG.error(_LE('Server failed to return info for routers in '
+                LOG.error('Server failed to return info for routers in '
                               'required time even with min chunk size: %s. '
                               'It might be under very high load or '
-                              'just inoperable'),
+                              'just inoperable',
                           self.sync_routers_chunk_size)
             raise
         except oslo_messaging.MessagingException:
-            LOG.exception(_LE("Failed synchronizing routers due to RPC error"))
+            LOG.exception("Failed synchronizing routers due to RPC error")
             raise n_exc.AbortSyncRouters()
 
 
@@ -608,7 +604,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
     def agent_updated(self, context, payload):
         """Handle the agent_updated notification event."""
         self.fullsync = True
-        LOG.info(_LI("Agent updated by server with payload : %s!"), payload)
+        LOG.info("Agent updated by server with payload : %s!", payload)
 
 
     def _ensure_snat_mode_config(self,update):
@@ -720,9 +716,9 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
 
         # Callback to set router state based on update result
         if not success:
-            self.plugin_rpc.update_router_status(self.context,router.router_id,constants.ROUTER_STATE_ERROR)
+            self.plugin_rpc.update_router_status(self.context,router.router_id, lib_constants.ERROR)
         else:
-            self.plugin_rpc.update_router_status(self.context, router.router_id, l3_constants.ROUTER_STATUS_ACTIVE)
+            self.plugin_rpc.update_router_status(self.context, router.router_id, lib_constants.ACTIVE)
 
     def _extra_atts_complete(self, router):
         extra_atts = router.get(constants.ASR1K_EXTRA_ATTS_KEY)
@@ -735,7 +731,7 @@ class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
         return complete
 
     def _process_routers_loop(self):
-        poolsize = min(self.conf.asr1k_l3.threadpool_maxsize,self.yang_connection_pool_size,constants.MAX_CONNECTIONS)
+        poolsize = min(self.conf.asr1k_l3.threadpool_maxsize,self.yang_connection_pool_size, constants.MAX_CONNECTIONS)
 
         if poolsize < self.conf.asr1k_l3.threadpool_maxsize:
             LOG.warning("The processing thread pool size has been reduced to match 'yang_connection_pool_size' its now {}".format(poolsize))
@@ -862,9 +858,9 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
             ex_gw_port = ri.get_ex_gw_port()
             if ex_gw_port:
                 num_ex_gw_ports += 1
-            num_interfaces += len(ri.router.get(l3_constants.INTERFACE_KEY,
+            num_interfaces += len(ri.router.get(lib_constants.INTERFACE_KEY,
                                                 []))
-            num_floating_ips += len(ri.router.get(l3_constants.FLOATINGIP_KEY,
+            num_floating_ips += len(ri.router.get(lib_constants.FLOATINGIP_KEY,
                                                   []))
         configurations = self.agent_state['configurations']
         configurations['routers'] = num_routers
@@ -875,19 +871,19 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
             agent_status = self.state_rpc.report_state(self.context,
                                                        self.agent_state,
                                                        True)
-            if agent_status == l3_constants.AGENT_REVIVED:
-                LOG.info(_LI('Agent has just been revived. '
-                             'Doing a full sync.'))
+            if agent_status == agent_consts.AGENT_REVIVED:
+                LOG.info('Agent has just been revived. '
+                             'Doing a full sync.')
                 self.fullsync = True
             self.agent_state.pop('start_flag', None)
         except AttributeError:
             # This means the server does not support report_state
-            LOG.warning(_LW("Neutron server does not support state report. "
-                            "State report for this agent will be disabled."))
+            LOG.warning("Neutron server does not support state report. "
+                            "State report for this agent will be disabled.")
             self.heartbeat.stop()
             return
         except Exception:
-            LOG.exception(_LE("Failed reporting state!"))
+            LOG.exception("Failed reporting state!")
 
     def after_start(self):
         # Do the report state before we do the first full sync.
@@ -897,4 +893,4 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
     def agent_updated(self, context, payload):
         """Handle the agent_updated notification event."""
         self.fullsync = True
-        LOG.info(_LI("agent_updated by server side %s!"), payload)
+        LOG.info("agent_updated by server side %s!", payload)

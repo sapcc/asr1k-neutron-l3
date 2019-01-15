@@ -1,11 +1,9 @@
 import re
 
-from oslo_log import helpers as log_helpers
 from oslo_log import log
+
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
-from asr1k_neutron_l3.models.neutron.l3.router import Router
-
 from neutron.plugins.ml2.plugin import Ml2Plugin
 from neutron_lib.api.definitions import portbindings
 

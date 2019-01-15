@@ -289,26 +289,22 @@ class DevicePluginBase(object):
         pass
 
     @abc.abstractmethod
-    def show_orphans(self,host):
+    def show_orphans(self, context, host):
         pass
 
     @abc.abstractmethod
-    def delete_orphans(self,host):
+    def delete_orphans(self,context, host):
         pass
 
-    def list_devices(self, context):
-        pass
-
-    @abc.abstractmethod
-    def show_device(self, context, id):
+    def list_devices(self, context, host):
         pass
 
     @abc.abstractmethod
-    def update_device(self, context, id, enabled):
+    def show_device(self, context, host, id):
         pass
 
     @abc.abstractmethod
-    def show_device(self, context, id):
+    def update_device(self, context, host, id, enabled):
         pass
 
     @abc.abstractmethod

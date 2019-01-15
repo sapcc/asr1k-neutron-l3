@@ -315,8 +315,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         if self.sync_active:
             try:
                 extra_atts = self.agent_rpc.get_orphaned_extra_atts(self.context, agent_id=self.agent_id, host=self.conf.host)
-                print self.conf.host
-                print "***** {}".format(extra_atts)
+                LOG.info(self.conf.host)
+                LOG.info("***** {}".format(extra_atts))
                 l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
                 self.deleted_ports = {}
             except BaseException as err:
@@ -412,16 +412,4 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         if self.loop_pool:
             self.loop_pool.waitall()
-
-    def _report_state(self):
-        try:
-            with timeutils.StopWatch() as w:
-                self.state_rpc.report_state(self.context, self.agent_state)
-            LOG.debug("Reporting state took {:1.3g}s".format(w.elapsed()))
-
-            self.agent_state.pop('start_flag', None)
-        except (oslo_messaging.MessagingTimeout, oslo_messaging.RemoteError, oslo_messaging.MessageDeliveryFailure):
-            LOG.exception("Failed reporting state!")
-
-
 

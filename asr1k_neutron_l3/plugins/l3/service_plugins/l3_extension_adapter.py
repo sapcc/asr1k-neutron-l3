@@ -13,29 +13,26 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from collections import OrderedDict
+
 import time
-from  collections import OrderedDict
-import sqlalchemy as sa
-
-from neutron.db import api as db_api
-
-from neutron.db import common_db_mixin
-from neutron.db import dns_db
-from neutron.db import extraroute_db
-from neutron.db import l3_gwmode_db as l3_db
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
-from asr1k_neutron_l3.common import  utils
+from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.common.instrument import instrument
+from asr1k_neutron_l3.extensions import asr1koperations as asr1k_ext
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
-
-from asr1k_neutron_l3.plugins.l3.schedulers import asr1k_scheduler_db
-from asr1k_neutron_l3.extensions import asr1koperations as asr1k_ext
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
+from asr1k_neutron_l3.plugins.l3.schedulers import asr1k_scheduler_db
 from asr1k_neutron_l3.plugins.l3.service_plugins.initializer import Initializer
+from neutron.db import api as db_api
+from neutron.db import common_db_mixin
+from neutron.db import dns_db
+from neutron.db import extraroute_db
+from neutron.db import l3_gwmode_db as l3_db
 
 LOG = log.getLogger(__name__)
 
@@ -148,7 +145,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
 
     def _ensure_second_dot1q(self, context):
-        session = db_api.get_session()
+        session = db_api.get_writer_session()
         extra_atts = session.query(asr1k_models.ASR1KExtraAttsModel).all()
         second_dot1qs = []
 
@@ -317,7 +314,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         return super(ASR1KPluginBase, self).delete_router( context, id)
 
     @log_helpers.log_method_call
-    def add_router_interface(self, context, router_id, interface_info):
+    def add_router_interface(self, context, router_id, interface_info=None):
         return super(ASR1KPluginBase,self).add_router_interface(context, router_id, interface_info)
 
     @log_helpers.log_method_call
@@ -350,10 +347,10 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         if len(router_atts) > 0:
             att = router_atts.get(id, None)
             if att is not None:
-                result['rd'] = att.rd
+                result['rd'] = att.get('rd')
 
         ports = []
-        result
+
         if atts is not None:
             for port_id in atts.keys():
                 port = OrderedDict({'port_id':port_id})
@@ -394,16 +391,16 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         result = self.notify_router_teardown(context, id)
         return {'device': {'id': result}}
 
-    def show_orphans(self, context,host):
-        result = self.notify_show_orphans(context,host)
+    def show_orphans(self, context, host):
+        result = self.notify_show_orphans(context, host)
         return result
 
-    def delete_orphans(self, context,host):
-        result = self.notify_delete_orphans(context,host)
+    def delete_orphans(self, context, host):
+        result = self.notify_delete_orphans(context, host)
         return result
 
 
-    def list_devices(self, context,host):
+    def list_devices(self, context, host):
         result = self.notify_list_devices(context,host)
         db = asr1k_db.DBPlugin()
         device_info = db.get_device_info(context,host)

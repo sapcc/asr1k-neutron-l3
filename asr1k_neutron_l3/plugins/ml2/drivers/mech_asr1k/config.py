@@ -15,6 +15,8 @@
 #    under the License.
 
 from oslo_config import cfg
+from neutron_lib._i18n import _
+
 
 asr_opts = [
     cfg.ListOpt('physical_networks', default=None,

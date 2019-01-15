@@ -15,7 +15,6 @@
 #    under the License.
 
 import sqlalchemy as sa
-
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 from oslo_utils import timeutils
@@ -25,10 +24,7 @@ from sqlalchemy import func
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import asr1k_exceptions
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
-from neutron_lib import context as n_context
-from neutron_lib import constants as n_constants
 from neutron.db import address_scope_db
-from neutron.db import agents_db
 from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
@@ -36,10 +32,16 @@ from neutron.db import l3_agentschedulers_db
 from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db import portbindings_db
-from neutron_lib.api.definitions import portbindings
-from neutron_lib.exceptions import l3 as l3_exc
+from neutron.db import segments_db
+from neutron.db.models import agent as agent_model
+from neutron.db.models import l3 as l3_models
+from neutron.db.models import l3agent as l3agent_models
 from neutron.plugins.ml2 import db as ml2_db
 from neutron.plugins.ml2 import models as ml2_models
+from neutron_lib import constants as n_constants
+from neutron_lib import context as n_context
+from neutron_lib.api.definitions import portbindings
+from neutron_lib.exceptions import l3 as l3_exc
 
 try:
     from networking_cisco.plugins.cisco.db.device_manager.hd_models import HostingDevice, HostingDeviceTemplate,HostedHostingPortBinding,SlotAllocation
@@ -182,7 +184,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return result
 
     def get_orphaned_extra_atts_router_ids(self, context, host):
-        subquery = context.session.query(l3_db.Router.id)
+        subquery = context.session.query(l3_models.Router.id)
 
         query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter( asr1k_models.ASR1KExtraAttsModel.agent_host==host).filter(
             asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
@@ -233,7 +235,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return router_extra_atts + list(set(port_extra_atts) - set(router_extra_atts))
 
     def get_orphaned_router_atts_router_ids(self, context, host):
-        subquery = context.session.query(l3_db.Router.id)
+        subquery = context.session.query(l3_models.Router.id)
         # TODO filter
         query = context.session.query(asr1k_models.ASR1KRouterAttsModel.router_id).filter(
             asr1k_models.ASR1KRouterAttsModel.router_id.notin_(subquery))\
@@ -318,7 +320,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             binding_levels = ml2_db.get_binding_levels(context.session, port_id, host)
             if len(binding_levels) > 1:
                 # Assuming only two levels for now
-                return ml2_db.get_segment_by_id(context.session, binding_levels[1].segment_id)
+                return segments_db.get_segment_by_id(context.session, binding_levels[1].segment_id)
 
     def get_extra_atts(self, context, ports, host):
         extra_atts = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
@@ -346,13 +348,13 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     def get_all_router_ids(self, context, host=None):
         if host is None:
-            routers =  context.session.query(l3_db.Router.id).all()
+            routers = context.session.query(l3_models.Router.id).all()
         else:
-            routers = context.session.query(l3_db.Router.id).join(
-                l3_agentschedulers_db.RouterL3AgentBinding,
-                l3_db.Router.id == l3_agentschedulers_db.RouterL3AgentBinding.router_id)\
-                .join(agents_db.Agent, l3_agentschedulers_db.RouterL3AgentBinding.l3_agent_id == agents_db.Agent.id).filter(
-                agents_db.Agent.host == host).all()
+            routers = context.session.query(l3_models.Router.id).join(
+                l3agent_models.RouterL3AgentBinding,
+                l3_models.Router.id == l3agent_models.RouterL3AgentBinding.router_id)\
+                .join(agent_model.Agent, l3agent_models.RouterL3AgentBinding.l3_agent_id == agent_model.Agent.id).filter(
+                agent_model.Agent.host == host).all()
 
         result = []
         for entry in routers:
@@ -417,7 +419,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             asr1k_models.ASR1KDeviceInfoModel.host == host).all()
         for info in infos:
             result[info.id] = info
-        return result;
+        return result
 
     def get_usage_stats(self, context, host):
 
@@ -479,7 +481,7 @@ class ExtraAttsDb(object):
         ExtraAttsDb(context, router_id, port, segment)._ensure()
 
     def __init__(self, context, router_id, port, segment):
-        self.session = db_api.get_session();
+        self.session = db_api.get_writer_session()
         self.context = context
 
         # check we have a port, segment and binding host
@@ -522,7 +524,7 @@ class ExtraAttsDb(object):
 
         for x in range(MIN_SECOND_DOT1Q, MAX_SECOND_DOT1Q):
             if x not in second_dot1qs:
-                self.second_dot1q = x;
+                self.second_dot1q = x
                 break
 
     def _ensure(self):
@@ -551,7 +553,7 @@ class RouterAttsDb(object):
         router_atts_db = RouterAttsDb(context, id)._ensure()
 
     def __init__(self, context, router_id):
-        self.session = db_api.get_session();
+        self.session = db_api.get_writer_session()
         self.context = context
 
         self.router_id = router_id
@@ -579,7 +581,7 @@ class RouterAttsDb(object):
 
             for x in range(MIN_RD, MAX_RD):
                 if x not in rds:
-                    self.rd = x;
+                    self.rd = x
                     break
 
         if self.rd is None:
@@ -603,7 +605,7 @@ class RouterAttsDb(object):
 class DeviceInfoDb(object):
 
     def __init__(self, context, id, host, enabled):
-        self.session = db_api.get_session();
+        self.session = db_api.get_writer_session()
         self.context = context
         self.id = id
         self.host = host

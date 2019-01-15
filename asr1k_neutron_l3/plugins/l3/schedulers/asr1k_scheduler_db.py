@@ -16,16 +16,16 @@
 
 
 import six
-from neutron.db import agents_db
-from neutron.db import agentschedulers_db
-from neutron.db import l3_agentschedulers_db
-from neutron_lib.exceptions import agent as n_agent
-from neutron.extensions import l3agentscheduler
-from neutron.extensions import router_availability_zone as router_az
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
+from neutron.db import agentschedulers_db
+from neutron.db import l3_agentschedulers_db
+from neutron.db.models import agent as agent_model
+from neutron.extensions import l3agentscheduler
+from neutron.extensions import router_availability_zone as router_az
+from neutron_lib.exceptions import agent as n_agent
 
 LOG = logging.getLogger(__name__)
 
@@ -101,17 +101,17 @@ class ASR1KAgentSchedulerDbMixin(l3_agentschedulers_db.L3AgentSchedulerDbMixin):
 
     @log_helpers.log_method_call
     def get_l3_agents(self, context, active=None, filters=None):
-        query = context.session.query(agents_db.Agent)
+        query = context.session.query(agent_model.Agent)
 
         # n_const.AGENT_TYPE_L3
 
         query = query.filter(
-            agents_db.Agent.agent_type == constants.AGENT_TYPE_ASR1K_L3)
+            agent_model.Agent.agent_type == constants.AGENT_TYPE_ASR1K_L3)
         if active is not None:
-            query = (query.filter(agents_db.Agent.admin_state_up == active))
+            query = (query.filter(agent_model.Agent.admin_state_up == active))
         if filters:
             for key, value in six.iteritems(filters):
-                column = getattr(agents_db.Agent, key, None)
+                column = getattr(agent_model.Agent, key, None)
                 if column:
                     if not value:
                         return []

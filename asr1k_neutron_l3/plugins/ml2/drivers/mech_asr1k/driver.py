@@ -54,7 +54,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
         self.start_rpc_listeners()
 
-        LOG.info(_LI("ASR mechanism driver initialized."))
+        LOG.info("ASR mechanism driver initialized.")
 
     def _setup_rpc(self):
         """Initialize components to support agent communication."""
@@ -67,7 +67,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         """Start the RPC loop to let the plugin communicate with agents."""
         self._setup_rpc()
         self.topic = asr1k_constants.ASR1K_TOPIC
-        self.conn = n_rpc.create_connection(new=True)
+        self.conn = n_rpc.create_connection()
         self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
 
         return self.conn.consume_in_threads()
@@ -78,8 +78,8 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
     def get_mappings(self, agent):
         return {}
 
-    def get_allowed_network_types(self, agent):
-        return ([p_constants.TYPE_VLAN])
+    def get_allowed_network_types(self, agent=None):
+        return [p_constants.TYPE_VLAN]
 
     def update_port_postcommit(self, context):
         port_id = context.current.get('id')
@@ -110,7 +110,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
     def try_to_bind_segment_for_agent(self, context, segment, agent):
         if segment.get(api.PHYSICAL_NETWORK) in self.physical_networks:
 
-            LOG.info(_LI("try_to_bind_segment_for_agent"))
+            LOG.info("try_to_bind_segment_for_agent")
             LOG.info(context.current)
 
             # We only do router devices

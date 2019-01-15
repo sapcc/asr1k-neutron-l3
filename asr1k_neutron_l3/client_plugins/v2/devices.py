@@ -13,6 +13,7 @@ from openstackclient.i18n import _
 from openstackclient.network import sdk_utils
 
 from asr1k_neutron_l3.client_plugins import base
+from neutron_lib._i18n import _
 
 _formatters = {
     'tags': utils.format_list,

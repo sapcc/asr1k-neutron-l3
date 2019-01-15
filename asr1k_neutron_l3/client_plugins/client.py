@@ -7,8 +7,8 @@ import warnings
 from keystoneauth1 import adapter
 from keystoneauth1 import session as ks_session
 from oslo_utils import importutils
-from openstack import connection
-
+from webob import exc as exceptions
+from neutron_lib._i18n import _
 
 LOG = logging.getLogger(__name__)
 _DEFAULT_SERVICE_TYPE = 'network'
@@ -158,7 +158,7 @@ class _HTTPClient(adapter.Adapter):
         LOG.debug('Response status {0}'.format(status))
         if status == 401:
             LOG.error('Auth error: {0}'.format(self._get_error_message(resp)))
-            raise exceptions.HTTPAuthError(
+            raise exceptions.HTTPUnauthorized(
                 '{0}'.format(self._get_error_message(resp))
             )
         if not status or status >= 500:

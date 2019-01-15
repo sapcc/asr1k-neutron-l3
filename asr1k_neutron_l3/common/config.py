@@ -17,6 +17,7 @@
 from oslo_log import log as logging
 from oslo_config import cfg
 from neutron.conf.agent import common
+from neutron_lib._i18n import _
 
 LOG = logging.getLogger(__name__)
 
