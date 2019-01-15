@@ -14,19 +14,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import signal
-import re
 import gc
+import re
 import traceback
-import signal
+from greenlet import greenlet
+
 import eventlet
 import oslo_messaging
 import requests
+import signal
 import six
-import urllib3
 import time
-
-from greenlet import greenlet
 
 eventlet.monkey_patch()
 
@@ -34,12 +32,12 @@ from oslo_log import log as logging
 from oslo_log import helpers as log_helpers
 from oslo_config import cfg
 from oslo_utils import timeutils
-from oslo_utils import importutils
 from oslo_service import loopingcall
 
 from neutron_lib import context as n_context
 from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
-from neutron.common import config as common_config, topics, constants as n_const
+from neutron.common import config as common_config, topics
+from neutron_lib import constants as n_const
 
 from asr1k_neutron_l3.common import prometheus_monitor
 from asr1k_neutron_l3.common.prometheus_monitor import  PrometheusMonitor
@@ -51,13 +49,12 @@ from asr1k_neutron_l3.models import connection
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api
 from asr1k_neutron_l3.models.neutron.l2 import port as l2_port
 
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from asr1k_neutron_l3.common import config
+import urllib3
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 
-requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+requests.packages.urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 SYNC_ROUTERS_MAX_CHUNK_SIZE = 256
