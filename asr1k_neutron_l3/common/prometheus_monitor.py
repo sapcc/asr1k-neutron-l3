@@ -31,8 +31,8 @@ from prometheus_client import Histogram
 
 LOG = logging.getLogger(__name__)
 
-ACTION_BUCKETS=  (1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40., 60.0, core._INF)
-OPERATION_BUCKETS=  (0.1,0.3,0.5, 0.7,1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0,core._INF)
+ACTION_BUCKETS=  (1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40., 60.0, float("inf"))
+OPERATION_BUCKETS=  (0.1,0.3,0.5, 0.7,1.0, 2.0, 3.0, 4.0, 5.0, 8.0, 10.0, 15.0, float("inf"))
 
 ORPHANS_LABELS = ['host','device']
 CONNECTION_POOL_LABELS = ['host','device']
