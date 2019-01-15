@@ -25,6 +25,7 @@ import requests
 import signal
 import six
 import time
+import sys
 
 eventlet.monkey_patch()
 
@@ -62,6 +63,8 @@ SYNC_ROUTERS_MIN_CHUNK_SIZE = 32
 
 def main():
     asr1k_config.register_l2_opts()
+    common_config.init(sys.argv[1:])
+    common_config.setup_logging()
     agent = ASR1KNeutronAgent()
 
     # Start everything.

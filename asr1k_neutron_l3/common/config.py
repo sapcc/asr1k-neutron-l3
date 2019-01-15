@@ -149,6 +149,7 @@ def register_l3_opts():
 
 
 def register_l2_opts():
+    cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
     cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
     cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
