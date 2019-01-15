@@ -82,3 +82,6 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
                 " between (L2) Neutron networks and access to external"
                 " networks via a NAT gateway.")
 
+    def get_number_of_agents_for_scheduling(self, context):
+        """Return number of agents on which the router will be scheduled."""
+        return 1
