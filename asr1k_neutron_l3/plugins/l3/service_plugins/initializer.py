@@ -114,6 +114,7 @@ class Initializer(object):
         router_ids = db.get_all_router_ids(self.context)
         port_count = 0
         for router_id in router_ids:
+            LOG.warn("Updating Router %s" % router_id)
             result[router_id] = {}
             agent = self.plugin.get_agent_for_router(self.context, router_id)
             agent_host = agent.get('host')
@@ -122,6 +123,7 @@ class Initializer(object):
                 ports = db.get_ports_for_router_ids(self.context, [router_id])
                 result[router_id]["port host"] = []
                 for port in ports:
+                    LOG.warn("Updating Port %s of Router %s" % (port.id, router_id))
                     port_count+=1
                     port_id = port.get('id')
                     if  port.get(portbindings.HOST_ID) != agent_host:

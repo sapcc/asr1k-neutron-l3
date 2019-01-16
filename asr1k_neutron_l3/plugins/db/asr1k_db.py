@@ -317,10 +317,10 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         agents = self.get_l3_agents_hosting_routers(context, [router_id], admin_state_up=True)
         if len(agents) > 0:
             host = agents[0].host
-            binding_levels = ml2_db.get_binding_levels(context.session, port_id, host)
+            binding_levels = ml2_db.get_binding_levels(context, port_id, host)
             if len(binding_levels) > 1:
                 # Assuming only two levels for now
-                return segments_db.get_segment_by_id(context.session, binding_levels[1].segment_id)
+                return segments_db.get_segment_by_id(context, binding_levels[1].segment_id)
 
     def get_extra_atts(self, context, ports, host):
         extra_atts = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
