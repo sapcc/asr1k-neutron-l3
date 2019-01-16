@@ -16,7 +16,7 @@
 
 
 import os, socket
-
+import mock
 import errno
 from socket import error as socket_error
 
@@ -111,7 +111,9 @@ class PrometheusMonitor(object):
 
             except AttributeError:
                 pass
-            raise e
+
+            LOG.exception(e)
+            return mock.MagicMock()
 
 
         return attr
