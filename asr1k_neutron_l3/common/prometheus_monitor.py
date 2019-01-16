@@ -104,7 +104,7 @@ class PrometheusMonitor(object):
         except AttributeError as e:
             try:
                 metric = super(PrometheusMonitor, self).__getattribute__("_{}".format(item))
-                if isinstance(metric,core._LabelWrapper):
+                if metric.__class__.__name__ == '_LabelWrapper':
                     return MetricWrapper(metric,host=self.host)
                 elif isinstance(metric, core.Metric):
                     return metric
