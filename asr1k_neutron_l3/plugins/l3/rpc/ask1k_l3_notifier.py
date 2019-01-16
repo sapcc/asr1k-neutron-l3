@@ -20,7 +20,7 @@ from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
 
 from neutron.api.rpc.agentnotifiers import l3_rpc_agent_api
-from neutron import manager
+from neutron_lib.plugins import directory
 from neutron_lib.agent import topics
 from neutron_lib import constants as svc_constants
 
@@ -84,8 +84,7 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
     def _agent_rpc(self, context, method, router_id=None,host=None,device_id=None,router_info=None):
         """Notify changed routers to hosting l3 agents."""
         adminContext = context if context.is_admin else context.elevated()
-        plugin = manager.NeutronManager.get_service_plugins().get(
-            svc_constants.L3)
+        plugin = directory.get_plugin(svc_constants.L3)
         if router_id is not None:
             host = plugin.get_host_for_router(adminContext, router_id)
 
