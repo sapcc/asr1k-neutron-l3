@@ -1,0 +1,13 @@
+sudo: false
+language: python
+cache:
+  pip: true
+matrix:
+  include:
+  - python: "2.7"
+    env:
+    - TOXENV=py27
+    - NEUTRON_SOURCE=git+https://github.com/sapcc/neutron.git@stable/queens-m3#egg=neutron
+install:
+- pip install tox-travis
+script: tox

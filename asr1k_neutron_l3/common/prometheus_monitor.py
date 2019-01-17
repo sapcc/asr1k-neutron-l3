@@ -99,29 +99,15 @@ class PrometheusMonitor(object):
 
     # Some magic to to wrap metric to always inject the agent host
     def __getattr__(self, item):
-        try:
-            attr =  super(PrometheusMonitor,self).__getattribute__(item)
-        except AttributeError as e:
+        func = "_{}".format(item)
+        if func in self.__dict__:
+            return MetricWrapper(self.__dict__[func], host=self.host)
+        else:
             try:
-                metric = super(PrometheusMonitor, self).__getattribute__("_{}".format(item))
-                if metric.__class__.__name__ == '_LabelWrapper':
-                    return MetricWrapper(metric,host=self.host)
-                elif isinstance(metric, core.Metric):
-                    return metric
-
-            except AttributeError:
-                pass
-
-            LOG.exception(e)
-            return mock.MagicMock()
-
-
-        return attr
-
-
-
-
-
+                return super(PrometheusMonitor, self).__getattribute__(item)
+            except AttributeError as e:
+                LOG.exception(e)
+                return mock.MagicMock()
 
     def start(self):
         if not self.exporter_listening:
