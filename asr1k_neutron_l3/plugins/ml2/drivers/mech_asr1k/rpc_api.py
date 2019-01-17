@@ -29,10 +29,9 @@ LOG = log.getLogger(__name__)
 class ASR1KPluginApi(object):
     version = '1.0'
 
-    def __init__(self, rpc_context):
-        target = oslo_messaging.Target(topic=asr1k_constants.ASR1K_TOPIC, version='1.0')
+    def __init__(self, topic):
+        target = oslo_messaging.Target(topic=topic, version='1.0')
         self.client = n_rpc.get_client(target)
-        self.rpc_context = rpc_context
 
     def _fanout(self):
         return self.client.prepare(version=self.version, topic=asr1k_constants.ASR1K_TOPIC, fanout=False)
@@ -57,14 +56,15 @@ class ASR1KPluginApi(object):
         return cctxt.call(context, 'delete_extra_atts', ports=ports,
                           agent_id=agent_id, host=host)
 
-    def get_interface_ports(self,limit=None , offset=None,host=None):
+    def get_interface_ports(self, context, limit=None , offset=None,host=None):
         cctxt = self.client.prepare()
-        return cctxt.call(self.rpc_context, 'get_interface_ports',limit=limit , offset=offset,host=host)
+        return cctxt.call(context, 'get_interface_ports',limit=limit , offset=offset,host=host)
+
+    def get_device_info(self, context, host):
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_device_info', host=host)
 
 
-    def get_device_info(self, host):
-        cctxt = self.client.prepare()
-        return cctxt.call(self.rpc_context, 'get_device_info',host=host)
 class ASR1KPluginCallback(object):
 
     def __init__(self):
@@ -100,5 +100,5 @@ class ASR1KPluginCallback(object):
         return ports
 
     @instrument.instrument()
-    def get_device_info(self,context,host):
-        return self.db.get_device_info(context,host)
+    def get_device_info(self, context, host):
+        return self.db.get_device_info(context, host)

@@ -104,11 +104,11 @@ class RoutersController(wsgi.Controller):
         super(RoutersController,self).__init__()
         self.plugin = plugin
 
-    def show(self, request,id):
+    def show(self, request, id, body):
         check_access(request)
         return self.plugin.validate(request.context,id)
 
-    def update(self, request,id):
+    def update(self, request, id, body):
         check_access(request)
         return self.plugin.sync(request.context,id)
 
@@ -140,7 +140,7 @@ class ConfigController(wsgi.Controller):
         check_access(request)
         return self.plugin.get_config(request.context,id)
 
-    def update(self, request, id):
+    def update(self, request, id, body):
         check_access(request)
         return self.plugin.ensure_config(request.context,id)
 
@@ -163,16 +163,13 @@ class DevicesController(wsgi.Controller):
             return self.plugin.show_device(request.context,host,device_id)
 
 
-    def update(self, request,id):
+    def update(self, request, id, body):
         check_access(request)
-        body = request.body
-
-        json_body = json.loads(body)
 
         host = id
         result ={}
-        for key in json_body:
-            enable  = json_body.get(key,'enable')
+        for key in body:
+            enable = body.get(key,'enable')
             if enable =='disable':
                 enabled = False
             else :

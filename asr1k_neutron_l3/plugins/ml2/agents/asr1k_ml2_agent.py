@@ -40,7 +40,7 @@ from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
 from neutron.common import config as common_config, topics
 from neutron_lib import constants as n_const
 
-from asr1k_neutron_l3.common import prometheus_monitor
+from asr1k_neutron_l3.common import prometheus_monitor, asr1k_constants
 from asr1k_neutron_l3.common.prometheus_monitor import  PrometheusMonitor
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import asr1k_constants as constants
@@ -62,8 +62,8 @@ SYNC_ROUTERS_MAX_CHUNK_SIZE = 256
 SYNC_ROUTERS_MIN_CHUNK_SIZE = 32
 
 def main():
-    asr1k_config.register_l2_opts()
     common_config.init(sys.argv[1:])
+    asr1k_config.register_l2_opts()
     common_config.setup_logging()
     agent = ASR1KNeutronAgent()
 
@@ -76,7 +76,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     target = oslo_messaging.Target(version='1.4')
 
     def __init__(self,
-                 quitting_rpc_timeout=None,
                  conf=None):
 
         super(ASR1KNeutronAgent, self).__init__()
@@ -191,7 +190,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.agent_id = 'asr1k-ml2-agent-%s' % self.conf.host
         self.topic = topics.AGENT
         self.plugin_rpc = agent_rpc.PluginApi(topics.PLUGIN)
-        self.agent_rpc = rpc_api.ASR1KPluginApi(self.context)
+        self.agent_rpc = rpc_api.ASR1KPluginApi(asr1k_constants.ASR1K_TOPIC)
         self.state_rpc = agent_rpc.PluginReportStateAPI(topics.PLUGIN)
 
         # Handle updates from service
@@ -241,15 +240,13 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
     def _handle_sigterm(self, signum, frame):
         self.catch_sigterm = True
-        if self.quitting_rpc_timeout:
-            self.set_rpc_timeout(self.quitting_rpc_timeout)
 
     def _handle_sighup(self, signum, frame):
         self.catch_sighup = True
 
     @log_helpers.log_method_call
     def process_ports(self):
-        connection.check_devices(self.agent_rpc.get_device_info(self.conf.host))
+        connection.check_devices(self.agent_rpc.get_device_info(self.context, self.conf.host))
 
         updated_ports = self.updated_ports.copy()
 
@@ -289,17 +286,17 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     @instrument()
     def sync_known_ports(self):
 
-        connection.check_devices(self.agent_rpc.get_device_info(self.conf.host))
+        connection.check_devices(self.agent_rpc.get_device_info(self.context, self.conf.host))
 
         if self.sync_active:
 
-            interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset,host=self.conf.host)
+            interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size, offset=self.sync_offset,host=self.conf.host)
 
             LOG.debug("Syncing {} ports ".format(len(interface_ports)))
 
             if len(interface_ports)==0:
                 self.sync_offset = 0
-                interface_ports = self.agent_rpc.get_interface_ports(limit=self.sync_chunk_size, offset=self.sync_offset,host=self.conf.host)
+                interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size, offset=self.sync_offset,host=self.conf.host)
             else:
                 self.sync_offset = self.sync_offset+self.sync_chunk_size
 

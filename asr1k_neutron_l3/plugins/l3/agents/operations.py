@@ -3,7 +3,7 @@ from oslo_log import log as logging
 
 from asr1k_neutron_l3.models.neutron.l3.router import Router
 from asr1k_neutron_l3.models.neutron.l2.port import Port
-from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.common import utils, asr1k_constants
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k.rpc_api import ASR1KPluginApi
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
@@ -195,7 +195,7 @@ class OperationsMixin(object):
 
     def _l2_plugin_rpc(self,context):
        if self.__l2_plugin_rpc is None:
-        self.__l2_plugin_rpc = ASR1KPluginApi(context)
+        self.__l2_plugin_rpc = ASR1KPluginApi(asr1k_constants.ASR1K_TOPIC)
        return self.__l2_plugin_rpc
 
 
