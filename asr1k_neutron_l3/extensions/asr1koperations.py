@@ -104,43 +104,43 @@ class RoutersController(wsgi.Controller):
         super(RoutersController,self).__init__()
         self.plugin = plugin
 
-    def show(self, request, id, body):
+    def show(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.validate(request.context,id)
 
-    def update(self, request, id, body):
+    def update(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.sync(request.context,id)
 
-    def delete(self, request,id):
+    def delete(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.teardown(request.context,id)
 
 class OrphansController(wsgi.Controller):
 
-    def __init__(self,plugin):
+    def __init__(self, plugin):
         super(OrphansController,self).__init__()
         self.plugin = plugin
 
-    def show(self, request,id):
+    def show(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.show_orphans(request.context,id)
 
-    def delete(self, request,id):
+    def delete(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.delete_orphans(request.context,id)
 
 class ConfigController(wsgi.Controller):
 
-    def __init__(self,plugin):
+    def __init__(self,plugin, **kwargs):
         super(ConfigController,self).__init__()
         self.plugin = plugin
 
-    def show(self, request,id):
+    def show(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.get_config(request.context,id)
 
-    def update(self, request, id, body):
+    def update(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.ensure_config(request.context,id)
 
@@ -152,7 +152,7 @@ class DevicesController(wsgi.Controller):
         self.plugin = plugin
 
 
-    def show(self, request,id):
+    def show(self, request, id, **kwargs):
         check_access(request)
         host = id
         device_id = request.params.get('id',None)
@@ -163,7 +163,7 @@ class DevicesController(wsgi.Controller):
             return self.plugin.show_device(request.context,host,device_id)
 
 
-    def update(self, request, id, body):
+    def update(self, request, id, body, **kwargs):
         check_access(request)
 
         host = id
@@ -191,41 +191,41 @@ class InterfaceStatisticsController(wsgi.Controller):
         super(InterfaceStatisticsController,self).__init__()
         self.plugin = plugin
 
-    def show(self, request,id):
+    def show(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.interface_statistics(request.context,id)
 
 class InitSchedulerController(wsgi.Controller):
 
-    def __init__(self,plugin):
+    def __init__(self, plugin):
         super(InitSchedulerController,self).__init__()
 
         self.plugin = plugin
 
-    def index(self, request):
+    def index(self, request, **kwargs):
         check_access(request)
         return self.plugin.init_scheduler(request.context)
 
 
 class InitBindingsController(wsgi.Controller):
 
-    def __init__(self,plugin):
+    def __init__(self, plugin):
         super(InitBindingsController,self).__init__()
 
         self.plugin = plugin
 
-    def index(self, request):
+    def index(self, request, **kwargs):
         check_access(request)
         return self.plugin.init_bindings(request.context)
 
 class InitAttsController(wsgi.Controller):
 
-    def __init__(self,plugin):
+    def __init__(self, plugin):
         super(InitAttsController,self).__init__()
 
         self.plugin = plugin
 
-    def index(self, request):
+    def index(self, request, **kwargs):
         check_access(request)
         return self.plugin.init_atts(request.context)
 
@@ -236,7 +236,7 @@ class InitConfigController(wsgi.Controller):
 
         self.plugin = plugin
 
-    def show(self, request,id):
+    def show(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.init_config(request.context,id)
 
@@ -248,11 +248,11 @@ class CiscoTeardownController(wsgi.Controller):
 
         self.plugin = plugin
 
-    def index(self, request):
+    def index(self, request, **kwargs):
         check_access(request)
         return self.plugin.cisco_teardown(request.context)
 
-    def delete(self, request,id):
+    def delete(self, request, id, **kwargs):
         check_access(request)
         return self.plugin.cisco_teardown(request.context,dry_run=False)
 

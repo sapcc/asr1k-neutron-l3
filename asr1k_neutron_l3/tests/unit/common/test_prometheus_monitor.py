@@ -12,7 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import requests
 import time
 from oslo_config import cfg
 
@@ -24,7 +23,7 @@ cfg.CONF.use_stderr = False
 cfg.CONF(args=[])
 
 class PrometheusMonitorTest(base.BaseTestCase):
-    def setUp(self):
+    def _setUp(self):
         super(PrometheusMonitorTest, self).setUp()
         self.host = 'test_host'
 

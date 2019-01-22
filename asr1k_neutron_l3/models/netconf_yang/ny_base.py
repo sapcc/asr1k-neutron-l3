@@ -268,7 +268,8 @@ class retry_on_failure(object):
                     exception = e
 
             if exception is not None:
-              raise exception
+                LOG.error(entity)
+                raise exception
 
 
 

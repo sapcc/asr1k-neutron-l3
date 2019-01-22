@@ -29,12 +29,9 @@ LOG = log.getLogger(__name__)
 class ASR1KPluginApi(object):
     version = '1.0'
 
-    def __init__(self, topic):
-        target = oslo_messaging.Target(topic=topic, version='1.0')
+    def __init__(self, topic=asr1k_constants.ASR1K_TOPIC):
+        target = oslo_messaging.Target(topic=topic, version=self.version)
         self.client = n_rpc.get_client(target)
-
-    def _fanout(self):
-        return self.client.prepare(version=self.version, topic=asr1k_constants.ASR1K_TOPIC, fanout=False)
 
     def get_ports_with_extra_atts(self, context, ports, agent_id=None, host=None):
         cctxt = self.client.prepare()

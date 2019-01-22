@@ -156,7 +156,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
             if extra_att.second_dot1q==0:
                 for x in range(asr1k_db.MIN_SECOND_DOT1Q, asr1k_db.MAX_SECOND_DOT1Q):
                     if x not in second_dot1qs:
-                        extra_att.second_dot1q = x;
+                        extra_att.second_dot1q = x
                         second_dot1qs.append(x)
                         break
 

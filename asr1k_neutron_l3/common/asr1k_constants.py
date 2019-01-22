@@ -20,7 +20,7 @@ AGENT_TYPE_ASR1K_L3 = 'ASR1K L3 Agent'
 AGENT_BINARY_ASR1K_L3 = 'asr1k-neutron-l3-agent'
 AGENT_TYPE_ASR1K_ML2 = 'ASR1K ML2 Agent'
 
-ASR1K_TOPIC = 'ASR1K-TOPIC'
+ASR1K_TOPIC = 'asr1k'
 
 ASR1K_EXTRA_ATTS_KEY = 'asr1k_extra_atts'
 ASR1K_ROUTER_ATTS_KEY = 'asr1k_router_atts'
