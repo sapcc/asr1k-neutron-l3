@@ -91,8 +91,9 @@ class Router(Base):
         result = []
         if self.gateway_interface is not None:
             for interface in self.interfaces.internal_interfaces:
-                if interface.address_scope == self.gateway_interface.address_scope:
-                    result.append(interface)
+                if self.gateway_interface.address_scope is not None:
+                    if interface.address_scope == self.gateway_interface.address_scope:
+                        result.append(interface)
         return result
 
     def _build_interfaces(self):
