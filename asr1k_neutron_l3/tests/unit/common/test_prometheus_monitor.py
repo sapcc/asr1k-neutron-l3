@@ -31,15 +31,17 @@ class PrometheusMonitorTest(base.BaseTestCase):
         self.monitor.start()
 
     def test_l3_orphan_count(self):
-        PrometheusMonitor().l3_orphan_count.labels(device=self.host).set(0)
-        PrometheusMonitor().l3_orphan_count.labels(device=self.host).inc()
+        host = self.host
+        PrometheusMonitor().l3_orphan_count.labels(device=host).set(0)
+        PrometheusMonitor().l3_orphan_count.labels(device=host).inc()
         self.assertTrue(utils.check_prometheus_metric(
             'neutron_asr1k_test_l3_orphan_count{device="test_host",host="test_host"} 1.0'
         ))
 
     def test_yang_operation_duration(self):
+        host = self.host
         with PrometheusMonitor().yang_operation_duration.labels(
-                device=self.host, entity='test',
+                device=host, entity='test',
                 action='test'
         ).time():
             time.sleep(1)

@@ -93,7 +93,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
         db = asr1k_db.DBPlugin()
         admin_context = n_context.get_admin_context()
-        att  = db.get_extra_att(admin_context,port_id)
+        att = db.get_extra_att(admin_context, port_id)
         if att is None:
             LOG.warning("Detected ,missing port extra atts for port {} attempting to recreate".format(port_id))
             device_id = context.current.get('device_id',None)
