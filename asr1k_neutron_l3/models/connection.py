@@ -43,9 +43,6 @@ from ncclient.transport.errors import TransportError
 from paramiko.ssh_exception import SSHException, NoValidConnectionsError,ChannelException
 from bs4 import BeautifulSoup as bs
 
-import datetime
-import urlparse
-
 LOG = logging.getLogger(__name__)
 
 
@@ -201,12 +198,6 @@ class ConnectionPool(object):
 
         connection.lock.acquire()
 
-        if connection.connection and connection.has_nat_with_vrf_extension():
-            from asr1k_neutron_l3.models.netconf_yang.nat import NATConstants
-            NATConstants.TRANSPORT_LIST = "nat-static-transport-list-with-vrf"
-            #monkeypatch = mock.patch('asr1k_neutron_l3.models.netconf_yang.nat.NATConstants', TRANSPORT_LIST="nat-static-transport-list-with-vrf", spec=True)
-            #monkeypatch.start()
-
         return connection
 
     def push_connection(self,connection,context=None):
@@ -279,34 +270,6 @@ class YangConnection(object):
                 LOG.exception(e)
 
         return self._ncc_connection
-
-    def has_nat_with_vrf_extension(self):
-        """Detect if this router only works with the renamed nat entries
-
-        With a certain update the name of nat-static-transport-list changed to
-        nat-static-transport-list-with-vr. This function tries to detect if the
-        NAT XML schema used is >= 2018-12-18"""
-
-        # schema needs to be >= 2018-12-18, e.g.
-        # http://cisco.com/ns/yang/Cisco-IOS-XE-nat?module=Cisco-IOS-XE-nat&revision=2018-12-18
-
-        schema_start_name = 'http://cisco.com/ns/yang/Cisco-IOS-XE-nat?module=Cisco-IOS-XE-nat'
-        capability = filter(lambda _x: schema_start_name in _x, self.connection.server_capabilities)
-
-        if len(capability) > 0:
-            try:
-                schema = urlparse.urlparse(capability[0])
-                schema_qs = urlparse.parse_qs(schema.query)
-                schema_rev_date = datetime.datetime.strptime(schema_qs['revision'][0], "%Y-%m-%d")
-                if schema_rev_date >= datetime.datetime(2018, 12, 18, 0, 0):
-                    # new schema!
-                    return True
-            except Exception:
-                # something went wrong, assume old schema
-                return False
-
-        # schema not found or fallthrough, assume old schema
-        return False
 
     def _connect(self, context):
         port = context.yang_port

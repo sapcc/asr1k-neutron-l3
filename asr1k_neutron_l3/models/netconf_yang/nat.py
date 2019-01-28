@@ -50,7 +50,7 @@ class NATConstants(object):
     VRF = "vrf"
     OVERLOAD = "overload"
 
-    TRANSPORT_LIST = "nat-static-transport-list"
+    TRANSPORT_LIST = "nat-static-transport-list-with-vrf"
     STATIC = "static"
 
     LOCAL_IP = "local-ip"
@@ -58,12 +58,6 @@ class NATConstants(object):
     FORCED = "forced"
     MATCH_IN_VRF = "match-in-vrf"
 
-class FreshValue(property):
-    def __init__(self, fnc):
-        self._fnc = fnc
-
-    def __get__(self, cls, owner):
-        return self._fnc()
 
 class NatPool(NyBase):
     LIST_KEY = NATConstants.NAT
@@ -400,9 +394,9 @@ class StaticNatList(NyBase):
                         <ios-nat:inside>
                           <ios-nat:source>
                             <ios-nat:static>
-                              <ios-nat:{NAT_TRANSPORT_LIST}>
+                              <ios-nat:nat-static-transport-list-with-vrf>
                                 <ios-nat:vrf>{vrf}</ios-nat:vrf>
-                              </ios-nat:{NAT_TRANSPORT_LIST}>
+                              </ios-nat:nat-static-transport-list-with-vrf>
                             </ios-nat:static>
                           </ios-nat:source>
                         </ios-nat:inside>
@@ -412,7 +406,7 @@ class StaticNatList(NyBase):
                 """
 
     LIST_KEY = NATConstants.STATIC
-    ITEM_KEY = FreshValue(lambda: NATConstants.TRANSPORT_LIST)
+    ITEM_KEY = NATConstants.TRANSPORT_LIST
     EMPTY_TYPE = []
 
     @classmethod
@@ -425,7 +419,7 @@ class StaticNatList(NyBase):
 
     @classmethod
     def get_primary_filter(cls,**kwargs):
-        return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf'), 'NAT_TRANSPORT_LIST': NATConstants.TRANSPORT_LIST})
+        return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf')})
 
     @classmethod
     def remove_wrapper(cls,dict):
@@ -509,10 +503,10 @@ class StaticNat(NyBase):
                         <ios-nat:inside>
                           <ios-nat:source>
                             <ios-nat:static>
-                              <ios-nat:{NAT_TRANSPORT_LIST}>
+                              <ios-nat:nat-static-transport-list-with-vrf>
                                 <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
                                 <ios-nat:global-ip>{global_ip}</ios-nat:global-ip>
-                              </ios-nat:{NAT_TRANSPORT_LIST}>
+                              </ios-nat:nat-static-transport-list-with-vrf>
                             </ios-nat:static>
                           </ios-nat:source>
                         </ios-nat:inside>
@@ -528,9 +522,9 @@ class StaticNat(NyBase):
                         <ios-nat:inside>
                           <ios-nat:source>
                             <ios-nat:static>
-                              <ios-nat:{NAT_TRANSPORT_LIST}>
+                              <ios-nat:nat-static-transport-list-with-vrf>
                                 <ios-nat:mapping-id>{mapping_id}</ios-nat:mapping-id>
-                              </ios-nat:{NAT_TRANSPORT_LIST}>
+                              </ios-nat:nat-static-transport-list-with-vrf>
                             </ios-nat:static>
                           </ios-nat:source>
                         </ios-nat:inside>
@@ -546,10 +540,10 @@ class StaticNat(NyBase):
                         <ios-nat:inside>
                           <ios-nat:source>
                             <ios-nat:static>
-                              <ios-nat:{NAT_TRANSPORT_LIST}>
+                              <ios-nat:nat-static-transport-list-with-vrf>
                                 <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
                                 <ios-nat:vrf>{vrf}</ios-nat:vrf> 
-                              </ios-nat:{NAT_TRANSPORT_LIST}>
+                              </ios-nat:nat-static-transport-list-with-vrf>
                             </ios-nat:static>
                           </ios-nat:source>
                         </ios-nat:inside>
@@ -567,9 +561,9 @@ class StaticNat(NyBase):
                         <ios-nat:inside>
                           <ios-nat:source>
                             <ios-nat:static>
-                              <ios-nat:{NAT_TRANSPORT_LIST}>
+                              <ios-nat:nat-static-transport-list-with-vrf>
                                <ios-nat:vrf>{vrf}</ios-nat:vrf> 
-                              </ios-nat:{NAT_TRANSPORT_LIST}>
+                              </ios-nat:nat-static-transport-list-with-vrf>
                             </ios-nat:static>
                           </ios-nat:source>
                         </ios-nat:inside>
@@ -579,7 +573,7 @@ class StaticNat(NyBase):
                 """
 
     LIST_KEY = NATConstants.STATIC
-    ITEM_KEY = FreshValue(lambda: NATConstants.TRANSPORT_LIST)
+    ITEM_KEY = NATConstants.TRANSPORT_LIST
 
 
     @classmethod
@@ -595,11 +589,11 @@ class StaticNat(NyBase):
 
     @classmethod
     def get_primary_filter(cls,**kwargs):
-        return cls.ID_FILTER.format(**{'local_ip': kwargs.get('local_ip'),'global_ip':kwargs.get('global_ip'), 'NAT_TRANSPORT_LIST': NATConstants.TRANSPORT_LIST})
+        return cls.ID_FILTER.format(**{'local_ip': kwargs.get('local_ip'),'global_ip':kwargs.get('global_ip')})
 
     @classmethod
     def get_global_ip_filter(cls,**kwargs):
-        return cls.ID_FILTER.format(**{'global_ip':kwargs.get('global_ip'), 'NAT_TRANSPORT_LIST': NATConstants.TRANSPORT_LIST})
+        return cls.ID_FILTER.format(**{'global_ip':kwargs.get('global_ip')})
 
 
 
@@ -692,8 +686,7 @@ class StaticNat(NyBase):
         entry = OrderedDict()
         entry[NATConstants.LOCAL_IP] = self.local_ip
         entry[NATConstants.GLOBAL_IP] = self.global_ip
-        if NATConstants.TRANSPORT_LIST == 'nat-static-transport-list-with-vrf':
-            entry[NATConstants.VRF] = self.vrf
+        entry[NATConstants.VRF] = self.vrf
         entry[NATConstants.FORCED] = ''
 
         result = OrderedDict()
@@ -713,7 +706,7 @@ class StaticNat(NyBase):
 
     def _check_and_clean_mapping_id(self,context):
         # check if mapping ID is already in use in another VRF: if so its orphaned and should be removed
-        filter = self.MAPPING_ID_FILTER.format(**{'mapping_id':self.mapping_id, 'NAT_TRANSPORT_LIST': NATConstants.TRANSPORT_LIST})
+        filter = self.MAPPING_ID_FILTER.format(**{'mapping_id':self.mapping_id})
 
 
 
@@ -726,7 +719,7 @@ class StaticNat(NyBase):
 
     def _check_and_clean_local_ip(self,context):
         # check if local IP is already mapped in VRF: if so its orphaned and should be removed
-        filter = self.LOCAL_IP_FILTER.format(**{'local_ip':self.local_ip,'vrf':self.vrf, 'NAT_TRANSPORT_LIST': NATConstants.TRANSPORT_LIST})
+        filter = self.LOCAL_IP_FILTER.format(**{'local_ip':self.local_ip,'vrf':self.vrf})
 
         nats = self._get_all(nc_filter=filter,context=context)
 
