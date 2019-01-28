@@ -25,23 +25,21 @@ cfg.CONF(args=[])
 class PrometheusMonitorTest(base.BaseTestCase):
     def _setUp(self):
         super(PrometheusMonitorTest, self).setUp()
-        self.host = 'test_host'
 
-        self.monitor = PrometheusMonitor(host=self.host,namespace="neutron_asr1k",type="test")
+        self.monitor = PrometheusMonitor(host='test_host',namespace="neutron_asr1k",type="test")
         self.monitor.start()
 
     def test_l3_orphan_count(self):
         host = self.host
-        PrometheusMonitor().l3_orphan_count.labels(device=host).set(0)
-        PrometheusMonitor().l3_orphan_count.labels(device=host).inc()
+        PrometheusMonitor().l3_orphan_count.labels(device='test_host').set(0)
+        PrometheusMonitor().l3_orphan_count.labels(device='test_host').inc()
         self.assertTrue(utils.check_prometheus_metric(
             'neutron_asr1k_test_l3_orphan_count{device="test_host",host="test_host"} 1.0'
         ))
 
     def test_yang_operation_duration(self):
-        host = self.host
         with PrometheusMonitor().yang_operation_duration.labels(
-                device=host, entity='test',
+                device='test_host', entity='test',
                 action='test'
         ).time():
             time.sleep(1)
