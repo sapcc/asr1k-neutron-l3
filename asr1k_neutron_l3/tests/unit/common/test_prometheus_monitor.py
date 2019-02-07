@@ -23,14 +23,13 @@ cfg.CONF.use_stderr = False
 cfg.CONF(args=[])
 
 class PrometheusMonitorTest(base.BaseTestCase):
-    def _setUp(self):
+    def setUp(self):
         super(PrometheusMonitorTest, self).setUp()
 
         self.monitor = PrometheusMonitor(host='test_host',namespace="neutron_asr1k",type="test")
         self.monitor.start()
 
     def test_l3_orphan_count(self):
-        host = self.host
         PrometheusMonitor().l3_orphan_count.labels(device='test_host').set(0)
         PrometheusMonitor().l3_orphan_count.labels(device='test_host').inc()
         self.assertTrue(utils.check_prometheus_metric(

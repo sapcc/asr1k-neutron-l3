@@ -110,7 +110,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     def update_router_status(self, context, router_id, status):
         try:
-            self.get_router(context, router_id)
+            # self.get_router(context, router_id)
 
             router = {'router': {'status': status}}
             self.update_router(context, router_id, router)
