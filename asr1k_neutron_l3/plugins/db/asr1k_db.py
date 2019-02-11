@@ -75,7 +75,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def __init__(self):
         super(DBPlugin, self).__init__()
 
-    def clear_cisco_db(self,context):
+    def clear_cisco_db(self, context):
         cisco_tables = [SlotAllocation,RouterHostingDeviceBinding,RouterHASetting,RouterHAGroup,
                         RouterRedundancyBinding,HostingDevice,HostingDeviceTemplate,
                         HostedHostingPortBinding,RouterType]
@@ -85,7 +85,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 context.session.query(table).delete()
             except BaseException as e:
                 LOG.exception(e)
-
 
     def ensure_snat_mode(self, context, port_id, mode):
         if port_id is None:
@@ -110,11 +109,10 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     def update_router_status(self, context, router_id, status):
         try:
-            # self.get_router(context, router_id)
-
+            # Try using new session to for router updates
             router = {'router': {'status': status}}
-            self.update_router(context, router_id, router)
-
+            ctx = n_context.get_admin_context()
+            self.update_router(ctx, router_id, router)
         except l3_exc.RouterNotFound:
             LOG.info("Update to status to {} for router {} failed, router not found.".format(status, router_id))
             return

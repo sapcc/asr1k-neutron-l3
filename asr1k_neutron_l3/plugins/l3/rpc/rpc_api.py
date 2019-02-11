@@ -28,7 +28,6 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
     def __init__(self):
         self.db = asr1k_db.DBPlugin()
-        self.context = context.get_admin_context()
 
     @instrument()
     def delete_extra_atts_l3(self, context, **kwargs):
@@ -36,7 +35,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         ports = kwargs.get('ports', [])
 
         for port_id in ports:
-            self.db.delete_extra_att(self.context, port_id, l3=True)
+            self.db.delete_extra_att(context, port_id, l3=True)
 
 
     @instrument()
@@ -44,7 +43,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
         scopes = kwargs.get('scopes', [])
 
-        scopes = self.db.get_address_scopes(self.context, filters={'name': scopes})
+        scopes = self.db.get_address_scopes(context, filters={'name': scopes})
 
         result = {}
 
@@ -60,7 +59,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         status = kwargs.get('status')
 
         if router_id is not None and status is not None:
-            self.db.update_router_status(self.context, router_id,status)
+            self.db.update_router_status(context, router_id,status)
 
     @instrument()
     def get_deleted_routers(self,context, **kwargs):
@@ -73,7 +72,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
     @instrument()
     def delete_extra_atts_orphans(self,context, **kwargs):
         host = kwargs.get('host')
-        extra_atts = self.db.get_orphaned_extra_atts(self.context,host)
+        extra_atts = self.db.get_orphaned_extra_atts(context, host)
         for att in extra_atts:
             self.db.delete_extra_att(context,att.get('port_id'),l3=True)
 
@@ -104,7 +103,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         return db.ensure_snat_mode(context,port_id,mode)
 
     @instrument()
-    def get_deleted_router_atts(self,context,**kwargs):
+    def get_deleted_router_atts(self,context, **kwargs):
         db = asr1k_db.DBPlugin()
         router_atts = db.get_deleted_router_atts(context)
 
@@ -115,13 +114,13 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         router_ids = kwargs.get('router_ids', [])
         LOG.debug("********** delete_router_atts {}".format(router_ids))
         for router_id in router_ids:
-            self.db.delete_router_att(self.context, router_id)
+            self.db.delete_router_att(context, router_id)
 
 
     @instrument()
-    def delete_router_atts_orphans(self,context, **kwargs):
+    def delete_router_atts_orphans(self, context, **kwargs):
         host = kwargs.get('host')
-        router_atts = self.db.get_orphaned_router_atts(self.context,host)
+        router_atts = self.db.get_orphaned_router_atts(context,host)
         LOG.debug("********** delete_router_atts_orphans {}".format(router_atts))
         for att in router_atts:
             self.db.delete_router_att(context, att.get('router_id'))
