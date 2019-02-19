@@ -9,6 +9,7 @@ from neutron_lib.plugins import directory
 from neutron import wsgi
 from neutron import policy
 from oslo_log import log as logging
+from webob import exc as exceptions
 
 
 LOG = logging.getLogger(__name__)
@@ -17,10 +18,16 @@ ASR1K_DEVICES_ALIAS = 'asr1k_operations'
 ACCESS_RULE = "context_is_cloud_admin"
 
 def check_access(request):
-    allowed = policy.check(request.context,ACCESS_RULE, {'project_id': request.context.project_id})
+    allowed = False
+    try:
+        allowed = policy.check(request.context,ACCESS_RULE, {'project_id': request.context.project_id})
+
+    except:
+        raise exceptions.HTTPUnauthorized()
 
     if not allowed:
-        self.notify_show_device(context, host, id)
+        raise exceptions.HTTPUnauthorized()
+
 
 
 class Asr1koperations(api_extensions.ExtensionDescriptor):
