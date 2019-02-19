@@ -67,6 +67,13 @@ class VrfArpList(NyBase):
         return dict
 
 
+    def empty_diff(self):
+        arp_list = OrderedDict()
+        arp_list[ARPConstants.VRF_NAME] = self.vrf
+        arp_list[ARPConstants.ARP_ENTRY] = []
+
+        return {ARPConstants.VRF: arp_list}
+
     def _wrapper_preamble(self,dict):
         result = {}
         result[self.LIST_KEY] = dict

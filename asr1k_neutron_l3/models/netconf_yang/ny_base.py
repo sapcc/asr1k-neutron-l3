@@ -504,15 +504,21 @@ class NyBase(BulkOperations):
 
         return diff.valid
 
+    # Define what constitutes an empty diff
+    # defaults to the empty type for the class
+    def empty_diff(self):
+        return self.EMPTY_TYPE
+
     def _diff(self,other):
 
 
         self_json = self._to_plain_json(self.to_dict())
+
         other_json= {}
         if other is not None:
             other_json = self._to_plain_json(other.to_dict())
         else:
-            other_json = self.EMPTY_TYPE
+            other_json = self.empty_diff()
 
         return self.__json_diff(self_json,other_json)
 
