@@ -11,7 +11,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+import os
 import time
 from oslo_config import cfg
 
@@ -26,7 +26,9 @@ class PrometheusMonitorTest(base.BaseTestCase):
     def setUp(self):
         super(PrometheusMonitorTest, self).setUp()
 
-        self.monitor = PrometheusMonitor(host='test_host',namespace="neutron_asr1k",type="test")
+        os.environ['METRICS_PORT'] = '9999'
+        os.environ['METRICS_ADDR'] = '127.0.0.1'
+        self.monitor = PrometheusMonitor(host='test_host', namespace="neutron_asr1k", type="test")
         self.monitor.start()
 
     def test_l3_orphan_count(self):
