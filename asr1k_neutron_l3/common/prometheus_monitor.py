@@ -123,7 +123,7 @@ class PrometheusMonitor(object):
     @property
     def exporter_listening(self):
         LOG.debug("Checking prometheus exporter")
-        s = socket.socket()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         address = '127.0.0.1'
         port = int(os.environ.get('METRICS_PORT', 9102))
         try:
@@ -132,10 +132,12 @@ class PrometheusMonitor(object):
         except socket_error as serr:
             if serr.errno != errno.ECONNREFUSED:
                 return True
+            else:
+                return False
         finally:
             s.close()
 
-        return False
+        return True
 
 
 class MetricWrapper(object):

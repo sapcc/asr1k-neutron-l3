@@ -26,7 +26,7 @@ class PrometheusMonitorTest(base.BaseTestCase):
     def setUp(self):
         super(PrometheusMonitorTest, self).setUp()
 
-        os.environ['METRICS_PORT'] = '9999'
+        os.environ['METRICS_PORT'] = '12415'
         os.environ['METRICS_ADDR'] = '127.0.0.1'
         self.monitor = PrometheusMonitor(host='test_host', namespace="neutron_asr1k", type="test")
         self.monitor.start()
