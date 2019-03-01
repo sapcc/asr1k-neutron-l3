@@ -18,7 +18,7 @@ import os
 
 if not os.environ.get('DISABLE_EVENTLET_PATCHING'):
     import eventlet
-    eventlet.monkgey_patch()
+    eventlet.monkey_patch()
 
 import gc
 import re
