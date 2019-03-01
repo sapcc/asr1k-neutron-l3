@@ -111,8 +111,8 @@ class PrometheusMonitor(object):
 
     def start(self):
         if not self.exporter_listening:
-            port = int(os.environ.get('METRICS_PORT', 9102))
-            addr = int(os.environ.get('METRICS_ADDR', '0.0.0.0'))
+            port = int(os.environ.get('METRICS_PORT', '9102'))
+            addr = os.environ.get('METRICS_ADDR', '0.0.0.0')
             LOG.info("Starting prometheus exporter %s:%s", addr, port)
             try:
                 start_http_server(port, addr)
