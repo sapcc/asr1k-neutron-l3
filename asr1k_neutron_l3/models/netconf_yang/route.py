@@ -136,7 +136,7 @@ class VrfRoute(NyBase):
 
         vrf = yang_vrf.VrfDefinition.get(self.name,context=context)
 
-        if vrf is None:
+        if vrf is None and self._ncc_connection:
             raise exc.MissingParentException(device=context.host,entity=self,action="create")
 
 
