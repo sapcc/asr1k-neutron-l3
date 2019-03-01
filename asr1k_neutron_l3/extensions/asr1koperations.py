@@ -86,10 +86,6 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
         init_config = extensions.ResourceExtension('asr1k/init_config',
                                                    Resource(InitConfigController(plugin)))
 
-        cisco_teardown = extensions.ResourceExtension('asr1k/cisco_teardown',
-                                                      Resource(CiscoTeardownController(plugin)))
-
-
         resources.append(routers)
         resources.append(orphans)
         resources.append(config)
@@ -99,7 +95,6 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
         resources.append(init_bindings)
         resources.append(init_atts)
         resources.append(init_config)
-        resources.append(cisco_teardown)
 
         return resources
 
@@ -248,23 +243,6 @@ class InitConfigController(wsgi.Controller):
         return self.plugin.init_config(request.context,id)
 
 
-class CiscoTeardownController(wsgi.Controller):
-
-    def __init__(self,plugin):
-        super(CiscoTeardownController,self).__init__()
-
-        self.plugin = plugin
-
-    def index(self, request, **kwargs):
-        check_access(request)
-        return self.plugin.cisco_teardown(request.context)
-
-    def delete(self, request, id, **kwargs):
-        check_access(request)
-        return self.plugin.cisco_teardown(request.context,dry_run=False)
-
-
-
 class DevicePluginBase(object):
 
 
@@ -326,8 +304,4 @@ class DevicePluginBase(object):
 
     @abc.abstractmethod
     def init_config(self,context,id):
-        pass
-
-    @abc.abstractmethod
-    def cisco_teardown(self,context,dry_run=True):
         pass

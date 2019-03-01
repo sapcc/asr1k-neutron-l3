@@ -16,67 +16,6 @@ class Initializer(object):
         self.plugin = plugin
         self.context = context
 
-
-
-    @instrument()
-    def cisco_teardown(self,dry_run=False):
-
-
-
-
-        result = {}
-        db = asr1k_db.DBPlugin()
-
-        if not dry_run:
-            db.clear_cisco_db(self.context)
-
-
-        routers = self.plugin.get_routers(self.context,fields=['id','name'])
-        candidates = []
-        for router in routers:
-            if re.match('.*HA_backup_1$', router.get('name')) is not None:
-                candidates.append(router)
-            if re.match('Logical-Global-router', router.get('name')) is not None:
-                candidates.append(router)
-            if re.match('Global-router-0000-000000000003', router.get('name')) is not None:
-                candidates.append(router)
-            if re.match('Global-router-0000-000000000004', router.get('name')) is not None:
-                candidates.append(router)
-
-
-        port_candidates = {}
-        for candidate in candidates:
-
-            router_id = candidate.get('id')
-
-            result[router_id] = {'name':candidate.get('name')}
-            ports = db.get_ports(self.context, filters={'device_id':[router_id]})
-            port_list = []
-            result[router_id]['interfaces'] = []
-            for port in ports:
-                if port.get('device_owner') == 'network:router_interface':
-                    port_list.append(port)
-                    result[router_id]['interfaces'].append({'id':port.get('id')})
-            port_candidates[router_id] = port_list
-
-
-        if not dry_run:
-
-            for router in candidates:
-                router_id = router.get('id')
-
-                for port in port_candidates[router_id]:
-                    port_id = port.get('id')
-                    db.update_port(self.context, port_id, {'port': {'id': port_id, "device_id":"temp","device_owner":"temp"}})
-                    db.delete_port(self.context,port_id)
-
-                self.plugin.update_router(self.context,router_id,{'router':{'id':router_id,'external_gateway_info':{},'routes':[]}})
-
-                self.plugin.delete_router(self.context,router_id)
-                result[router_id]['deleted'] = True
-
-        return result
-
     @instrument()
     def init_scheduler(self):
         result = {}

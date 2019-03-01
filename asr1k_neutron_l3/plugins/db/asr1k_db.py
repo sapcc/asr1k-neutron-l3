@@ -43,14 +43,6 @@ from neutron_lib import context as n_context
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.exceptions import l3 as l3_exc
 
-try:
-    from networking_cisco.plugins.cisco.db.device_manager.hd_models import HostingDevice, HostingDeviceTemplate,HostedHostingPortBinding,SlotAllocation
-    from networking_cisco.plugins.cisco.db.l3.l3_models import RouterHostingDeviceBinding,RouterType
-    from networking_cisco.plugins.cisco.db.l3.ha_db import RouterHAGroup,RouterHASetting,RouterRedundancyBinding
-
-except BaseException:
-    pass
-
 MIN_DOT1Q = 1000
 MAX_DOT1Q = 4096
 
@@ -74,17 +66,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     def __init__(self):
         super(DBPlugin, self).__init__()
-
-    def clear_cisco_db(self, context):
-        cisco_tables = [SlotAllocation,RouterHostingDeviceBinding,RouterHASetting,RouterHAGroup,
-                        RouterRedundancyBinding,HostingDevice,HostingDeviceTemplate,
-                        HostedHostingPortBinding,RouterType]
-
-        for table in cisco_tables:
-            try:
-                context.session.query(table).delete()
-            except BaseException as e:
-                LOG.exception(e)
 
     def ensure_snat_mode(self, context, port_id, mode):
         if port_id is None:

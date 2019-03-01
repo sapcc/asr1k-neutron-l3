@@ -448,11 +448,6 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
         return Initializer(self,context).init_config(host)
 
-    def cisco_teardown(self,context,dry_run=True):
-
-        return Initializer(self,context).cisco_teardown(dry_run=dry_run)
-
-
 
     #
     # @log_helpers.log_method_call
