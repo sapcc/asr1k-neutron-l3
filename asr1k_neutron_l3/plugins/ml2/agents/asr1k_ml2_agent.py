@@ -14,20 +14,23 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+
+if not os.environ.get('DISABLE_EVENTLET_PATCHING'):
+    import eventlet
+    eventlet.monkgey_patch()
+
 import gc
 import re
 import traceback
 from greenlet import greenlet
 
-import eventlet
 import oslo_messaging
 import requests
 import signal
 import six
 import time
 import sys
-
-eventlet.monkey_patch()
 
 from oslo_log import log as logging
 from oslo_log import helpers as log_helpers
