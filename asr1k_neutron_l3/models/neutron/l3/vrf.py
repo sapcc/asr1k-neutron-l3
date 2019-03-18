@@ -20,7 +20,7 @@ from asr1k_neutron_l3.common import utils
 
 
 class Vrf(base.Base):
-    def __init__(self, name, description=None,asn=None,rd=None,routeable_interface=False):
+    def __init__(self, name, description=None,asn=None,rd=None,routeable_interface=False,rt_import=[],rt_export=[]):
         super(Vrf, self).__init__()
         self.name = utils.uuid_to_vrf_id(name)
         self.description = description
@@ -37,7 +37,12 @@ class Vrf(base.Base):
         if self.routeable_interface:
             self.enable_bgp = True
 
-        self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description, rd=self.rd,enable_bgp=self.enable_bgp)
+        self.map ="exp-{}".format(self.name)
+
+        self.rt_import = rt_import
+        self.rt_export = rt_export
+
+        self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description, rd=self.rd,enable_bgp=self.enable_bgp,map=self.map,rt_import=self.rt_import,rt_export=self.rt_export)
 
 
 

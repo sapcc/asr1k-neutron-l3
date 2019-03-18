@@ -21,13 +21,14 @@ from asr1k_neutron_l3.common import utils
 
 
 class AddressFamily(base.Base):
-    def __init__(self, vrf, asn=None, routeable_interface=False):
+    def __init__(self, vrf, asn=None, routeable_interface=False,rt_export=[]):
         super(AddressFamily, self).__init__()
         self.vrf = utils.uuid_to_vrf_id(vrf)
         self.routeable_interface = routeable_interface
         self.asn = asn
         self.enable_bgp = False
-        if self.routeable_interface:
+        self.rt_export=rt_export
+        if self.routeable_interface or len(self.rt_export)>0:
             self.enable_bgp = True
 
         self._rest_definition = bgp.AddressFamily(vrf=self.vrf,asn=self.asn,enable_bgp=self.enable_bgp,static=True,connected=True)
@@ -39,5 +40,5 @@ class AddressFamily(base.Base):
 
 
     def diff(self,should_be_none=False):
-        return super(AddressFamily,self).diff(should_be_none= not self.routeable_interface)
+        return super(AddressFamily,self).diff(should_be_none= not self.enable_bgp)
 

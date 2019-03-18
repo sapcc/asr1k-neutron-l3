@@ -55,7 +55,7 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
 
         self.router_scheduler = importutils.import_object(cfg.CONF.router_scheduler_driver)
 
-        # self.l3_rpc_notifier=ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
         asr1k_config.register_l2_opts()
         asr1k_config.register_l3_opts()
 

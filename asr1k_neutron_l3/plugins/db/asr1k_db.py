@@ -42,6 +42,8 @@ from neutron_lib import constants as n_constants
 from neutron_lib import context as n_context
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.exceptions import l3 as l3_exc
+from networking_bgpvpn.neutron.db import  bgpvpn_db
+from neutron_lib.db import api as db_api
 
 MIN_DOT1Q = 1000
 MAX_DOT1Q = 4096
@@ -61,11 +63,18 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                external_net_db.External_net_db_mixin,
                l3_db.L3_NAT_dbonly_mixin,
                l3_agentschedulers_db.L3AgentSchedulerDbMixin,
-
+               bgpvpn_db.BGPVPNPluginDb
                ):
 
     def __init__(self):
         super(DBPlugin, self).__init__()
+
+
+    def get_bgpvpns_by_router_id(self, context, router_id, filters=None, fields=None):
+
+        query = context.session.query(bgpvpn_db.BGPVPN).join(bgpvpn_db.BGPVPN.router_associations).filter(bgpvpn_db.BGPVPNRouterAssociation.router_id==router_id).distinct()
+        return query.all()
+
 
     def ensure_snat_mode(self, context, port_id, mode):
         if port_id is None:

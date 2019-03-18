@@ -105,7 +105,8 @@ class AccessList(NyBase):
         # entry[ACLConstants.ACL_RULE]=self.rules
         entry[ACLConstants.ACL_RULE] = []
         for rule in self.rules:
-            entry[ACLConstants.ACL_RULE].append(rule.to_child_dict())
+            if rule is not None:
+                entry[ACLConstants.ACL_RULE].append(rule.to_child_dict())
 
         result = OrderedDict()
         result[ACLConstants.EXTENDED] = entry

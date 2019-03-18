@@ -44,6 +44,9 @@ class Router(Base):
         self.router_info = router_info
         self.extra_atts = router_info.get(constants.ASR1K_EXTRA_ATTS_KEY, {})
         self.router_atts = router_info.get(constants.ASR1K_ROUTER_ATTS_KEY, {})
+        self.rt_import = self.router_info.get('rt_import')
+        self.rt_export = self.router_info.get('rt_export')
+
         self.gateway_interface = None
         self.router_id = self.router_info.get('id')
         self.interfaces = self._build_interfaces()
@@ -67,7 +70,7 @@ class Router(Base):
         if self.gateway_interface is not None:
             rt = address_scope_config.get(self.gateway_interface.address_scope)
 
-        self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn, rd=self.router_atts.get('rd'),routeable_interface=self.routeable_interface)
+        self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn, rd=self.router_atts.get('rd'),routeable_interface=self.routeable_interface,rt_import=self.rt_import,rt_export=self.rt_export)
 
         self.nat_acl = self._build_nat_acl()
         self.pbr_acl = self._build_pbr_acl()
@@ -76,7 +79,7 @@ class Router(Base):
 
         self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'),gateway_interface=self.gateway_interface)
 
-        self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'),asn=self.config.asr1k_l3.fabric_asn,routeable_interface=self.routeable_interface)
+        self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'),asn=self.config.asr1k_l3.fabric_asn,routeable_interface=self.routeable_interface,rt_export=self.rt_export)
 
         self.dynamic_nat = self._build_dynamic_nat()
         self.nat_pool =  self._build_nat_pool()
@@ -279,7 +282,7 @@ class Router(Base):
 
         # results.append(self.bgp_address_family.update())
 
-        if self.routeable_interface:
+        if self.routeable_interface or len(self.rt_export) > 0:
             results.append(self.bgp_address_family.update())
         else:
             results.append(self.bgp_address_family.delete())

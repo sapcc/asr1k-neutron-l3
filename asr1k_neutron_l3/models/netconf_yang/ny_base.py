@@ -476,7 +476,8 @@ class NyBase(BulkOperations):
         if isinstance(type,list):
             type = type[0]
 
-        if type is not None and item is not None and not isinstance(item,type) and not isinstance(item,unicode):
+
+        if type is not None and item is not None and not isinstance(item,type) and not isinstance(item,unicode) and not type == str:
             return type(**item)
 
         return item
@@ -582,7 +583,7 @@ class NyBase(BulkOperations):
                             if bool(values):
                                 values = values.get(path_item)
                                 if isinstance(values,list):
-                                    LOG.debug("Unexpected list found for {} path {}".format(cls.__name__, yang_path))
+                                    LOG.debug("Unexpected list found for {} path {} values {}".format(cls.__name__, yang_path,values))
                                 if bool(values) is None:
                                     LOG.warning("Invalid yang segment {} in {} please check against yang model. Values: {}".format(path_item,yang_path,values))
 
@@ -607,16 +608,19 @@ class NyBase(BulkOperations):
                                 result = []
                                 if isinstance(value,list):
                                     for v in value:
-                                        if isinstance(v,dict):
-                                            v[cls.PARENT]=params
+                                        if isinstance(v,dict) and not type == str:
+                                            v[cls.PARENT] = params
                                             result.append(type.from_json(v))
                                         else:
                                             result.append(v)
                                 else:
 
-                                    if value is not None:
+                                    if value is not None and not isinstance(value,unicode) and not type == str:
                                         value[cls.PARENT] = params
                                         result.append(type.from_json(value))
+                                    else:
+                                        result.append(value)
+
                                 value = result
                             else:
                                 value = type.from_json(value)

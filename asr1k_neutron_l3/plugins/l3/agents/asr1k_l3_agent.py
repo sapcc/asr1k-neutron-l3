@@ -277,7 +277,7 @@ class L3PluginApi(object):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_all_router_ids', host=self.host)
 
-class L3ASRAgent(manager.Manager,operations.OperationsMixin,DeviceCleanerMixin):
+class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin):
     """Manager for L3 ASR Agent
 
         API version history:

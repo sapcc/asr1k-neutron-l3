@@ -240,6 +240,16 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                     if gw_info is not None:
                         gw_info['external_fixed_ips']=gw_port['fixed_ips']
 
+            rt_import=[]
+            rt_export = []
+            bgpvpns = db.get_bgpvpns_by_router_id(context,router['id'])
+
+            for bgpvpn in bgpvpns:
+                rt_import += bgpvpn.import_targets.split(",")
+                rt_export += bgpvpn.export_targets.split(",")
+
+            router["rt_export"] = rt_export
+            router["rt_import"] = rt_import
 
 
         return routers

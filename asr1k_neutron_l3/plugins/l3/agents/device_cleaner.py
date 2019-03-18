@@ -44,6 +44,8 @@ class DeviceCleanerMixin(object):
 
     def clean_device(self,dry_run=True):
         try:
+            LOG.info("Startimng a cleaning run with dry run ={}".format(dry_run))e
+
             result={}
             result["l3"]= self.clean_l3(dry_run=dry_run)
             result["l2"] = self.clean_l2(dry_run=dry_run)
@@ -58,7 +60,7 @@ class DeviceCleanerMixin(object):
 
 
     def clean_l3(self,dry_run=True):
-
+        L
         all_router_ids = self.plugin_rpc.get_all_router_ids(self.context)
 
 
@@ -75,11 +77,16 @@ class DeviceCleanerMixin(object):
 
                     if item.neutron_router_id  and item.neutron_router_id not in all_router_ids:
 
+                        LOG.debug("Candidate for cleaning  {} : {} does not have a known router id ".format(entity,item.neutron_router_id))
+
                         if(orphans.get(context) is None):
                             orphans[context] = []
                         orphans[context].append(item)
                         PrometheusMonitor().l3_orphan_count.labels(device=context.host).inc()
                     elif item.neutron_router_id is None and item.in_neutron_namespace:
+                        LOG.debug("Candidate for cleaning  {} is not in neutron namespace".format(entity))
+
+
                         if(orphans.get(context) is None):
                             orphans[context] = []
                         orphans[context].append(item)
