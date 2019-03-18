@@ -63,6 +63,7 @@ class DeviceCleanerMixin(object):
         LOG.info("L3 Cleaner running")
         all_router_ids = self.plugin_rpc.get_all_router_ids(self.context)
 
+        LOG.debug("Cleaner found {} active routers from Meutron DB".format(len(all_router_ids)))
 
         orphans  = {}
 
@@ -73,7 +74,11 @@ class DeviceCleanerMixin(object):
             for entity in self.L3_ENTITIES:
                 items = entity.get_all_from_device_config(device_config)
 
+                LOG.debug("Cleaner checking entity type {} found {} from device config".format(entity,len(items)))
+
                 for item in items:
+
+                    LOG.debug("Cleaning entrity {} id {}".format(entity,item.neutron_router_id))
 
                     if item.neutron_router_id  and item.neutron_router_id not in all_router_ids:
 
@@ -92,6 +97,8 @@ class DeviceCleanerMixin(object):
                         orphans[context].append(item)
                         PrometheusMonitor().l3_orphan_count.labels(device=context.host).inc()
 
+                    else:
+                        LOG.debug("Candidate for cleaning  {} : cannot determine neutron router id from item {} ".format(entity, item))
 
 
         result = {}
