@@ -63,7 +63,7 @@ class DeviceCleanerMixin(object):
         LOG.info("L3 Cleaner running")
         all_router_ids = self.plugin_rpc.get_all_router_ids(self.context)
 
-        LOG.debug("Cleaner found {} active routers from Meutron DB".format(len(all_router_ids)))
+        LOG.debug("Cleaner found {} active routers from Neutron DB".format(len(all_router_ids)))
 
         orphans  = {}
 
@@ -117,6 +117,7 @@ class DeviceCleanerMixin(object):
                     except BaseException as e:
                         LOG.exception(e)
                 result[context.host] = json.dumps(items,cls=OrphanEncoder)
+                LOG.debug("Result {}".format(json.dumps(items,cls=OrphanEncoder)))
 
         LOG.info("L3 Cleaner complete")
 
