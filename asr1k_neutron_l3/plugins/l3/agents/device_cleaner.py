@@ -60,7 +60,7 @@ class DeviceCleanerMixin(object):
 
 
     def clean_l3(self,dry_run=True):
-        L
+        LOG.info("L3 Cleaner running")
         all_router_ids = self.plugin_rpc.get_all_router_ids(self.context)
 
 
@@ -108,6 +108,8 @@ class DeviceCleanerMixin(object):
                     except BaseException as e:
                         LOG.exception(e)
                 result[context.host] = json.dumps(items,cls=OrphanEncoder)
+
+        LOG.info("L3 Cleaner complete")
 
         return result
 
