@@ -78,7 +78,7 @@ class DeviceCleanerMixin(object):
 
                 for item in items:
 
-                    LOG.debug("Cleaning entrity {} id {}".format(entity,item.neutron_router_id))
+                    LOG.debug("Cleaning entity {} id {}".format(entity,item.neutron_router_id))
 
                     if item.neutron_router_id  and item.neutron_router_id not in all_router_ids:
 
@@ -103,10 +103,12 @@ class DeviceCleanerMixin(object):
 
         result = {}
         if dry_run:
-
+            LOG.debug("Dry run cleaning the following items {}".format(orphans))
             for context in orphans:
                 result[context.host] = json.dumps(orphans.get(context), cls=OrphanEncoder)
         else:
+            LOG.debug("Cleaning the following items {}".format(orphans))
+
             for context, items in six.iteritems(orphans):
                 for item in items:
                     LOG.debug("Cleaning {}".format(item))
