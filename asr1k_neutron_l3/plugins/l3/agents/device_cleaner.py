@@ -44,7 +44,7 @@ class DeviceCleanerMixin(object):
 
     def clean_device(self,dry_run=True):
         try:
-            LOG.info("Startimng a cleaning run with dry run ={}".format(dry_run))e
+            LOG.info("Startimng a cleaning run with dry run ={}".format(dry_run))
 
             result={}
             result["l3"]= self.clean_l3(dry_run=dry_run)
