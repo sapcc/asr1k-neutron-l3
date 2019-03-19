@@ -116,6 +116,9 @@ class DeviceCleanerMixin(object):
                         item._delete(context=context)
                     except BaseException as e:
                         LOG.exception(e)
+                    except:
+                        LOG.error("An exception accurred in the cleaning loop")
+
                 result[context.host] = json.dumps(items,cls=OrphanEncoder)
                 LOG.debug("Result {}".format(json.dumps(items,cls=OrphanEncoder)))
 
