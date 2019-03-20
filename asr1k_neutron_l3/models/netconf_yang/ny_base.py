@@ -832,6 +832,9 @@ class NyBase(BulkOperations):
 
     @retry_on_failure()
     def _delete(self,context=None,method=NC_OPERATION.DELETE):
+        self._delete_no_retry(context,method)
+
+    def _delete_no_retry(self,context=None,method=NC_OPERATION.DELETE):
 
         self.postflight(context)
 
@@ -842,6 +845,7 @@ class NyBase(BulkOperations):
 
                 result = connection.edit_config(config=self.to_xml(json=json,operation=method),entity=self.__class__.__name__,action="delete")
                 return result
+
 
     def _internal_validate(self,should_be_none=False, context=None):
         device_config = self._internal_get(context=context)

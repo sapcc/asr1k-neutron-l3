@@ -12,11 +12,13 @@ from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
 from asr1k_neutron_l3.models.netconf_yang.access_list import AccessList
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat,DynamicNat,NatPool,InterfaceDynamicNat,PoolDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.arp import ArpEntry
+from asr1k_neutron_l3.models.netconf_yang.arp import VrfArpList
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from oslo_log import log as logging
+from ncclient.operations import RPCError
 
 
 LOG = logging.getLogger(__name__)
@@ -37,14 +39,14 @@ class OrphanEncoder(json.JSONEncoder):
 
 class DeviceCleanerMixin(object):
 
-    L3_ENTITIES = [RouteMap, Prefix, AccessList, StaticNat,ArpEntry,PoolDynamicNat,InterfaceDynamicNat, NatPool, VrfRoute, BDIInterface,
+    L3_ENTITIES = [RouteMap, Prefix, AccessList, StaticNat,VrfArpList,PoolDynamicNat,InterfaceDynamicNat, NatPool, VrfRoute, BDIInterface,
                    VrfDefinition]
     L2_ENTITIES = [LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface]
 
 
     def clean_device(self,dry_run=True):
         try:
-            LOG.info("Startimng a cleaning run with dry run ={}".format(dry_run))
+            LOG.info("Starting a cleaning run with dry run ={}".format(dry_run))
 
             result={}
             result["l3"]= self.clean_l3(dry_run=dry_run)
@@ -71,15 +73,12 @@ class DeviceCleanerMixin(object):
             device_config =  BulkOperations.get_device_config(context)
 
             PrometheusMonitor().l3_orphan_count.labels(device=context.host).set(0)
+            ignore = 0
+            entities=0
             for entity in self.L3_ENTITIES:
                 items = entity.get_all_from_device_config(device_config)
-
-                LOG.debug("Cleaner checking entity type {} found {} from device config".format(entity,len(items)))
-
                 for item in items:
-
-                    LOG.debug("Cleaning entity {} id {}".format(entity,item.neutron_router_id))
-
+                    entities +=1
                     if item.neutron_router_id  and item.neutron_router_id not in all_router_ids:
 
                         LOG.debug("Candidate for cleaning  {} : {} does not have a known router id ".format(entity,item.neutron_router_id))
@@ -96,12 +95,13 @@ class DeviceCleanerMixin(object):
                             orphans[context] = []
                         orphans[context].append(item)
                         PrometheusMonitor().l3_orphan_count.labels(device=context.host).inc()
-
                     else:
-                        LOG.debug("Candidate for cleaning  {} : cannot determine neutron router id from item {} ".format(entity, item))
+                        ignore += 1
 
+            LOG.debug("Igorning {}/{} known entities on host {}".format(ignore, entities, context.host))
 
         result = {}
+
         if dry_run:
             LOG.debug("Dry run cleaning the following items {}".format(orphans))
             for context in orphans:
@@ -113,13 +113,14 @@ class DeviceCleanerMixin(object):
                 for item in items:
                     LOG.debug("Cleaning {}".format(item))
                     try:
-                        item._delete(context=context)
+                        item._delete_no_retry(context=context)
 
+                    except RPCError as e:
+                        LOG.error(e.message)
                     except BaseException as e:
                         LOG.exception(e)
                     except:
                         LOG.error("An exception accurred in the cleaning loop")
-
 
                 try:
                     result[context.host] = json.dumps(items, cls=OrphanEncoder)

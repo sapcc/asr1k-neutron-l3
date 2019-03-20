@@ -66,7 +66,11 @@ class VrfArpList(NyBase):
 
         return dict
 
-
+    @property
+    def neutron_router_id(self):
+        if self.vrf is not None:
+            return utils.vrf_id_to_uuid(self.vrf)
+        
     def empty_diff(self):
         arp_list = OrderedDict()
         arp_list[ARPConstants.VRF_NAME] = self.vrf
