@@ -111,7 +111,7 @@ class DeviceCleanerMixin(object):
 
             for context, items in six.iteritems(orphans):
                 for item in items:
-                    LOG.debug("Cleaning {}".format(item))
+                    LOG.debug("Cleaning on {} {}".format(context.host, item))
                     try:
                         item._delete_no_retry(context=context)
 
