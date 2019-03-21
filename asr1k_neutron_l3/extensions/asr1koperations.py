@@ -108,15 +108,27 @@ class RoutersController(wsgi.Controller):
 
     def show(self, request, id, **kwargs):
         check_access(request)
-        return self.plugin.validate(request.context,id)
+        try:
+            return self.plugin.validate(request.context,id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
 
     def update(self, request, id, **kwargs):
         check_access(request)
-        return self.plugin.sync(request.context,id)
+        try:
+            return self.plugin.sync(request.context,id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
+
+
 
     def delete(self, request, id, **kwargs):
         check_access(request)
-        return self.plugin.teardown(request.context,id)
+        try:
+            return self.plugin.teardown(request.context,id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
+
 
 class OrphansController(wsgi.Controller):
 
@@ -126,11 +138,19 @@ class OrphansController(wsgi.Controller):
 
     def show(self, request, id, **kwargs):
         check_access(request)
-        return self.plugin.show_orphans(request.context,id)
+        try:
+            return self.plugin.show_orphans(request.context,id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
+
 
     def delete(self, request, id, **kwargs):
         check_access(request)
-        return self.plugin.delete_orphans(request.context,id)
+        try:
+            return self.plugin.delete_orphans(request.context,id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
+
 
 class ConfigController(wsgi.Controller):
 
@@ -140,11 +160,19 @@ class ConfigController(wsgi.Controller):
 
     def show(self, request, id, **kwargs):
         check_access(request)
-        return self.plugin.get_config(request.context,id)
+        try:
+            return self.plugin.get_config(request.context,id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
+
 
     def update(self, request, id, **kwargs):
         check_access(request)
-        return self.plugin.ensure_config(request.context,id)
+        try:
+            return self.plugin.ensure_config(request.context,id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
+
 
 
 class DevicesController(wsgi.Controller):
@@ -156,34 +184,39 @@ class DevicesController(wsgi.Controller):
 
     def show(self, request, id, **kwargs):
         check_access(request)
-        host = id
-        device_id = request.params.get('id',None)
+        try:
+            host = id
+            device_id = request.params.get('id',None)
 
-        if device_id is None:
-            return self.plugin.list_devices(request.context,host)
-        else:
-            return self.plugin.show_device(request.context,host,device_id)
+            if device_id is None:
+                return self.plugin.list_devices(request.context,host)
+            else:
+                return self.plugin.show_device(request.context,host,device_id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
 
 
     def update(self, request, id, body, **kwargs):
         check_access(request)
+        try:
+            host = id
+            result ={}
+            for key in body:
+                enable = body.get(key,'enable')
+                if enable =='disable':
+                    enabled = False
+                else :
+                    enabled =  True
 
-        host = id
-        result ={}
-        for key in body:
-            enable = body.get(key,'enable')
-            if enable =='disable':
-                enabled = False
-            else :
-                enabled =  True
+                device_result = self.plugin.update_device(request.context, host, key, enabled)
 
-            device_result = self.plugin.update_device(request.context, host, key, enabled)
-
-            result[key] = device_result
+                result[key] = device_result
 
 
 
-        return  result
+            return  result
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
 
 
 
