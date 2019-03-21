@@ -704,8 +704,11 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                         except:
                             LOG.error("An exception occured om the router update loop")
                     else:
-                        LOG.debug("Requeuing update for router {}".format(update.id))
-                        self._resync_router(update)
+                        if len(utils.get_router_ports(router)) > 0 :
+                            LOG.debug("Requeuing update for router {}".format(update.id))
+                            self._resync_router(update)
+                        else:
+                            LOG.info("Router {} has no ports and no extra atts, supressing requeue".format(update.id))
 
         except Exception as e:
             LOG.exception(e)
