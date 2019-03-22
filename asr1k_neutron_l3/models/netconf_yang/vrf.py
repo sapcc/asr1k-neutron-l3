@@ -208,25 +208,22 @@ class IpV4AddressFamily(NyBase):
         if self.map is not None:
             address_family[VrfConstants.EXPORT] = {"map":self.map}
 
-        if self.rt_export is not None:
-            if address_family.get(VrfConstants.ROUTE_TARGET, None) is None:
-                address_family[VrfConstants.ROUTE_TARGET] ={}
-            if len(self.rt_export) >  0 :
-                asns = []
-                for rt in self.rt_export:
-                    if rt is not None and rt != '':
-                        asns.append({"asn-ip":rt})
-                address_family[VrfConstants.ROUTE_TARGET][VrfConstants.EXPORT] = asns
 
-        if self.rt_import is not None:
-            if address_family.get(VrfConstants.ROUTE_TARGET, None) is None:
-                address_family[VrfConstants.ROUTE_TARGET] ={}
-            if len(self.rt_import) > 0:
-                asns = []
-                for rt in self.rt_import:
-                    if rt is not None and rt !='':
-                        asns.append({"asn-ip":rt})
-                address_family[VrfConstants.ROUTE_TARGET][VrfConstants.IMPORT] = asns
+        address_family[VrfConstants.ROUTE_TARGET] = {}
+
+        if self.rt_export is not None and len(self.rt_export) >  0 :
+            asns = []
+            for rt in self.rt_export:
+                if rt is not None and rt != '':
+                    asns.append({"asn-ip":rt})
+            address_family[VrfConstants.ROUTE_TARGET][VrfConstants.EXPORT] = asns
+
+        if self.rt_import is not None and len(self.rt_import) > 0:
+            asns = []
+            for rt in self.rt_import:
+                if rt is not None and rt !='':
+                    asns.append({"asn-ip":rt})
+            address_family[VrfConstants.ROUTE_TARGET][VrfConstants.IMPORT] = asns
 
 
         return dict(address_family)
