@@ -63,7 +63,17 @@ class DeviceCleanerMixin(object):
 
     def clean_l3(self,dry_run=True):
         LOG.info("L3 Cleaner running")
-        all_router_ids = self.plugin_rpc.get_all_router_ids(self.context)
+
+        result = {}
+        try:
+            all_router_ids = self.plugin_rpc.get_all_router_ids(self.context)
+        except BaseException as e:
+            LOG.warning("Cleaner could not get active routers due to a server error `{}`. Check server logs for more details. Skipping cleaning operation ".format(e.message))
+            return result
+
+        if len(all_router_ids) == 0 :
+            LOG.warning("Cleaning was provided 0 active routers, this would trigger a clean of the whole device, likely an uncaught error. Skipping cleaning.")
+            return result
 
         LOG.debug("Cleaner found {} active routers from Neutron DB".format(len(all_router_ids)))
 
@@ -100,7 +110,7 @@ class DeviceCleanerMixin(object):
 
             LOG.debug("Igorning {}/{} known entities on host {}".format(ignore, entities, context.host))
 
-        result = {}
+
 
         if dry_run:
             LOG.debug("Dry run cleaning the following items {}".format(orphans))
