@@ -684,18 +684,24 @@ class NyBase(BulkOperations):
         except exc.DeviceUnreachable:
             pass
 
+
     @classmethod
     def _get_all(cls,**kwargs):
         result = []
         try:
-            nc_filter = kwargs.get('nc_filter')
-            if nc_filter is None:
-                nc_filter = cls.get_all_filter(**kwargs.get('filter'))
+            xpath_filter = kwargs.get('xpath_filter',None)
+            if xpath_filter is None:
+                nc_filter = kwargs.get('nc_filter')
+                if nc_filter is None:
+                    nc_filter = cls.get_all_filter(**kwargs.get('filter'))
 
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
 
-                rpc_result = connection.get(filter=nc_filter,entity=cls.__name__,action="get_all")
+                if xpath_filter is not None:
+                    rpc_result = connection.xpath_get(filter=xpath_filter, entity=cls.__name__, action="xpath_get_all")
+                else:
+                    rpc_result = connection.get(filter=nc_filter,entity=cls.__name__,action="get_all")
 
                 json = cls.to_json(rpc_result.xml)
 

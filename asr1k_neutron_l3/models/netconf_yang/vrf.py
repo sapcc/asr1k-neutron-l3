@@ -176,6 +176,17 @@ class VrfDefinition(NyBase,Requeable):
         LOG.debug("Preflight check completed for VRF {}".format(self.id))
 
 
+    def postflight(self, context):
+        LOG.debug("Running postflight check for VRF {}".format(self.id))
+        # Clean remaining interfaces
+        bdis = BDIInterface.get_for_vrf(context=context,vrf=self.id)
+
+        for bdi in bdis:
+            LOG.info("Deleting hanging interface BDI{} in vrf {} postflight.".format(bdi.name,self.name))
+            bdi.delete()
+            LOG.info("Deleted hanging interface BDI{} in vrf {} postflight.".format(bdi.name, self.name))
+        LOG.debug("Postflight check completed for VRF {}".format(self.id))
+
     def init_config(self):
         return cli_snippets.VRF_CLI_INIT.format(**{'name':self.name,'description':self.description,'rd':self.rd})
 

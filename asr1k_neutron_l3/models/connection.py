@@ -287,6 +287,19 @@ class YangConnection(object):
             self._ncc_connection = None
         self.start = time.time()
 
+
+    def xpath_get(self,filter='',entity=None,action=None):
+        if self.context.alive and self.connection is not None:
+            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
+                                                                      action=action).time():
+                return self.connection.get_config(source="running",filter=("xpath",filter))
+        else :
+            PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
+                                                               action=action).inc()
+            raise DeviceUnreachable(host=self.context.host)
+
+
+
     def get(self,filter='',entity=None,action=None):
         if self.context.alive and self.connection is not None:
             with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,

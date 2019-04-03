@@ -63,10 +63,30 @@ class BDIInterface(NyBase):
                 </native>            
              """
 
+    VRF_FILTER = """
+                <native>
+                    <interface>
+                        <BDI>
+                            <vrf>
+                                <forwarding>{vrf}</forwarding>
+                            </vrf>
+                        </BDI>
+                    </interface>
+                </native>            
+             """
+
+
+    VRF_XPATH_FILTER = "/native/interface/BDI/vrf[forwarding='{vrf}']"
+
     LIST_KEY = L3Constants.INTERFACE
     ITEM_KEY = L3Constants.BDI_INTERFACE
     MIN_MTU = 1500
     MAX_MTU = 9216
+
+
+    @classmethod
+    def get_for_vrf(cls,context=None,vrf=None):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf":vrf}))
 
     @classmethod
     def __parameters__(cls):
