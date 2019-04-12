@@ -19,7 +19,7 @@ class RouterProcessingQueue(object):
 
         next_update = self._queue.get()
         if next_update is not None:
-            with ExclusiveRouterProcessor(next_update.id) as rp:
+            with ExclusiveResourceProcessor(next_update.id) as rp:
                 # Queue the update whether this worker is the master or not.
                 rp.queue_update(next_update)
 
