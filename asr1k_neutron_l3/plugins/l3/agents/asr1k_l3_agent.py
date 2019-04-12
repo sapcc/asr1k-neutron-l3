@@ -62,7 +62,7 @@ from neutron_lib import constants as lib_constants
 from neutron_lib.agent import constants as agent_consts
 from neutron import manager
 
-from neutron.agent.l3 import router_processing_queue as queue
+from neutron.agent.common import resource_processing_queue as queue
 
 from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
 
@@ -426,7 +426,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
     def router_deleted(self, context, router_id):
         LOG.debug('************** Got router deleted notification for %s', router_id)
-        update = queue.RouterUpdate(router_id,
+        update = queue.ResourceUpdate(router_id,
                                     queue.PRIORITY_RPC,
                                     action=queue.DELETE_ROUTER)
         self._queue.add(update)
@@ -436,14 +436,14 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         LOG.debug('************** Got routers updated notification :%s %s', routers, operation)
         if routers:
             for id in routers:
-                update = queue.RouterUpdate(id, queue.PRIORITY_RPC)
+                update = queue.ResourceUpdate(id, queue.PRIORITY_RPC)
                 self._queue.add(update)
 
 
     def router_removed_from_agent(self, context, payload):
         LOG.debug('Got router removed from agent :%r', payload)
         router_id = payload['router_id']
-        update = queue.RouterUpdate(router_id,
+        update = queue.ResourceUpdate(router_id,
                                     queue.PRIORITY_RPC,
                                     action=queue.DELETE_ROUTER)
         self._queue.add(update)
@@ -528,11 +528,11 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 LOG.debug('Syncing {} routers in regular sync loop'.format(len(routers)))
                 for r in routers:
                     curr_router_ids.add(r['id'])
-                    update = queue.RouterUpdate(
+                    update = queue.ResourceUpdate(
                         r['id'],
                         queue.PRIORITY_SYNC_ROUTERS_TASK,
                         action= queue.PRIORITY_SYNC_ROUTERS_TASK,
-                        router=r,
+                        resource=r,
                         timestamp=timestamp)
                     self._queue.add(update)
         except oslo_messaging.MessagingTimeout:
@@ -567,7 +567,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
         # Delete routers that have disappeared since the last sync
         for router_id in prev_router_ids - curr_router_ids:
-            update = queue.RouterUpdate(router_id,
+            update = queue.ResourceUpdate(router_id,
                                         queue.PRIORITY_SYNC_ROUTERS_TASK,
                                         timestamp=timestamp,
                                         action=queue.DELETE_ROUTER)
@@ -579,7 +579,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
         for atts in deleted_atts:
             router_id = atts.get("router_id")
-            update = queue.RouterUpdate(router_id,
+            update = queue.ResourceUpdate(router_id,
                                         queue.PRIORITY_SYNC_ROUTERS_TASK,
                                         timestamp=timestamp,
                                         action=queue.DELETE_ROUTER)

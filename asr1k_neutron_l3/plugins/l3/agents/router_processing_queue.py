@@ -1,4 +1,4 @@
-from neutron.agent.l3.router_processing_queue import ExclusiveRouterProcessor
+from neutron.agent.common.resource_processing_queue import ExclusiveResourceProcessor
 from six.moves import queue as Queue
 from oslo_config import cfg
 
