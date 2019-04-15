@@ -613,7 +613,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
     def _ensure_snat_mode_config(self,update):
 
-        router = update.router
+        router = update.resource
 
         if update.action != queue.DELETE_ROUTER and not router:
             update.timestamp = timeutils.utcnow()
