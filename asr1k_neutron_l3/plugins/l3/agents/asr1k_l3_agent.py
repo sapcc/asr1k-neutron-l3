@@ -753,7 +753,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                        priority=queue.PRIORITY_SYNC_ROUTERS_TASK):
         router_update.timestamp = timeutils.utcnow()
         router_update.priority = priority
-        router_update.router = None  # Force the agent to resync the router
+        router_update.resource = None  # Force the agent to resync the router
 
         LOG.info("Requeing router {} after potentially recoverable error.".format(router_update.id))
 
@@ -763,7 +763,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                        priority=queue.PRIORITY_SYNC_ROUTERS_TASK):
         router_update.timestamp = timeutils.utcnow()
         router_update.priority = priority
-        router_update.router = None  # Force the agent to resync the router
+        router_update.resource = None  # Force the agent to resync the router
         self._queue.add(router_update)
 
     def _safe_router_deleted(self, router_id):
