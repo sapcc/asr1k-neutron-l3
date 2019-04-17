@@ -22,6 +22,8 @@ from asr1k_neutron_l3.common import utils, asr1k_constants
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,Requeable, NC_OPERATION,execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
+from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
+from asr1k_neutron_l3.models.netconf_yang.bgp import AddressFamily
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common import cli_snippets
 
@@ -103,9 +105,15 @@ class VrfDefinition(NyBase,Requeable):
     def __init__(self,**kwargs):
         super(VrfDefinition, self).__init__(**kwargs)
 
-        self.enable_bgp = kwargs.get('enable_bgp',False)
+        self.enable_bgp = kwargs.get('enable_bgp', False)
         if kwargs.get('map',None) is not None or kwargs.get('rt_import',None) is not None or kwargs.get('rt_export',None) is not None:
             self.address_family_ipv4 = IpV4AddressFamily(**kwargs)
+
+        self.asn = None
+
+        if self.rd:
+            self.asn = self.rd.split(":")[0]
+
 
 
     @property
@@ -173,19 +181,86 @@ class VrfDefinition(NyBase,Requeable):
                 rd_vrf._delete(context)
                 LOG.warning("Preflight on {} deleted existing VRF {} with RD {}".format(self.id, rd_vrf.id, self.rd))
 
-        LOG.debug("Preflight check completed for VRF {}".format(self.id))
-
-
     def postflight(self, context):
-        LOG.debug("Running postflight check for VRF {}".format(self.id))
-        # Clean remaining interfaces
-        bdis = BDIInterface.get_for_vrf(context=context,vrf=self.id)
 
-        for bdi in bdis:
-            LOG.info("Deleting hanging interface BDI{} in vrf {} postflight.".format(bdi.name,self.name))
-            bdi.delete()
-            LOG.info("Deleted hanging interface BDI{} in vrf {} postflight.".format(bdi.name, self.name))
+        # Clean remaining interface NAT
+        LOG.debug("Processing Interface NAT")
+        interface_nats = []
+
+        try:
+            interface_nats = InterfaceDynamicNat.get_for_vrf(context=context, vrf=self.id)
+
+            # Clean remaining interfaces
+
+
+            if len (interface_nats)==0:
+                LOG.info("No interface NAT to clean")
+            for interface_nat in interface_nats:
+                LOG.info("Deleting hanging interface nat {} in vrf {} postflight.".format(interface_nat.id, self.name))
+                interface_nat._delete(context=context)
+                LOG.info("Deleted hanging interface nat {} in vrf {} postflight.".format(interface_nat.id, self.name))
+        except BaseException as e:
+            LOG.error("Failed to delete {} interface NAT in VRF {} postlight : {}".format(len(interface_nats),self.id,e))
+
+        # Clean remaining routes
+        LOG.debug("Processing Routes")
+
+        routes =[]
+
+        try:
+            routes = VrfRoute.get_for_vrf(context=context,vrf=self.id)
+            if len (routes)==0:
+                LOG.info("No routes to clean")
+
+            for route in routes:
+                LOG.info("Deleting hanging route {} in vrf {} postflight.".format(route.name,self.name))
+                route._delete(context=context)
+                LOG.info("Deleted hanging route {} in vrf {} postflight.".format(route.name, self.name))
+        except BaseException as e:
+            LOG.error("Failed to delete {} routes in VRF {} postlight : {}".format(len(routes),self.id,e))
+
+        LOG.debug("Processing Interfaces")
+        bdis=[]
+        try:
+
+            bdis = BDIInterface.get_for_vrf(context=context,vrf=self.id)
+
+            if len (bdis)==0:
+                LOG.info("No interfaces to clean")
+
+            for bdi in bdis:
+                LOG.info("Deleting hanging interface BDI{} in vrf {} postflight.".format(bdi.name,self.name))
+                bdi._delete(context=context)
+                LOG.info("Deleted hanging interface BDI{} in vrf {} postflight.".format(bdi.name, self.name))
+
+        except BaseException as e:
+            LOG.error("Failed to delete {} intefaces in VRF {} postlight : {}".format(len(bdis),self.id,e))
+
+
+
+        LOG.debug("Processing Address Families")
+        afs=[]
+        try:
+            afs  = AddressFamily.get_for_vrf(context=context,asn=self.asn,vrf=self.id)
+
+            if len (afs)==0:
+                LOG.info("No address fammilies to clean")
+
+            for af in afs:
+                LOG.info("Deleting hanging address family in vrf {} postflight.".format(self.name))
+                LOG.info(af)
+                result = af._delete(context=context)
+                LOG.debug(result)
+                LOG.info("Deleted hanging address family in vrf {} postflight.".format(self.name))
+
+        except BaseException as e:
+            LOG.error("Failed to delete {} BGP address families in VRF {} postlight : {}".format(len(afs),self.id,e))
+
+
         LOG.debug("Postflight check completed for VRF {}".format(self.id))
+
+
+
 
     def init_config(self):
         return cli_snippets.VRF_CLI_INIT.format(**{'name':self.name,'description':self.description,'rd':self.rd})

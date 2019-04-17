@@ -21,7 +21,7 @@ from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.common import  asr1k_exceptions as exc
 
-import asr1k_neutron_l3.models.netconf_yang.vrf as yang_vrf
+
 
 LOG = logging.getLogger(__name__)
 
@@ -53,8 +53,14 @@ class VrfRoute(NyBase):
                   </native>
                 """
 
+    VRF_XPATH_FILTER = "/native/ip/route/vrf[name='{vrf}']"
+
     LIST_KEY =RouteConstants.ROUTE
     ITEM_KEY = RouteConstants.DEFINITION
+
+    @classmethod
+    def get_for_vrf(cls,context=None,vrf=None):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf":vrf}))
 
     @classmethod
     def __parameters__(cls):
@@ -130,17 +136,15 @@ class VrfRoute(NyBase):
 
         return dict(result)
 
-    def preflight(self, context):
-
-        LOG.debug("Running preflight check for route {}".format(self.id))
-
-        vrf = yang_vrf.VrfDefinition.get(self.name,context=context)
-
-        if vrf is None and self._ncc_connection:
-            raise exc.MissingParentException(device=context.host,entity=self,action="create")
-
-
-        LOG.debug("Preflight check completed for route {}".format(self.id))
+    # def preflight(self, context):
+    #
+    #     LOG.debug("Running preflight check for route {}".format(self.id))
+    #
+    #     vrf = Ayang_vrf.VrfDefinition.get(self.name,context=context)
+    #
+    #     if vrf is None and self._ncc_connection:
+    #         raise exc.MissingParentException(device=context.host,entity=self,action="create")
+    #     LOG.dAbug("Preflight check completed for route {}".format(self.id))
 
 
 class IpRoute(NyBase):

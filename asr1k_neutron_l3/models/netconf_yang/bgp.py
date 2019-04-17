@@ -23,7 +23,7 @@ from asr1k_neutron_l3.models.netconf_yang import xml_utils
 class BGPConstants(object):
     ROUTER = 'router'
     BGP = "bgp"
-
+    ASN="asn"
     ID = "id"
     ADDRESS_FAMILY = "address-family"
     IPV4 = "ipv4"
@@ -60,8 +60,20 @@ class AddressFamily(NyBase):
                   </native>         
              """
 
+
+    VRF_XPATH_FILTER = "/native/router/bgp[id='{asn}']/address-family/with-vrf/ipv4[af-name='unicast']/vrf[name='{vrf}']"
+
+
+
     LIST_KEY = BGPConstants.IPV4
     ITEM_KEY = BGPConstants.VRF
+
+    @classmethod
+    def get_for_vrf(cls,context=None,asn=None,vrf=None):
+
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"asn":asn,"vrf":vrf}))
+
+
 
     @classmethod
     def __parameters__(cls):
@@ -91,12 +103,20 @@ class AddressFamily(NyBase):
     @classmethod
     def remove_wrapper(cls,dict):
         dict = super(AddressFamily, cls)._remove_base_wrapper(dict)
+
         if dict is not None:
             dict = dict.get(BGPConstants.ROUTER,dict)
             dict = dict.get(BGPConstants.BGP, dict)
+            asn = dict.get("id",None)
             dict = dict.get(BGPConstants.ADDRESS_FAMILY, dict)
             dict = dict.get(BGPConstants.WITH_VRF, dict)
             dict = dict.get(BGPConstants.IPV4, dict)
+
+            if dict.get(BGPConstants.VRF,None) is not None:
+                dict[BGPConstants.VRF]["id"] = asn
+            else:
+                dict[BGPConstants.VRF] = OrderedDict()
+                dict[BGPConstants.VRF]["id"] = asn
 
         return dict
 
@@ -120,8 +140,8 @@ class AddressFamily(NyBase):
         super(AddressFamily, self).__init__(**kwargs)
 
         self.enable_bgp = kwargs.get('enable_bgp',False)
-
-
+        if self.asn is None:
+            self.asn = kwargs.get("asn",None)
 
     def to_dict(self):
 
