@@ -723,10 +723,14 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
         LOG.debug("Update of {} {} in {:10.3f}s".format(router.router_id,"succeeded" if success else "failed",duration))
 
+        current_status= router.status
+
         # Callback to set router state based on update result
-        if not success:
+        if not success and current_status  != lib_constants.ERROR:
+            LOG.debug("Router has new status of ERROR, callback to update DB")
             self.plugin_rpc.update_router_status(self.context,router.router_id, lib_constants.ERROR)
-        else:
+        elif success and current_status != lib_constants.ACTIVE:
+            LOG.debug("Router has new status of ACTIVE, callback to update DB")
             self.plugin_rpc.update_router_status(self.context, router.router_id, lib_constants.ACTIVE)
 
     def _extra_atts_complete(self, router):

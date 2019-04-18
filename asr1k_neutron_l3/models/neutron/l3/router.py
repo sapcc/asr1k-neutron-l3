@@ -47,6 +47,9 @@ class Router(Base):
         self.rt_import = self.router_info.get('rt_import')
         self.rt_export = self.router_info.get('rt_export')
 
+        self.status = self.router_info.get('status')
+
+
         self.gateway_interface = None
         self.router_id = self.router_info.get('id')
         self.interfaces = self._build_interfaces()
