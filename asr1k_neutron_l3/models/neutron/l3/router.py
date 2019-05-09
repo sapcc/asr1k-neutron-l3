@@ -145,7 +145,7 @@ class Router(Base):
         for interface in self.address_scope_matches():
             subnet = interface.primary_subnet
 
-            if subnet.get('cidr') is not None:
+            if subnet is not None and subnet.get('cidr') is not None:
                 ip, netmask = utils.from_cidr(subnet.get('cidr'))
                 wildcard = utils.to_wildcard_mask(netmask)
                 rule = access_list.Rule(action='deny',source=ip,source_mask=wildcard)
