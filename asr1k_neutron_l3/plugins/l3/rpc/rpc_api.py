@@ -80,8 +80,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
     @instrument()
     def get_all_extra_atts(self, context, host=None):
-        db = asr1k_db.DBPlugin()
-        extra_atts = db.get_all_extra_atts(context, host=host)
+        extra_atts = self.db.get_all_extra_atts(context, host=host)
 
         return_dict = {}
 
@@ -94,18 +93,15 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
     @instrument()
     def get_all_router_ids(self, context, host=None):
-        db = asr1k_db.DBPlugin()
-        return db.get_all_router_ids(context, host=host)
+        return self.db.get_all_router_ids(context, host=host)
 
     @instrument()
     def ensure_snat_mode(self,context, port_id=None,mode=None):
-        db = asr1k_db.DBPlugin()
-        return db.ensure_snat_mode(context,port_id,mode)
+        return self.db.ensure_snat_mode(context,port_id,mode)
 
     @instrument()
     def get_deleted_router_atts(self,context, **kwargs):
-        db = asr1k_db.DBPlugin()
-        router_atts = db.get_deleted_router_atts(context)
+        router_atts = self.db.get_deleted_router_atts(context)
 
         return router_atts
 

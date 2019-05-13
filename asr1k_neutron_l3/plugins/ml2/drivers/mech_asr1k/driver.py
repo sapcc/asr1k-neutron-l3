@@ -51,6 +51,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         self.n_context = n_context.get_admin_context()
 
         super(ASR1KMechanismDriver, self).__init__(self.agent_type, self.vif_type, self.vif_details)
+        self.db = asr1k_db.DBPlugin()
 
         self.start_rpc_listeners()
 
@@ -91,9 +92,8 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         if device_id is None or device_owner is None or not device_owner.startswith('network:router'):
             return
 
-        db = asr1k_db.DBPlugin()
         admin_context = n_context.get_admin_context()
-        att = db.get_extra_att(admin_context, port_id)
+        att = self.db.get_extra_att(admin_context, port_id)
         if att is None:
             LOG.warning("Detected ,missing port extra atts for port {} attempting to recreate".format(port_id))
             device_id = context.current.get('device_id',None)

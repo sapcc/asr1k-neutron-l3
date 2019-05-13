@@ -41,6 +41,8 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
                                    "asr1k_operations"]
 
     def __init__(self):
+        super(ASR1KRouterPlugin, self).__init__()
+
         basepath = asr1k_neutron_l3.__path__[0]
 
         ext_paths = [basepath + '/extensions']

@@ -15,14 +15,14 @@ class Initializer(object):
     def __init__(self, plugin,context):
         self.plugin = plugin
         self.context = context
+        self.db = asr1k_db.DBPlugin()
 
     @instrument()
     def init_scheduler(self):
         result = {}
-        db = asr1k_db.DBPlugin()
 
         ml2 = Ml2Plugin()
-        router_ids = db.get_all_router_ids(self.context)
+        router_ids = self.db.get_all_router_ids(self.context)
         scheduled = 0
         bound = 0
         for router_id in router_ids:
@@ -47,10 +47,9 @@ class Initializer(object):
     @instrument()
     def init_bindings(self):
         result = {}
-        db = asr1k_db.DBPlugin()
 
         ml2 = Ml2Plugin()
-        router_ids = db.get_all_router_ids(self.context)
+        router_ids = self.db.get_all_router_ids(self.context)
         port_count = 0
         for router_id in router_ids:
             LOG.warn("Updating Router %s" % router_id)
@@ -59,7 +58,7 @@ class Initializer(object):
             agent_host = agent.get('host')
 
             if agent_host is not None:
-                ports = db.get_ports_for_router_ids(self.context, [router_id])
+                ports = self.db.get_ports_for_router_ids(self.context, [router_id])
                 result[router_id]["port host"] = []
                 for port in ports:
                     LOG.warn("Updating Port %s of Router %s" % (port.id, router_id))
@@ -80,10 +79,9 @@ class Initializer(object):
 
     def init_atts(self):
         result = {}
-        db = asr1k_db.DBPlugin()
 
 
-        router_ids = db.get_all_router_ids(self.context)
+        router_ids = self.db.get_all_router_ids(self.context)
 
         for router_id in router_ids:
             try:
@@ -96,8 +94,7 @@ class Initializer(object):
 
     @instrument()
     def init_config(self, host):
-        db = asr1k_db.DBPlugin()
-        router_ids = db.get_all_router_ids(self.context,host=host)
+        router_ids = self.db.get_all_router_ids(self.context, host=host)
 
         router_infos = self.plugin.get_sync_data(self.context,router_ids=router_ids,host=host)
 

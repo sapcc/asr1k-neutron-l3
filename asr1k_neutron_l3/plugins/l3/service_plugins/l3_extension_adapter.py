@@ -125,6 +125,8 @@ class L3RpcNotifierMixin(object):
 class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
                       dns_db.DNSDbMixin, L3RpcNotifierMixin,asr1k_ext.DevicePluginBase):
+    def __init__(self):
+        self.db = asr1k_db.DBPlugin()
 
     def get_agent_for_router(self, context, router_id):
         """Returns all hosts to send notification about router update"""
@@ -175,9 +177,8 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None,host=None):
 
-        db = asr1k_db.DBPlugin()
         if host is not None:
-            host_router_ids =db.get_all_router_ids(context,host)
+            host_router_ids = self.db.get_all_router_ids(context, host)
             router_ids = [ r for r in router_ids if r in host_router_ids]
 
         if not bool(router_ids):
@@ -242,7 +243,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
             rt_import=[]
             rt_export = []
-            bgpvpns = db.get_bgpvpns_by_router_id(context,router['id'])
+            bgpvpns = self.db.get_bgpvpns_by_router_id(context,router['id'])
 
             for bgpvpn in bgpvpns:
                 rt_import += bgpvpn.import_targets.split(",")
@@ -256,17 +257,14 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
 
     def get_deleted_router_atts(self,context):
-        db = asr1k_db.DBPlugin()
-        return db.get_deleted_router_atts(context)
+        return self.db.get_deleted_router_atts(context)
 
     def _get_device_info(self,context,host):
-        db = asr1k_db.DBPlugin()
-        return db.get_device_info(context,host)
+        return self.db.get_device_info(context,host)
 
 
     def _get_extra_atts(self, context, router_ids, host=None):
-        db = asr1k_db.DBPlugin()
-        extra_atts = db.get_extra_atts_for_routers(context, router_ids, host=host)
+        extra_atts = self.db.get_extra_atts_for_routers(context, router_ids, host=host)
 
         return_dict = {}
 
@@ -284,8 +282,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         return return_dict
 
     def _get_router_atts(self, context, router_ids):
-        db = asr1k_db.DBPlugin()
-        router_atts = db.get_router_atts_for_routers(context, router_ids)
+        router_atts = self.db.get_router_atts_for_routers(context, router_ids)
 
         return_dict = {}
 
@@ -383,10 +380,9 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     def ensure_config(self,context,id):
         asr1k_db.RouterAttsDb.ensure(context,id)
 
-        db = asr1k_db.DBPlugin()
-        ports = db.get_router_ports(context,id)
+        ports = self.db.get_router_ports(context,id)
         for port in ports:
-            segment = db.get_router_segment_for_port(context,id,port.get('id'))
+            segment = self.db.get_router_segment_for_port(context,id,port.get('id'))
             asr1k_db.ExtraAttsDb.ensure(id,port,segment)
 
 
@@ -412,8 +408,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
     def list_devices(self, context, host):
         result = self.notify_list_devices(context,host)
-        db = asr1k_db.DBPlugin()
-        device_info = db.get_device_info(context,host)
+        device_info = self.db.get_device_info(context,host)
         for id in result:
             device = result.get(id)
             self._add_device_enabled(device_info,device)
@@ -421,9 +416,8 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
 
     def show_device(self, context, host, id):
-        db = asr1k_db.DBPlugin()
         result = self.notify_show_device(context, host, id)
-        device_info = db.get_device_info(context, host)
+        device_info = self.db.get_device_info(context, host)
         self._add_device_enabled(device_info, result)
         return result
 
