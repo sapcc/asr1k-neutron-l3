@@ -27,7 +27,7 @@ LOG = log.getLogger(__name__)
 class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
     def __init__(self):
-        self.db = asr1k_db.DBPlugin()
+        self.db = asr1k_db.get_db_plugin()
 
     @instrument()
     def delete_extra_atts_l3(self, context, **kwargs):

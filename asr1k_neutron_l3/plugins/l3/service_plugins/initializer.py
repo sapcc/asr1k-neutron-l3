@@ -15,7 +15,7 @@ class Initializer(object):
     def __init__(self, plugin,context):
         self.plugin = plugin
         self.context = context
-        self.db = asr1k_db.DBPlugin()
+        self.db = asr1k_db.get_db_plugin()
 
     @instrument()
     def init_scheduler(self):

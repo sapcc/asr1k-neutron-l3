@@ -57,6 +57,17 @@ MAX_RD = 65535
 LOG = log.getLogger(__name__)
 
 
+_db_plugin_instance = None
+
+
+def get_db_plugin():
+    """Get the DBPlugin singleton"""
+    global _db_plugin_instance
+    if _db_plugin_instance is None:
+        _db_plugin_instance = DBPlugin()
+    return _db_plugin_instance
+
+
 class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                address_scope_db.AddressScopeDbMixin,
                portbindings_db.PortBindingMixin,

@@ -65,7 +65,7 @@ class ASR1KPluginApi(object):
 class ASR1KPluginCallback(object):
 
     def __init__(self):
-        self.db = asr1k_db.DBPlugin()
+        self.db = asr1k_db.get_db_plugin()
         self.context = context.get_admin_context()
 
     @instrument.instrument()

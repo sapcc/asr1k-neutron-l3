@@ -126,7 +126,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
                       dns_db.DNSDbMixin, L3RpcNotifierMixin,asr1k_ext.DevicePluginBase):
     def __init__(self):
-        self.db = asr1k_db.DBPlugin()
+        self.db = asr1k_db.get_db_plugin()
 
     def get_agent_for_router(self, context, router_id):
         """Returns all hosts to send notification about router update"""

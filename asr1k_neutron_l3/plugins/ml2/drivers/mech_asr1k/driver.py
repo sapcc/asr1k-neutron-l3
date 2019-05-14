@@ -51,7 +51,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         self.n_context = n_context.get_admin_context()
 
         super(ASR1KMechanismDriver, self).__init__(self.agent_type, self.vif_type, self.vif_details)
-        self.db = asr1k_db.DBPlugin()
+        self.db = asr1k_db.get_db_plugin()
 
         self.start_rpc_listeners()
 
