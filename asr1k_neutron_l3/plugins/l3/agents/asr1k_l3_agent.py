@@ -585,8 +585,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                                         action=queue.DELETE_ROUTER)
             self._queue.add(update)
 
-
-    LOG.debug("periodic_sync_routers_task successfully completed")
+        LOG.debug("periodic_sync_routers_task successfully completed")
 
     @periodic_task.periodic_task(spacing=60, run_immediately=True)
     def periodic_requeue_routers_task(self, context):
