@@ -531,7 +531,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                     update = queue.ResourceUpdate(
                         r['id'],
                         queue.PRIORITY_SYNC_ROUTERS_TASK,
-                        action= queue.PRIORITY_SYNC_ROUTERS_TASK,
+                        action=queue.ADD_UPDATE_ROUTER,
                         resource=r,
                         timestamp=timestamp)
                     self._queue.add(update)
