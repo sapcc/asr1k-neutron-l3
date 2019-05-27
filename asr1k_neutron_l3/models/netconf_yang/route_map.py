@@ -16,8 +16,9 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,xml_utils,execute_on_pair,NC_OPERATION,YANG_TYPE
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, xml_utils, execute_on_pair, NC_OPERATION, YANG_TYPE
 from asr1k_neutron_l3.common import utils
+
 
 class RouteMapConstants(object):
     ROUTE_MAP = 'route-map'
@@ -27,7 +28,7 @@ class RouteMapConstants(object):
     ORDERING_SEQ = "seq_no"
     OPERATION = "operation"
     SET = "set"
-    EXTCOMMUNITY='extcommunity'
+    EXTCOMMUNITY = 'extcommunity'
     RT = 'rt'
     RANGE = 'range'
     ADDITIVE = 'additive'
@@ -35,7 +36,7 @@ class RouteMapConstants(object):
     IP = "ip"
     FORCE = "force"
     NEXT_HOP = "next-hop"
-    NEXT_HOP_ADDR ="next-hop-addr"
+    NEXT_HOP_ADDR = "next-hop-addr"
     ADDRESS = "address"
     ASN = "asn-nn"
     PREFIX_LIST = "prefix-list"
@@ -57,11 +58,11 @@ class RouteMap(NyBase):
     @classmethod
     def __parameters__(cls):
         return [
-            {'key': 'name','id':True},
-            {'key': 'seq', 'yang-key':'route-map-without-order-seq','type':[MapSequence],'default':[]},
+            {'key': 'name', 'id': True},
+            {'key': 'seq', 'yang-key': 'route-map-without-order-seq', 'type': [MapSequence], 'default': []},
         ]
 
-    def __init__(self,**kwargs):
+    def __init__(self, **kwargs):
         super(RouteMap, self).__init__(**kwargs)
         self.force_delete = False
 
@@ -70,10 +71,7 @@ class RouteMap(NyBase):
         if self.name is not None and (self.name.startswith('exp-') or self.name.startswith('pbr-')):
             return utils.vrf_id_to_uuid(self.name[4:])
 
-
     def to_dict(self):
-
-
         result = OrderedDict()
 
         map = OrderedDict()
@@ -88,15 +86,10 @@ class RouteMap(NyBase):
 
         return dict(result)
 
-
     @classmethod
-    def remove_wrapper(cls,dict):
+    def remove_wrapper(cls, dict):
         dict = super(RouteMap, cls)._remove_base_wrapper(dict)
         return dict
-
-
-
-
 
     def to_delete_dict(self):
         result = OrderedDict()
@@ -109,8 +102,8 @@ class RouteMap(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self,context=None):
-        return super(RouteMap, self)._update(context=context,method=NC_OPERATION.PUT)
+    def update(self, context=None):
+        return super(RouteMap, self)._update(context=context, method=NC_OPERATION.PUT)
 
 
 class MapSequence(NyBase):
@@ -121,37 +114,37 @@ class MapSequence(NyBase):
     @classmethod
     def __parameters__(cls):
         return [
-            {'key': 'seq_no','yang-key':'seq_no','id':True},
+            {'key': 'seq_no', 'yang-key': 'seq_no', 'id': True},
             {'key': 'operation'},
-            {'key': 'asn','yang-key':'asn-nn','yang-path':'set/extcommunity/rt','type':[str]},
+            {'key': 'asn', 'yang-key': 'asn-nn', 'yang-path': 'set/extcommunity/rt', 'type': [str]},
             {'key': 'next_hop', 'yang-key': 'address', 'yang-path': 'set/ip/next-hop/next-hop-addr'},
-            {'key': 'force', 'yang-path': 'set/ip/next-hop/next-hop-addr','default':False,'yang-type':YANG_TYPE.EMPTY},
-            {'key': 'prefix_list', 'yang-key':'prefix-list','yang-path':'match/ip/address'},
+            {'key': 'force', 'yang-path': 'set/ip/next-hop/next-hop-addr', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'prefix_list', 'yang-key': 'prefix-list', 'yang-path': 'match/ip/address'},
             {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
         ]
 
-    def __init__(self,**kwargs):
+    def __init__(self, **kwargs):
         super(MapSequence, self).__init__(**kwargs)
-        if self.asn is not None and not isinstance(self.asn,list):
+        if self.asn is not None and not isinstance(self.asn, list):
             self.asn = [self.asn]
 
-        self.enable_bgp =  kwargs.get('enable_bgp',False)
+        self.enable_bgp = kwargs.get('enable_bgp', False)
 
     def to_dict(self):
-
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
 
         seq[RouteMapConstants.OPERATION] = self.operation
 
         if bool(self.asn):
-            seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY:{RouteMapConstants.RT:{RouteMapConstants.ASN:self.asn}}}
+            seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY: {RouteMapConstants.RT: {RouteMapConstants.ASN: self.asn}}}
 
         if self.next_hop is not None:
             seq[RouteMapConstants.SET] = {
-                RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP:{RouteMapConstants.NEXT_HOP_ADDR:{RouteMapConstants.ADDRESS:self.next_hop}}}}
+                RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP: {RouteMapConstants.NEXT_HOP_ADDR: {RouteMapConstants.ADDRESS: self.next_hop}}}}
             if self.force:
-                seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE]=""
+                seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE] = ""
         if self.prefix_list is not None:
             seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
                                                                                RouteMapConstants.PREFIX_LIST: self.prefix_list}}}
@@ -159,21 +152,16 @@ class MapSequence(NyBase):
         if self.access_list is not None:
             seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
                                                                                RouteMapConstants.ACCESS_LIST: self.access_list}}}
-
         seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
-
 
         return seq
 
-
     def to_delete_dict(self):
-
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
 
         seq[RouteMapConstants.OPERATION] = self.operation
 
         seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
-
 
         return seq

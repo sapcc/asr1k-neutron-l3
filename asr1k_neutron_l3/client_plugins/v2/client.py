@@ -1,15 +1,12 @@
-
-
 import logging
-from  asr1k_neutron_l3.client_plugins.v2 import devices
 
 from asr1k_neutron_l3.client_plugins import client as base_client
+from asr1k_neutron_l3.client_plugins.v2 import devices
 
 LOG = logging.getLogger(__name__)
 
 
 class Client(object):
-
     def __init__(self, session=None, *args, **kwargs):
         """Barbican client object used to interact with barbican service.
 

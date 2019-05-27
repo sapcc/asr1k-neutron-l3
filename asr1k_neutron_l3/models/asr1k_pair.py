@@ -16,14 +16,14 @@
 
 from oslo_log import log as logging
 from oslo_config import cfg
+
 from asr1k_neutron_l3.common import config as asr1k_config
 
 LOG = logging.getLogger(__name__)
 
 
 class ASR1KContext(object):
-
-    def __init__(self,name, host,yang_port, nc_timeout, username, password, insecure=True,
+    def __init__(self, name, host, yang_port, nc_timeout, username, password, insecure=True,
                  headers={}):
         self.name = name
         self.host = host
@@ -38,8 +38,8 @@ class ASR1KContext(object):
         self.alive = False
         self.enabled = True
 
-class ASR1KPair(object):
 
+class ASR1KPair(object):
     __instance = None
 
     def __new__(cls):
@@ -49,10 +49,7 @@ class ASR1KPair(object):
 
         return ASR1KPair.__instance
 
-
     def __setup(self):
-
-
         self.config = cfg.CONF
         self.contexts = []
 
@@ -61,6 +58,9 @@ class ASR1KPair(object):
         for device_name in device_config.keys():
             config = device_config.get(device_name)
 
-            self.contexts.append(ASR1KContext(device_name,config.get('host'), config.get('yang_port',self.config.asr1k_devices.yang_port),
-                                              int(config.get('nc_timeout',self.config.asr1k_devices.nc_timeout)), config.get('user_name'),
-                                              config.get('password'), insecure=True))
+            asr1kctx = ASR1KContext(device_name, config.get('host'),
+                                    config.get('yang_port', self.config.asr1k_devices.yang_port),
+                                    int(config.get('nc_timeout', self.config.asr1k_devices.nc_timeout)),
+                                    config.get('user_name'), config.get('password'), insecure=True)
+
+            self.contexts.append(asr1kctx)

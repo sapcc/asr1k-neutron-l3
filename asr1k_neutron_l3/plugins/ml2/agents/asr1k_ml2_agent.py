@@ -44,7 +44,7 @@ from neutron.common import config as common_config, topics
 from neutron_lib import constants as n_const
 
 from asr1k_neutron_l3.common import prometheus_monitor, asr1k_constants
-from asr1k_neutron_l3.common.prometheus_monitor import  PrometheusMonitor
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import config as asr1k_config
@@ -63,6 +63,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 SYNC_ROUTERS_MAX_CHUNK_SIZE = 256
 SYNC_ROUTERS_MIN_CHUNK_SIZE = 32
+
 
 def main():
     common_config.init(sys.argv[1:])
@@ -86,9 +87,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         self.yang_connection_pool_size = cfg.CONF.asr1k_l2.yang_connection_pool_size
 
-
-
-        connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size,max_age=cfg.CONF.asr1k.connection_max_age)
+        connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size,
+                                                max_age=cfg.CONF.asr1k.connection_max_age)
 
         self.catch_sigterm = False
         self.catch_sighup = False
@@ -106,7 +106,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.sync_offset = 0
         self.sync_interval = self.conf.asr1k_l2.sync_interval
         self.sync_active = self.conf.asr1k_l2.sync_active
-
 
         self.pool = eventlet.greenpool.GreenPool(size=10)  # Start small, so we identify possible bottlenecks
         self.loop_pool = eventlet.greenpool.GreenPool(size=5)  # Start small, so we identify possible bottlenecks
@@ -129,16 +128,14 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         heartbeat = loopingcall.FixedIntervalLoopingCall(self._report_state)
         heartbeat.start(interval=report_interval, stop_on_exception=False)
 
-        self.monitor  = self._initialize_monitor()
-
+        self.monitor = self._initialize_monitor()
 
         self.connection.consume_in_threads()
 
         signal.signal(signal.SIGUSR2, self.dump_greenlets)
 
-
-    def dump_greenlets(self,signum, frame):
-        count=0
+    def dump_greenlets(self, signum, frame):
+        count = 0
         total_count = 0
         for ob in gc.get_objects():
             if not isinstance(ob, greenlet):
@@ -150,12 +147,11 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             if re.search('ncclient/transport/ssh.py', traceback.format_stack(ob.gr_frame).__str__(), re.I):
 
                 count += 1
-            total_count+=1
-        LOG.debug("************* Total SSH Greenlets : {} out of {}".format(count,total_count))
-
+            total_count += 1
+        LOG.debug("************* Total SSH Greenlets : {} out of {}".format(count, total_count))
 
     def _initialize_monitor(self):
-        monitor = PrometheusMonitor(host=self.conf.host,namespace="neutron_asr1k",type=prometheus_monitor.L2)
+        monitor = PrometheusMonitor(host=self.conf.host, namespace="neutron_asr1k", type=prometheus_monitor.L2)
         monitor.start()
 
     def port_update(self, context, **kwargs):
@@ -188,7 +184,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     @log_helpers.log_method_call
     def setup_rpc(self):
         # RPC network init
-
         self.context = n_context.get_admin_context_without_session()
         self.agent_id = 'asr1k-ml2-agent-%s' % self.conf.host
         self.topic = topics.AGENT
@@ -250,12 +245,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     @log_helpers.log_method_call
     def process_ports(self):
         connection.check_devices(self.agent_rpc.get_device_info(self.context, self.conf.host))
-
         updated_ports = self.updated_ports.copy()
-
-
         ports_to_bind = list(port_id for port_id, port in six.iteritems(updated_ports))
-        succeeded_ports = []
 
         LOG.debug(ports_to_bind)
 
@@ -276,15 +267,12 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         if ports_to_delete:
             try:
-                extra_atts = self.agent_rpc.get_extra_atts(self.context, ports_to_delete, agent_id=self.agent_id, host=self.conf.host)
-
-
-
+                extra_atts = self.agent_rpc.get_extra_atts(self.context, ports_to_delete, agent_id=self.agent_id,
+                                                           host=self.conf.host)
                 l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
                 self.deleted_ports = {}
             except BaseException as err:
                 LOG.exception(err)
-
 
     @instrument()
     def sync_known_ports(self):
@@ -293,17 +281,19 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         if self.sync_active:
 
-            interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size, offset=self.sync_offset,host=self.conf.host)
+            interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size,
+                                                                 offset=self.sync_offset, host=self.conf.host)
 
             LOG.debug("Syncing {} ports ".format(len(interface_ports)))
 
-            if len(interface_ports)==0:
+            if len(interface_ports) == 0:
                 self.sync_offset = 0
-                interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size, offset=self.sync_offset,host=self.conf.host)
+                interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size,
+                                                                     offset=self.sync_offset, host=self.conf.host)
             else:
-                self.sync_offset = self.sync_offset+self.sync_chunk_size
+                self.sync_offset = self.sync_offset + self.sync_chunk_size
 
-            l2_port.update_ports(interface_ports,callback=self._bound_ports)
+            l2_port.update_ports(interface_ports, callback=self._bound_ports)
 
             LOG.debug("Syncing {} ports completed".format(len(interface_ports)))
         else:
@@ -314,7 +304,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         if self.sync_active:
             try:
-                extra_atts = self.agent_rpc.get_orphaned_extra_atts(self.context, agent_id=self.agent_id, host=self.conf.host)
+                extra_atts = self.agent_rpc.get_orphaned_extra_atts(self.context, agent_id=self.agent_id,
+                                                                    host=self.conf.host)
                 LOG.info(self.conf.host)
                 LOG.info("***** {}".format(extra_atts))
                 l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
@@ -339,7 +330,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.plugin_rpc.update_device_list(self.context, port_up_ids, port_down_ids, self.agent_id, self.conf.host)
 
     def rpc_loop(self):
-
         while self._check_and_handle_signal():
             LOG.debug("**** RPC Loop")
             with timeutils.StopWatch() as w:
@@ -350,7 +340,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             self.loop_count_and_wait(w.elapsed(), self.polling_interval)
 
     def sync_loop(self):
-
         while self._check_and_handle_signal():
             LOG.debug("**** SYNC Loop : known ports")
             with timeutils.StopWatch() as w:
@@ -362,7 +351,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             self.loop_count_and_wait(w.elapsed(), self.sync_interval)
 
     def scavenge_loop(self):
-
         while self._check_and_handle_signal():
             LOG.debug("**** SYNC Loop")
             with timeutils.StopWatch() as w:
@@ -372,7 +360,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                     LOG.exception(e)
             self.loop_count_and_wait(w.elapsed(), self.sync_interval)
 
-    def loop_count_and_wait(self, elapsed,polling_interval):
+    def loop_count_and_wait(self, elapsed, polling_interval):
         # sleep till end of polling interval
         if elapsed < polling_interval:
             eventlet.sleep(polling_interval - elapsed)
@@ -388,7 +376,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         while self._check_and_handle_signal():
             with timeutils.StopWatch() as w:
                 time.sleep(5)
-                self.loop_count_and_wait(w.elapsed(),60)
+                self.loop_count_and_wait(w.elapsed(), 60)
 
     def daemon_loop(self):
         # Start everything.
@@ -405,11 +393,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             # if self.api:
             #     self.api.stop()
 
-
-
         if self.pool:
             self.pool.waitall()
 
         if self.loop_pool:
             self.loop_pool.waitall()
-

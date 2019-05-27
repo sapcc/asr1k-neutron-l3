@@ -14,7 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import six
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.models import asr1k_pair
@@ -22,10 +21,7 @@ from asr1k_neutron_l3.models import asr1k_pair
 LOG = logging.getLogger(__name__)
 
 
-
-
 class Base(object):
-
     def __init__(self):
         self.contexts = asr1k_pair.ASR1KPair().contexts
 
@@ -37,14 +33,13 @@ class Base(object):
     def _rest_definition(self, rest_definition):
         self.__rest_definition = rest_definition
 
-
     def update(self):
-        return  self._rest_definition.update()
+        return self._rest_definition.update()
 
     def delete(self):
-        return  self._rest_definition.delete()
+        return self._rest_definition.delete()
 
-    def diff(self,should_be_none=False):
+    def diff(self, should_be_none=False):
         return self._rest_definition.diff(should_be_none=should_be_none)
 
     def init_config(self):

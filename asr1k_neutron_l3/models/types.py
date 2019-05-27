@@ -18,7 +18,6 @@ from asr1k_neutron_l3.common import utils
 
 
 class IpAddress(object):
-
     def __init__(self, address, netmask):
         self.address = address
         self.netmask = utils.to_netmask(netmask)

@@ -54,9 +54,7 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
         if to_add != "":
             cfg.CONF.set_override('api_extensions_path', cp + to_add)
 
-
         self.router_scheduler = importutils.import_object(cfg.CONF.router_scheduler_driver)
-
 
         asr1k_config.register_l2_opts()
         asr1k_config.register_l3_opts()

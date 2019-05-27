@@ -14,12 +14,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import re
 import socket
 import struct
-import re
 
 from netaddr import IPNetwork, IPAddress
-
 from oslo_log import log as logging
 
 
@@ -27,6 +26,7 @@ from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import config as asr1k_config
 
 LOG = logging.getLogger(__name__)
+
 
 def calculate_deleted_ports(router):
     extra_atts = router.get(constants.ASR1K_EXTRA_ATTS_KEY)
@@ -36,7 +36,6 @@ def calculate_deleted_ports(router):
     extra_atts_ports = []
     if extra_atts is not None:
         extra_atts_ports = extra_atts.keys()
-
 
     return list(set(extra_atts_ports) - set(router_ports))
 
@@ -55,15 +54,14 @@ def get_router_ports(router):
 def uuid_to_vrf_id(uuid):
     return uuid.replace('-', '')
 
+
 def vrf_id_to_uuid(id):
-    if id is None or isinstance(id,str):
+    if id is None or isinstance(id, str):
         return False
 
-    if re.match("[0-9a-f]{32}",id):
-        return "{}-{}-{}-{}-{}".format(id[0:8],id[8:12],id[12:16],id[16:20],id[20:32])
+    if re.match("[0-9a-f]{32}", id):
+        return "{}-{}-{}-{}-{}".format(id[0:8], id[8:12], id[12:16], id[16:20], id[20:32])
     return False
-
-
 
 
 def vrf_to_access_list_id(vrf_id):
@@ -96,40 +94,37 @@ def to_cisco_mac(mac):
 
 def from_cidr(cidr):
     split = cidr.split('/')
-
     ip = split[0]
-
     netmask = to_netmask(int(split[1]))
 
-    return ip, netmask\
+    return ip, netmask
+
 
 def prefix_from_cidr(cidr):
     split = cidr.split('/')
     return int(split[1])
 
 
-
-def to_cidr(ip,netmask):
-    if isinstance(netmask,str):
+def to_cidr(ip, netmask):
+    if isinstance(netmask, str):
         nm = IPAddress(netmask)
         cidr = nm.netmask_bits()
     else:
         cidr = netmask
 
-    return '{}/{}'.format(ip,netmask)
-
+    return '{}/{}'.format(ip, netmask)
 
 
 def to_wildcard_mask(prefix_len):
-
     if isinstance(prefix_len, (int, long)):
         netmask = to_netmask(prefix_len)
     else:
         netmask = prefix_len
 
-    wildcard = ".".join([str(255- int(octect)) for octect in netmask.split(".")])
+    wildcard = ".".join([str(255 - int(octect)) for octect in netmask.split(".")])
 
     return wildcard
+
 
 def ip_in_network(ip, net):
     return IPAddress(ip) in IPNetwork(net)
@@ -144,14 +139,13 @@ def to_netmask(prefix_len):
     return netmask
 
 
-
-def to_rd(asn,rd):
+def to_rd(asn, rd):
         if asn is None or rd is None:
             return
-        return "{}:{}".format(asn,rd)
+        return "{}:{}".format(asn, rd)
 
 
-def get_address_scope_config(plugin_rpc,context):
+def get_address_scope_config(plugin_rpc, context):
     scope_config = asr1k_config.create_address_scope_dict()
 
     db_scopes = plugin_rpc.get_address_scopes(context, scope_config.keys())
@@ -174,4 +168,5 @@ def to_bridge_domain(second_dot1q):
     if second_dot1q is not None:
         return 4096 + int(second_dot1q)
     else:
-        LOG.error('Have been asked to convert a null second dot1q tag to a bridge domain, router att for port is missing : probable cause is a port binding failing. ')
+        LOG.error('Have been asked to convert a null second dot1q tag to a bridge domain, '
+                  'router att for port is missing : probable cause is a port binding failing. ')

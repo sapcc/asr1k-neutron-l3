@@ -13,12 +13,10 @@ from neutron_lib.agent import topics
 
 LOG = logging.getLogger(__name__)
 
-class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
 
+class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
     def __init__(self, service_plugin):
         LOG.debug("BGP VPN Driver Initialized")
-
-
         super(driver_api.BGPVPNDriverRC, self).__init__(service_plugin)
 
         self.rpc = ASR1KBGPVPNNotifier()
@@ -32,45 +30,36 @@ class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
     def create_bgpvpn_precommit(self, context, bgpvpn):
         LOG.debug("****************************** create_bgpvpn_precommit")
 
-
-
     def create_bgpvpn_postcommit(self, context, bgpvpn):
         LOG.debug("****************************** create_bgpvpn_postcommit")
-        router_assocs = self.db_plugin().get_router_assocs(context,bgpvpn.get("id"))
+        router_assocs = self.db_plugin().get_router_assocs(context, bgpvpn.get("id"))
         notifier = self._notifier()
         for router_assoc in router_assocs:
             notifier.router_sync(context, router_assoc.get('router_id'))
-
 
     def update_bgpvpn_precommit(self, context, old_bgpvpn, new_bgpvpn):
         LOG.debug("****************************** update_bgpvpn_precommit")
 
-
     def update_bgpvpn_postcommit(self, context, old_bgpvpn, new_bgpvpn):
         LOG.debug("****************************** update_bgpvpn_postcommit")
-        router_assocs = self.db_plugin().get_router_assocs(context,new_bgpvpn.get("id"))
+        router_assocs = self.db_plugin().get_router_assocs(context, new_bgpvpn.get("id"))
         notifier = self._notifier()
         for router_assoc in router_assocs:
             notifier.router_sync(context, router_assoc.get('router_id'))
-
 
     def delete_bgpvpn_precommit(self, context, bgpvpn):
         LOG.debug("****************************** delete_bgpvpn_precommit")
 
-
     def delete_bgpvpn_postcommit(self, context, bgpvpn):
         LOG.debug("****************************** delete_bgpvpn_postcommit")
-        router_assocs = self.db_plugin().get_router_assocs(context,bgpvpn.get("id"))
+        router_assocs = self.db_plugin().get_router_assocs(context, bgpvpn.get("id"))
         notifier = self._notifier()
         for router_assoc in router_assocs:
             notifier.router_sync(context, router_assoc.get('router_id'))
 
-
-
     def update_router_assoc_precommit(self, context,
                                       old_router_assoc, router_assoc):
         LOG.debug("****************************** update_router_assoc_precommit")
-
 
     def update_router_assoc_postcommit(self, context,
                                        old_router_assoc, router_assoc):
@@ -80,8 +69,6 @@ class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
     def create_router_assoc_precommit(self, context, router_assoc):
         LOG.debug("****************************** create_router_assoc_precommit")
 
-
-
     def create_router_assoc_postcommit(self, context, router_assoc):
         LOG.debug("****************************** create_router_assoc_postcommit")
         return self._notifier().router_sync(context, router_assoc.get('router_id'))
@@ -89,22 +76,17 @@ class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
     def delete_router_assoc_precommit(self, context, router_assoc):
         LOG.debug("****************************** delete_router_assoc_precommit")
 
-
     def delete_router_assoc_postcommit(self, context, router_assoc):
         LOG.debug("***************************** delete_router_assoc_postcommit")
         return self._notifier().router_sync(context, router_assoc.get('router_id'))
 
 
 class ASR1KBGPVPNNotifier(l3_rpc_agent_api.L3AgentNotifyAPI):
-
-
-
     @log_helpers.log_method_call
-    def _bgpvpn_agent_rpc(self, context, method, router_assoc=None,host=None,device_id=None,router_info=None):
+    def _bgpvpn_agent_rpc(self, context, method, router_assoc=None, host=None, device_id=None, router_info=None):
         """Notify changed routers to hosting l3 agents."""
         adminContext = context if context.is_admin else context.elevated()
         plugin = directory.get_plugin(svc_constants.L3)
-
 
         LOG.debug("*************** router  {}".format(router_assoc.get('router_id')))
 

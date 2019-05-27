@@ -86,7 +86,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         port_id = context.current.get('id')
 
         # We only do router devices
-        device_owner = context.current.get('device_owner',None)
+        device_owner = context.current.get('device_owner', None)
         device_id = context.current.get('device_id', None)
 
         if device_id is None or device_owner is None or not device_owner.startswith('network:router'):
@@ -96,10 +96,10 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         att = self.db.get_extra_att(admin_context, port_id)
         if att is None:
             LOG.warning("Detected ,missing port extra atts for port {} attempting to recreate".format(port_id))
-            device_id = context.current.get('device_id',None)
+            device_id = context.current.get('device_id', None)
             segment = context.bottom_bound_segment
             if device_id is not None and segment is not None:
-                asr1k_db.ExtraAttsDb.ensure(device_id,context.current, segment)
+                asr1k_db.ExtraAttsDb.ensure(device_id, context.current, segment)
 
     def delete_port_precommit(self, context):
         pass
@@ -115,7 +115,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
             # We only do router devices
             device_owner = context.current.get('device_owner', None)
-            device_id = context.current.get('device_id',None)
+            device_id = context.current.get('device_id', None)
 
             if device_id is None or device_owner is None or not device_owner.startswith('network:router'):
                 return False
@@ -134,13 +134,13 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
             LOG.debug("Creating extra atts for segment {}".format(segment))
 
-
-            asr1k_db.ExtraAttsDb.ensure(device_id,context.current, segment)
-
+            asr1k_db.ExtraAttsDb.ensure(device_id, context.current, segment)
 
             context.set_binding(segment[api.ID],
                                 self.vif_type,
                                 self.vif_details)
             return True
         else:
-            LOG.debug('Skipping binding, physical network on segment "{}" is not managed by this driver, managed networks are {}'.format(segment.get(api.PHYSICAL_NETWORK), self.physical_networks))
+            LOG.debug('Skipping binding, physical network on segment "{}" is not managed by this driver, '
+                      'managed networks are {}'
+                      ''.format(segment.get(api.PHYSICAL_NETWORK), self.physical_networks))

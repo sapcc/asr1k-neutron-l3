@@ -14,14 +14,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.netconf_yang import route as l3_route
 from asr1k_neutron_l3.common import utils
-
+from asr1k_neutron_l3.models.netconf_yang import route as l3_route
+from asr1k_neutron_l3.models.neutron.l3 import base
 
 
 class RouteCollection(base.Base):
-
     def __init__(self, router_id):
         super(RouteCollection, self).__init__()
         self.router_id = utils.uuid_to_vrf_id(router_id)
@@ -29,18 +27,16 @@ class RouteCollection(base.Base):
 
     @property
     def _rest_definition(self):
-         rest_routes = []
-         for route in self.routes:
-             rest_routes.append(route._rest_definition)
-         return l3_route.VrfRoute(name=self.router_id, routes=rest_routes)
+        rest_routes = []
+        for route in self.routes:
+            rest_routes.append(route._rest_definition)
+        return l3_route.VrfRoute(name=self.router_id, routes=rest_routes)
 
     def append(self, route):
         self.routes.append(route)
 
-
     def get(self):
         return l3_route.VrfRoute.get(self.router_id)
-
 
     def delete(self):
         rc = l3_route.VrfRoute(name=self.router_id)
@@ -48,13 +44,12 @@ class RouteCollection(base.Base):
         return rc.delete()
 
 
-
 class Route(base.Base):
-
     def __init__(self, router_id, destination, mask, nexthop):
         self.router_id = router_id
         self.destination = destination
         self.mask = mask
         self.nexthop = nexthop
 
-        self._rest_definition = l3_route.IpRoute(vrf=self.router_id, prefix=self.destination, mask=self.mask, fwd_list={"fwd": self.nexthop})
+        self._rest_definition = l3_route.IpRoute(vrf=self.router_id, prefix=self.destination, mask=self.mask,
+                                                 fwd_list={"fwd": self.nexthop})

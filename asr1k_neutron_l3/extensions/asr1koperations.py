@@ -1,27 +1,25 @@
 import abc
-import json
 
-from neutron_lib.api import extensions as api_extensions
 from neutron.api import extensions
 from neutron.api.v2.resource import Resource
+from neutron_lib.api import extensions as api_extensions
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
-from neutron import wsgi
 from neutron import policy
+from neutron import wsgi
 from oslo_log import log as logging
 from webob import exc as exceptions
-
 
 LOG = logging.getLogger(__name__)
 
 ASR1K_DEVICES_ALIAS = 'asr1k_operations'
 ACCESS_RULE = "context_is_cloud_admin"
 
+
 def check_access(request):
     allowed = False
     try:
-        allowed = policy.check(request.context,ACCESS_RULE, {'project_id': request.context.project_id})
-
+        allowed = policy.check(request.context, ACCESS_RULE, {'project_id': request.context.project_id})
     except:
         raise exceptions.HTTPUnauthorized()
 
@@ -29,9 +27,7 @@ def check_access(request):
         raise exceptions.HTTPUnauthorized()
 
 
-
 class Asr1koperations(api_extensions.ExtensionDescriptor):
-
     @classmethod
     def get_name(cls):
         return "Viewing and managing ASR1K device state"
@@ -52,8 +48,6 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
     def get_updated(cls):
         return "2018-03-08T10:00:00-00:00"
 
-
-
     @classmethod
     def get_resources(cls):
         resources = []
@@ -61,7 +55,7 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
         plugin = directory.get_plugin(plugin_constants.L3)
 
         routers = extensions.ResourceExtension('asr1k/routers',
-                                                Resource(RoutersController(plugin)))
+                                               Resource(RoutersController(plugin)))
         orphans = extensions.ResourceExtension('asr1k/orphans',
                                                Resource(OrphansController(plugin)))
         config = extensions.ResourceExtension('asr1k/config',
@@ -72,7 +66,6 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
 
         interface_stats = extensions.ResourceExtension('asr1k/interface-statistics',
                                                        Resource(InterfaceStatisticsController(plugin)))
-
 
         init_scheduler = extensions.ResourceExtension('asr1k/init_scheduler',
                                                       Resource(InitSchedulerController(plugin)))
@@ -101,139 +94,126 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
     def get_extended_resources(self, version):
         return {}
 
+
 class RoutersController(wsgi.Controller):
-    def __init__(self,plugin):
-        super(RoutersController,self).__init__()
+    def __init__(self, plugin):
+        super(RoutersController, self).__init__()
         self.plugin = plugin
 
     def show(self, request, id, **kwargs):
         check_access(request)
         try:
-            return self.plugin.validate(request.context,id)
+            return self.plugin.validate(request.context, id)
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
 
     def update(self, request, id, **kwargs):
         check_access(request)
         try:
-            return self.plugin.sync(request.context,id)
+            return self.plugin.sync(request.context, id)
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
-
-
 
     def delete(self, request, id, **kwargs):
         check_access(request)
         try:
-            return self.plugin.teardown(request.context,id)
+            return self.plugin.teardown(request.context, id)
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
 
 
 class OrphansController(wsgi.Controller):
-
     def __init__(self, plugin):
-        super(OrphansController,self).__init__()
+        super(OrphansController, self).__init__()
         self.plugin = plugin
 
     def show(self, request, id, **kwargs):
         check_access(request)
         try:
-            return self.plugin.show_orphans(request.context,id)
+            return self.plugin.show_orphans(request.context, id)
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
-
 
     def delete(self, request, id, **kwargs):
         check_access(request)
         try:
-            return self.plugin.delete_orphans(request.context,id)
+            return self.plugin.delete_orphans(request.context, id)
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
 
 
 class ConfigController(wsgi.Controller):
-
-    def __init__(self,plugin, **kwargs):
-        super(ConfigController,self).__init__()
+    def __init__(self, plugin, **kwargs):
+        super(ConfigController, self).__init__()
         self.plugin = plugin
 
     def show(self, request, id, **kwargs):
         check_access(request)
         try:
-            return self.plugin.get_config(request.context,id)
+            return self.plugin.get_config(request.context, id)
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
-
 
     def update(self, request, id, **kwargs):
         check_access(request)
         try:
-            return self.plugin.ensure_config(request.context,id)
+            return self.plugin.ensure_config(request.context, id)
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
 
 
-
 class DevicesController(wsgi.Controller):
-
-    def __init__(self,plugin):
-        super(DevicesController,self).__init__()
+    def __init__(self, plugin):
+        super(DevicesController, self).__init__()
         self.plugin = plugin
-
 
     def show(self, request, id, **kwargs):
         check_access(request)
         try:
             host = id
-            device_id = request.params.get('id',None)
+            device_id = request.params.get('id', None)
 
             if device_id is None:
-                return self.plugin.list_devices(request.context,host)
+                return self.plugin.list_devices(request.context, host)
             else:
-                return self.plugin.show_device(request.context,host,device_id)
+                return self.plugin.show_device(request.context, host, device_id)
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
-
 
     def update(self, request, id, body, **kwargs):
         check_access(request)
         try:
             host = id
-            result ={}
+            result = {}
             for key in body:
-                enable = body.get(key,'enable')
-                if enable =='disable':
+                enable = body.get(key, 'enable')
+                if enable == 'disable':
                     enabled = False
-                else :
-                    enabled =  True
+                else:
+                    enabled = True
 
                 device_result = self.plugin.update_device(request.context, host, key, enabled)
 
                 result[key] = device_result
 
-
-
-            return  result
+            return result
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
 
 
-
 class InterfaceStatisticsController(wsgi.Controller):
-
-    def __init__(self,plugin):
-        super(InterfaceStatisticsController,self).__init__()
+    def __init__(self, plugin):
+        super(InterfaceStatisticsController, self).__init__()
         self.plugin = plugin
 
     def show(self, request, id, **kwargs):
         check_access(request)
-        return self.plugin.interface_statistics(request.context,id)
+        return self.plugin.interface_statistics(request.context, id)
+
 
 class InitSchedulerController(wsgi.Controller):
-
     def __init__(self, plugin):
-        super(InitSchedulerController,self).__init__()
+        super(InitSchedulerController, self).__init__()
 
         self.plugin = plugin
 
@@ -243,9 +223,8 @@ class InitSchedulerController(wsgi.Controller):
 
 
 class InitBindingsController(wsgi.Controller):
-
     def __init__(self, plugin):
-        super(InitBindingsController,self).__init__()
+        super(InitBindingsController, self).__init__()
 
         self.plugin = plugin
 
@@ -253,10 +232,10 @@ class InitBindingsController(wsgi.Controller):
         check_access(request)
         return self.plugin.init_bindings(request.context)
 
-class InitAttsController(wsgi.Controller):
 
+class InitAttsController(wsgi.Controller):
     def __init__(self, plugin):
-        super(InitAttsController,self).__init__()
+        super(InitAttsController, self).__init__()
 
         self.plugin = plugin
 
@@ -264,21 +243,19 @@ class InitAttsController(wsgi.Controller):
         check_access(request)
         return self.plugin.init_atts(request.context)
 
-class InitConfigController(wsgi.Controller):
 
-    def __init__(self,plugin):
-        super(InitConfigController,self).__init__()
+class InitConfigController(wsgi.Controller):
+    def __init__(self, plugin):
+        super(InitConfigController, self).__init__()
 
         self.plugin = plugin
 
     def show(self, request, id, **kwargs):
         check_access(request)
-        return self.plugin.init_config(request.context,id)
+        return self.plugin.init_config(request.context, id)
 
 
 class DevicePluginBase(object):
-
-
     @abc.abstractmethod
     def validate(self, context, id, fields=None):
         pass
@@ -308,7 +285,7 @@ class DevicePluginBase(object):
         pass
 
     @abc.abstractmethod
-    def delete_orphans(self,context, host):
+    def delete_orphans(self, context, host):
         pass
 
     def list_devices(self, context, host):
@@ -323,18 +300,17 @@ class DevicePluginBase(object):
         pass
 
     @abc.abstractmethod
-    def init_scheduler(self,context):
+    def init_scheduler(self, context):
         pass
 
     @abc.abstractmethod
-    def init_bindings(self,context):
+    def init_bindings(self, context):
         pass
 
     @abc.abstractmethod
-    def init_atts(self,context):
+    def init_atts(self, context):
         pass
 
-
     @abc.abstractmethod
-    def init_config(self,context,id):
+    def init_config(self, context, id):
         pass

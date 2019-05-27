@@ -22,6 +22,7 @@ from neutron.tests import base
 cfg.CONF.use_stderr = False
 cfg.CONF(args=[])
 
+
 class PrometheusMonitorTest(base.BaseTestCase):
     def setUp(self):
         super(PrometheusMonitorTest, self).setUp()

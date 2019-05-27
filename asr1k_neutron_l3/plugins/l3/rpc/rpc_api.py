@@ -14,35 +14,29 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lib import context
 from neutron.api.rpc.handlers import l3_rpc
 from oslo_log import log
 
-from asr1k_neutron_l3.common.instrument import  instrument
+from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
 
 LOG = log.getLogger(__name__)
 
 
 class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
-
     def __init__(self):
         self.db = asr1k_db.get_db_plugin()
 
     @instrument()
     def delete_extra_atts_l3(self, context, **kwargs):
-
         ports = kwargs.get('ports', [])
 
         for port_id in ports:
             self.db.delete_extra_att(context, port_id, l3=True)
 
-
     @instrument()
     def get_address_scopes(self, context, **kwargs):
-
         scopes = kwargs.get('scopes', [])
-
         scopes = self.db.get_address_scopes(context, filters={'name': scopes})
 
         result = {}
@@ -54,29 +48,25 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
 
     @instrument()
     def update_router_status(self, context, **kwargs):
-
         router_id = kwargs.get('router_id')
         status = kwargs.get('status')
 
         if router_id is not None and status is not None:
-            self.db.update_router_status(context, router_id,status)
+            self.db.update_router_status(context, router_id, status)
 
     @instrument()
-    def get_deleted_routers(self,context, **kwargs):
+    def get_deleted_routers(self, context, **kwargs):
         host = kwargs.get('host')
         router_ids = kwargs.get('router_ids')
 
-        return self.l3plugin.get_sync_data(context, router_ids=router_ids, active=None,host=host)
-
+        return self.l3plugin.get_sync_data(context, router_ids=router_ids, active=None, host=host)
 
     @instrument()
-    def delete_extra_atts_orphans(self,context, **kwargs):
+    def delete_extra_atts_orphans(self, context, **kwargs):
         host = kwargs.get('host')
         extra_atts = self.db.get_orphaned_extra_atts(context, host)
         for att in extra_atts:
-            self.db.delete_extra_att(context,att.get('port_id'),l3=True)
-
-
+            self.db.delete_extra_att(context, att.get('port_id'), l3=True)
 
     @instrument()
     def get_all_extra_atts(self, context, host=None):
@@ -96,11 +86,11 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         return self.db.get_all_router_ids(context, host=host)
 
     @instrument()
-    def ensure_snat_mode(self,context, port_id=None,mode=None):
-        return self.db.ensure_snat_mode(context,port_id,mode)
+    def ensure_snat_mode(self, context, port_id=None, mode=None):
+        return self.db.ensure_snat_mode(context, port_id, mode)
 
     @instrument()
-    def get_deleted_router_atts(self,context, **kwargs):
+    def get_deleted_router_atts(self, context, **kwargs):
         router_atts = self.db.get_deleted_router_atts(context)
 
         return router_atts
@@ -112,25 +102,20 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         for router_id in router_ids:
             self.db.delete_router_att(context, router_id)
 
-
     @instrument()
     def delete_router_atts_orphans(self, context, **kwargs):
         host = kwargs.get('host')
-        router_atts = self.db.get_orphaned_router_atts(context,host)
+        router_atts = self.db.get_orphaned_router_atts(context, host)
         LOG.debug("********** delete_router_atts_orphans {}".format(router_atts))
         for att in router_atts:
             self.db.delete_router_att(context, att.get('router_id'))
 
-
-
+    @instrument()
+    def get_device_info(self, context, **kwargs):
+        host = kwargs.get('host')
+        return self.db.get_device_info(context, host)
 
     @instrument()
-    def get_device_info(self,context, **kwargs):
+    def get_usage_stats(self, context, **kwargs):
         host = kwargs.get('host')
-        return self.db.get_device_info(context,host)
-
-
-    @instrument()
-    def get_usage_stats(self,context, **kwargs):
-        host = kwargs.get('host')
-        return self.db.get_usage_stats(context,host)
+        return self.db.get_usage_stats(context, host)

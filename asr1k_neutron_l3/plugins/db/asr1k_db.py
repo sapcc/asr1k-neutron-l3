@@ -42,7 +42,7 @@ from neutron_lib import constants as n_constants
 from neutron_lib import context as n_context
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.exceptions import l3 as l3_exc
-from networking_bgpvpn.neutron.db import  bgpvpn_db
+from networking_bgpvpn.neutron.db import bgpvpn_db
 from neutron_lib.db import api as db_api
 
 MIN_DOT1Q = 1000
@@ -76,16 +76,12 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                l3_agentschedulers_db.L3AgentSchedulerDbMixin,
                bgpvpn_db.BGPVPNPluginDb
                ):
-
     def __init__(self):
         super(DBPlugin, self).__init__()
 
-
     def get_bgpvpns_by_router_id(self, context, router_id, filters=None, fields=None):
-
-        query = context.session.query(bgpvpn_db.BGPVPN).join(bgpvpn_db.BGPVPN.router_associations).filter(bgpvpn_db.BGPVPNRouterAssociation.router_id==router_id).distinct()
+        query = context.session.query(bgpvpn_db.BGPVPN).join(bgpvpn_db.BGPVPN.router_associations).filter(bgpvpn_db.BGPVPNRouterAssociation.router_id == router_id).distinct()
         return query.all()
-
 
     def ensure_snat_mode(self, context, port_id, mode):
         if port_id is None:
@@ -117,8 +113,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         except l3_exc.RouterNotFound:
             LOG.info("Update to status to {} for router {} failed, router not found.".format(status, router_id))
             return
-
-
 
     def get_ports_with_extra_atts(self, context, ports, host):
         query = context.session.query(models_v2.Port.id,
@@ -155,16 +149,15 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
                 asr1k_models.ASR1KExtraAttsModel.agent_host == host).all()
 
-    def get_extra_atts_for_routers(self, context, routers,host=None):
+    def get_extra_atts_for_routers(self, context, routers, host=None):
         if routers is None:
             return []
         if host is None:
             return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
                 sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers)).all()
         else:
-            return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel.agent_host==host).filter(
+            return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(
                 sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers)).all()
-
 
     def get_extra_atts_for_ports(self, context, ports):
         if ports is None:
@@ -185,7 +178,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_orphaned_extra_atts_router_ids(self, context, host):
         subquery = context.session.query(l3_models.Router.id)
 
-        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter( asr1k_models.ASR1KExtraAttsModel.agent_host==host).filter(
+        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(
             asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
         result = []
         for row in query.all():
@@ -223,12 +216,10 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return result
 
     def get_orphaned_extra_atts(self, context, host):
-
         routers = self.get_orphaned_extra_atts_router_ids(context, host)
         router_extra_atts = self.get_extra_atts_for_routers(context, routers)
 
         ports = self.get_orphaned_extra_atts_port_ids(context, host)
-
         port_extra_atts = self.get_extra_atts_for_ports(context, ports)
 
         return router_extra_atts + list(set(port_extra_atts) - set(router_extra_atts))
@@ -312,7 +303,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return result
 
     def get_router_segment_for_port(self, context, router_id, port_id):
-
         agents = self.get_l3_agents_hosting_routers(context, [router_id], admin_state_up=True)
         if len(agents) > 0:
             host = agents[0].host
@@ -359,7 +349,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         for entry in routers:
             result.append(entry.id)
 
-
         return result
 
     def get_router_atts_for_routers(self, context, routers):
@@ -379,7 +368,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
     @log_helpers.log_method_call
     def delete_extra_att(self, context, port_id, l2=None, l3=None):
-
         delete = False
 
         extra_att = self.get_extra_att(context, port_id)
@@ -395,8 +383,10 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                     context.session.delete(extra_att)
                 else:
                     updates = {}
-                    if l2: updates['deleted_l2'] = l2
-                    if l3: updates['deleted_l3'] = l3
+                    if l2:
+                        updates['deleted_l2'] = l2
+                    if l3:
+                        updates['deleted_l3'] = l3
 
                     extra_att.update(updates)
                     extra_att.save(context.session)
@@ -421,7 +411,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return result
 
     def get_usage_stats(self, context, host):
-
         agent = self._get_agent_by_type_and_host(context, constants.AGENT_TYPE_ASR1K_L3, host)
 
         active_router_ids = []
@@ -473,7 +462,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
 
 class ExtraAttsDb(object):
-
     @classmethod
     def ensure(cls, router_id, port, segment):
         context = n_context.get_admin_context()
@@ -515,7 +503,6 @@ class ExtraAttsDb(object):
 
     def set_next_entries(self):
         extra_atts = self.session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(agent_host=self.agent_host)
-
         second_dot1qs = []
 
         for extra_att in extra_atts:
@@ -527,7 +514,6 @@ class ExtraAttsDb(object):
                 break
 
     def _ensure(self):
-
         if not self._record_exists:
             LOG.debug("L2 extra atts not existing, attempting create")
             self.set_next_entries()
@@ -568,7 +554,7 @@ class RouterAttsDb(object):
         router_att = self.session.query(asr1k_models.ASR1KRouterAttsModel).order_by(
             asr1k_models.ASR1KRouterAttsModel.rd.desc()).first()
 
-        if  router_att  is None:
+        if router_att is None:
             self.rd = 1
         elif router_att.rd <= MAX_RD:
             self.rd = router_att.rd + 1
@@ -587,7 +573,6 @@ class RouterAttsDb(object):
             raise asr1k_exceptions.RdPoolExhausted()
 
     def _ensure(self):
-
         if not self._record_exists:
             LOG.debug("Router atts not existing, attempting create")
             self._set_next_entries()
@@ -602,7 +587,6 @@ class RouterAttsDb(object):
 
 
 class DeviceInfoDb(object):
-
     def __init__(self, context, id, host, enabled):
         self.session = db_api.get_writer_session()
         self.context = context
@@ -622,11 +606,9 @@ class DeviceInfoDb(object):
                 host=self.host,
                 enabled=self.enabled
             )
-
             record = self._record_exists
 
             if record is not None:
                 record.update(device_info)
-
             else:
                 self.session.add(device_info)

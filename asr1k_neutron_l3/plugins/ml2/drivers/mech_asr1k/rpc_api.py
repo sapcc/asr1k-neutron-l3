@@ -38,12 +38,12 @@ class ASR1KPluginApi(object):
         return cctxt.call(context, 'get_ports_with_extra_atts', ports=ports,
                           agent_id=agent_id, host=host)
 
-    def get_extra_atts(self, context, ports, deleteable= False, agent_id=None, host=None):
+    def get_extra_atts(self, context, ports, deleteable=False, agent_id=None, host=None):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_extra_atts', ports=ports,
                           agent_id=agent_id, host=host)
 
-    def get_orphaned_extra_atts(self, context,agent_id=None, host=None):
+    def get_orphaned_extra_atts(self, context, agent_id=None, host=None):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_orphaned_extra_atts',
                           agent_id=agent_id, host=host)
@@ -53,9 +53,10 @@ class ASR1KPluginApi(object):
         return cctxt.call(context, 'delete_extra_atts', ports=ports,
                           agent_id=agent_id, host=host)
 
-    def get_interface_ports(self, context, limit=None , offset=None,host=None):
+    def get_interface_ports(self, context, limit=None, offset=None, host=None):
         cctxt = self.client.prepare()
-        return cctxt.call(context, 'get_interface_ports',limit=limit , offset=offset,host=host)
+        return cctxt.call(context, 'get_interface_ports', limit=limit,
+                          offset=offset, host=host)
 
     def get_device_info(self, context, host):
         cctxt = self.client.prepare()
@@ -70,11 +71,11 @@ class ASR1KPluginCallback(object):
 
     @instrument.instrument()
     def get_ports_with_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
-        return self.db.get_ports_with_extra_atts(self.context, ports,host)
+        return self.db.get_ports_with_extra_atts(self.context, ports, host)
 
     @instrument.instrument()
     def get_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
-        return self.db.get_extra_atts(self.context, ports,host)
+        return self.db.get_extra_atts(self.context, ports, host)
 
     def get_orphaned_extra_atts(self, rpc_context, agent_id=None, host=None):
         return self.db.get_orphaned_extra_atts(self.context, host=host)
@@ -87,12 +88,11 @@ class ASR1KPluginCallback(object):
             self.db.delete_extra_att(self.context, port_id, l2=True)
 
     @instrument.instrument()
-    def get_interface_ports(self, rpc_context, limit=None, offset=None,host=None):
+    def get_interface_ports(self, rpc_context, limit=None, offset=None, host=None):
+        ports = self.db.get_interface_ports(self.context, limit=limit,
+                                            offset=offset, host=host)
 
-
-        ports = self.db.get_interface_ports(self.context, limit=limit, offset=offset,host=host)
-
-        LOG.debug("ports len %s",len(ports))
+        LOG.debug("ports len %s", len(ports))
 
         return ports
 

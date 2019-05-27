@@ -16,32 +16,33 @@
 
 from neutron_lib import exceptions as nexception
 
+
 class Asr1kException(BaseException):
     pass
-
 
 
 class RdPoolExhausted(nexception.NotFound):
     message = "No free RD could be allocated to the router. Please raise an issue with support."
 
 
-
 class DeviceUnreachable(BaseException):
     message = "Device %(host)s is not reachable"
+
     def __init__(self, **kwargs):
         self.host = kwargs.get('host')
 
+
 class DeviceOperationException(Asr1kException):
 
-    def __init__(self,**kwargs):
-         self.host = kwargs.get('host')
-         self.entity = kwargs.get('entity')
-         kwargs['entity_name'] = 'Unknown'
-         if self.entity is not None:
-             kwargs['entity_name'] = self.entity.__class__.__name__
-         self.operation = kwargs.get('operation')
-         self.msg = self.message % kwargs
-         super(DeviceOperationException,self).__init__()
+    def __init__(self, **kwargs):
+        self.host = kwargs.get('host')
+        self.entity = kwargs.get('entity')
+        kwargs['entity_name'] = 'Unknown'
+        if self.entity is not None:
+            kwargs['entity_name'] = self.entity.__class__.__name__
+        self.operation = kwargs.get('operation')
+        self.msg = self.message % kwargs
+        super(DeviceOperationException, self).__init__()
 
     @property
     def raise_exception(self):
@@ -54,8 +55,8 @@ class DeviceOperationException(Asr1kException):
 class ConfigurationLockExcexption(DeviceOperationException):
     message = "Configuration is locked on device %(host)s"
 
-class ReQueueException(DeviceOperationException):
 
+class ReQueueException(DeviceOperationException):
     @property
     def raise_exception(self):
         return True
@@ -68,6 +69,7 @@ class InternalErrorException(DeviceOperationException):
 class ConfigurationLockedException(ReQueueException):
     message = "Encoutered a requeable lock exception executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
 
+
 class ReQueueableInternalErrorException(ReQueueException):
     message = "An requeable internal error executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
 
@@ -78,6 +80,7 @@ class InconsistentModelException(DeviceOperationException):
 
 class DeviceConnectionException(DeviceOperationException):
     message = "Cannot connect to device %(host)s"
+
 
 class EntityNotEmptyException(ReQueueException):
     message = "The config for entity %(entity_name)s is not empty and cannot be deleted without side effects"

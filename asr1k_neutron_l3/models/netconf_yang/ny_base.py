@@ -13,22 +13,20 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import six
 import time
+
 import eventlet
 import eventlet.debug
 import dictdiffer
-from collections import OrderedDict
+import six
 
 
 eventlet.debug.hub_exceptions(False)
 from oslo_log import log as logging
 from oslo_utils import uuidutils
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
-from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.connection import ConnectionManager
-from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict
 from asr1k_neutron_l3.models.netconf_yang.bulk_operations import BulkOperations
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
@@ -42,16 +40,14 @@ from ncclient.operations.errors import TimeoutExpiredError
 LOG = logging.getLogger(__name__)
 
 
-
-
-
 class NC_OPERATION(object):
     DELETE = 'delete'
     REMOVE = 'remove'
     CREATE = 'create'
     PUT = 'replace'
     PATCH = 'merge'
-    OVERRIDE="override"
+    OVERRIDE = 'override'
+
 
 class YANG_TYPE(object):
     EMPTY = 'empty'
@@ -61,6 +57,7 @@ class classproperty(property):
     def __get__(self, cls, owner):
         return self.fget.__get__(None, owner)()
 
+
 class Requeable(object):
     # Marker class to indicate an object may be requed when an operation fails
 
@@ -69,7 +66,6 @@ class Requeable(object):
 
 
 class execute_on_pair(object):
-
     def __init__(self, return_raw=False, result_type=None):
         self.return_raw = return_raw
 
@@ -77,10 +73,7 @@ class execute_on_pair(object):
         if result_type is not None:
             self.result_type = result_type
 
-
-    def _execute_method(self,*args,**kwargs):
-
-
+    def _execute_method(self, *args, **kwargs):
         method = kwargs.pop('_method')
         result = kwargs.pop('_result')
         context = kwargs.get('context')
@@ -92,21 +85,16 @@ class execute_on_pair(object):
             if isinstance(response, self.result_type):
                 result = response
             else:
-                result.append( kwargs.get('context'), response)
+                result.append(kwargs.get('context'), response)
         except BaseException as e:
             LOG.exception(e)
             result.append(kwargs.get('context'), e)
 
     def __call__(self, method):
-
-
-
-
         @six.wraps(method)
-
         def wrapper(*args, **kwargs):
             start = time.time()
-            result = self.result_type(args[0],method.__name__)
+            result = self.result_type(args[0], method.__name__)
             if not self.return_raw:
                 pool = eventlet.GreenPool()
                 for context in asr1k_pair.ASR1KPair().contexts:
@@ -114,13 +102,13 @@ class execute_on_pair(object):
                     kwargs['_method'] = method
                     kwargs['_result'] = result
 
-                    pool.spawn_n(self._execute_method,*args,**kwargs)
+                    pool.spawn_n(self._execute_method, *args, **kwargs)
                 pool.waitall()
 
             else:
                 # Context passed explitly execute once and return
                 # base result
-                if  kwargs.get('context') is None:
+                if kwargs.get('context') is None:
                     kwargs['context'] = asr1k_pair.ASR1KPair().contexts[0]
 
                 try:
@@ -131,39 +119,36 @@ class execute_on_pair(object):
                 except Exception as e:
                     raise e
 
-            if isinstance(result,self.result_type):
+            if isinstance(result, self.result_type):
                 if not result.success:
                     LOG.warning(result.errors)
                     result.raise_errors()
 
-            duration = time.time()-start
-
+            duration = time.time() - start
             if hasattr(result, 'duration'):
-                setattr(result,'duration',duration)
+                setattr(result, 'duration', duration)
 
             return result
 
         return wrapper
 
-class retry_on_failure(object):
 
+class retry_on_failure(object):
     def __init__(self, retry_interval=0.1, max_retry_interval=20, backoff=True):
         self.retry_interval = retry_interval
         self.max_retry_interval = max_retry_interval
         self.backoff = backoff
 
-
         super(retry_on_failure, self).__init__()
 
     def __call__(self, f):
-
         @six.wraps(f)
         def wrapper(*args, **kwargs):
             uuid = uuidutils.generate_uuid()
             retries = 0
             exception = None
 
-            entity =args[0]
+            entity = args[0]
 
             context = kwargs.get('context')
             host = None
@@ -174,10 +159,13 @@ class retry_on_failure(object):
             start = time.time()
             total_retry = 0
             while total_retry < self.max_retry_interval:
-                total_retry +=backoff
+                total_retry += backoff
                 if retries > 0:
-                    LOG.debug("** [{}] request {} :  Retry method {} on {} retries {} backoff {}s : {}s of {}s elapsed".format(host,uuid, f.__name__,entity.__class__.__name__,retries,backoff,time.time()-start,self.max_retry_interval))
-                    backoff  = pow(2,retries)*self.retry_interval
+                    LOG.debug("** [{}] request {} :  Retry method {} on {} retries {} backoff {}s : {}s of {}s elapsed"
+                              "".format(host, uuid, f.__name__,
+                                        entity.__class__.__name__, retries, backoff,
+                                        time.time() - start, self.max_retry_interval))
+                    backoff = pow(2, retries) * self.retry_interval
 
                 try:
                     result = f(*args, **kwargs)
@@ -186,14 +174,10 @@ class retry_on_failure(object):
                         time.sleep(self.retry_interval)
                         retries += 1
                     else:
-                        if retries >  0:
-                            LOG.debug(
-                                "** [{}] request {} :  Method {} on {} succeeded after {} attempts  in {}s".format(host,
-                                                                                                               uuid,
-                                                                                                               f.__name__,
-                                                                                                               entity.__class__.__name__,
-                                                                                                               retries,
-                                                                                                               time.time() - start))
+                        if retries > 0:
+                            LOG.debug("** [{}] request {} :  Method {} on {} succeeded after {} attempts  in {}s"
+                                      "".format(host, uuid, f.__name__,
+                                                entity.__class__.__name__, retries, time.time() - start))
                         return result
                 except exc.DeviceUnreachable as e:
                     if context is not None:
@@ -201,62 +185,78 @@ class retry_on_failure(object):
                     break
                 except exc.EntityNotEmptyException as e:
                     if total_retry < self.max_retry_interval:
-                        LOG.debug("** [{}] request {} :  retry {} of {} on {} entity has child config , will backoff and retry ".format(host,uuid,retries,f.__name__,args[0].__class__.__name__ ))
+                        LOG.debug("** [{}] request {} :  retry {} of {} on {} entity has child config , "
+                                  "will backoff and retry "
+                                  "".format(host, uuid, retries, f.__name__, args[0].__class__.__name__))
                         pass  # retry on lock
                     else:
                         LOG.debug(
-                            "** [{}] request {} :  retry {} of {} on {}entity has child config , retry limit reached, failing ".format(host, uuid, retries, f.__name__, args[0].__class__.__name__))
+                            "** [{}] request {} :  retry {} of {} on {}entity has child config , "
+                            "retry limit reached, failing "
+                            "".format(host, uuid, retries, f.__name__, args[0].__class__.__name__))
                     time.sleep(backoff)
                     retries += 1
                     exception = e
-                except (RPCError , SessionCloseError,SSHError,TimeoutExpiredError,exc.EntityNotEmptyException) as e:
-
-
-
-                    if isinstance(e,RPCError):
+                except (RPCError, SessionCloseError, SSHError, TimeoutExpiredError, exc.EntityNotEmptyException) as e:
+                    if isinstance(e, RPCError):
                         operation = f.__name__
 
-                        if e.tag in  ['data-missing']:
+                        if e.tag in ['data-missing']:
                             return None
 
-                        elif e.message== "resource denied: Sync is in progress":
+                        elif e.message == "resource denied: Sync is in progress":
                             PrometheusMonitor().rpc_sync_errors.labels(device=context.host,
+                                                                       entity=entity.__class__.__name__,
+                                                                       action=operation).inc()
+                            raise exc.ReQueueableInternalErrorException(host=host, entity=entity, operation=operation)
+                        elif e.message == 'inconsistent value: Device refused one or more commands':
+                            # the data model is not compatible with the device
+                            LOG.debug("{} {} {}".format(entity.__class__.__name__, operation, e.to_dict()))
+
+                            PrometheusMonitor().inconsistency_errors.labels(device=context.host,
                                                                             entity=entity.__class__.__name__,
                                                                             action=operation).inc()
-                            raise exc.ReQueueableInternalErrorException(host=host, entity=entity, operation=operation)
-                        elif e.message =='inconsistent value: Device refused one or more commands':  # the data model is not compatible with the device
-                            LOG.debug("{} {} {}".format(entity.__class__.__name__,operation,e.to_dict()))
 
-                            PrometheusMonitor().inconsistency_errors.labels(device=context.host,entity=entity.__class__.__name__,action=operation).inc()
-
-                            raise exc.InconsistentModelException(device=context.host,host=host,entity = entity,operation = operation)
-                        elif e.message == 'internal error':  # something can't be configured maybe due to transient state e.g. BGP session active these should be requeued
+                            raise exc.InconsistentModelException(device=context.host, host=host,
+                                                                 entity=entity, operation=operation)
+                        elif e.message == 'internal error':
+                            # something can't be configured maybe due to transient state
+                            # e.g. BGP session active these should be requeued
                             LOG.debug(e.to_dict())
 
-                            if isinstance(entity,Requeable) and operation in entity.requeable_operations():
+                            if isinstance(entity, Requeable) and operation in entity.requeable_operations():
                                 PrometheusMonitor().requeue.labels(device=context.host,
+                                                                   entity=entity.__class__.__name__,
+                                                                   action=f.__name__).inc()
+                                raise exc.ReQueueableInternalErrorException(host=host, entity=entity,
+                                                                            operation=operation)
+                            else:
+                                PrometheusMonitor().internal_errors.labels(device=context.host,
                                                                            entity=entity.__class__.__name__,
                                                                            action=f.__name__).inc()
-                                raise exc.ReQueueableInternalErrorException(host=host, entity = entity,operation = operation)
-                            else:
-                                PrometheusMonitor().internal_errors.labels(device=context.host,entity=entity.__class__.__name__,action=f.__name__).inc()
-                                raise exc.InternalErrorException(host=host, entity = entity,operation = operation)
+                                raise exc.InternalErrorException(host=host, entity=entity, operation=operation)
                         elif e.tag in ['in-use']:  # Lock
-
-                            PrometheusMonitor().config_locks.labels(device=context.host,entity=entity.__class__.__name__,action=f.__name__).inc()
+                            PrometheusMonitor().config_locks.labels(device=context.host,
+                                                                    entity=entity.__class__.__name__,
+                                                                    action=f.__name__).inc()
 
                             if total_retry < self.max_retry_interval:
-                                LOG.debug("** [{}] request {} :  retry {} of {} on {} hit config lock , will backoff and retry ".format(host,uuid,retries,f.__name__,args[0].__class__.__name__ ))
+                                LOG.debug("** [{}] request {} :  retry {} of {} on {} hit config lock , "
+                                          "will backoff and retry "
+                                          "".format(host, uuid, retries, f.__name__, args[0].__class__.__name__))
                                 pass  # retry on lock
                             else:
                                 LOG.debug(
-                                    "** [{}] request {} :  retry {} of {} on {} hit config lock , retry limit reached, failing ".format(host, uuid, retries, f.__name__, args[0].__class__.__name__))
-                                raise exc.ConfigurationLockedException(host=host, entity = entity,operation = operation)
+                                    "** [{}] request {} :  retry {} of {} on {} hit config lock , "
+                                    "retry limit reached, failing "
+                                    "".format(host, uuid, retries, f.__name__, args[0].__class__.__name__))
+                                raise exc.ConfigurationLockedException(host=host, entity=entity, operation=operation)
 
                         else:
                             LOG.debug(e.to_dict())
-                    elif isinstance(e,SSHError):
-                        PrometheusMonitor().nc_ssh_errors.labels(device=context.host,entity=entity.__class__.__name__,action=f.__name__).inc()
+                    elif isinstance(e, SSHError):
+                        PrometheusMonitor().nc_ssh_errors.labels(device=context.host, entity=entity.__class__.__name__,
+                                                                 action=f.__name__).inc()
                         LOG.exception(e)
                     elif isinstance(e, exc.EntityNotEmptyException):
                         raise exc.ReQueueableInternalErrorException(host=host, entity=entity, operation=operation)
@@ -271,14 +271,11 @@ class retry_on_failure(object):
                 LOG.error(entity)
                 raise exception
 
-
-
         return wrapper
 
+
 class PairResult(object):
-
-    def __init__(self,entity,operation):
-
+    def __init__(self, entity, operation):
         self.entity = entity
         self.operation = operation
         self.results = {}
@@ -288,8 +285,7 @@ class PairResult(object):
         self.duration = -1
 
     def append(self, context, response):
-
-        if isinstance(response,BaseException):
+        if isinstance(response, BaseException):
             self.errors[context.host] = response
         else:
             self.results[context.host] = response
@@ -301,7 +297,6 @@ class PairResult(object):
     @property
     def error(self):
         return bool(self.errors)
-
 
     def raise_errors(self):
         # Operation will start in _ as we use the internal CRD call on each device
@@ -318,26 +313,25 @@ class PairResult(object):
             should_raise = getattr(self.entity, check_attr)
 
         for host, error in six.iteritems(self.errors):
-            if should_raise and isinstance(error,exc.DeviceOperationException) and error.raise_exception:
+            if should_raise and isinstance(error, exc.DeviceOperationException) and error.raise_exception:
                 raise error
-
 
     def __str__(self):
         result = ''
         if self.success and self.show_success:
             result = "** Success  for [{}] action [{}]\n".format(self.entity.__class__.__name__, self.operation)
             for host in self.results:
-                result += "[{}] : {}\n".format(host,self.results.get(host))
+                result += "[{}] : {}\n".format(host, self.results.get(host))
 
         if self.error and self.show_failure:
             result = "** Errors for [{}] action [{}]\n".format(self.entity.__class__.__name__, self.operation)
 
             for host in self.errors:
-                error = self.errors.get(host,None)
-                if hasattr(self.entity,'to_xml'):
+                error = self.errors.get(host, None)
+                if hasattr(self.entity, 'to_xml'):
                     result += "{}\n".format(self.entity.to_xml())
 
-                result += "{} : {} : {}\n".format(host,error.__class__.__name__, error)
+                result += "{} : {} : {}\n".format(host, error.__class__.__name__, error)
 
         return result
 
@@ -352,9 +346,8 @@ class PairResult(object):
 
         return result
 
+
 class DiffResult(PairResult):
-
-
     @property
     def valid(self):
         valid = True
@@ -378,8 +371,7 @@ class DiffResult(PairResult):
         return self.results
 
     def diffs_for_device(self, host):
-        return  self.results.get(host,[])
-
+        return self.results.get(host, [])
 
     def to_dict(self):
         result = {}
@@ -404,7 +396,7 @@ class NyBase(BulkOperations):
     PARENT = 'parent'
 
     EMPTY_TYPE = {}
-    LIST_KEY  =""
+    LIST_KEY = ""
 
     @classmethod
     def __parameters__(cls):
@@ -421,7 +413,6 @@ class NyBase(BulkOperations):
         self.raise_on_update = True
         self.raise_on_delete = True
         self.raise_on_valid = False
-
 
         id_field = "id"
         if self.__parameters__():
@@ -442,16 +433,15 @@ class NyBase(BulkOperations):
                     value = kwargs.get(yang_key)
                 if value is None:
                     value = kwargs.get(yang_key.replace("_", "-"))
-                if value is None and default is not None :
+                if value is None and default is not None:
                     value = default
 
-
-                if isinstance(value,int) and not isinstance(value,bool):
+                if isinstance(value, int) and not isinstance(value, bool):
                     value = str(value)
 
                 if mandatory and value is None:
                     pass
-                    #raise Exception("Missing mandatory paramter {}".format(key))
+                    # raise Exception("Missing mandatory paramter {}".format(key))
                 else:
                     if isinstance(value, list):
                         new_value = []
@@ -462,26 +452,24 @@ class NyBase(BulkOperations):
                         value = new_value
                     else:
                         value = self._get_value(param, value)
-
                 setattr(self, key, value)
 
-            if kwargs.has_key(self.PARENT):
+            if self.PARENT in kwargs:
                 setattr(self, self.parent, kwargs)
 
             self.__id_function__(id_field, **kwargs)
 
-    def _get_value(self,param,item):
+    def _get_value(self, param, item):
         type = param.get('type')
 
-        if isinstance(type,list):
+        if isinstance(type, list):
             type = type[0]
 
-
-        if type is not None and item is not None and not isinstance(item,type) and not isinstance(item,unicode) and not type == str:
+        if type is not None and item is not None and not isinstance(item, type) and \
+                not isinstance(item, unicode) and not type == str:
             return type(**item)
 
         return item
-
 
     def __id_function__(self, id_field, **kwargs):
         self.id = str(kwargs.get(id_field))
@@ -490,13 +478,13 @@ class NyBase(BulkOperations):
 
     def __str__(self):
         json = self.to_dict()
-        if isinstance(json,dict):
+        if isinstance(json, dict):
             value = JsonDict(json).__str__()
         else:
             value = json.__str__()
 
         if value is None:
-            value =""
+            value = ""
         return value
 
     def __eq__(self, other):
@@ -510,69 +498,66 @@ class NyBase(BulkOperations):
     def empty_diff(self):
         return self.EMPTY_TYPE
 
-    def _diff(self,other):
-
-
+    def _diff(self, other):
         self_json = self._to_plain_json(self.to_dict())
 
-        other_json= {}
+        other_json = {}
         if other is not None:
             other_json = self._to_plain_json(other.to_dict())
         else:
             other_json = self.empty_diff()
 
-        return self.__json_diff(self_json,other_json)
+        return self.__json_diff(self_json, other_json)
 
-
-
-    def __json_diff(self,self_json,other_json):
-        ignore=[]
+    def __json_diff(self, self_json, other_json):
+        ignore = []
         for param in self.__parameters__():
-            if not param.get('validate',True):
-                ignore.append(param.get('key',param.get('yang-key')))
+            if not param.get('validate', True):
+                ignore.append(param.get('key', param.get('yang-key')))
 
-        diff =  self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=ignore))
+        diff = self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=ignore))
 
         return diff
 
-    def __diffs_to_dicts(self,diffs):
-        result= []
-        if not isinstance(diffs,list):
+    def __diffs_to_dicts(self, diffs):
+        result = []
+        if not isinstance(diffs, list):
             diffs = list(diffs)
         if diffs:
             for diff in diffs:
-                if len(diff)==3:
+                if len(diff) == 3:
                     neutron = None
                     device = None
 
-                    if len(diff[2])==1:
+                    if len(diff[2]) == 1:
                         neutron = diff[2][0]
 
-                    elif len(diff[2])==2:
+                    elif len(diff[2]) == 2:
                         neutron = diff[2][0]
                         device = diff[2][1]
 
-
-                    result.append({'entity':self.id,'type':diff[0],'item':diff[1],'neutron':neutron,'device':device})
+                    result.append({'entity': self.id,
+                                   'type': diff[0],
+                                   'item': diff[1],
+                                   'neutron': neutron,
+                                   'device': device})
 
         return result
 
-
     @classmethod
-    def from_json(cls, json,parent=None):
-
+    def from_json(cls, json, parent=None):
         try:
             if not bool(json):
                 return None
             params = {}
 
             for param in cls.__parameters__():
-                if param.get('deserialise',True):
+                if param.get('deserialise', True):
 
                     key = param.get('key', "")
 
                     cisco_key = key.replace("_", "-")
-                    yang_key = param.get("yang-key",cisco_key)
+                    yang_key = param.get("yang-key", cisco_key)
                     yang_path = param.get("yang-path")
                     type = param.get("type")
 
@@ -582,40 +567,40 @@ class NyBase(BulkOperations):
                         for path_item in path:
                             if bool(values):
                                 values = values.get(path_item)
-                                if isinstance(values,list):
-                                    LOG.debug("Unexpected list found for {} path {} values {}".format(cls.__name__, yang_path,values))
+                                if isinstance(values, list):
+                                    LOG.debug("Unexpected list found for {} path {} values {}"
+                                              "".format(cls.__name__, yang_path, values))
                                 if bool(values) is None:
-                                    LOG.warning("Invalid yang segment {} in {} please check against yang model. Values: {}".format(path_item,yang_path,values))
-
+                                    LOG.warning("Invalid yang segment {} in {} please check against yang model. "
+                                                "Values: {}".format(path_item, yang_path, values))
 
                     if bool(values):
-                        if  param.get('yang-type') == YANG_TYPE.EMPTY:
-                            if values.has_key(yang_key):
+                        if param.get('yang-type') == YANG_TYPE.EMPTY:
+                            if yang_key in values:
                                 value = True
                             else:
                                 value = False
 
-                        elif isinstance(type,list) and param.get('root-list',False):
+                        elif isinstance(type, list) and param.get('root-list', False):
                             value = values
-                        elif hasattr(values,'get'):
+                        elif hasattr(values, 'get'):
                             value = values.get(yang_key)
                         else:
                             value = values
 
                         if type is not None:
-                            if isinstance(type,list):
+                            if isinstance(type, list):
                                 type = type[0]
                                 result = []
-                                if isinstance(value,list):
+                                if isinstance(value, list):
                                     for v in value:
-                                        if isinstance(v,dict) and not type == str:
+                                        if isinstance(v, dict) and not type == str:
                                             v[cls.PARENT] = params
                                             result.append(type.from_json(v))
                                         else:
                                             result.append(v)
                                 else:
-
-                                    if value is not None and not isinstance(value,unicode) and not type == str:
+                                    if value is not None and not isinstance(value, unicode) and not type == str:
                                         value[cls.PARENT] = params
                                         result.append(type.from_json(value))
                                     else:
@@ -625,7 +610,7 @@ class NyBase(BulkOperations):
                             else:
                                 value = type.from_json(value)
 
-                        if isinstance(value, dict) and value =={}:
+                        if isinstance(value, dict) and value == {}:
                             value = True
 
                         params[key] = value
@@ -634,29 +619,26 @@ class NyBase(BulkOperations):
 
         return cls(**params)
 
-
-
-
     @classmethod
-    def get_primary_filter(cls,**kwargs):
+    def get_primary_filter(cls, **kwargs):
         return cls.ID_FILTER.format(**{'id': kwargs.get('id')})
 
     @classmethod
-    def get_all_filter(cls,**kwargs):
+    def get_all_filter(cls, **kwargs):
         return cls.ALL_FILTER.format(**kwargs)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls,id, context=None):
-        return cls._get(id=id,context=context)
+    def get(cls, id, context=None):
+        return cls._get(id=id, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
     def exists(cls, id, context=None):
-        return cls._exists(id=id,context=context)
+        return cls._exists(id=id, context=context)
 
     @classmethod
-    def _get(cls,**kwargs):
+    def _get(cls, **kwargs):
         try:
             nc_filter = kwargs.get('nc_filter')
             if nc_filter is None:
@@ -664,32 +646,29 @@ class NyBase(BulkOperations):
 
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
-                result = connection.get(filter=nc_filter,entity=cls.__name__,action="get")
+                result = connection.get(filter=nc_filter, entity=cls.__name__, action="get")
 
                 json = cls.to_json(result.xml)
-
                 if json is not None:
-                    json = json.get(cls.ITEM_KEY,None)
+                    json = json.get(cls.ITEM_KEY, None)
 
                     if json is None:
                         return None
 
                     result = cls.from_json(json)
 
-                    #Add missing primary keys from get
-
+                    # Add missing primary keys from get
                     cls.__ensure_primary_keys(result, **kwargs)
 
                     return result
         except exc.DeviceUnreachable:
             pass
 
-
     @classmethod
-    def _get_all(cls,**kwargs):
+    def _get_all(cls, **kwargs):
         result = []
         try:
-            xpath_filter = kwargs.get('xpath_filter',None)
+            xpath_filter = kwargs.get('xpath_filter', None)
             if xpath_filter is None:
                 nc_filter = kwargs.get('nc_filter')
                 if nc_filter is None:
@@ -697,54 +676,40 @@ class NyBase(BulkOperations):
 
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
-
                 if xpath_filter is not None:
                     rpc_result = connection.xpath_get(filter=xpath_filter, entity=cls.__name__, action="xpath_get_all")
                 else:
-                    rpc_result = connection.get(filter=nc_filter,entity=cls.__name__,action="get_all")
+                    rpc_result = connection.get(filter=nc_filter, entity=cls.__name__, action="get_all")
 
                 json = cls.to_json(rpc_result.xml)
 
                 if json is not None:
                     json = json.get(cls.ITEM_KEY, json)
 
-                    if isinstance(json,list):
-
+                    if isinstance(json, list):
                         for item in json:
                             result.append(cls.from_json(item))
                     else:
-
                         result.append(cls.from_json(json))
 
-                    #Add missing primary keys from get
-
-
+                    # Add missing primary keys from get
                     for item in result:
-                        cls.__ensure_primary_keys(item,**kwargs)
+                        cls.__ensure_primary_keys(item, **kwargs)
         except exc.DeviceUnreachable:
             pass
         except Exception as e:
             LOG.exception(e)
 
-
         return result
 
-
-
     @classmethod
-    def __ensure_primary_keys(cls,item,**kwargs):
-
+    def __ensure_primary_keys(cls, item, **kwargs):
         # Add missing primary keys from get
         params = cls.__parameters_as_dict()
-
         for key in kwargs.keys():
-
             param = params.get(key, {})
-
             if key != 'context' and param.get('primary_key', False):
-
                 setattr(item, key, kwargs.get(key))
-
 
     @classmethod
     def __parameters_as_dict(cls):
@@ -755,13 +720,8 @@ class NyBase(BulkOperations):
 
         return result
 
-
-
-
     @classmethod
     def _exists(cls, **kwargs):
-
-
         try:
             result = cls._get(**kwargs)
         except Exception as e:
@@ -773,46 +733,42 @@ class NyBase(BulkOperations):
 
         return False
 
-    def _internal_exists(self,context=None):
+    def _internal_exists(self, context=None):
         kwargs = self.__dict__
         kwargs['context'] = context
 
-
         return self.__class__._exists(**kwargs)
 
-    def _internal_get(self,context=None):
+    def _internal_get(self, context=None):
         kwargs = self.__dict__
         kwargs['context'] = context
         return self.__class__._get(**kwargs)
 
-
     @classmethod
     @execute_on_pair()
-    def get_all(cls, filter={},context=None):
+    def get_all(cls, filter={}, context=None):
         return cls._get_all_mass(context=context)
-
 
     @execute_on_pair()
     def create(self, context=None):
         return self._create(context=context)
 
-
     @retry_on_failure()
-    def _create(self,context=None):
+    def _create(self, context=None):
         with ConnectionManager(context=context) as connection:
 
-            result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT),entity=self.__class__.__name__,action="create")
+            result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT),
+                                            entity=self.__class__.__name__,
+                                            action="create")
             return result
 
-
     @execute_on_pair()
-    def update(self, context=None, method= NC_OPERATION.PATCH):
-        return self._update(context=context,method=method)
-
+    def update(self, context=None, method=NC_OPERATION.PATCH):
+        return self._update(context=context, method=method)
 
     @retry_on_failure()
-    def _update(self, context=None,method=NC_OPERATION.PATCH,json=None,postflight=False):
-        if len(self._internal_validate(context=context)) > 0 :
+    def _update(self, context=None, method=NC_OPERATION.PATCH, json=None, postflight=False):
+        if len(self._internal_validate(context=context)) > 0:
 
             self.preflight(context)
 
@@ -826,21 +782,20 @@ class NyBase(BulkOperations):
                 if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
                     raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
-                result = connection.edit_config(config=self.to_xml(operation=method,json=json),entity=self.__class__.__name__,action="update")
+                result = connection.edit_config(config=self.to_xml(operation=method, json=json),
+                                                entity=self.__class__.__name__,
+                                                action="update")
                 return result
 
     @execute_on_pair()
-    def delete(self, context=None,method=NC_OPERATION.DELETE):
-
-
-        return self._delete(context=context,method=method)
-
+    def delete(self, context=None, method=NC_OPERATION.DELETE):
+        return self._delete(context=context, method=method)
 
     @retry_on_failure()
-    def _delete(self,context=None,method=NC_OPERATION.DELETE):
-        self._delete_no_retry(context,method)
+    def _delete(self, context=None, method=NC_OPERATION.DELETE):
+        self._delete_no_retry(context, method)
 
-    def _delete_no_retry(self,context=None,method=NC_OPERATION.DELETE):
+    def _delete_no_retry(self, context=None, method=NC_OPERATION.DELETE):
 
         self.postflight(context)
 
@@ -849,11 +804,12 @@ class NyBase(BulkOperations):
             if self._internal_exists(context) or self.force_delete:
                 json = self.to_delete_dict()
 
-                result = connection.edit_config(config=self.to_xml(json=json,operation=method),entity=self.__class__.__name__,action="delete")
+                result = connection.edit_config(config=self.to_xml(json=json, operation=method),
+                                                entity=self.__class__.__name__,
+                                                action="delete")
                 return result
 
-
-    def _internal_validate(self,should_be_none=False, context=None):
+    def _internal_validate(self, should_be_none=False, context=None):
         device_config = self._internal_get(context=context)
 
         if should_be_none:
@@ -862,41 +818,33 @@ class NyBase(BulkOperations):
 
         diff = self._diff(device_config)
 
-        if len(diff) > 0 :
-            LOG.info("Internal validate of {} for {} produced {} diff(s)  {}".format(self.__class__.__name__,context.host, len(diff),diff))
+        if len(diff) > 0:
+            LOG.info("Internal validate of {} for {} produced {} diff(s)  {}"
+                     "".format(self.__class__.__name__, context.host, len(diff), diff))
 
         return diff
 
-
     @execute_on_pair(result_type=DiffResult)
-    def _validate(self,context=None,should_be_none=False):
-
-        return self._internal_validate(should_be_none=False,context=context)
-
-
-
+    def _validate(self, context=None, should_be_none=False):
+        return self._internal_validate(should_be_none=False, context=context)
 
     def diff(self, should_be_none=False):
         result = self._validate(should_be_none=should_be_none)
         return result
-
 
     def is_valid(self, should_be_none=False):
         result = self.diff(should_be_none=should_be_none)
 
         return result.valid
 
-
     def orphan_info(self):
-        return {self.__class__.__name__:{'id':self.id}}
-
+        return {self.__class__.__name__: {'id': self.id}}
 
     def preflight(self, context):
         pass
 
     def postflight(self, context):
         pass
-
 
     def init_config(self):
         return ""

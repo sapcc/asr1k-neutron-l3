@@ -51,11 +51,10 @@ class JsonDict(dict):
 
 
 class XMLUtils(object):
-
-    namespaces  = {
-        NS_NETCONF_BASE:None,
-        NS_CISCO_NATIVE:None,
-        NS_CISCO_ETHERNET:None,
+    namespaces = {
+        NS_NETCONF_BASE: None,
+        NS_CISCO_NATIVE: None,
+        NS_CISCO_ETHERNET: None,
         NS_CISCO_NAT: None,
         NS_CISCO_ACL: None,
         NS_CISCO_BGP: None,
@@ -65,29 +64,23 @@ class XMLUtils(object):
         NS_IETF_INTERFACE: None
     }
 
-
     @classmethod
-    def to_raw_json(cls,xml):
+    def to_raw_json(cls, xml):
         return xmltodict.parse(xml, process_namespaces=True, namespaces=cls.namespaces)
 
-
-
     @classmethod
-    def to_json(cls,xml):
+    def to_json(cls, xml):
         result = cls.to_raw_json(xml)
-
         result = cls.remove_wrapper(result)
 
         return cls._to_plain_json(result)
 
-
-
     @classmethod
-    def _to_plain_json(cls,dict):
+    def _to_plain_json(cls, dict):
         return json.loads(json.dumps(dict))
 
     @classmethod
-    def remove_wrapper(cls,dict):
+    def remove_wrapper(cls, dict):
         dict = cls._remove_base_wrapper(dict)
         if dict is None:
             return
@@ -95,60 +88,55 @@ class XMLUtils(object):
         return dict
 
     @classmethod
-    def _remove_base_wrapper(cls,dict):
+    def _remove_base_wrapper(cls, dict):
         if dict is None:
             return
 
-        dict = dict.get(RPC_REPLY,dict)
+        dict = dict.get(RPC_REPLY, dict)
         dict = dict.get(DATA, dict)
         if dict is None:
             return
         dict = dict.get(IOS_NATIVE, dict)
 
-
         return dict
 
-
-
-    def _wrapper_preamble(self,dict):
+    def _wrapper_preamble(self, dict):
         if self.LIST_KEY is not None:
             dict = {self.LIST_KEY: dict}
 
         return dict
 
-    def add_wrapper(self,dict,operation):
+    def add_wrapper(self, dict, operation):
         if operation and operation != 'override':
-            if isinstance( dict,list):
+            if isinstance(dict, list):
                 for item in dict:
                     item[self.ITEM_KEY][OPERATION] = operation
 
-            elif isinstance( dict[self.ITEM_KEY],list):
+            elif isinstance(dict[self.ITEM_KEY], list):
                 for item in dict[self.ITEM_KEY]:
                     item[OPERATION] = operation
             else:
                 dict[self.ITEM_KEY][OPERATION] = operation
 
         dict = self._wrapper_preamble(dict)
-
-        dict[NS]=NS_CISCO_NATIVE
+        dict[NS] = NS_CISCO_NATIVE
 
         result = OrderedDict()
-        result[IOS_NATIVE]=dict
+        result[IOS_NATIVE] = dict
 
         dict = {CONFIG: result}
         return dict
 
     def to_delete_dict(self):
-        return self.to_dict();
+        return self.to_dict()
 
-    def to_xml(self,json=None, operation=None):
-
+    def to_xml(self, json=None, operation=None):
         if json is None:
             json = self.to_dict()
 
         j = self.add_wrapper(json, operation)
 
         xml = xmltodict.unparse(j)
-        xml = xml.replace(ENCODING,"")
+        xml = xml.replace(ENCODING, "")
 
         return xml

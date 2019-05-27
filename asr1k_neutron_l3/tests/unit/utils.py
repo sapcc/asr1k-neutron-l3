@@ -24,6 +24,7 @@ def _get_prometheus_url():
     port = int(os.environ.get('METRICS_PORT', 12415))
     return "http://127.0.0.1:{}/metrics".format(port)
 
+
 def check_prometheus_metric(needle):
     r = requests.get(_get_prometheus_url())
     if r.ok:

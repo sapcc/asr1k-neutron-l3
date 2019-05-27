@@ -23,7 +23,7 @@ from asr1k_neutron_l3.models.netconf_yang import xml_utils
 class BGPConstants(object):
     ROUTER = 'router'
     BGP = "bgp"
-    ASN="asn"
+    ASN = "asn"
     ID = "id"
     ADDRESS_FAMILY = "address-family"
     IPV4 = "ipv4"
@@ -60,59 +60,54 @@ class AddressFamily(NyBase):
                   </native>         
              """
 
-
     VRF_XPATH_FILTER = "/native/router/bgp[id='{asn}']/address-family/with-vrf/ipv4[af-name='unicast']/vrf[name='{vrf}']"
-
-
-
     LIST_KEY = BGPConstants.IPV4
     ITEM_KEY = BGPConstants.VRF
 
     @classmethod
-    def get_for_vrf(cls,context=None,asn=None,vrf=None):
-
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"asn":asn,"vrf":vrf}))
-
-
+    def get_for_vrf(cls, context=None, asn=None, vrf=None):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"asn": asn, "vrf": vrf}))
 
     @classmethod
     def __parameters__(cls):
         return [
-            {'key': 'asn','id':True,'yang-key':'id'},
-            {'key': 'vrf','yang-key':'name'},
-            {'key': 'connected', 'yang-path':'ipv4-unicast/redistribute','default':False,'yang-type':YANG_TYPE.EMPTY},
-            {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute', 'default': False, 'yang-type': YANG_TYPE.EMPTY}
+            {'key': 'asn', 'id': True, 'yang-key': 'id'},
+            {'key': 'vrf', 'yang-key': 'name'},
+            {'key': 'connected', 'yang-path': 'ipv4-unicast/redistribute', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY}
 
 
         ]
 
     @classmethod
-    def get_primary_filter(cls,**kwargs):
-        return cls.ID_FILTER.format(**{'asn': kwargs.get('asn'),'vrf':kwargs.get('vrf')})
+    def get_primary_filter(cls, **kwargs):
+        return cls.ID_FILTER.format(**{'asn': kwargs.get('asn'), 'vrf': kwargs.get('vrf')})
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls,vrf,asn, context=None):
-        return super(AddressFamily, cls)._get(vrf=vrf, asn=asn,context=context)
+    def get(cls, vrf, asn, context=None):
+        return super(AddressFamily, cls)._get(vrf=vrf, asn=asn, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, vrf,asn , context=None):
+    def exists(cls, vrf, asn, context=None):
         return super(AddressFamily, cls)._exists(vrf=vrf, asn=asn, context=context)
 
     @classmethod
-    def remove_wrapper(cls,dict):
+    def remove_wrapper(cls, dict):
         dict = super(AddressFamily, cls)._remove_base_wrapper(dict)
 
         if dict is not None:
-            dict = dict.get(BGPConstants.ROUTER,dict)
+            dict = dict.get(BGPConstants.ROUTER, dict)
             dict = dict.get(BGPConstants.BGP, dict)
-            asn = dict.get("id",None)
+            asn = dict.get("id", None)
             dict = dict.get(BGPConstants.ADDRESS_FAMILY, dict)
             dict = dict.get(BGPConstants.WITH_VRF, dict)
             dict = dict.get(BGPConstants.IPV4, dict)
 
-            if dict.get(BGPConstants.VRF,None) is not None:
+            if dict.get(BGPConstants.VRF, None) is not None:
                 dict[BGPConstants.VRF]["id"] = asn
             else:
                 dict[BGPConstants.VRF] = OrderedDict()
@@ -120,54 +115,43 @@ class AddressFamily(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self,dict):
-        dict[BGPConstants.AF_NAME]= BGPConstants.UNICAST
+    def _wrapper_preamble(self, dict):
+        dict[BGPConstants.AF_NAME] = BGPConstants.UNICAST
         result = {}
         result[self.LIST_KEY] = dict
-        result = {BGPConstants.WITH_VRF:result}
+        result = {BGPConstants.WITH_VRF: result}
 
         bgp = OrderedDict()
         bgp[BGPConstants.ID] = self.asn
-        bgp[BGPConstants.ADDRESS_FAMILY]= result
-        bgp[xml_utils.NS]=xml_utils.NS_CISCO_BGP
-        result = {BGPConstants.BGP: bgp,}
+        bgp[BGPConstants.ADDRESS_FAMILY] = result
+        bgp[xml_utils.NS] = xml_utils.NS_CISCO_BGP
+        result = {BGPConstants.BGP: bgp}
         result = {BGPConstants.ROUTER: result}
         return result
 
-
-
-    def __init__(self,**kwargs):
+    def __init__(self, **kwargs):
         super(AddressFamily, self).__init__(**kwargs)
 
-        self.enable_bgp = kwargs.get('enable_bgp',False)
+        self.enable_bgp = kwargs.get('enable_bgp', False)
         if self.asn is None:
-            self.asn = kwargs.get("asn",None)
+            self.asn = kwargs.get("asn", None)
 
     def to_dict(self):
-
-
         result = OrderedDict()
         if self.vrf is not None:
             vrf = OrderedDict()
             vrf[BGPConstants.NAME] = self.vrf
             vrf[BGPConstants.IPV4_UNICAST] = {}
             vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE] = {}
-            if self.connected :
-                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.CONNECTED] =''
+            if self.connected:
+                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.CONNECTED] = ''
             if self.static:
-                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.STATIC] =''
-
+                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.STATIC] = ''
 
             result[BGPConstants.VRF] = vrf
-
-
-
         return dict(result)
 
-
     def to_delete_dict(self):
-
-
         result = OrderedDict()
         if self.vrf is not None:
             vrf = OrderedDict()

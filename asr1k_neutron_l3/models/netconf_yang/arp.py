@@ -2,12 +2,9 @@ from collections import OrderedDict
 
 from oslo_log import log as logging
 
-from oslo_config import cfg
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE,NC_OPERATION
+from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
-from asr1k_neutron_l3.common import utils,asr1k_constants
-
-
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE, NC_OPERATION
 
 LOG = logging.getLogger(__name__)
 
@@ -21,6 +18,7 @@ class ARPConstants(object):
     HARDWARE_ADDRESS = "hardware-address"
     ARP_TYPE = "arp-type"
     ALIAS = "alias"
+
 
 class VrfArpList(NyBase):
     ID_FILTER = """
@@ -40,22 +38,19 @@ class VrfArpList(NyBase):
     @classmethod
     def __parameters__(cls):
         return [
-            {'key': 'vrf', 'yang-key':'vrf-name','id': True},
-            {'key': 'arp_entry','yang-key':'arp-entry', 'type': [ArpEntry] ,  'default': []}
+            {'key': 'vrf', 'yang-key': 'vrf-name', 'id': True},
+            {'key': 'arp_entry', 'yang-key': 'arp-entry', 'type': [ArpEntry], 'default': []}
         ]
 
-
     @classmethod
-    def get_primary_filter(cls,**kwargs):
+    def get_primary_filter(cls, **kwargs):
         return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf')})
 
-
-
     def __init__(self, **kwargs):
-        super(VrfArpList, self).__init__( **kwargs)
+        super(VrfArpList, self).__init__(**kwargs)
 
     @classmethod
-    def remove_wrapper(cls,dict):
+    def remove_wrapper(cls, dict):
 
         dict = super(VrfArpList, cls)._remove_base_wrapper(dict)
         if dict is None:
@@ -63,14 +58,13 @@ class VrfArpList(NyBase):
 
         dict = dict.get(cls.LIST_KEY, dict)
 
-
         return dict
 
     @property
     def neutron_router_id(self):
         if self.vrf is not None:
             return utils.vrf_id_to_uuid(self.vrf)
-        
+
     def empty_diff(self):
         arp_list = OrderedDict()
         arp_list[ARPConstants.VRF_NAME] = self.vrf
@@ -78,40 +72,34 @@ class VrfArpList(NyBase):
 
         return {ARPConstants.VRF: arp_list}
 
-    def _wrapper_preamble(self,dict):
+    def _wrapper_preamble(self, dict):
         result = {}
         result[self.LIST_KEY] = dict
 
         result[self.LIST_KEY][xml_utils.NS] = xml_utils.NS_CISCO_ARP
         return result
 
-
-
     def to_dict(self):
         arp_list = OrderedDict()
-        arp_list[ARPConstants.VRF_NAME]=self.vrf
-        arp_list[ARPConstants.ARP_ENTRY]= []
+        arp_list[ARPConstants.VRF_NAME] = self.vrf
+        arp_list[ARPConstants.ARP_ENTRY] = []
         for arp_entry in sorted(self.arp_entry, key=lambda arp_entry: arp_entry.ip):
             arp_list[ARPConstants.ARP_ENTRY].append(arp_entry.to_single_dict())
 
-
-        return {ARPConstants.VRF:arp_list}
-
+        return {ARPConstants.VRF: arp_list}
 
     @execute_on_pair()
-    def update(self,context=None):
-        if len(self.arp_entry) > 0 :
+    def update(self, context=None):
+        if len(self.arp_entry) > 0:
             return super(VrfArpList, self)._update(context=context, method=NC_OPERATION.PUT)
 
         else:
             return self._delete(context=context)
 
-
     @execute_on_pair()
-    def delete(self,context=None):
+    def delete(self, context=None):
 
-        return  super(VrfArpList, self)._delete(context=context)
-
+        return super(VrfArpList, self)._delete(context=context)
 
 
 class ArpEntry(NyBase):
@@ -128,47 +116,39 @@ class ArpEntry(NyBase):
       </native>
                 """
 
-
     LIST_KEY = ARPConstants.VRF
     ITEM_KEY = ARPConstants.ARP_ENTRY
-
-
 
     @classmethod
     def __parameters__(cls):
         return [
-            {"key": "vrf",'primary-key':True},
-            {"key": "ip", 'mandatory': True,'id':True},
-            {'key': 'hardware_address','yang-key': 'hardware-address'},
-            {'key': 'arp_type','yang-key': 'arp-type'},
-            {'key': 'alias','default':True,'yang-type':YANG_TYPE.EMPTY}
-
-
+            {"key": "vrf", 'primary-key': True},
+            {"key": "ip", 'mandatory': True, 'id': True},
+            {'key': 'hardware_address', 'yang-key': 'hardware-address'},
+            {'key': 'arp_type', 'yang-key': 'arp-type'},
+            {'key': 'alias', 'default': True, 'yang-type': YANG_TYPE.EMPTY}
         ]
 
     @classmethod
-    def get_primary_filter(cls,**kwargs):
-        return cls.ID_FILTER.format(**{'vrf':kwargs.get('vrf'),'ip': kwargs.get('ip')})
+    def get_primary_filter(cls, **kwargs):
+        return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf'), 'ip': kwargs.get('ip')})
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls,vrf,ip, context=None):
-        return super(ArpEntry, cls)._get(vrf=vrf,ip=ip, context=context)
-
+    def get(cls, vrf, ip, context=None):
+        return super(ArpEntry, cls)._get(vrf=vrf, ip=ip, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, vrf,ip, context=None):
+    def exists(cls, vrf, ip, context=None):
         return super(ArpEntry, cls)._exists(ip=ip, vrf=vrf, context=context)
 
-
     @classmethod
-    def remove_wrapper(cls,dict):
+    def remove_wrapper(cls, dict):
 
         dict = super(ArpEntry, cls)._remove_base_wrapper(dict)
-        if dict is  None:
+        if dict is None:
             return
-
 
         dict = dict.get(ARPConstants.ARP, dict)
         dict = dict.get(cls.LIST_KEY, dict)
@@ -176,11 +156,11 @@ class ArpEntry(NyBase):
         return dict
 
     def orphan_info(self):
-        return {self.__class__.__name__:{'ip':self.ip,'hardware_address':self.hardware_address,'vrf':self.vrf}}
+        return {self.__class__.__name__: {'ip': self.ip, 'hardware_address': self.hardware_address, 'vrf': self.vrf}}
 
-    def _wrapper_preamble(self,single_dict):
+    def _wrapper_preamble(self, single_dict):
         result = OrderedDict()
-        result[self.LIST_KEY] =  single_dict
+        result[self.LIST_KEY] = single_dict
 
         result[xml_utils.NS] = xml_utils.NS_CISCO_ARP
         result = {ARPConstants.ARP: result}
@@ -227,8 +207,4 @@ class ArpEntry(NyBase):
         result[ARPConstants.ARP_ENTRY] = []
         result[ARPConstants.ARP_ENTRY].append(entry)
 
-
-
         return result
-
-

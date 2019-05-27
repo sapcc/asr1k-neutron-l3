@@ -26,14 +26,12 @@ from neutron_lib import constants as svc_constants
 
 
 class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
-
     # @log_helpers.log_method_call
     # def routers_updated(self, context, router_ids, operation=None, data=None,
     #                     shuffle_agents=False, schedule_routers=True):
     #     if router_ids:
     #         self._notification(context, 'routers_updated', router_ids,
     #                            operation, shuffle_agents, schedule_routers)
-
 
     @log_helpers.log_method_call
     def router_sync(self, context, router_id):
@@ -56,32 +54,27 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
             return self._agent_rpc(context, 'interface_statistics', router_id=router_id)
 
     @log_helpers.log_method_call
-    def show_orphans(self, context,host):
-        return self._agent_rpc(context, 'show_orphans',host=host)
+    def show_orphans(self, context, host):
+        return self._agent_rpc(context, 'show_orphans', host=host)
 
     @log_helpers.log_method_call
-    def delete_orphans(self, context,host):
-        return self._agent_rpc(context, 'delete_orphans',host=host)
+    def delete_orphans(self, context, host):
+        return self._agent_rpc(context, 'delete_orphans', host=host)
 
     @log_helpers.log_method_call
-    def list_devices(self, context,host):
-        return self._agent_rpc(context, 'list_devices',host=host)
+    def list_devices(self, context, host):
+        return self._agent_rpc(context, 'list_devices', host=host)
 
     @log_helpers.log_method_call
-    def show_device(self, context,host,device_id):
-        return self._agent_rpc(context, 'show_device',host=host, device_id=device_id)
-
-
-
+    def show_device(self, context, host, device_id):
+        return self._agent_rpc(context, 'show_device', host=host, device_id=device_id)
 
     @log_helpers.log_method_call
-    def agent_init_config(self, context,host,router_info):
-        return self._agent_rpc(context, 'agent_init_config',host=host, router_info=router_info)
-
-
+    def agent_init_config(self, context, host, router_info):
+        return self._agent_rpc(context, 'agent_init_config', host=host, router_info=router_info)
 
     @log_helpers.log_method_call
-    def _agent_rpc(self, context, method, router_id=None,host=None,device_id=None,router_info=None):
+    def _agent_rpc(self, context, method, router_id=None, host=None, device_id=None, router_info=None):
         """Notify changed routers to hosting l3 agents."""
         adminContext = context if context.is_admin else context.elevated()
         plugin = directory.get_plugin(svc_constants.L3)
@@ -107,5 +100,3 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
         if router_info is not None:
             kwargs['router_info'] = router_info
         return cctxt.call(context, method, **kwargs)
-
-

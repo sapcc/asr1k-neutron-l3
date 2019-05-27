@@ -17,7 +17,6 @@
 import socket
 import time
 from retrying import retry
-import eventlet
 
 
 from threading import Lock
@@ -28,20 +27,14 @@ from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 from ncclient import manager
 from ncclient.xml_ import to_ele
-from oslo_utils import uuidutils
 from oslo_log import log as logging
-from oslo_config import cfg
 from oslo_service import loopingcall
-from oslo_utils import importutils
 
-from paramiko.client import SSHClient,AutoAddPolicy
 import paramiko
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.transport.errors import SSHError
 from ncclient.transport.errors import SessionCloseError
 from ncclient.transport.errors import TransportError
-from paramiko.ssh_exception import SSHException, NoValidConnectionsError,ChannelException
-from bs4 import BeautifulSoup as bs
 
 LOG = logging.getLogger(__name__)
 
@@ -49,31 +42,31 @@ LOG = logging.getLogger(__name__)
 def _retry_if_exhausted(exception):
     return isinstance(exception, ConnectionPoolExhausted)
 
+
 def ssh_connect(context):
     connect = None
     try:
         port = context.yang_port
-        #LOG.debug("Checking device connectivity.")
+        # LOG.debug("Checking device connectivity.")
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((context.host, port))
         ssh_transport = paramiko.Transport(sock)
         ssh_transport.close()
-        #LOG.debug("Connection to {} on port {} successful".format(context.host,port))
+        # LOG.debug("Connection to {} on port {} successful".format(context.host,port))
     except Exception as e:
-        if isinstance(e,socket.error):
+        if isinstance(e, socket.error):
             return False
     finally:
         if connect is not None:
             connect.close()
 
-
     return True
+
 
 def check_devices(device_info):
     for context in ASR1KPair().contexts:
         device_reachable = ssh_connect(context)
         info = device_info.get(context.host, None)
-
         admin_up = True
 
         if info is not None and not info.get('enabled'):
@@ -81,21 +74,23 @@ def check_devices(device_info):
 
         if not device_reachable or not admin_up:
             context.alive = False
-            LOG.debug("Device reachable {} and enabled {}, marked as dead".format(context.host,admin_up))
+            LOG.debug("Device reachable {} and enabled {}, marked as dead".format(context.host, admin_up))
         else:
             if device_reachable and admin_up:
                 context.alive = True
                 LOG.debug("Device reachable {} and enabled {}, marked as alive".format(context.host, admin_up))
 
-class  ConnectionPoolExhausted(Exception):
+
+class ConnectionPoolExhausted(Exception):
     pass
 
-class  ConnectionPoolNotInitialized(Exception):
+
+class ConnectionPoolNotInitialized(Exception):
     pass
+
 
 class ConnectionManager(object):
-
-    def __init__(self,context=None):
+    def __init__(self, context=None):
         self.context = context
 
     def __enter__(self):
@@ -103,12 +98,11 @@ class ConnectionManager(object):
         return self.connection
 
     def __exit__(self, type, value, traceback):
-        ConnectionPool().push_connection(self.connection,context=self.context)
+        ConnectionPool().push_connection(self.connection, context=self.context)
 
 
 class ConnectionPool(object):
     __instance = None
-
 
     def __new__(cls):
         if ConnectionPool.__instance is None:
@@ -121,44 +115,38 @@ class ConnectionPool(object):
     def __init__(self):
         pass
 
-
-
     def _ensure_connections_aged(self):
-
         try:
             for context in self.pair_config.contexts:
                 yang = self.devices[context.host]
 
                 for connection in yang:
-
                     if connection.age > self.max_age:
-                        LOG.debug("***** closing aged connection with session id {} aged {:10.2f}s".format(connection.session_id,connection.age))
+                        LOG.debug("***** closing aged connection with session id {} aged {:10.2f}s"
+                                  "".format(connection.session_id, connection.age))
                         connection.lock.acquire()
                         connection.close()
                         connection.lock.release()
         except Exception as e:
             LOG.exception(e)
 
-
     def __check_initialized(self):
         if not hasattr(self, 'initialized'):
-            raise ConnectionPoolNotInitialized("Please ensure pool is before first use initilized with `ConnectionPool().initialiase(self, yang_connection_pool_size=0,max_age=0)`")
+            msg = ("Please ensure pool is before first use initilized with "
+                   "`ConnectionPool().initialiase(self, yang_connection_pool_size=0,max_age=0)`")
+            raise ConnectionPoolNotInitialized(msg)
 
-
-    def initialiase(self, yang_connection_pool_size=0,max_age=0):
-
+    def initialiase(self, yang_connection_pool_size=0, max_age=0):
         try:
-
             yang_pool_size = min(yang_connection_pool_size, asr1k_constants.MAX_CONNECTIONS)
 
             if yang_pool_size < yang_connection_pool_size:
-                LOG.warning(
-                    "The yang connection pool size has been reduced to the system maximum its now {}".format(yang_pool_size))
+                LOG.warning("The yang connection pool size has been reduced to the system maximum its now {}"
+                            "".format(yang_pool_size))
 
             self.yang_pool_size = yang_pool_size
             self.max_age = max_age
             self.pair_config = ASR1KPair()
-
             self.devices = {}
 
             LOG.info("Initializing connection pool with yang pool size {}".format(self.yang_pool_size))
@@ -167,10 +155,9 @@ class ConnectionPool(object):
                 yang = []
 
                 for i in range(self.yang_pool_size):
-                    yang.append(YangConnection(context,id=i))
+                    yang.append(YangConnection(context, id=i))
 
                 self.devices[context.host] = yang
-
 
             if self.max_age > 0:
                 LOG.debug("Setting up looping call to close connections older than {} seconds".format(self.max_age))
@@ -182,11 +169,8 @@ class ConnectionPool(object):
         except Exception as e:
             LOG.exception(e)
 
-
-
     @retry(stop_max_attempt_number=25, wait_fixed=100, retry_on_exception=_retry_if_exhausted)
-    def pop_connection(self,context=None):
-
+    def pop_connection(self, context=None):
         pool = self.devices.get(context.host)
         connection = None
         if len(pool) > 0:
@@ -200,19 +184,14 @@ class ConnectionPool(object):
 
         return connection
 
-    def push_connection(self,connection,context=None):
+    def push_connection(self, connection, context=None):
         connection.lock.release()
 
         pool = self.devices.get(context.host)
         pool.append(connection)
 
-    def get_connection(self,context):
-
-
-
+    def get_connection(self, context):
         connection = self.devices.get(context.host).pop(0)
-
-
         self.devices.get(context.host).append(connection)
 
         if connection is None:
@@ -221,16 +200,13 @@ class ConnectionPool(object):
         return connection
 
 
-
-
 class YangConnection(object):
-
-    def __init__(self, context,id=0):
+    def __init__(self, context, id=0):
         self.lock = Lock()
         self.context = context
         self._ncc_connection = None
         self.start = time.time()
-        self.id = "{}-{}".format(context.host,id)
+        self.id = "{}-{}".format(context.host, id)
 
     @property
     def age(self):
@@ -238,17 +214,17 @@ class YangConnection(object):
 
     @property
     def session_id(self):
-       if self._ncc_connection is not None and  self._ncc_connection._session is not None:
+        if self._ncc_connection is not None and self._ncc_connection._session is not None:
             return self._ncc_connection.session_id
 
     @property
     def is_inactive(self):
-        return self._ncc_connection is None or not self._ncc_connection.connected or not self._ncc_connection._session._transport.is_active()
-
+        return (self._ncc_connection is None or
+                not self._ncc_connection.connected or
+                not self._ncc_connection._session._transport.is_active())
 
     @property
     def connection(self):
-
         try:
             if self.is_inactive:
                 if self.session_id:
@@ -259,9 +235,8 @@ class YangConnection(object):
                     pass
                 finally:
                     self._ncc_connection = self._connect(self.context)
-
         except Exception as e:
-            if isinstance(e,TimeoutExpiredError) or isinstance(e,SSHError) or isinstance(e,SessionCloseError):
+            if isinstance(e, TimeoutExpiredError) or isinstance(e, SSHError) or isinstance(e, SessionCloseError):
                 LOG.warning(
                     "Failed to connect due to '{}', connection will be attempted again in subsequent iterations".format(
                         e))
@@ -287,55 +262,42 @@ class YangConnection(object):
             self._ncc_connection = None
         self.start = time.time()
 
-
-    def xpath_get(self,filter='',entity=None,action=None):
+    def xpath_get(self, filter='', entity=None, action=None):
         if self.context.alive and self.connection is not None:
             with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
-                                                                      action=action).time():
-                return self.connection.get_config(source="running",filter=("xpath",filter))
-        else :
+                                                                    action=action).time():
+                return self.connection.get_config(source="running", filter=("xpath", filter))
+        else:
             PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
-                                                               action=action).inc()
+                                                          action=action).inc()
             raise DeviceUnreachable(host=self.context.host)
 
-
-
-    def get(self,filter='',entity=None,action=None):
+    def get(self, filter='', entity=None, action=None):
         if self.context.alive and self.connection is not None:
             with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
-                                                                      action=action).time():
+                                                                    action=action).time():
                 return self.connection.get(filter=('subtree', filter))
-        else :
+        else:
             PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
-                                                               action=action).inc()
+                                                          action=action).inc()
             raise DeviceUnreachable(host=self.context.host)
 
-
-    def edit_config(self,config='',target='running',entity=None,action=None):
+    def edit_config(self, config='', target='running', entity=None, action=None):
         if self.context.alive and self.connection is not None:
-            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host,entity=entity,action=action).time():
+            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
+                                                                    action=action).time():
                 return self.connection.edit_config(target=target, config=config)
-        else :
+        else:
             PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
                                                           action=action).inc()
             raise DeviceUnreachable(host=self.context.host)
 
-
-    def rpc(self,command,entity=None,action=None):
+    def rpc(self, command, entity=None, action=None):
         if self.context.alive and self.connection is not None:
-            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,action=action).time():
+            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
+                                                                    action=action).time():
                 return self.connection.dispatch(to_ele(command))
-        else :
+        else:
             PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
                                                           action=action).inc()
             raise DeviceUnreachable(host=self.context.host)
-
-
-
-
-
-
-
-
-
-

@@ -14,10 +14,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.netconf_yang import route_map
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NC_OPERATION
 from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.models.netconf_yang import route_map
+from asr1k_neutron_l3.models.neutron.l3 import base
 
 
 class RouteMap(base.Base):
@@ -28,13 +27,11 @@ class RouteMap(base.Base):
         self.rt = rt
         self.secondary_rt = None
         if rt is not None:
-            components  = rt.split(":")
+            components = rt.split(":")
             if len(components) == 2:
-                self.secondary_rt = components[0]+":"+str(int(components[1])+1000)
+                self.secondary_rt = components[0] + ":" + str(int(components[1]) + 1000)
 
-
-        self.routeable_interface  = routeable_interface
-
+        self.routeable_interface = routeable_interface
         self.enable_bgp = False
         if self.routeable_interface:
             self.enable_bgp = True
@@ -42,26 +39,30 @@ class RouteMap(base.Base):
         sequences = []
         seq = 10
         if self.routeable_interface:
-            sequences.append(route_map.MapSequence(seq_no=seq, operation='permit', prefix_list='snat-{}'.format(self.vrf), asn=[self.rt,'additive'],enable_bgp=self.enable_bgp))
+            sequences.append(route_map.MapSequence(seq_no=seq,
+                                                   operation='permit',
+                                                   prefix_list='snat-{}'.format(self.vrf),
+                                                   asn=[self.rt, 'additive'],
+                                                   enable_bgp=self.enable_bgp))
             seq += 10
             if self.secondary_rt:
-                sequences.append(route_map.MapSequence(seq_no=seq, operation='permit', prefix_list='route-{}'.format(self.vrf),
-                                                       asn=[self.secondary_rt, 'additive'], enable_bgp=self.enable_bgp))
+                sequences.append(route_map.MapSequence(seq_no=seq,
+                                                       operation='permit',
+                                                       prefix_list='route-{}'.format(self.vrf),
+                                                       asn=[self.secondary_rt, 'additive'],
+                                                       enable_bgp=self.enable_bgp))
                 seq += 10
 
         sequences.append(route_map.MapSequence(seq_no=seq, operation='deny', prefix_list='ext-{}'.format(self.vrf)))
 
         self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)
 
-
-
     def get(self):
         return route_map.RouteMap.get(self.name)
 
 
-
 class PBRRouteMap(base.Base):
-    def __init__(self, name,gateway_interface=None):
+    def __init__(self, name, gateway_interface=None):
         super(PBRRouteMap, self).__init__()
 
         self.vrf = utils.uuid_to_vrf_id(name)
@@ -71,6 +72,10 @@ class PBRRouteMap(base.Base):
         seq = 10
 
         if gateway_interface is not None:
-            sequences.append(route_map.MapSequence(seq_no=seq, operation='permit', access_list='PBR-{}'.format(self.vrf),next_hop=gateway_interface.primary_gateway_ip,force=True))
+            sequences.append(route_map.MapSequence(seq_no=seq,
+                                                   operation='permit',
+                                                   access_list='PBR-{}'.format(self.vrf),
+                                                   next_hop=gateway_interface.primary_gateway_ip,
+                                                   force=True))
 
         self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)

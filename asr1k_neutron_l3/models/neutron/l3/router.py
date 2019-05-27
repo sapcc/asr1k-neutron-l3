@@ -14,28 +14,27 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import os
-import json
+
 from oslo_log import log as logging
-from oslo_utils import timeutils
 from oslo_config import cfg
-from asr1k_neutron_l3.models import asr1k_pair
-from asr1k_neutron_l3.models.neutron.l3 import access_list
-from asr1k_neutron_l3.models.neutron.l3 import interface as l3_interface
-from asr1k_neutron_l3.models.neutron.l3 import nat
-from asr1k_neutron_l3.models.neutron.l3 import route
-from asr1k_neutron_l3.models.neutron.l3 import vrf
-from asr1k_neutron_l3.models.neutron.l3 import route_map
-from asr1k_neutron_l3.models.neutron.l3 import bgp
-from asr1k_neutron_l3.models.neutron.l3 import prefix
-from asr1k_neutron_l3.models.neutron.l3.base import Base
+
 from asr1k_neutron_l3.common import asr1k_constants as constants, utils
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
+from asr1k_neutron_l3.models import asr1k_pair
+from asr1k_neutron_l3.models.neutron.l3 import access_list
+from asr1k_neutron_l3.models.neutron.l3.base import Base
+from asr1k_neutron_l3.models.neutron.l3 import bgp
+from asr1k_neutron_l3.models.neutron.l3 import interface as l3_interface
+from asr1k_neutron_l3.models.neutron.l3 import nat
+from asr1k_neutron_l3.models.neutron.l3 import prefix
+from asr1k_neutron_l3.models.neutron.l3 import route
+from asr1k_neutron_l3.models.neutron.l3 import route_map
+from asr1k_neutron_l3.models.neutron.l3 import vrf
 
 LOG = logging.getLogger(__name__)
 
 
 class Router(Base):
-
     def __init__(self, router_info):
         super(Router, self).__init__()
 
@@ -49,47 +48,49 @@ class Router(Base):
 
         self.status = self.router_info.get('status')
 
-
         self.gateway_interface = None
         self.router_id = self.router_info.get('id')
         self.interfaces = self._build_interfaces()
         self.routes = self._build_routes()
         self.enable_snat = False
-        self.routeable_interface=False
+        self.routeable_interface = False
         if router_info.get('external_gateway_info') is not None:
             self.enable_snat = router_info.get('external_gateway_info', {}).get('enable_snat', False)
-            self.routeable_interface =  len(self.address_scope_matches()) > 0
-
+            self.routeable_interface = len(self.address_scope_matches()) > 0
 
         description = self.router_info.get('description')
 
         if description is None or len(description) == 0:
             description = "Router {}".format(self.router_id)
 
-        #TODO : get rt's from config for router
-        address_scope_config = router_info.get(constants.ADDRESS_SCOPE_CONFIG,{})
+        # TODO : get rt's from config for router
+        address_scope_config = router_info.get(constants.ADDRESS_SCOPE_CONFIG, {})
 
         rt = None
         if self.gateway_interface is not None:
             rt = address_scope_config.get(self.gateway_interface.address_scope)
 
-        self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn, rd=self.router_atts.get('rd'),routeable_interface=self.routeable_interface,rt_import=self.rt_import,rt_export=self.rt_export)
+        self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn,
+                           rd=self.router_atts.get('rd'), routeable_interface=self.routeable_interface,
+                           rt_import=self.rt_import, rt_export=self.rt_export)
 
         self.nat_acl = self._build_nat_acl()
         self.pbr_acl = self._build_pbr_acl()
 
-        self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,routeable_interface=self.routeable_interface)
+        self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,
+                                            routeable_interface=self.routeable_interface)
 
-        self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'),gateway_interface=self.gateway_interface)
+        self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'), gateway_interface=self.gateway_interface)
 
-        self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'),asn=self.config.asr1k_l3.fabric_asn,routeable_interface=self.routeable_interface,rt_export=self.rt_export)
+        self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
+                                                    routeable_interface=self.routeable_interface,
+                                                    rt_export=self.rt_export)
 
         self.dynamic_nat = self._build_dynamic_nat()
-        self.nat_pool =  self._build_nat_pool()
+        self.nat_pool = self._build_nat_pool()
 
         self.floating_ips = self._build_floating_ips()
         self.arp_entries = self._build_arp_entries()
-
 
         self.prefix_lists = self._build_prefix_lists()
 
@@ -129,7 +130,7 @@ class Router(Base):
         if primary_route is not None and self._route_has_connected_interface(primary_route):
             routes.append(primary_route)
 
-        for l3_route in self.router_info.get('routes',[]):
+        for l3_route in self.router_info.get('routes', []):
             ip, netmask = utils.from_cidr(l3_route.get('destination'))
 
             r = route.Route(self.router_id, ip, netmask, l3_route.get('nexthop'))
@@ -148,7 +149,7 @@ class Router(Base):
             if subnet is not None and subnet.get('cidr') is not None:
                 ip, netmask = utils.from_cidr(subnet.get('cidr'))
                 wildcard = utils.to_wildcard_mask(netmask)
-                rule = access_list.Rule(action='deny',source=ip,source_mask=wildcard)
+                rule = access_list.Rule(action='deny', source=ip, source_mask=wildcard)
                 acl.append_rule(rule)
 
         if not self.enable_snat:
@@ -166,14 +167,12 @@ class Router(Base):
             if subnet.get('cidr') is not None:
                 ip, netmask = utils.from_cidr(subnet.get('cidr'))
                 wildcard = utils.to_wildcard_mask(netmask)
-                rule = access_list.Rule(destination=ip,destination_mask=wildcard)
+                rule = access_list.Rule(destination=ip, destination_mask=wildcard)
                 acl.append_rule(rule)
-
 
         return acl
 
     def _route_has_connected_interface(self, l3_route):
-
         gw_port = self.router_info.get('gw_port', None)
         if gw_port is not None:
 
@@ -191,10 +190,12 @@ class Router(Base):
         return False
 
     def _build_dynamic_nat(self):
-        pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface, interfaces=self.interfaces,mode=constants.SNAT_MODE_POOL)
-        interface_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface, interfaces=self.interfaces,mode=constants.SNAT_MODE_INTERFACE)
+        pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
+                                  interfaces=self.interfaces, mode=constants.SNAT_MODE_POOL)
+        interface_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
+                                       interfaces=self.interfaces, mode=constants.SNAT_MODE_INTERFACE)
 
-        return {constants.SNAT_MODE_POOL:pool_nat,constants.SNAT_MODE_INTERFACE:interface_nat}
+        return {constants.SNAT_MODE_POOL: pool_nat, constants.SNAT_MODE_INTERFACE: interface_nat}
 
     def _build_nat_pool(self):
         return nat.NATPool(self.router_id, gateway_interface=self.gateway_interface)
@@ -213,8 +214,6 @@ class Router(Base):
 
         return arp_entries
 
-
-
     def _build_prefix_lists(self):
         result = []
 
@@ -223,14 +222,15 @@ class Router(Base):
 
         no_snat_interfaces = self.address_scope_matches()
 
-        result.append(prefix.SnatPrefix(router_id=self.router_id,gateway_interface=self.gateway_interface,internal_interfaces=no_snat_interfaces))
+        result.append(prefix.SnatPrefix(router_id=self.router_id, gateway_interface=self.gateway_interface,
+                                        internal_interfaces=no_snat_interfaces))
 
-        result.append(prefix.RoutePrefix(router_id=self.router_id, gateway_interface=self.gateway_interface, internal_interfaces=no_snat_interfaces))
+        result.append(prefix.RoutePrefix(router_id=self.router_id, gateway_interface=self.gateway_interface,
+                                         internal_interfaces=no_snat_interfaces))
 
         return result
 
     def _primary_route(self):
-
         if self.gateway_interface is not None and self.gateway_interface.primary_gateway_ip is not None:
             return route.Route(self.router_id, "0.0.0.0", "0.0.0.0", self.gateway_interface.primary_gateway_ip)
 
@@ -239,8 +239,8 @@ class Router(Base):
             if self.extra_atts is not None:
                 return self.extra_atts.get(port.get('id'), {})
             else:
-                LOG.error(
-                    "Cannot get  extra atts from {} for port {} on router {}".format(self.extra_atts, port.get('id'),self.router_id))
+                LOG.error("Cannot get  extra atts from {} for port {} on router {}"
+                          "".format(self.extra_atts, port.get('id'), self.router_id))
                 return {}
         except BaseException as e:
 
@@ -260,17 +260,15 @@ class Router(Base):
 
     def delete(self):
         with PrometheusMonitor().router_delete_duration.time():
-            result =  self._delete()
+            result = self._delete()
 
             return result
 
     def _update(self):
-
-        if self.gateway_interface is None and len(self.interfaces.internal_interfaces)==0:
+        if self.gateway_interface is None and len(self.interfaces.internal_interfaces) == 0:
             return self.delete()
 
         results = []
-
 
         for prefix_list in self.prefix_lists:
             results.append(prefix_list.update())
@@ -297,17 +295,11 @@ class Router(Base):
             results.append(self.pbr_acl.update())
         # Working assumption is that any NAT mode migration is completed
 
-
-
         results.append(self.routes.update())
-
         results.append(self.floating_ips.update())
-
         results.append(self.arp_entries.update())
 
-
         # We don't remove NAT statement or pool if enabling/disabling snat - instead update ACL
-
         if self.gateway_interface is not None:
             if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
                 results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].delete())
@@ -325,11 +317,6 @@ class Router(Base):
         for interface in self.interfaces.all_interfaces:
             results.append(interface.update())
 
-
-
-
-
-
         return results
 
     def _ping(self):
@@ -342,19 +329,15 @@ class Router(Base):
         for prefix_list in self.prefix_lists:
             results.append(prefix_list.delete())
 
-        if len(self.prefix_lists) ==0:
+        if len(self.prefix_lists) == 0:
             results.append(prefix.SnatPrefix(router_id=self.router_id).delete())
             results.append(prefix.ExtPrefix(router_id=self.router_id).delete())
             results.append(prefix.RoutePrefix(router_id=self.router_id).delete())
 
         results.append(self.route_map.delete())
-
         results.append(self.floating_ips.delete())
-
         results.append(self.arp_entries.delete())
-
         results.append(self.routes.delete())
-
 
         for key in self.dynamic_nat.keys():
             results.append(self.dynamic_nat.get(key).delete())
@@ -362,20 +345,16 @@ class Router(Base):
             results.append(self.nat_pool.delete())
 
         results.append(self.pbr_route_map.delete())
-
         results.append(self.nat_acl.delete())
         results.append(self.pbr_acl.delete())
-
         results.append(self.bgp_address_family.delete())
 
         for interface in self.interfaces.all_interfaces:
             results.append(interface.delete())
 
-
         results.append(self.vrf.delete())
 
         return results
-
 
     def diff(self):
         diff_results = {}
@@ -396,12 +375,12 @@ class Router(Base):
                 if not prefix_diff.valid:
                     diff_results['prefix_list'] = prefix_diff.to_dict()
 
-        rm_diff =self.route_map.diff()
+        rm_diff = self.route_map.diff()
         if not rm_diff.valid:
             diff_results['route_map'] = rm_diff.to_dict()
 
         if self.gateway_interface:
-            pbr_rm_diff =self.pbr_route_map.diff()
+            pbr_rm_diff = self.pbr_route_map.diff()
             if not pbr_rm_diff.valid:
                 diff_results['pbr_route_map'] = pbr_rm_diff.to_dict()
 
@@ -441,8 +420,6 @@ class Router(Base):
             diff_results['nat_acl'] = nat_acl_diff.to_dict()
 
         return diff_results
-
-
 
     def init_config(self):
         result = []

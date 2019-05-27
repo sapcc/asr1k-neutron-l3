@@ -15,12 +15,12 @@
 #    under the License.
 
 from oslo_log import log as logging
-from oslo_utils import timeutils
-from asr1k_neutron_l3.models import asr1k_pair
-from asr1k_neutron_l3.models.netconf_yang import l2_interface
-from asr1k_neutron_l3.models.netconf_yang import efp_stats
-from asr1k_neutron_l3.common import utils
+
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
+from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.models import asr1k_pair
+from asr1k_neutron_l3.models.netconf_yang import efp_stats
+from asr1k_neutron_l3.models.netconf_yang import l2_interface
 
 LOG = logging.getLogger(__name__)
 
@@ -39,12 +39,11 @@ def create_ports(ports, callback=None):
             else:
                 failed_ports.append(port_id)
 
-
-
     if callable(callback):
         callback(succeeded_ports, failed_ports)
-    LOG.debug("Batch create of completed {}/{} ports successfully created".format(len(succeeded_ports),len(ports)))
+    LOG.debug("Batch create of completed {}/{} ports successfully created".format(len(succeeded_ports), len(ports)))
     return succeeded_ports
+
 
 def update_ports(ports, callback=None):
     LOG.debug("Starting a batch update of {} ports".format(len(ports)))
@@ -62,10 +61,9 @@ def update_ports(ports, callback=None):
             else:
                 failed_ports.append(port_id)
 
-
     if callable(callback):
         callback(succeeded_ports, failed_ports)
-    LOG.debug("Batch update of completed {}/{} ports successfully updated".format(len(succeeded_ports),len(ports)))
+    LOG.debug("Batch update of completed {}/{} ports successfully updated".format(len(succeeded_ports), len(ports)))
     return succeeded_ports
 
 
@@ -79,12 +77,10 @@ def delete_ports(port_extra_atts, callback=None):
             result = l2_port.delete()
             succeeded_ports.append(l2_port.id)
 
-
-
     if callable(callback):
-
         callback(succeeded_ports, [])
-    LOG.debug("Batch delete of completed {}/{} ports successfully deleted".format(len(succeeded_ports),len(port_extra_atts)))
+    LOG.debug("Batch delete of completed {}/{} ports successfully deleted"
+              "".format(len(succeeded_ports), len(port_extra_atts)))
     return succeeded_ports
 
 
@@ -105,14 +101,21 @@ class Port(object):
         self.network_id = self.port_info.get('network_id')
         self.external_deleteable = self.port_info.get('external_deleteable')
 
-
     def _rest_definition(self):
-        ext_interface = l2_interface.ExternalInterface(id=self.segmentation_id, description="Network : {}".format(self.network_id),way=1,mode="symmetric")
-        lb_ext_interface = l2_interface.LoopbackExternalInterface(id=self.service_instance, description="Port : {}".format(self.id),
-                                                                  dot1q=self.segmentation_id, second_dot1q=self.second_dot1q,way=2,mode="symmetric")
-        lb_int_interface = l2_interface.LoopbackInternalInterface(id=self.service_instance, description="Port : {}".format(self.id),
+        ext_interface = l2_interface.ExternalInterface(id=self.segmentation_id,
+                                                       description="Network : {}".format(self.network_id),
+                                                       way=1, mode="symmetric")
+        lb_ext_interface = l2_interface.LoopbackExternalInterface(id=self.service_instance,
+                                                                  description="Port : {}".format(self.id),
+                                                                  dot1q=self.segmentation_id,
+                                                                  second_dot1q=self.second_dot1q,
+                                                                  way=2, mode="symmetric")
+        lb_int_interface = l2_interface.LoopbackInternalInterface(id=self.service_instance,
+                                                                  description="Port : {}".format(self.id),
                                                                   bridge_domain=self.bridge_domain,
-                                                                  dot1q=self.segmentation_id, second_dot1q=self.second_dot1q,way=2,mode="symmetric")
+                                                                  dot1q=self.segmentation_id,
+                                                                  second_dot1q=self.second_dot1q,
+                                                                  way=2, mode="symmetric")
         return ext_interface, lb_ext_interface, lb_int_interface
 
     def diff(self):
@@ -132,29 +135,22 @@ class Port(object):
         if not lb_int_diff.valid:
             result["l2_internal_lb"] = lb_int_diff.to_dict()
 
-
-
         return result
 
     def get(self):
-
         ext_interface = l2_interface.ExternalInterface.get(self.segmentation_id)
         lb_ext_interface = l2_interface.LoopbackExternalInterface.get(self.service_instance)
         lb_int_interface = l2_interface.LoopbackInternalInterface.get(self.service_instance)
 
-
-        return ext_interface,lb_ext_interface,lb_int_interface
-
+        return ext_interface, lb_ext_interface, lb_int_interface
 
     def get_stats(self):
-
         lb_ext_interface = efp_stats.LoopbackExternalEfpStats.get(id=self.service_instance)
         lb_int_interface = efp_stats.LoopbackInternalEfpStats.get(id=self.service_instance)
 
-        return {"external_lb":lb_ext_interface.to_dict(),"internal_lb":lb_int_interface.to_dict()}
+        return {"external_lb": lb_ext_interface.to_dict(), "internal_lb": lb_int_interface.to_dict()}
 
-
-    def update(self,callback=None):
+    def update(self, callback=None):
         failure = []
         success = [self.id]
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
@@ -169,7 +165,7 @@ class Port(object):
 
         if not result.success:
             failure.append(self.id)
-            success=[]
+            success = []
 
         result = lb_int_interface.update()
 
@@ -177,21 +173,17 @@ class Port(object):
             failure.append(self.id)
             success = []
 
-
         if callable(callback):
             callback(success, failure)
 
-        LOG.debug("Port {} update {}".format(self.id,"successfull" if len(success) == 1 else "failed"))
+        LOG.debug("Port {} update {}".format(self.id, "successfull" if len(success) == 1 else "failed"))
 
         return len(success) == 1
 
-    def create(self,callback=None):
-
+    def create(self, callback=None):
         return self.update(callback)
 
-
     def delete(self, callback=None):
-
         ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
 
         failure = []
@@ -218,6 +210,3 @@ class Port(object):
             callback([self.id], [])
 
         return len(success) == 1
-
-
-

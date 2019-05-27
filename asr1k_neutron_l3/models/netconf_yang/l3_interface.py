@@ -13,11 +13,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import time
 from collections import OrderedDict
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, retry_on_failure, YANG_TYPE, NC_OPERATION
+
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE
 import asr1k_neutron_l3.models.netconf_yang.nat
-from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackInternalInterface
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 from asr1k_neutron_l3.common import cli_snippets, utils
@@ -26,6 +25,7 @@ from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from oslo_log import log as logging
 LOG = logging.getLogger(__name__)
+
 
 class L3Constants(object):
     INTERFACE = "interface"
@@ -75,7 +75,6 @@ class BDIInterface(NyBase):
                 </native>            
              """
 
-
     VRF_XPATH_FILTER = "/native/interface/BDI/vrf[forwarding='{vrf}']"
 
     LIST_KEY = L3Constants.INTERFACE
@@ -83,10 +82,9 @@ class BDIInterface(NyBase):
     MIN_MTU = 1500
     MAX_MTU = 9216
 
-
     @classmethod
-    def get_for_vrf(cls,context=None,vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf":vrf}))
+    def get_for_vrf(cls, context=None, vrf=None):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
 
     @classmethod
     def __parameters__(cls):
@@ -97,18 +95,19 @@ class BDIInterface(NyBase):
             {'key': 'description'},
             {'key': 'mac_address'},
             {'key': 'mtu', 'default': BDIInterface.MIN_MTU},
-            {'key': 'vrf','yang-path':'vrf','yang-key':"forwarding"},
-            {'key': 'ip_address','yang-path':'ip/address','yang-key':"primary",'type':BDIPrimaryIpAddress},
-            {'key': 'secondary_ip_addresses','yang-path':'ip/address','yang-key':"secondary",'type':[BDISecondaryIpAddress], 'default': [], 'validate':False},
-            {'key': 'nat_inside','yang-key':'inside','yang-path':'ip/nat','default':False,'yang-type':YANG_TYPE.EMPTY},
-            {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,'yang-type':YANG_TYPE.EMPTY},
-            {'key': 'route_map', 'yang-key': 'route-map','yang-path': 'ip/policy'},
+            {'key': 'vrf', 'yang-path': 'vrf', 'yang-key': "forwarding"},
+            {'key': 'ip_address', 'yang-path': 'ip/address', 'yang-key': "primary", 'type': BDIPrimaryIpAddress},
+            {'key': 'secondary_ip_addresses', 'yang-path': 'ip/address', 'yang-key': "secondary",
+             'type': [BDISecondaryIpAddress], 'default': [], 'validate':False},
+            {'key': 'nat_inside', 'yang-key': 'inside', 'yang-path': 'ip/nat', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'route_map', 'yang-key': 'route-map', 'yang-path': 'ip/policy'},
             {'key': 'redundancy_group'},
-            {'key': 'shutdown','default':False,'yang-type':YANG_TYPE.EMPTY}
+            {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY}
 
         ]
-
-
 
     def __init__(self, **kwargs):
         super(BDIInterface, self).__init__(**kwargs)
@@ -139,10 +138,10 @@ class BDIInterface(NyBase):
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.MASK] = self.ip_address.mask
 
         if self.nat_inside:
-            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
 
         elif self.nat_outside:
-            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
 
         if self.route_map:
             ip[L3Constants.POLICY] = {L3Constants.ROUTE_MAP: self.route_map}
@@ -158,21 +157,20 @@ class BDIInterface(NyBase):
 
         return dict(result)
 
-    def to_delete_dict(self,existing=None):
+    def to_delete_dict(self, existing=None):
         bdi = OrderedDict()
         bdi[L3Constants.NAME] = self.name
         bdi[L3Constants.DESCRIPTION] = self.description
 
         if existing is not None and existing.nat_outside:
             ip = OrderedDict()
-            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE:'',xml_utils.NS:xml_utils.NS_CISCO_NAT}
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
             bdi[L3Constants.IP] = ip
 
         result = OrderedDict()
         result[L3Constants.BDI_INTERFACE] = bdi
 
         return dict(result)
-
 
     @property
     def in_neutron_namespace(self):
@@ -181,18 +179,13 @@ class BDIInterface(NyBase):
 
         return min <= int(self.id) <= max
 
-
     def postflight(self, context):
-
-         dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
-         if self.nat_outside and dyn_nat is not None:
-                 if dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
-                     LOG.warning(
-                         "Postflight failed for interface {} due to configured interface presence of dynamic NAT {}".format(
-                             self.id,
-                             dyn_nat))
-                     raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
-
+        dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
+        if self.nat_outside and dyn_nat is not None:
+            if dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
+                LOG.warning("Postflight failed for interface {} due to configured interface presence of dynamic NAT {}"
+                            "".format(self.id, dyn_nat))
+                raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
 
     def init_config(self):
 
@@ -204,14 +197,15 @@ class BDIInterface(NyBase):
 
         if self.route_map is not None:
             return cli_snippets.BDI_POLICY_CLI_INIT.format(**{'id': self.id, 'description': self.description,
-                                                                 'mac': self.mac_address, 'mtu': self.mtu,
-                                                                 'vrf': self.vrf, 'ip': self.ip_address.address,
-                                                                 'netmask':self.ip_address.mask, 'nat': nat,'route_map':self.route_map})
+                                                              'mac': self.mac_address, 'mtu': self.mtu,
+                                                              'vrf': self.vrf, 'ip': self.ip_address.address,
+                                                              'netmask': self.ip_address.mask, 'nat': nat,
+                                                              'route_map': self.route_map})
         else:
             return cli_snippets.BDI_NO_POLICY_CLI_INIT.format(**{'id': self.id, 'description': self.description,
                                                                  'mac': self.mac_address, 'mtu': self.mtu,
                                                                  'vrf': self.vrf, 'ip': self.ip_address.address,
-                                                                 'netmask':self.ip_address.mask, 'nat': nat})
+                                                                 'netmask': self.ip_address.mask, 'nat': nat})
 
 
 class BDISecondaryIpAddress(NyBase):
@@ -238,26 +232,25 @@ class BDISecondaryIpAddress(NyBase):
     @classmethod
     def __parameters__(cls):
         return [
-            {'key': 'bridge_domain','validate': False,'primary_key':True},
+            {'key': 'bridge_domain', 'validate': False, 'primary_key': True},
             {"key": 'address', 'id': True},
             {'key': 'mask'},
-            {'key': 'secondary','default':True},
+            {'key': 'secondary', 'default': True},
 
         ]
 
-
     @classmethod
-    def remove_wrapper(cls,dict):
+    def remove_wrapper(cls, dict):
         dict = super(BDISecondaryIpAddress, cls)._remove_base_wrapper(dict)
         if dict is None:
             return
-        dict = dict.get(L3Constants.INTERFACE,dict)
-        dict = dict.get(L3Constants.BDI_INTERFACE,dict)
+        dict = dict.get(L3Constants.INTERFACE, dict)
+        dict = dict.get(L3Constants.BDI_INTERFACE, dict)
         dict = dict.get(L3Constants.IP, dict)
         dict = dict.get(cls.LIST_KEY, None)
         return dict
 
-    def _wrapper_preamble(self,dict):
+    def _wrapper_preamble(self, dict):
         result = {}
         result[self.LIST_KEY] = dict
         a = OrderedDict()
@@ -268,20 +261,18 @@ class BDISecondaryIpAddress(NyBase):
         return result
 
     @classmethod
-    def get_primary_filter(cls,**kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'bridge_domain':kwargs.get('bridge_domain')})
-
-
-    @classmethod
-    @execute_on_pair(return_raw=True)
-    def get(cls,bridge_domain,id, context=None):
-        return super(BDISecondaryIpAddress, cls)._get(id=id, bridge_domain=bridge_domain,context=context)
+    def get_primary_filter(cls, **kwargs):
+        return cls.ID_FILTER.format(**{'id': kwargs.get('id'), 'bridge_domain': kwargs.get('bridge_domain')})
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, bridge_domain,id, context=None):
+    def get(cls, bridge_domain, id, context=None):
+        return super(BDISecondaryIpAddress, cls)._get(id=id, bridge_domain=bridge_domain, context=context)
+
+    @classmethod
+    @execute_on_pair(return_raw=True)
+    def exists(cls, bridge_domain, id, context=None):
         return super(BDISecondaryIpAddress, cls)._exists(id=id, bridge_domain=bridge_domain, context=context)
-
 
     def __init__(self, **kwargs):
         super(BDISecondaryIpAddress, self).__init__(**kwargs)
@@ -298,7 +289,6 @@ class BDISecondaryIpAddress(NyBase):
         return ip
 
 
-
 class BDIPrimaryIpAddress(NyBase):
     ITEM_KEY = L3Constants.PRIMARY
     LIST_KEY = L3Constants.ADDRESS
@@ -308,17 +298,11 @@ class BDIPrimaryIpAddress(NyBase):
         return [
             {"key": 'address', 'id': True},
             {'key': 'mask'},
-
         ]
 
-
-
     def __init__(self, **kwargs):
-
-
         super(BDIPrimaryIpAddress, self).__init__(**kwargs)
         self.bridge_domain = kwargs.get('bridge_domain')
-
 
     def to_dict(self):
         ip = OrderedDict()

@@ -24,23 +24,23 @@ from asr1k_neutron_l3.common import utils
 
 LOG = logging.getLogger(__name__)
 
-class InterfaceList(object):
 
+class InterfaceList(object):
     def __init__(self):
         self.internal_interfaces = []
-        self.gateway_interface  = None
+        self.gateway_interface = None
         self.orphaned_interfaces = []
 
-
-    def append(self,interface):
-        if isinstance(interface,InternalInterface):
+    def append(self, interface):
+        if isinstance(interface, InternalInterface):
             self.internal_interfaces.append(interface)
-        elif isinstance(interface,GatewayInterface):
+        elif isinstance(interface, GatewayInterface):
             self.gateway_interface = interface
-        elif isinstance(interface,OrphanedInterface):
+        elif isinstance(interface, OrphanedInterface):
             self.orphaned_interfaces.append(interface)
         else:
             LOG.warning("Attempt add unknown interface tye {} to interface list".format(interface.__class__.__name__))
+
     @property
     def all_interfaces(self):
         result = []
@@ -48,10 +48,10 @@ class InterfaceList(object):
         if self.gateway_interface is not None:
             result.append(self.gateway_interface)
 
-        return result+self.internal_interfaces+self.orphaned_interfaces
+        return result + self.internal_interfaces + self.orphaned_interfaces
+
 
 class Interface(base.Base):
-
     def __init__(self, router_id, router_port, extra_atts):
         super(Interface, self).__init__()
 
@@ -72,11 +72,11 @@ class Interface(base.Base):
 
         self.mac_address = utils.to_cisco_mac(self.router_port.get('mac_address'))
         self.mtu = self.router_port.get('mtu')
-        self.address_scope = router_port.get('address_scopes',{}).get('4')
-
+        self.address_scope = router_port.get('address_scopes', {}).get('4')
 
     def add_secondary_ip_address(self, ip_address, netmask):
-        self.secondary_ip_addresses.append(l3_interface.BDISecondaryIpAddress(address=ip_address, mask=utils.to_netmask(netmask)))
+        self.secondary_ip_addresses.append(l3_interface.BDISecondaryIpAddress(address=ip_address,
+                                                                              mask=utils.to_netmask(netmask)))
 
     def _ip_address(self):
         if self.router_port.get('fixed_ips'):
@@ -84,45 +84,42 @@ class Interface(base.Base):
 
             self._primary_subnet_id = n_fixed_ip.get('subnet_id')
 
-            return l3_interface.BDIPrimaryIpAddress(address=n_fixed_ip.get('ip_address'), mask = utils.to_netmask(n_fixed_ip.get('prefixlen')))
-
-
+            return l3_interface.BDIPrimaryIpAddress(address=n_fixed_ip.get('ip_address'),
+                                                    mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
 
     def _primary_subnet(self):
         for subnet in self.router_port.get('subnets', []):
             if subnet.get('id') == self._primary_subnet_id:
                 return subnet
+
     @property
     def subnets(self):
-
         return self.router_port.get('subnets', [])
 
     def get_state(self):
-
         state = l3_interface_state.BDIInterfaceState.get(id=self.bridge_domain)
 
-        result={}
+        result = {}
         if state is not None:
             result = state.to_dict()
 
         return result
-
 
     def get(self):
         bdi = l3_interface.BDIInterface.get(self.bridge_domain)
         return bdi
 
     def delete(self):
-        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain,vrf=self.vrf)
-        return  bdi_interface.delete()
+        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain, vrf=self.vrf)
+        return bdi_interface.delete()
 
     def disable_nat(self):
         bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain)
-        return  bdi_interface.disable_nat()
+        return bdi_interface.disable_nat()
 
     def enable_nat(self):
         bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain)
-        return  bdi_interface.enable_nat()
+        return bdi_interface.enable_nat()
 
 
 class GatewayInterface(Interface):
@@ -144,18 +141,17 @@ class GatewayInterface(Interface):
             for ip in ips:
                 address = ip.get('ip_address')
 
-
                 if address != self.ip_address.address:
                     return address
 
-class InternalInterface(Interface):
 
+class InternalInterface(Interface):
     def __init__(self, router_id, router_port, extra_atts):
         super(InternalInterface, self).__init__(router_id, router_port, extra_atts)
         self._rest_definition = l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
-                                        nat_inside=True, redundancy_group=None,route_map="pbr-{}".format(self.vrf))
+                                        nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf))
 
 
 class OrphanedInterface(Interface):
@@ -163,6 +159,5 @@ class OrphanedInterface(Interface):
     def __init__(self, router_id, router_port, extra_atts):
         super(OrphanedInterface, self).__init__(router_id, router_port, extra_atts)
 
-
     def update(self):
-        return  self.delete()
+        return self.delete()

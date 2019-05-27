@@ -1,13 +1,13 @@
-import json
 from oslo_log import log as logging
-from asr1k_neutron_l3.models.netconf_yang import xml_utils
-from asr1k_neutron_l3.models.connection import ConnectionManager
+
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
+from asr1k_neutron_l3.models.connection import ConnectionManager
+from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 LOG = logging.getLogger(__name__)
 
-class BulkOperations(xml_utils.XMLUtils):
 
+class BulkOperations(xml_utils.XMLUtils):
     FULL_CONFIG_FILTER = """<native xmlns = "http://cisco.com/ns/yang/Cisco-IOS-XE-native"></native>"""
 
     @classmethod
@@ -21,11 +21,11 @@ class BulkOperations(xml_utils.XMLUtils):
                 sub_items = []
                 for item in json:
                     obj = item.get(cls.ITEM_KEY, item)
-                    if isinstance(obj,list):
+                    if isinstance(obj, list):
                         sub_items += obj
                     else:
                         sub_items.append(item)
-                json=sub_items
+                json = sub_items
             else:
                 json = json.get(cls.ITEM_KEY, json)
 

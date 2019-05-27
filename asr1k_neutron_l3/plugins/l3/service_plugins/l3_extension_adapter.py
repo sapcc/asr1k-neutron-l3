@@ -42,7 +42,8 @@ class L3RpcNotifierMixin(object):
 
     @property
     def l3_rpc_notifier(self):
-        if not hasattr(self, '_l3_rpc_notifier') or not isinstance(self._l3_rpc_notifier,ask1k_l3_notifier.ASR1KAgentNotifyAPI)  :
+        if not hasattr(self, '_l3_rpc_notifier') or \
+                not isinstance(self._l3_rpc_notifier, ask1k_l3_notifier.ASR1KAgentNotifyAPI):
             self._l3_rpc_notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
         return self._l3_rpc_notifier
 
@@ -92,39 +93,39 @@ class L3RpcNotifierMixin(object):
         return notifier.interface_statistics(context, router_id)
 
     @log_helpers.log_method_call
-    def notify_show_orphans(self, context,host):
+    def notify_show_orphans(self, context, host):
         notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
 
-        return notifier.show_orphans(context,host)
+        return notifier.show_orphans(context, host)
 
     @log_helpers.log_method_call
-    def notify_delete_orphans(self, context,host):
+    def notify_delete_orphans(self, context, host):
         notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
 
-        return notifier.delete_orphans(context,host)
+        return notifier.delete_orphans(context, host)
 
     @log_helpers.log_method_call
-    def notify_list_devices(self, context,host):
+    def notify_list_devices(self, context, host):
         notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
 
-        return notifier.list_devices(context,host)
-
+        return notifier.list_devices(context, host)
 
     @log_helpers.log_method_call
-    def notify_show_device(self, context,host,device_id):
+    def notify_show_device(self, context, host, device_id):
         notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
 
-        return notifier.show_device(context,host,device_id)
+        return notifier.show_device(context, host, device_id)
 
     @log_helpers.log_method_call
-    def notify_agent_init_config(self, context, host,router_infos):
+    def notify_agent_init_config(self, context, host, router_infos):
         LOG.debug('agent_initial_config')
         notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
-        return notifier.agent_init_config(context, host,router_infos)
+        return notifier.agent_init_config(context, host, router_infos)
+
 
 class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
-                      dns_db.DNSDbMixin, L3RpcNotifierMixin,asr1k_ext.DevicePluginBase):
+                      dns_db.DNSDbMixin, L3RpcNotifierMixin, asr1k_ext.DevicePluginBase):
     def __init__(self):
         self.db = asr1k_db.get_db_plugin()
 
@@ -140,11 +141,9 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
             LOG.error('get host for router: there should be one and only one agent, got {}'.format(agents_list))
 
     def get_host_for_router(self, context, router_id):
-        agent = self.get_agent_for_router(context,router_id)
+        agent = self.get_agent_for_router(context, router_id)
         if agent is not None:
             return agent.get('host')
-
-
 
     def _ensure_second_dot1q(self, context):
         session = db_api.get_writer_session()
@@ -155,7 +154,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
             second_dot1qs.append(extra_att.second_dot1q)
 
         for extra_att in extra_atts:
-            if extra_att.second_dot1q==0:
+            if extra_att.second_dot1q == 0:
                 for x in range(asr1k_db.MIN_SECOND_DOT1Q, asr1k_db.MAX_SECOND_DOT1Q):
                     if x not in second_dot1qs:
                         extra_att.second_dot1q = x
@@ -164,27 +163,24 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
                 with context.session.begin(subtransactions=True):
                     entry = session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(router_id=extra_att.router_id,
-                                                                                   agent_host=extra_att.agent_host,
-                                                                                   port_id=extra_att.port_id,
-                                                                                   segment_id=extra_att.segment_id
-                                                                                   ).first()
+                                                                                      agent_host=extra_att.agent_host,
+                                                                                      port_id=extra_att.port_id,
+                                                                                      segment_id=extra_att.segment_id
+                                                                                      ).first()
                     if entry:
                         entry.update(extra_att)
 
-
-
     @instrument()
     @log_helpers.log_method_call
-    def get_sync_data(self, context, router_ids=None, active=None,host=None):
-
+    def get_sync_data(self, context, router_ids=None, active=None, host=None):
         if host is not None:
             host_router_ids = self.db.get_all_router_ids(context, host)
-            router_ids = [ r for r in router_ids if r in host_router_ids]
+            router_ids = [r for r in router_ids if r in host_router_ids]
 
         if not bool(router_ids):
             return []
 
-        extra_atts = self._get_extra_atts(context, router_ids,host)
+        extra_atts = self._get_extra_atts(context, router_ids, host)
         router_atts = self._get_router_atts(context, router_ids)
 
         try:
@@ -197,15 +193,16 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         if not bool(routers):
             routers = []
             for router_id in router_ids:
-                routers.append({'id':router_id,constants.ASR1K_ROUTER_ATTS_KEY:router_atts.get(router_id, {})})
+                routers.append({'id': router_id, constants.ASR1K_ROUTER_ATTS_KEY: router_atts.get(router_id, {})})
 
         for router in routers:
             extra_att = extra_atts.get(router['id'])
-            if extra_atts is None :
+            if extra_atts is None:
                 if host is None:
                     LOG.debug("Not including router {} in sync its extra atts are missing.".format(router['id']))
                 else:
-                    LOG.debug("Not including router {} in sync its extra atts are missing for host {}.".format(router['id'],host))
+                    LOG.debug("Not including router {} in sync its extra atts are missing for host {}."
+                              "".format(router['id'], host))
                 continue
 
             router[constants.ASR1K_EXTRA_ATTS_KEY] = extra_att
@@ -218,32 +215,32 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
             # can guarantee a consistent order from neutron and we can't change the
             # pool on the active device and it has (currently) to be different from
             # the interface device.
-            
+
             gw_info = router.get('external_gateway_info', None)
-            gw_port = router.get('gw_port',None)
+            gw_port = router.get('gw_port', None)
             if gw_port is not None:
-                ips = gw_port.get('fixed_ips',[])
+                ips = gw_port.get('fixed_ips', [])
                 prefixes = {}
                 if bool(ips):
                     for ip in ips:
-                        prefix = ip.get('prefixlen',None)
-                        subnet_id = ip.get('subnet_id',None)
+                        prefix = ip.get('prefixlen', None)
+                        subnet_id = ip.get('subnet_id', None)
                         if prefix is not None and subnet_id is not None:
-                            prefixes[subnet_id]=prefix
+                            prefixes[subnet_id] = prefix
 
                     for ip in ips:
-                        if ip.get('prefixlen',None) is None:
-                            prefix = prefixes.get(ip.get('subnet_id',None))
+                        if ip.get('prefixlen', None) is None:
+                            prefix = prefixes.get(ip.get('subnet_id', None))
                             if prefix is not None:
                                 ip['prefixlen'] = prefix
 
                     gw_port['fixed_ips'] = sorted(ips, key=lambda k: k.get('ip_address'))
                     if gw_info is not None:
-                        gw_info['external_fixed_ips']=gw_port['fixed_ips']
+                        gw_info['external_fixed_ips'] = gw_port['fixed_ips']
 
-            rt_import=[]
+            rt_import = []
             rt_export = []
-            bgpvpns = self.db.get_bgpvpns_by_router_id(context,router['id'])
+            bgpvpns = self.db.get_bgpvpns_by_router_id(context, router['id'])
 
             for bgpvpn in bgpvpns:
                 rt_import += bgpvpn.import_targets.split(",")
@@ -252,16 +249,13 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
             router["rt_export"] = rt_export
             router["rt_import"] = rt_import
 
-
         return routers
 
-
-    def get_deleted_router_atts(self,context):
+    def get_deleted_router_atts(self, context):
         return self.db.get_deleted_router_atts(context)
 
-    def _get_device_info(self,context,host):
-        return self.db.get_device_info(context,host)
-
+    def _get_device_info(self, context, host):
+        return self.db.get_device_info(context, host)
 
     def _get_extra_atts(self, context, router_ids, host=None):
         extra_atts = self.db.get_extra_atts_for_routers(context, router_ids, host=host)
@@ -291,20 +285,13 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
                 return_dict[router_att.get('router_id')] = {}
 
             return_dict[router_att.get('router_id')] = router_att
-
-
-
         return return_dict
-
-
-
 
     @log_helpers.log_method_call
     def create_router(self, context, router):
         result = super(ASR1KPluginBase, self).create_router(context, router)
-        asr1k_db.RouterAttsDb.ensure(context,result.get('id'))
+        asr1k_db.RouterAttsDb.ensure(context, result.get('id'))
         return result
-
 
     @log_helpers.log_method_call
     def update_router(self, context, id, router):
@@ -318,39 +305,34 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
     @log_helpers.log_method_call
     def delete_router(self, context, id):
-        return super(ASR1KPluginBase, self).delete_router( context, id)
+        return super(ASR1KPluginBase, self).delete_router(context, id)
 
     @log_helpers.log_method_call
     def add_router_interface(self, context, router_id, interface_info=None):
-        return super(ASR1KPluginBase,self).add_router_interface(context, router_id, interface_info)
+        return super(ASR1KPluginBase, self).add_router_interface(context, router_id, interface_info)
 
     @log_helpers.log_method_call
     def remove_router_interface(self, context, router_id, interface_info):
-        return super(ASR1KPluginBase,self).remove_router_interface(context, router_id, interface_info)
-
-
-
+        return super(ASR1KPluginBase, self).remove_router_interface(context, router_id, interface_info)
 
     def validate(self, context, id, fields=None):
-
         result = self.notify_router_validate(context, id)
         return {'diffs': result}
 
-
     def sync(self, context, id, fields=None):
-        result = self.notify_router_sync(context,id)
+        result = self.notify_router_sync(context, id)
         return {'device': {'router_id': result}}
 
     def orphans(self, context, dry_run=True):
-        result = self.notify_router_sync(context,dry_run)
+        result = self.notify_router_sync(context, dry_run)
         return result
 
     def get_config(self, context, id):
-        router_atts = self._get_router_atts(context,[id])
+        router_atts = self._get_router_atts(context, [id])
 
-        extra_atts = self._get_extra_atts(context,[id])
-        atts = extra_atts.get(id,None)
-        result = OrderedDict({'id':id,'rd':None})
+        extra_atts = self._get_extra_atts(context, [id])
+        atts = extra_atts.get(id, None)
+        result = OrderedDict({'id': id, 'rd': None})
         if len(router_atts) > 0:
             att = router_atts.get(id, None)
             if att is not None:
@@ -360,10 +342,10 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
         if atts is not None:
             for port_id in atts.keys():
-                port = OrderedDict({'port_id':port_id})
+                port = OrderedDict({'port_id': port_id})
                 att = atts.get(port_id)
                 if att is not None:
-                    port['segment_id']=att.segment_id
+                    port['segment_id'] = att.segment_id
                     port['segmentation_id'] = att.segmentation_id
                     port['second_dot1q'] = att.second_dot1q
                     port['external_service_instance'] = att.segmentation_id
@@ -377,21 +359,19 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
         return dict(result)
 
-    def ensure_config(self,context,id):
-        asr1k_db.RouterAttsDb.ensure(context,id)
+    def ensure_config(self, context, id):
+        asr1k_db.RouterAttsDb.ensure(context, id)
 
-        ports = self.db.get_router_ports(context,id)
+        ports = self.db.get_router_ports(context, id)
         for port in ports:
-            segment = self.db.get_router_segment_for_port(context,id,port.get('id'))
-            asr1k_db.ExtraAttsDb.ensure(id,port,segment)
+            segment = self.db.get_router_segment_for_port(context, id, port.get('id'))
+            asr1k_db.ExtraAttsDb.ensure(id, port, segment)
 
-
-        return self.get_config(context,id)
+        return self.get_config(context, id)
 
     def interface_statistics(self, context, id, fields=None):
         result = self.notify_interface_statistics(context, id)
         return {'interface_statistics': result}
-
 
     def teardown(self, context, id, fields=None):
         result = self.notify_router_teardown(context, id)
@@ -405,15 +385,13 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         result = self.notify_delete_orphans(context, host)
         return result
 
-
     def list_devices(self, context, host):
-        result = self.notify_list_devices(context,host)
-        device_info = self.db.get_device_info(context,host)
+        result = self.notify_list_devices(context, host)
+        device_info = self.db.get_device_info(context, host)
         for id in result:
             device = result.get(id)
-            self._add_device_enabled(device_info,device)
+            self._add_device_enabled(device_info, device)
         return result
-
 
     def show_device(self, context, host, id):
         result = self.notify_show_device(context, host, id)
@@ -421,7 +399,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         self._add_device_enabled(device_info, result)
         return result
 
-    def _add_device_enabled(self,device_info,device):
+    def _add_device_enabled(self, device_info, device):
         info = device_info.get(device.get('id'))
         if info is None or info.enabled:
             device['enabled'] = True
@@ -433,25 +411,21 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         if device is None:
             return None
 
-        asr1k_db.DeviceInfoDb(context,id,host,enabled).update()
+        asr1k_db.DeviceInfoDb(context, id, host, enabled).update()
 
-        return {id:enabled}
-
+        return {id: enabled}
 
     def init_scheduler(self, context):
-
-        return Initializer(self,context).init_scheduler()
+        return Initializer(self, context).init_scheduler()
 
     def init_bindings(self, context):
-        return Initializer(self,context).init_bindings()
+        return Initializer(self, context).init_bindings()
 
     def init_atts(self, context):
-        return Initializer(self,context).init_atts()
+        return Initializer(self, context).init_atts()
 
     def init_config(self, context, host):
-
-        return Initializer(self,context).init_config(host)
-
+        return Initializer(self, context).init_config(host)
 
     #
     # @log_helpers.log_method_call

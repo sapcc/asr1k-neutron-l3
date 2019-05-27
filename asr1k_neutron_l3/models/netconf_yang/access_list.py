@@ -14,12 +14,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import urllib
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase,execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang.ny_base import execute_on_pair, NyBase
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.common import utils
+
 
 class ACLConstants(object):
     ACCESS_LIST = "access-list"
@@ -36,9 +36,9 @@ class ACLConstants(object):
     ANY = 'any'
     DST_ANY = 'dst-any'
     SOURCE_IP = 'ipv4-address'
-    SOURCE_MASK ='mask'
+    SOURCE_MASK = 'mask'
     DEST_IP = 'dest-ipv4-address'
-    DEST_MASK ='dest-mask'
+    DEST_MASK = 'dest-mask'
 
 
 class AccessList(NyBase):
@@ -57,36 +57,33 @@ class AccessList(NyBase):
     LIST_KEY = ACLConstants.ACCESS_LIST
     ITEM_KEY = ACLConstants.EXTENDED
 
-
     @classmethod
     def __parameters__(cls):
         return [
             {"key": "name", "id": True},
-            {'key': 'rules','yang-key':"access-list-seq-rule", 'type':[ACLRule],'default': []}
+            {'key': 'rules', 'yang-key': "access-list-seq-rule", 'type': [ACLRule], 'default': []}
         ]
 
     @classmethod
-    def get_primary_filter(cls,**kwargs):
+    def get_primary_filter(cls, **kwargs):
         return cls.ID_FILTER.format(**{'name': kwargs.get('name')})
 
-
     @classmethod
-    def remove_wrapper(cls,dict):
+    def remove_wrapper(cls, dict):
         dict = super(AccessList, cls)._remove_base_wrapper(dict)
 
         if dict is not None:
-            dict = dict.get(ACLConstants.IP,dict)
+            dict = dict.get(ACLConstants.IP, dict)
             dict = dict.get(cls.LIST_KEY, dict)
 
         return dict
 
-    def _wrapper_preamble(self,dict):
+    def _wrapper_preamble(self, dict):
         result = {}
         dict[self.ITEM_KEY][xml_utils.NS] = xml_utils.NS_CISCO_ACL
         result[self.LIST_KEY] = dict
         result = {ACLConstants.IP: result}
         return result
-
 
     def __init__(self, **kwargs):
         super(AccessList, self).__init__(**kwargs)
@@ -114,8 +111,8 @@ class AccessList(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self,context=None):
-        #we need to check if the ACL needs to be updated, if it does selectively delete,
+    def update(self, context=None):
+        # we need to check if the ACL needs to be updated, if it does selectively delete,
         # because we can't easily update individual rules
         if len(self._internal_validate(context=context)) > 0:
             super(AccessList, self)._delete(context=context)
@@ -130,8 +127,8 @@ class ACLRule(NyBase):
     def __parameters__(cls):
         return [
             {"key": "sequence", "id": True},
-            {'key': 'access_list','validate':False,'primary_key':True,'default':""},
-            {'key': 'ace_rule','type':[ACERule]},
+            {'key': 'access_list', 'validate': False, 'primary_key': True, 'default': ""},
+            {'key': 'ace_rule', 'type': [ACERule]},
 
         ]
 
@@ -142,13 +139,10 @@ class ACLRule(NyBase):
         entry = OrderedDict()
         entry[ACLConstants.SEQUENCE] = self.id
 
-
-
         entry[ACLConstants.ACE_RULE] = []
 
         for ace_rule in self.ace_rule:
             entry[ACLConstants.ACE_RULE].append(ace_rule.to_child_dict())
-
 
         return entry
 
@@ -166,23 +160,21 @@ class ACERule(NyBase):
     @classmethod
     def __parameters__(cls):
         return [
-
-            {'key': 'access_list', 'validate': False,'default':""},
-            {'key': 'acl_rule', 'validate':False,'default':""},
-            {'key': 'action','id':True},
+            {'key': 'access_list', 'validate': False, 'default': ""},
+            {'key': 'acl_rule', 'validate': False, 'default': ""},
+            {'key': 'action', 'id': True},
             {'key': 'protocol'},
-            {'key': 'any','default':None},
+            {'key': 'any', 'default': None},
             {'key': 'ipv4_address'},
             {'key': 'mask'},
-            {'key': 'dst_any', 'default':None},
+            {'key': 'dst_any', 'default': None},
             {'key': 'dest_ipv4_address'},
             {'key': 'dest_mask'}
 
         ]
 
-
     def __init__(self, **kwargs):
-        super(ACERule, self).__init__( **kwargs)
+        super(ACERule, self).__init__(**kwargs)
 
     def to_child_dict(self):
         ace_rule = OrderedDict()
@@ -204,7 +196,6 @@ class ACERule(NyBase):
         return ace_rule
 
     def to_dict(self):
-
         result = OrderedDict()
         result[ACLConstants.ACE_RULE] = self.to_child_dict()
 

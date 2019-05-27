@@ -28,9 +28,6 @@ DEVICE_OPTS = [
     cfg.IntOpt('nc_timeout', default=(5), help=('')),
     cfg.StrOpt('user_name', default=('admin'), help=('')),
     cfg.StrOpt('password', default=('secret'), help=('')),
-
-
-
 ]
 
 ASR1K_OPTS = [
@@ -61,7 +58,7 @@ ASR1K_L2_OPTS = [
     cfg.IntOpt('yang_connection_pool_size', default=(5), help=('')),
     cfg.BoolOpt('sync_active', default=True, help=_("Activate regular config sync")),
     cfg.IntOpt('sync_interval', default=60, help=_("Polling interval for sync task")),
-    cfg.IntOpt('sync_chunk_size', default=10,help=_("Number of ports to process in on poll")),
+    cfg.IntOpt('sync_chunk_size', default=10, help=_("Number of ports to process in on poll")),
     cfg.StrOpt('external_interface', default=('1'), help=('')),
     cfg.StrOpt('loopback_external_interface', default=('2'), help=('')),
     cfg.StrOpt('loopback_internal_interface', default=('3'), help=(''))
@@ -95,6 +92,7 @@ def _get_specific_config(name):
                 conf_dict = parsed_file[parsed_item].items()
     return conf_dict
 
+
 def _get_group_config(prefix):
     """retrieve config in the format [<label>:<key>]."""
     conf_dict = {}
@@ -123,9 +121,7 @@ def create_device_pair_dictionary():
     if len(device_dict.keys()) == 0:
         raise Exception("No devices were configured. Please review asr1k configuration file. ")
 
-
     return device_dict
-
 
 
 def create_address_scope_dict():
@@ -135,6 +131,7 @@ def create_address_scope_dict():
         address_scope_dict[key] = value[0]
 
     return address_scope_dict
+
 
 def register_l3_opts():
     cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
@@ -155,4 +152,3 @@ def register_l2_opts():
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
 
     cfg.CONF.asr1k.yang_connection_pool_size = cfg.CONF.asr1k_l2.yang_connection_pool_size
-

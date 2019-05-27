@@ -18,48 +18,42 @@ from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import access_list
 
 
-
 class AccessList(base.Base):
-
     def __init__(self, id,):
         super(AccessList, self).__init__()
         self.id = id
         self.rules = []
-
-
 
     @property
     def _rest_definition(self):
         acl = access_list.AccessList(name=self.id)
         for i, rule in enumerate(self.rules):
             sequence = (i + 1) * 10
-            ace_rule =  access_list.ACERule(access_list=self.id, acl_rule =sequence, action=rule.action,
-                                       protocol=rule.protocol, ipv4_address=rule.source, mask=rule.source_mask ,dest_ipv4_address=rule.destination, dest_mask = rule.destination_mask)
-            acl_rule = access_list.ACLRule(access_list=self.id, sequence=sequence,ace_rule=[ace_rule])
+            ace_rule = access_list.ACERule(access_list=self.id, acl_rule=sequence, action=rule.action,
+                                           protocol=rule.protocol, ipv4_address=rule.source, mask=rule.source_mask,
+                                           dest_ipv4_address=rule.destination, dest_mask=rule.destination_mask)
+            acl_rule = access_list.ACLRule(access_list=self.id, sequence=sequence, ace_rule=[ace_rule])
             acl.add_rule(acl_rule)
 
         return acl
 
-
     def get(self):
-        return  access_list.AccessList.get(self.id)
-
-
+        return access_list.AccessList.get(self.id)
 
     def delete(self):
         acl = access_list.AccessList(name=self.id)
-        return  acl.delete()
+        return acl.delete()
 
     def append_rule(self, rule):
         self.rules.append(rule)
 
 
 class Rule(object):
-
-    def __init__(self, action='permit', protocol='ip', source=None, source_mask=None, destination=None,destination_mask=None):
+    def __init__(self, action='permit', protocol='ip', source=None, source_mask=None,
+                 destination=None, destination_mask=None):
         self.action = action
         self.protocol = protocol
         self.source = source
         self.source_mask = source_mask
         self.destination = destination
-        self.destination_mask  = destination_mask
+        self.destination_mask = destination_mask

@@ -15,9 +15,7 @@
 #    under the License.
 
 import sqlalchemy as sa
-
 from neutron_lib.db import model_base
-
 from oslo_log import log
 
 LOG = log.getLogger(__name__)
@@ -29,7 +27,6 @@ class ASR1KExtraAttsModel(model_base.BASEV2):
     def set_external_deleteable(self, value):
         self.external_deleteable = value
 
-
     router_id = sa.Column(sa.String(length=36), sa.ForeignKey('routers.id', ondelete='CASCADE'), nullable=False,
                           primary_key=True)
     agent_host = sa.Column(sa.String(length=36), nullable=False, primary_key=True)
@@ -39,8 +36,6 @@ class ASR1KExtraAttsModel(model_base.BASEV2):
     second_dot1q = sa.Column(sa.BigInteger(), nullable=False)
     deleted_l2 = sa.Column('deleted_l2', sa.Boolean())
     deleted_l3 = sa.Column('deleted_l3', sa.Boolean())
-
-
 
 
 class ASR1KRouterAttsModel(model_base.BASEV2):

@@ -1,5 +1,3 @@
-import re
-
 from oslo_log import log
 
 from asr1k_neutron_l3.common.instrument import instrument
@@ -11,8 +9,7 @@ LOG = log.getLogger(__name__)
 
 
 class Initializer(object):
-
-    def __init__(self, plugin,context):
+    def __init__(self, plugin, context):
         self.plugin = plugin
         self.context = context
         self.db = asr1k_db.get_db_plugin()
@@ -24,10 +21,9 @@ class Initializer(object):
         ml2 = Ml2Plugin()
         router_ids = self.db.get_all_router_ids(self.context)
         scheduled = 0
-        bound = 0
         for router_id in router_ids:
             result[router_id] = {}
-            agent = self.plugin.schedule_router(self.context,router_id)
+            agent = self.plugin.schedule_router(self.context, router_id)
             if agent is not None:
 
                 scheduled += 1
@@ -40,7 +36,7 @@ class Initializer(object):
                 result[router_id]["already_scheduled"] = agent_host
 
             if agent_host is None:
-                result[router_id]['error']  = "Router is not scheduled to a host"
+                result[router_id]['error'] = "Router is not scheduled to a host"
 
         return result
 
@@ -62,24 +58,20 @@ class Initializer(object):
                 result[router_id]["port host"] = []
                 for port in ports:
                     LOG.warn("Updating Port %s of Router %s" % (port.id, router_id))
-                    port_count+=1
+                    port_count += 1
                     port_id = port.get('id')
-                    if  port.get(portbindings.HOST_ID) != agent_host:
-
+                    if port.get(portbindings.HOST_ID) != agent_host:
                         update_result = ml2.update_port(self.context, port_id,
                                                         {'port': {'id': port_id, portbindings.HOST_ID: agent_host}})
                     result[router_id]["port host"].append({'port': port_id, 'host': agent_host})
-
-
             else:
                 result[router_id]['error'] = "Router is not scheduled to a host"
             result["ports_processed"] = port_count
-        return result
 
+        return result
 
     def init_atts(self):
         result = {}
-
 
         router_ids = self.db.get_all_router_ids(self.context)
 
@@ -96,12 +88,9 @@ class Initializer(object):
     def init_config(self, host):
         router_ids = self.db.get_all_router_ids(self.context, host=host)
 
-        router_infos = self.plugin.get_sync_data(self.context,router_ids=router_ids,host=host)
+        router_infos = self.plugin.get_sync_data(self.context, router_ids=router_ids, host=host)
 
         config = self.plugin.notify_agent_init_config(self.context, host, router_infos)
 
         if config is not None:
             return "".join(config)
-
-
-

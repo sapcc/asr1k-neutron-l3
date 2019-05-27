@@ -14,38 +14,37 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.netconf_yang import vrf
 from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.models.netconf_yang import vrf
+from asr1k_neutron_l3.models.neutron.l3 import base
 
 
 class Vrf(base.Base):
-    def __init__(self, name, description=None,asn=None,rd=None,routeable_interface=False,rt_import=[],rt_export=[]):
+    def __init__(self, name, description=None, asn=None, rd=None, routeable_interface=False,
+                 rt_import=[], rt_export=[]):
         super(Vrf, self).__init__()
         self.name = utils.uuid_to_vrf_id(name)
         self.description = description
         self.routeable_interface = routeable_interface
 
-        self.asn=None
-        self.rd =None
+        self.asn = None
+        self.rd = None
         self.asn = asn
         self.rd = utils.to_rd(self.asn, rd)
-
 
         self.enable_bgp = False
 
         if self.routeable_interface:
             self.enable_bgp = True
 
-        self.map ="exp-{}".format(self.name)
+        self.map = "exp-{}".format(self.name)
 
         self.rt_import = rt_import
         self.rt_export = rt_export
 
-        self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description, rd=self.rd,enable_bgp=self.enable_bgp,map=self.map,rt_import=self.rt_import,rt_export=self.rt_export)
-
-
+        self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description,
+                                                  rd=self.rd, enable_bgp=self.enable_bgp, map=self.map,
+                                                  rt_import=self.rt_import, rt_export=self.rt_export)
 
     def get(self):
         return vrf.VrfDefinition.get(self.name)
-

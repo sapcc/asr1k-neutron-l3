@@ -1,6 +1,6 @@
 from neutron.agent.common.resource_processing_queue import ExclusiveResourceProcessor
 from six.moves import queue as Queue
-from oslo_config import cfg
+
 
 class RouterProcessingQueue(object):
     """Manager of the queue of routers to process."""
@@ -16,7 +16,6 @@ class RouterProcessingQueue(object):
         This method uses a for loop to process the router repeatedly until
         updates stop bubbling to the front of the queue.
         """
-
         next_update = self._queue.get()
         if next_update is not None:
             with ExclusiveResourceProcessor(next_update.id) as rp:

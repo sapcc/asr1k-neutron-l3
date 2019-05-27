@@ -16,9 +16,6 @@ _DEFAULT_SERVICE_INTERFACE = 'public'
 _DEFAULT_API_VERSION = 'v2.0'
 _SUPPORTED_API_VERSION_MAP = {'v2.0': 'asr1k_neutron_l3.client_plugins.v2.client.Client'}
 
-
-
-
 # NOTE(dtroyer): Attempt an import to detect if the SDK installed is new
 #                enough to not use Profile.  If so, use that.
 try:
@@ -76,11 +73,9 @@ def make_client(instance):
     #           conn.network)
     # return conn.network
 
-
     return Client(session=instance.session,
-                         region_name=instance._region_name,
-                         interface=instance.interface)
-
+                  region_name=instance._region_name,
+                  interface=instance.interface)
 
 
 def build_option_parser(parser):
@@ -95,19 +90,12 @@ def build_option_parser(parser):
     return parser
 
 
-
-
-
-
 class _HTTPClient(adapter.Adapter):
-
     def __init__(self, session, project_id=None, **kwargs):
         kwargs.setdefault('interface', _DEFAULT_SERVICE_INTERFACE)
         kwargs.setdefault('service_type', _DEFAULT_SERVICE_TYPE)
         kwargs.setdefault('version', _DEFAULT_API_VERSION)
         endpoint = kwargs.pop('endpoint', None)
-
-
 
         super(_HTTPClient, self).__init__(session, **kwargs)
 
@@ -134,8 +122,6 @@ class _HTTPClient(adapter.Adapter):
     def get(self, *args, **kwargs):
         headers = kwargs.setdefault('headers', {})
         headers.setdefault('Accept', 'application/json')
-
-
 
         return super(_HTTPClient, self).get(*args, **kwargs).json()
 
@@ -291,4 +277,3 @@ class _LazyImporter(object):
 
 
 sys.modules[__name__] = _LazyImporter(sys.modules[__name__])
-

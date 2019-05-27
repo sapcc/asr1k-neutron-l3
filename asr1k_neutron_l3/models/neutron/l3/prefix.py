@@ -19,9 +19,9 @@ from asr1k_neutron_l3.common import utils
 
 from asr1k_neutron_l3.models.netconf_yang import prefix
 
-class BasePrefix(base.Base):
 
-    def __init__(self,router_id=None,gateway_interface=None, internal_interfaces=None):
+class BasePrefix(base.Base):
+    def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
         self.vrf = utils.uuid_to_vrf_id(router_id)
         self.internal_interfaces = internal_interfaces
         self.gateway_interface = gateway_interface
@@ -34,9 +34,9 @@ class BasePrefix(base.Base):
 
 
 class ExtPrefix(BasePrefix):
-
-    def __init__(self,router_id=None,gateway_interface=None, internal_interfaces=None):
-        super(ExtPrefix,self).__init__(router_id=router_id,gateway_interface=gateway_interface, internal_interfaces=internal_interfaces)
+    def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
+        super(ExtPrefix, self).__init__(router_id=router_id, gateway_interface=gateway_interface,
+                                        internal_interfaces=internal_interfaces)
         self.name = 'ext-{}'.format(self.vrf)
 
         self._rest_definition = prefix.Prefix(name=self.name)
@@ -45,19 +45,18 @@ class ExtPrefix(BasePrefix):
             i = 0
             for subnet in self.gateway_interface.subnets:
                 self.has_prefixes = True
-                i+=1
-                self._rest_definition.add_seq(prefix.PrefixSeq(no=i*10,permit_ip=subnet.get('cidr')))
-
-
+                i += 1
+                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
 
 
 class SnatPrefix(BasePrefix):
-    def __init__(self, router_id=None,gateway_interface=None, internal_interfaces=None):
-        super(SnatPrefix,self).__init__(router_id=router_id,gateway_interface=gateway_interface, internal_interfaces=internal_interfaces)
+    def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
+        super(SnatPrefix, self).__init__(router_id=router_id, gateway_interface=gateway_interface,
+                                         internal_interfaces=internal_interfaces)
         self.name = 'snat-{}'.format(self.vrf)
 
         self._rest_definition = prefix.Prefix(name=self.name)
-        i=0
+        i = 0
         for interface in self.internal_interfaces:
             i += 1
             for subnet in interface.subnets:
@@ -65,18 +64,20 @@ class SnatPrefix(BasePrefix):
                 self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
                 i += 1
 
+
 class RoutePrefix(BasePrefix):
-    def __init__(self, router_id=None,gateway_interface=None, internal_interfaces=None):
-        super(RoutePrefix,self).__init__(router_id=router_id,gateway_interface=gateway_interface, internal_interfaces=internal_interfaces)
+    def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
+        super(RoutePrefix, self).__init__(router_id=router_id, gateway_interface=gateway_interface,
+                                         internal_interfaces=internal_interfaces)
         self.name = 'route-{}'.format(self.vrf)
 
         self._rest_definition = prefix.Prefix(name=self.name)
-        i=0
+        i = 0
         for interface in self.internal_interfaces:
             i += 1
             for subnet in interface.subnets:
                 self.has_prefixes = True
                 cidr = subnet.get('cidr')
-                permit_ge = utils.prefix_from_cidr(cidr)+1
-                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=cidr,permit_ge=permit_ge))
+                permit_ge = utils.prefix_from_cidr(cidr) + 1
+                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=cidr, permit_ge=permit_ge))
                 i += 1

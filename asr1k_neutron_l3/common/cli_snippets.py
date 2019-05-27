@@ -30,6 +30,5 @@ PBR_ROUTE_MAP = """route-map pbr-{vrf} permit 10
     match ip address PBR-{vrf}
     set ip next-hop {gateway} force"""
 
-PBR_ACCESS_LIST  = """ip access-list extended PBR-{vrf}
+PBR_ACCESS_LIST = """ip access-list extended PBR-{vrf}
     permit ip any {network} {netmask}"""
-

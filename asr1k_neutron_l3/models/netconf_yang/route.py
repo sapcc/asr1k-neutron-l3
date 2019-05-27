@@ -17,18 +17,17 @@
 from collections import OrderedDict
 
 from oslo_log import log as logging
+
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION
 from asr1k_neutron_l3.common import utils
-from asr1k_neutron_l3.common import  asr1k_exceptions as exc
-
-
 
 LOG = logging.getLogger(__name__)
+
 
 class RouteConstants(object):
     DEFINITION = "vrf"
 
-    VRF="vrf"
+    VRF = "vrf"
     IP = "ip"
     ROUTE = "route"
     NAME = "name"
@@ -55,27 +54,26 @@ class VrfRoute(NyBase):
 
     VRF_XPATH_FILTER = "/native/ip/route/vrf[name='{vrf}']"
 
-    LIST_KEY =RouteConstants.ROUTE
+    LIST_KEY = RouteConstants.ROUTE
     ITEM_KEY = RouteConstants.DEFINITION
 
     @classmethod
-    def get_for_vrf(cls,context=None,vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf":vrf}))
+    def get_for_vrf(cls, context=None, vrf=None):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
 
     @classmethod
     def __parameters__(cls):
         return [
             {'key': 'name', 'id': True},
-            {'key': 'routes', 'yang-key':RouteConstants.FOWARDING, 'type': [IpRoute] ,  'default': []}
+            {'key': 'routes', 'yang-key': RouteConstants.FOWARDING, 'type': [IpRoute], 'default': []}
         ]
 
-
     @classmethod
-    def get_primary_filter(cls,**kwargs):
+    def get_primary_filter(cls, **kwargs):
         return cls.ID_FILTER.format(**{'id': kwargs.get('id')})
 
     @classmethod
-    def remove_wrapper(cls,dict):
+    def remove_wrapper(cls, dict):
         dict = super(VrfRoute, cls)._remove_base_wrapper(dict)
         if dict is None:
             return
@@ -85,14 +83,14 @@ class VrfRoute(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self,dict):
+    def _wrapper_preamble(self, dict):
         result = {}
         result[self.LIST_KEY] = dict
         result = {RouteConstants.IP: result}
         return result
 
     def __init__(self, **kwargs):
-        super(VrfRoute, self).__init__( **kwargs)
+        super(VrfRoute, self).__init__(**kwargs)
 
     @property
     def neutron_router_id(self):
@@ -100,10 +98,10 @@ class VrfRoute(NyBase):
             return utils.vrf_id_to_uuid(self.name)
 
     @execute_on_pair()
-    def update(self,context=None):
+    def update(self, context=None):
 
         if len(self.routes) > 0:
-            return super(VrfRoute, self)._update(context=context,method=NC_OPERATION.PUT)
+            return super(VrfRoute, self)._update(context=context, method=NC_OPERATION.PUT)
         else:
             return self._delete(context=context)
 
@@ -114,7 +112,7 @@ class VrfRoute(NyBase):
 
         vrf_route[RouteConstants.FOWARDING] = []
 
-        if isinstance(self.routes,list):
+        if isinstance(self.routes, list):
             for route in sorted(self.routes, key=lambda route: route.prefix):
 
                 vrf_route[RouteConstants.FOWARDING].append(route.to_single_dict())
@@ -148,22 +146,17 @@ class VrfRoute(NyBase):
 
 
 class IpRoute(NyBase):
-
-    LIST_KEY =RouteConstants.FOWARDING
-
-
+    LIST_KEY = RouteConstants.FOWARDING
 
     @classmethod
     def __parameters__(cls):
         return [
             {'key': 'prefix', 'mandatory': True},
             {'key': 'mask', 'mandatory': True},
-            {'key': 'fwd_list','yang-key':RouteConstants.FWD_LIST,'default': []}
+            {'key': 'fwd_list', 'yang-key': RouteConstants.FWD_LIST, 'default': []}
         ]
 
-
-
-    def __init__(self,**kwargs):
+    def __init__(self, **kwargs):
         super(IpRoute, self).__init__(**kwargs)
 
     @property
@@ -175,17 +168,14 @@ class IpRoute(NyBase):
         self.id = "{},{}".format(self.prefix, self.mask)
 
     def to_single_dict(self):
-
         ip_route = OrderedDict()
         ip_route[RouteConstants.PREFIX] = self.prefix
         ip_route[RouteConstants.MASK] = self.mask
         ip_route[RouteConstants.FWD_LIST] = self.fwd_list
 
-
         return ip_route
 
     def to_dict(self):
-
         result = OrderedDict()
         result[RouteConstants.FOWARDING] = self.to_single_dict()
 

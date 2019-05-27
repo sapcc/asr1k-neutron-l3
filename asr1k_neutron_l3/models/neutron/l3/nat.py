@@ -15,18 +15,16 @@
 #    under the License.
 
 from oslo_log import log as logging
-from oslo_config import cfg
-from asr1k_neutron_l3.models.neutron.l3 import base
+
+from asr1k_neutron_l3.common import asr1k_constants, utils
 from asr1k_neutron_l3.models.netconf_yang import arp as l3_arp
 from asr1k_neutron_l3.models.netconf_yang import nat as l3_nat
-from asr1k_neutron_l3.common import utils,asr1k_constants
-
+from asr1k_neutron_l3.models.neutron.l3 import base
 
 LOG = logging.getLogger(__name__)
 
 
 class BaseNAT(base.Base):
-
     def __init__(self, router_id, gateway_interface, redundancy=None, mapping_id=None):
         super(BaseNAT, self).__init__()
 
@@ -38,6 +36,7 @@ class BaseNAT(base.Base):
         if self.redundancy is None:
             self.redundancy = 1
 
+
 class NATPool(base.Base):
     def __init__(self, router_id, gateway_interface=None):
         super(NATPool, self).__init__()
@@ -47,22 +46,23 @@ class NATPool(base.Base):
     @property
     def _rest_definition(self):
         nat_ip = None
-        gateway_netmask=None
+        gateway_netmask = None
         if self.gateway_interface is not None:
             nat_ip = self.gateway_interface.nat_address
             gateway_netmask = self.gateway_interface.ip_address.mask
 
-        return  l3_nat.NatPool(id=self.router_id, start_address=nat_ip, end_address=nat_ip,
-                                  netmask=gateway_netmask)
+        return l3_nat.NatPool(id=self.router_id, start_address=nat_ip, end_address=nat_ip,
+                              netmask=gateway_netmask)
+
+
 class DynamicNAT(BaseNAT):
-
-    def __init__(self, router_id, gateway_interface=None,interfaces=[], redundancy=None, mapping_id=None, mode=asr1k_constants.SNAT_MODE_POOL,bridge_domain=None):
-        super(DynamicNAT, self).__init__(router_id, gateway_interface,redundancy, mapping_id)
-
+    def __init__(self, router_id, gateway_interface=None, interfaces=[], redundancy=None, mapping_id=None,
+                 mode=asr1k_constants.SNAT_MODE_POOL, bridge_domain=None):
+        super(DynamicNAT, self).__init__(router_id, gateway_interface, redundancy, mapping_id)
 
         self.interfaces = interfaces
 
-        self.specific_acl= True
+        self.specific_acl = True
         self.mode = mode
 
         self.id = utils.vrf_to_access_list_id(self.router_id)
@@ -70,27 +70,22 @@ class DynamicNAT(BaseNAT):
 
     @property
     def _rest_definition(self):
-
-
         if self.gateway_interface is not None:
-            self.bridge_domain  = self.gateway_interface.bridge_domain
-
+            self.bridge_domain = self.gateway_interface.bridge_domain
 
         if self.mode == asr1k_constants.SNAT_MODE_POOL:
-            return l3_nat.PoolDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id, bridge_domain=self.bridge_domain,
-                                     redundancy=self.redundancy,
-                                     mapping_id=self.mapping_id, overload=True)
+            return l3_nat.PoolDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id,
+                                         bridge_domain=self.bridge_domain, redundancy=self.redundancy,
+                                         mapping_id=self.mapping_id, overload=True)
 
         elif self.mode == asr1k_constants.SNAT_MODE_INTERFACE:
-            return l3_nat.InterfaceDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id, bridge_domain=self.bridge_domain,
-                                     redundancy=self.redundancy,
-                                     mapping_id=self.mapping_id, overload=True)
-
+            return l3_nat.InterfaceDynamicNat(id=self.id, vrf=self.router_id, pool=self.router_id,
+                                              bridge_domain=self.bridge_domain, redundancy=self.redundancy,
+                                              mapping_id=self.mapping_id, overload=True)
 
 
 class NatList(BaseNAT):
     yang_model = None
-
 
     def __init__(self, router_id):
         self.router_id = utils.uuid_to_vrf_id(router_id)
@@ -99,7 +94,6 @@ class NatList(BaseNAT):
 
     def append(self, item):
         self.items.append(item)
-
 
     def get(self):
         if self.yang_model is not None:
@@ -110,8 +104,7 @@ class NatList(BaseNAT):
             return self.yang_model(vrf=self.router_id).delete()
 
     def update(self):
-        return super(NatList,self).update()
-
+        return super(NatList, self).update()
 
     def __iter__(self):
         return self
@@ -125,7 +118,6 @@ class NatList(BaseNAT):
 
 
 class FloatingIpList(NatList):
-
     yang_model = l3_nat.StaticNatList
 
     @property
@@ -150,7 +142,6 @@ class ArpList(NatList):
 
 
 class FloatingIp(BaseNAT):
-
     def __init__(self, router_id, floating_ip, gateway_interface, redundancy=None, mapping_id=None):
         super(FloatingIp, self).__init__(router_id, gateway_interface, redundancy, mapping_id)
 
@@ -165,17 +156,16 @@ class FloatingIp(BaseNAT):
         if self.gateway_interface:
             self.mac_address = self.gateway_interface.mac_address
         self._rest_definition = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
-                                        mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
-                                        redundancy=self.redundancy, mapping_id=self.mapping_id,mac_address=self.mac_address,match_in_vrf=True)
-
+                                                 mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
+                                                 redundancy=self.redundancy, mapping_id=self.mapping_id,
+                                                 mac_address=self.mac_address, match_in_vrf=True)
 
     def get(self):
-        static_nat =  l3_nat.StaticNat.get(self.local_ip,self.global_ip)
+        static_nat = l3_nat.StaticNat.get(self.local_ip, self.global_ip)
         return static_nat
 
 
 class ArpEntry(BaseNAT):
-
     def __init__(self, router_id, floating_ip, gateway_interface):
         super(ArpEntry, self).__init__(router_id, gateway_interface)
 
@@ -187,10 +177,7 @@ class ArpEntry(BaseNAT):
 
         self._rest_definition = l3_arp.ArpEntry(vrf=self.router_id, ip=self.ip, hardware_address=self.mac_address)
 
-
     def get(self):
-        arp_entry =  l3_arp.ArpEntry.get(self.vrf,self.ip)
+        arp_entry = l3_arp.ArpEntry.get(self.vrf, self.ip)
 
         return arp_entry
-
-

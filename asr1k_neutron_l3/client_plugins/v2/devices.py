@@ -1,12 +1,6 @@
-import argparse
-import copy
 import json
-import logging
 
-from oslo_serialization import jsonutils
-from osc_lib.cli import parseractions
 from osc_lib.command import command
-from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient.i18n import _
@@ -19,11 +13,13 @@ _formatters = {
     'tags': utils.format_list,
 }
 
+
 def _format_router_info(info):
     try:
         return json.dumps(info)
     except (TypeError, KeyError):
         return ''
+
 
 def _get_columns(item):
     column_map = {
@@ -35,6 +31,7 @@ def _get_columns(item):
     if hasattr(item, 'interfaces_info'):
         column_map['interfaces_info'] = 'interfaces_info'
     return sdk_utils.get_osc_show_columns_for_sdk_resource(item, column_map)
+
 
 class UpdateDevices(command.Command):
     _description = _("Updates a router configuration on ASR1ks")
@@ -71,10 +68,7 @@ class UpdateDevices(command.Command):
         _formatters['interfaces_info'] = _format_router_info
         data = utils.get_item_properties(obj, columns, formatters=_formatters)
 
-
-
         return (display_columns, data)
-
 
 
 class DevicesManager(base.BaseEntityManager):
@@ -83,6 +77,5 @@ class DevicesManager(base.BaseEntityManager):
     def __init__(self, api):
         super(DevicesManager, self).__init__(api, 'devices')
 
-
-    def update_device(self, router_id,ignore_missing=False):
-        response = self._api.put("{}/{}".format(self._entity,router_id),json={"device":{}})
+    def update_device(self, router_id, ignore_missing=False):
+        response = self._api.put("{}/{}".format(self._entity, router_id), json={"device": {}})
