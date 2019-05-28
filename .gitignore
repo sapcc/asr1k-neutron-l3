@@ -9,3 +9,6 @@ asr1k_neutron_l3.egg-info/*
 build/*
 AUTHORS
 ChangeLog
+.tox
+.*.swp
+.testrepository
