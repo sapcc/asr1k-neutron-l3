@@ -16,7 +16,8 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, xml_utils, execute_on_pair, NC_OPERATION, YANG_TYPE
+from asr1k_neutron_l3.models.netconf_yang import xml_utils
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION, YANG_TYPE
 from asr1k_neutron_l3.common import utils
 
 
