@@ -7,11 +7,16 @@ from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 
 class CopyConfig(NyBase):
-
     COPY = """
     <copy xmlns='http://cisco.com/ns/yang/Cisco-IOS-XE-rpc'>
-        <_source>{}</_source>
-        <_destination>{}</_destination>
+        <_source>{source}</_source>
+        <_destination>{destination}</_destination>
+    </copy>"""
+
+    COPY_1612 = """
+    <copy xmlns='http://cisco.com/ns/yang/Cisco-IOS-XE-rpc'>
+        <source-drop-node-name>{source}</source-drop-node-name>
+        <destination-drop-node-name>{destination}</destination-drop-node-name>
     </copy>"""
 
     @classmethod
@@ -25,7 +30,11 @@ class CopyConfig(NyBase):
                                                                  entity=self.__class__.__name__,
                                                                  action='copy').time():
                 with ConnectionManager(context=context) as connection:
-                    result = connection.rpc(self.COPY.format(source, destination),
+                    if connection.is_min_version_1612:
+                        COPY_CMD = self.COPY_1612
+                    else:
+                        COPY_CMD = self.COPY
+                    result = connection.rpc(COPY_CMD.format(source=source, destination=destination),
                                             entity=self.__class__.__name__,
                                             action='copy')
                     parsed = etree.fromstring(result._raw.encode())
