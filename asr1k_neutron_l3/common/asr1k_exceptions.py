@@ -88,3 +88,7 @@ class EntityNotEmptyException(ReQueueException):
 
 class MissingParentException(ReQueueException):
     message = "The parent config for entity %(entity_name)s is missing, cannot create %(entity_name)s"
+
+
+class CapabilityNotFoundException(DeviceOperationException):
+    message = "Could not find capability %(entity)s on host %(host)s"
