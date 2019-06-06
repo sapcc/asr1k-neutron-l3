@@ -96,7 +96,7 @@ class AccessList(NyBase):
     def add_rule(self, rule):
         self.rules.append(rule)
 
-    def to_dict(self):
+    def to_dict(self,context=None):
         entry = OrderedDict()
         entry[ACLConstants.NAME] = self.name
         # entry[ACLConstants.ACL_RULE]=self.rules
@@ -146,7 +146,7 @@ class ACLRule(NyBase):
 
         return entry
 
-    def to_dict(self):
+    def to_dict(self,context=None):
 
         result = OrderedDict()
         result[ACLConstants.ACL_RULE] = self.to_child_dict()
@@ -195,7 +195,7 @@ class ACERule(NyBase):
 
         return ace_rule
 
-    def to_dict(self):
+    def to_dict(self,context=None):
         result = OrderedDict()
         result[ACLConstants.ACE_RULE] = self.to_child_dict()
 

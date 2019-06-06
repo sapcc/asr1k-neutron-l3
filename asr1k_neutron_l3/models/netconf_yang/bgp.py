@@ -18,7 +18,9 @@ from collections import OrderedDict
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
-
+from asr1k_neutron_l3.models.netconf_yang.boot import VersionCheck
+from oslo_log import log as logging
+LOG = logging.getLogger(__name__)
 
 class BGPConstants(object):
     ROUTER = 'router'
@@ -34,11 +36,13 @@ class BGPConstants(object):
     NAME = "name"
     VRF = "vrf"
     REDISTRIBUTE = "redistribute"
+    REDISTRIBUTE_VRF = "redistribute-vrf"
     CONNECTED = "connected"
     STATIC = "static"
     UNICAST = "unicast"
 
 
+# noinspection PyPackageRequirements
 class AddressFamily(NyBase):
     ID_FILTER = """
                   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-bgp="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
@@ -76,8 +80,11 @@ class AddressFamily(NyBase):
             {'key': 'connected', 'yang-path': 'ipv4-unicast/redistribute', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'connected', 'yang-path': 'ipv4-unicast/redistribute-vrf', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute-vrf', 'default': False,
              'yang-type': YANG_TYPE.EMPTY}
-
 
         ]
 
@@ -136,22 +143,31 @@ class AddressFamily(NyBase):
         if self.asn is None:
             self.asn = kwargs.get("asn", None)
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         result = OrderedDict()
         if self.vrf is not None:
             vrf = OrderedDict()
             vrf[BGPConstants.NAME] = self.vrf
             vrf[BGPConstants.IPV4_UNICAST] = {}
-            vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE] = {}
-            if self.connected:
-                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.CONNECTED] = ''
-            if self.static:
-                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.STATIC] = ''
+            if VersionCheck().latest(context=context):
+
+                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE_VRF] = {}
+                if self.connected:
+                    vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE_VRF][BGPConstants.CONNECTED] = ''
+                if self.static:
+                    vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE_VRF][BGPConstants.STATIC] = ''
+
+            else:
+                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE] = {}
+                if self.connected:
+                    vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.CONNECTED] = ''
+                if self.static:
+                    vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.STATIC] = ''
 
             result[BGPConstants.VRF] = vrf
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context=None):
         result = OrderedDict()
         if self.vrf is not None:
             vrf = OrderedDict()

@@ -151,7 +151,7 @@ class InternalInterface(Interface):
         self._rest_definition = l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
-                                        nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf))
+                                        nat_stick=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf))
 
 
 class OrphanedInterface(Interface):

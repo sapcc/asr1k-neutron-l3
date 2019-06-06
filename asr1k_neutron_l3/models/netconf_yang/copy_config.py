@@ -50,5 +50,5 @@ class CopyConfig(NyBase):
                                                           action='copy').inc()
             raise e
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         return None

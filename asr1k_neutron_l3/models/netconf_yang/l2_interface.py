@@ -139,7 +139,7 @@ class ServiceInstance(NyBase):
         if self.id == 'None' or self.id is None:
             self.id = -1
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         dot1q = dict(OrderedDict())
 
         dot1q[L2Constants.ID] = [str(self.dot1q)]
@@ -174,7 +174,7 @@ class ServiceInstance(NyBase):
 
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context=None):
         instance = OrderedDict()
         instance[L2Constants.ID] = "{}".format(str(self.id))
         instance[L2Constants.ETHERNET] = ''

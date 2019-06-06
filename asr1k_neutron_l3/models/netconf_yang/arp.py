@@ -79,12 +79,12 @@ class VrfArpList(NyBase):
         result[self.LIST_KEY][xml_utils.NS] = xml_utils.NS_CISCO_ARP
         return result
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         arp_list = OrderedDict()
         arp_list[ARPConstants.VRF_NAME] = self.vrf
         arp_list[ARPConstants.ARP_ENTRY] = []
         for arp_entry in sorted(self.arp_entry, key=lambda arp_entry: arp_entry.ip):
-            arp_list[ARPConstants.ARP_ENTRY].append(arp_entry.to_single_dict())
+            arp_list[ARPConstants.ARP_ENTRY].append(arp_entry.to_single_dict(context=context))
 
         return {ARPConstants.VRF: arp_list}
 
@@ -179,15 +179,15 @@ class ArpEntry(NyBase):
         if self.vrf is not None:
             return utils.vrf_id_to_uuid(self.vrf)
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         result = OrderedDict()
         result[ARPConstants.VRF_NAME] = self.vrf
         result[ARPConstants.ARP_ENTRY] = []
-        result[ARPConstants.ARP_ENTRY].append(self.to_single_dict())
+        result[ARPConstants.ARP_ENTRY].append(self.to_single_dict(context=context))
 
         return result
 
-    def to_single_dict(self):
+    def to_single_dict(self, context=None):
         entry = OrderedDict()
         entry[ARPConstants.IP] = self.ip
         entry[ARPConstants.HARDWARE_ADDRESS] = self.hardware_address
@@ -198,7 +198,7 @@ class ArpEntry(NyBase):
 
         return entry
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context=None):
         entry = OrderedDict()
         entry[ARPConstants.IP] = self.ip
 
