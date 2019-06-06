@@ -25,7 +25,7 @@ LOG = logging.getLogger(__name__)
 DEVICE_OPTS = [
     cfg.ListOpt('host', default=('10.0.0.1'), help=('')),
     cfg.IntOpt('yang_port', default=(830), help=('')),
-    cfg.IntOpt('nc_timeout', default=(5), help=('')),
+    cfg.IntOpt('nc_timeout', default=(20), help=('')),
     cfg.StrOpt('user_name', default=('admin'), help=('')),
     cfg.StrOpt('password', default=('secret'), help=('')),
 ]
@@ -37,6 +37,8 @@ ASR1K_OPTS = [
     cfg.BoolOpt('clean_orphans', default=True, help=_("Activate regular orphan cleanup")),
 
     cfg.IntOpt('clean_orphan_interval', default=(120), help=_("Interval for regular orphan cleanup")),
+
+    cfg.StrOpt('latest_firmware', default="bootflash:asr1000-universalk9.BLD_V1612_THROTTLE_LATEST_20190519_001718.SSA.bin", help=_("Latest firmware filew")),
 
 ]
 

@@ -57,7 +57,7 @@ class BDIInterfaceState(NyBase):
 
         return dict
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         statistics = {'in_octets': self.in_octets, 'in_unicast_pkts': self.in_unicast_pkts,
                       'in_broadcast_pkts': self.in_broadcast_pkts,
                       'in_multicast_pkts': self.in_multicast_pkts, 'in_discards': self.in_discards,

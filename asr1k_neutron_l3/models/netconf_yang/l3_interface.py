@@ -15,9 +15,10 @@
 #    under the License.
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE,NC_OPERATION
 import asr1k_neutron_l3.models.netconf_yang.nat
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
+from asr1k_neutron_l3.models.netconf_yang.boot import VersionCheck
 
 from asr1k_neutron_l3.common import cli_snippets, utils
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
@@ -47,6 +48,7 @@ class L3Constants(object):
     NAT = "nat"
     NAT_MODE_INSIDE = "inside"
     NAT_MODE_OUTSIDE = "outside"
+    NAT_MODE_STICK = "stick"
     POLICY = "policy"
     ROUTE_MAP = "route-map"
 
@@ -103,6 +105,8 @@ class BDIInterface(NyBase):
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'nat_stick', 'yang-key': 'stick', 'yang-path': 'ip/nat', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
             {'key': 'route_map', 'yang-key': 'route-map', 'yang-path': 'ip/policy'},
             {'key': 'redundancy_group'},
             {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY}
@@ -121,7 +125,9 @@ class BDIInterface(NyBase):
         if self.vrf:
             return utils.vrf_id_to_uuid(self.vrf)
 
-    def to_dict(self):
+    def to_dict(self,context=None):
+
+
         bdi = OrderedDict()
         bdi[L3Constants.NAME] = self.name
         bdi[L3Constants.DESCRIPTION] = self.description
@@ -137,14 +143,27 @@ class BDIInterface(NyBase):
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.ADDRESS] = self.ip_address.address
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.MASK] = self.ip_address.mask
 
-        if self.nat_inside:
+        print "inside {} stick {} outside {}".format(self.nat_inside,self.nat_stick,self.nat_outside)
+
+        if self.nat_inside and not VersionCheck().latest(context):
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
 
         elif self.nat_outside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
 
-        if self.route_map:
+        elif self.nat_stick and VersionCheck().latest(context):
+            #ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: 'null', xml_utils.NS: xml_utils.NS_CISCO_NAT}
+
+            #ip[L3Constants.NAT] = {L3Constants.NAT_MODE_STICK: '', xml_utils.NS: xml_utils.NS_CISCO_NAT,}
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_STICK: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
+        elif self.nat_stick and not VersionCheck().latest(context):
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
+
+
+
+        if self.route_map and  not VersionCheck().latest(context):
             ip[L3Constants.POLICY] = {L3Constants.ROUTE_MAP: self.route_map}
+
 
         vrf = OrderedDict()
         vrf[L3Constants.FORWARDING] = self.vrf
@@ -155,9 +174,10 @@ class BDIInterface(NyBase):
         result = OrderedDict()
         result[L3Constants.BDI_INTERFACE] = bdi
 
+
         return dict(result)
 
-    def to_delete_dict(self, existing=None):
+    def to_delete_dict(self, context=None, existing=None):
         bdi = OrderedDict()
         bdi[L3Constants.NAME] = self.name
         bdi[L3Constants.DESCRIPTION] = self.description
@@ -171,6 +191,30 @@ class BDIInterface(NyBase):
         result[L3Constants.BDI_INTERFACE] = bdi
 
         return dict(result)
+
+    def upgrade_interface(self, context=None):
+        if VersionCheck().latest(context):
+            bdi = self.to_dict(context=context)
+
+
+            if bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.NAT].get(L3Constants.NAT_MODE_INSIDE) is None and bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.NAT].get(L3Constants.NAT_MODE_OUTSIDE) is not None and bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.NAT].get(L3Constants.NAT_MODE_STICK) is not None:
+                bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.NAT] = {xml_utils.NS: xml_utils.NS_CISCO_NAT}
+            bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.POLICY] = {}
+
+
+            super(BDIInterface, self)._update(context=context, method=NC_OPERATION.PATCH,json=bdi,postflight=False)
+
+    @execute_on_pair()
+    def update(self, context=None):
+        # if  VersionCheck().latest(context):
+        #     self.upgrade_interface(context)
+        print "*******************"
+        print self.to_dict(context=context)
+        print "*******************"
+
+        result = super(BDIInterface, self)._update(context=context, method=NC_OPERATION.PUT)
+        return result
+
 
     @property
     def in_neutron_namespace(self):
@@ -194,6 +238,10 @@ class BDIInterface(NyBase):
 
         elif self.nat_outside:
             nat = L3Constants.NAT_MODE_OUTSIDE
+
+        elif self.nat_stick:
+            nat = L3Constants.NAT_MODE_STICK
+
 
         if self.route_map is not None:
             return cli_snippets.BDI_POLICY_CLI_INIT.format(**{'id': self.id, 'description': self.description,
@@ -278,7 +326,7 @@ class BDISecondaryIpAddress(NyBase):
         super(BDISecondaryIpAddress, self).__init__(**kwargs)
         self.bridge_domain = kwargs.get('bridge_domain')
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         ip = OrderedDict()
         secondary = OrderedDict()
         secondary[L3Constants.ADDRESS] = self.address
@@ -304,7 +352,7 @@ class BDIPrimaryIpAddress(NyBase):
         super(BDIPrimaryIpAddress, self).__init__(**kwargs)
         self.bridge_domain = kwargs.get('bridge_domain')
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         ip = OrderedDict()
         primary = OrderedDict()
         primary[L3Constants.ADDRESS] = self.address

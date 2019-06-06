@@ -335,12 +335,12 @@ class PairResult(object):
 
         return result
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         result = {}
         for host in self.results:
             host_result = self.results.get(host)
             if host_result is not None:
-                result[host] = self.results.get(host).to_dict()
+                result[host] = self.results.get(host).to_dict(context=context)
             else:
                 result[host] = {}
 
@@ -373,7 +373,7 @@ class DiffResult(PairResult):
     def diffs_for_device(self, host):
         return self.results.get(host, [])
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         result = {}
         for host in self.results:
             result[host] = self.results.get(host)
@@ -487,9 +487,9 @@ class NyBase(BulkOperations):
             value = ""
         return value
 
-    def __eq__(self, other):
+    def __eq__(self, other=None):
 
-        diff = self._diff(other)
+        diff = self._diff(other=other)
 
         return diff.valid
 
@@ -498,14 +498,18 @@ class NyBase(BulkOperations):
     def empty_diff(self):
         return self.EMPTY_TYPE
 
-    def _diff(self, other):
-        self_json = self._to_plain_json(self.to_dict())
+    def _diff(self, context=None,other=None):
+        self_json = self._to_plain_json(self.to_dict(context=context))
+
+
+
 
         other_json = {}
         if other is not None:
-            other_json = self._to_plain_json(other.to_dict())
+            other_json = self._to_plain_json(other.to_dict(context=context))
         else:
             other_json = self.empty_diff()
+
 
         return self.__json_diff(self_json, other_json)
 
@@ -757,7 +761,7 @@ class NyBase(BulkOperations):
     def _create(self, context=None):
         with ConnectionManager(context=context) as connection:
 
-            result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT),
+            result = connection.edit_config(config=self.to_xml(context=context, operation=NC_OPERATION.PUT),
                                             entity=self.__class__.__name__,
                                             action="create")
             return result
@@ -777,34 +781,38 @@ class NyBase(BulkOperations):
 
             with ConnectionManager(context=context) as connection:
                 if json is None:
-                    json = self.to_dict()
+                    json = self.to_dict(context=context)
 
                 if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
                     raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
-                result = connection.edit_config(config=self.to_xml(operation=method, json=json),
+                result = connection.edit_config(config=self.to_xml(context=context, operation=method, json=json),
                                                 entity=self.__class__.__name__,
                                                 action="update")
                 return result
 
     @execute_on_pair()
-    def delete(self, context=None, method=NC_OPERATION.DELETE):
-        return self._delete(context=context, method=method)
+    def delete(self, context=None, method=NC_OPERATION.DELETE, postflight=True):
+        return self._delete(context=context, method=method, postflight=postflight)
 
     @retry_on_failure()
-    def _delete(self, context=None, method=NC_OPERATION.DELETE):
-        self._delete_no_retry(context, method)
+    def _delete(self, context=None, method=NC_OPERATION.DELETE,json=None, postflight=True):
+        self._delete_no_retry(context, method,json=json,postflight= postflight)
 
-    def _delete_no_retry(self, context=None, method=NC_OPERATION.DELETE):
+    def _delete_no_retry(self, context=None, method=NC_OPERATION.DELETE,json=None, postflight=True):
 
-        self.postflight(context)
+        if postflight:
+            self.postflight(context)
+
+
 
         with ConnectionManager(context=context) as connection:
 
             if self._internal_exists(context) or self.force_delete:
-                json = self.to_delete_dict()
+                if json is  None:
+                    json = self.to_delete_dict(context=context)
 
-                result = connection.edit_config(config=self.to_xml(json=json, operation=method),
+                result = connection.edit_config(config=self.to_xml(context=context, json=json, operation=method),
                                                 entity=self.__class__.__name__,
                                                 action="delete")
                 return result
@@ -816,7 +824,7 @@ class NyBase(BulkOperations):
             if device_config is None:
                 return []
 
-        diff = self._diff(device_config)
+        diff = self._diff(context=context,other=device_config)
 
         if len(diff) > 0:
             LOG.info("Internal validate of {} for {} produced {} diff(s)  {}"

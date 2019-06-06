@@ -105,7 +105,7 @@ class VrfRoute(NyBase):
         else:
             return self._delete(context=context)
 
-    def to_dict(self):
+    def to_dict(self, context=None):
 
         vrf_route = OrderedDict()
         vrf_route[RouteConstants.NAME] = self.name
@@ -115,14 +115,14 @@ class VrfRoute(NyBase):
         if isinstance(self.routes, list):
             for route in sorted(self.routes, key=lambda route: route.prefix):
 
-                vrf_route[RouteConstants.FOWARDING].append(route.to_single_dict())
+                vrf_route[RouteConstants.FOWARDING].append(route.to_single_dict(context=context))
 
         result = OrderedDict()
         result[RouteConstants.DEFINITION] = vrf_route
 
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context=None):
 
         vrf_route = OrderedDict()
         vrf_route[RouteConstants.NAME] = self.name
@@ -167,7 +167,7 @@ class IpRoute(NyBase):
     def __id_function__(self, id_field, **kwargs):
         self.id = "{},{}".format(self.prefix, self.mask)
 
-    def to_single_dict(self):
+    def to_single_dict(self, context=None):
         ip_route = OrderedDict()
         ip_route[RouteConstants.PREFIX] = self.prefix
         ip_route[RouteConstants.MASK] = self.mask
@@ -175,8 +175,8 @@ class IpRoute(NyBase):
 
         return ip_route
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         result = OrderedDict()
-        result[RouteConstants.FOWARDING] = self.to_single_dict()
+        result[RouteConstants.FOWARDING] = self.to_single_dict(condtext=context)
 
         return dict(result)

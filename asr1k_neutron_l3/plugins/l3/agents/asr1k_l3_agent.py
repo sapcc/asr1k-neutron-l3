@@ -70,6 +70,7 @@ from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.models.netconf_yang.copy_config import CopyConfig
+from asr1k_neutron_l3.models.netconf_yang.boot import VersionCheck
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import connection

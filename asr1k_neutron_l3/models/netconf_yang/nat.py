@@ -107,7 +107,7 @@ class NatPool(NyBase):
         super(NatPool, self).__init__(**kwargs)
         self.vrf = self.id
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         pool = OrderedDict()
         pool[NATConstants.ID] = self.id
 
@@ -120,7 +120,7 @@ class NatPool(NyBase):
 
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context=None):
         pool = OrderedDict()
         pool[NATConstants.ID] = self.id
 
@@ -236,7 +236,7 @@ class InterfaceDynamicNat(DynamicNat):
         else:
             self.bd = int(self.interface[3:])
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
 
@@ -301,7 +301,7 @@ class PoolDynamicNat(DynamicNat):
 
         return False
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
 
@@ -323,7 +323,7 @@ class PoolDynamicNat(DynamicNat):
 
         return dict(result)
 
-    # def to_delete_dict(self):
+    # def to_delete_dict(self, context=None):
     #     entry = OrderedDict()
     #     entry[NATConstants.ID] = self.id
     #
@@ -413,11 +413,11 @@ class StaticNatList(NyBase):
     def __init__(self, **kwargs):
         super(StaticNatList, self).__init__(**kwargs)
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         nat_list = []
 
         for static_nat in sorted(self.static_nats, key=lambda static_nat: static_nat.local_ip):
-            nat_list.append(dict({self.ITEM_KEY: static_nat.to_single_dict()}))
+            nat_list.append(dict({self.ITEM_KEY: static_nat.to_single_dict(context=context)}))
 
         return nat_list
 
@@ -608,11 +608,11 @@ class StaticNat(NyBase):
     def to_dict(self):
         result = OrderedDict()
         result[NATConstants.TRANSPORT_LIST] = []
-        result[NATConstants.TRANSPORT_LIST].append(self.to_single_dict())
+        result[NATConstants.TRANSPORT_LIST].append(self.to_single_dict(context=context))
 
         return dict(result)
 
-    def to_single_dict(self):
+    def to_single_dict(self, context=None):
         entry = OrderedDict()
         entry[NATConstants.LOCAL_IP] = self.local_ip
         entry[NATConstants.GLOBAL_IP] = self.global_ip
@@ -628,7 +628,7 @@ class StaticNat(NyBase):
 
         return entry
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context=None):
         entry = OrderedDict()
         entry[NATConstants.LOCAL_IP] = self.local_ip
         entry[NATConstants.GLOBAL_IP] = self.global_ip

@@ -92,3 +92,12 @@ class MissingParentException(ReQueueException):
 
 class CapabilityNotFoundException(DeviceOperationException):
     message = "Could not find capability %(entity)s on host %(host)s"
+
+class FirmwareContextUnknown(DeviceOperationException):
+    message = "Cannot determmine device firmware host is unknown"
+
+class FirmwareVersionUnknown(DeviceOperationException):
+        message = "Cannot determmine device firmware for  %(host)s"
+
+
+

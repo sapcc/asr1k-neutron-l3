@@ -19,6 +19,7 @@ from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION, YANG_TYPE
 from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.models.netconf_yang.boot import VersionCheck
 
 
 class RouteMapConstants(object):
@@ -72,7 +73,7 @@ class RouteMap(NyBase):
         if self.name is not None and (self.name.startswith('exp-') or self.name.startswith('pbr-')):
             return utils.vrf_id_to_uuid(self.name[4:])
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         result = OrderedDict()
 
         map = OrderedDict()
@@ -81,7 +82,7 @@ class RouteMap(NyBase):
         map[RouteMapConstants.ROUTE_MAP_SEQ] = []
         for item in self.seq:
             if item is not None:
-                map[RouteMapConstants.ROUTE_MAP_SEQ].append(item.to_dict())
+                map[RouteMapConstants.ROUTE_MAP_SEQ].append(item.to_dict(context=context))
 
         result[self.ITEM_KEY] = map
 
@@ -92,7 +93,7 @@ class RouteMap(NyBase):
         dict = super(RouteMap, cls)._remove_base_wrapper(dict)
         return dict
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context=None):
         result = OrderedDict()
 
         map = OrderedDict()
@@ -132,7 +133,7 @@ class MapSequence(NyBase):
 
         self.enable_bgp = kwargs.get('enable_bgp', False)
 
-    def to_dict(self):
+    def to_dict(self, context=None):
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
 
@@ -141,11 +142,12 @@ class MapSequence(NyBase):
         if bool(self.asn):
             seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY: {RouteMapConstants.RT: {RouteMapConstants.ASN: self.asn}}}
 
-        if self.next_hop is not None:
+        if not VersionCheck().latest(context=context) and self.next_hop is not None:
             seq[RouteMapConstants.SET] = {
                 RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP: {RouteMapConstants.NEXT_HOP_ADDR: {RouteMapConstants.ADDRESS: self.next_hop}}}}
             if self.force:
                 seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE] = ""
+
         if self.prefix_list is not None:
             seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
                                                                                RouteMapConstants.PREFIX_LIST: self.prefix_list}}}
@@ -157,7 +159,7 @@ class MapSequence(NyBase):
 
         return seq
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context=None):
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
 
