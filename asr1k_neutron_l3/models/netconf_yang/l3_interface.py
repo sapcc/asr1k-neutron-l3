@@ -192,26 +192,9 @@ class BDIInterface(NyBase):
 
         return dict(result)
 
-    def upgrade_interface(self, context=None):
-        if VersionCheck().latest(context):
-            bdi = self.to_dict(context=context)
-
-
-            if bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.NAT].get(L3Constants.NAT_MODE_INSIDE) is None and bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.NAT].get(L3Constants.NAT_MODE_OUTSIDE) is not None and bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.NAT].get(L3Constants.NAT_MODE_STICK) is not None:
-                bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.NAT] = {xml_utils.NS: xml_utils.NS_CISCO_NAT}
-            bdi[L3Constants.BDI_INTERFACE][L3Constants.IP][L3Constants.POLICY] = {}
-
-
-            super(BDIInterface, self)._update(context=context, method=NC_OPERATION.PATCH,json=bdi,postflight=False)
 
     @execute_on_pair()
     def update(self, context=None):
-        # if  VersionCheck().latest(context):
-        #     self.upgrade_interface(context)
-        print "*******************"
-        print self.to_dict(context=context)
-        print "*******************"
-
         result = super(BDIInterface, self)._update(context=context, method=NC_OPERATION.PUT)
         return result
 
