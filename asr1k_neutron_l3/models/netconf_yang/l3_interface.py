@@ -143,7 +143,6 @@ class BDIInterface(NyBase):
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.ADDRESS] = self.ip_address.address
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.MASK] = self.ip_address.mask
 
-        print "inside {} stick {} outside {}".format(self.nat_inside,self.nat_stick,self.nat_outside)
 
         if self.nat_inside and not VersionCheck().latest(context):
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
