@@ -299,6 +299,11 @@ class Router(Base):
         results.append(self.floating_ips.update())
         results.append(self.arp_entries.update())
 
+        # process interface configuration before we configure nat
+        for interface in self.interfaces.all_interfaces:
+            if not isinstance(interface, l3_interface.OrphanedInterface):
+                results.append(interface.update())
+
         # We don't remove NAT statement or pool if enabling/disabling snat - instead update ACL
         if self.gateway_interface is not None:
             if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
@@ -314,8 +319,10 @@ class Router(Base):
             results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].delete())
             results.append(self.nat_pool.delete())
 
+        # process orphaned interfaces after nat configuration
         for interface in self.interfaces.all_interfaces:
-            results.append(interface.update())
+            if isinstance(interface, l3_interface.OrphanedInterface):
+                results.append(interface.update())
 
         return results
 
