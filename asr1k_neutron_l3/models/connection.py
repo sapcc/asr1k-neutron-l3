@@ -68,7 +68,11 @@ def check_devices(device_info):
     for context in ASR1KPair().contexts:
         device_reachable = ssh_connect(context)
         info = device_info.get(context.host, None)
-        admin_up = (info and info.get('enabled'))
+
+        admin_up = True
+        if info and not info.get('enabled'):
+            admin_up = False
+
         alive = device_reachable and admin_up
 
         context.alive = alive
