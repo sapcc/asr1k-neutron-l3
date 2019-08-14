@@ -310,6 +310,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         self._requeue = {}
         self._last_full_sync = timeutils.now()
         self._router_sync_marker = None
+        self._last_config_save = None
         self.retry_tracker = {}
 
         # Get the list of service plugins from Neutron Server
@@ -471,6 +472,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 LOG.error("Copy config failed, results : {} ".format(result))
             else:
                 LOG.info("Saved running device config to startup config in {}s".format(time.time() - start))
+                self._last_config_save = timeutils.utcnow()
         else:
             LOG.info("Saving running device config disabled in ASR1K config")
 
@@ -480,7 +482,11 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         router_deletes = 0
         sync_start_ts = timeutils.utcnow()
 
-        self._save_config()
+        # save config once every syncloop or on a timeout basis
+        last_save_sec = (timeutils.utcnow() - self._last_config_save).total_seconds() if self._last_config_save else -1
+        if not self._last_config_save or last_save_sec >= cfg.CONF.asr1k_l3.max_config_save_interval or \
+                not self._router_sync_marker:
+            self._save_config()
 
         LOG.debug("Starting partial router sync loop at sync marker %s", self._router_sync_marker)
         try:
