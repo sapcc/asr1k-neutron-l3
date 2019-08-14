@@ -402,8 +402,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
     def router_deleted(self, context, router_id):
         LOG.debug('************** Got router deleted notification for %s', router_id)
         update = queue.ResourceUpdate(router_id,
-                                    queue.PRIORITY_RPC,
-                                    action=queue.DELETE_ROUTER)
+                                      queue.PRIORITY_RPC,
+                                      action=queue.DELETE_ROUTER)
         self._queue.add(update)
 
     def routers_updated(self, context, routers=[], operation=None):
@@ -417,8 +417,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         LOG.debug('Got router removed from agent :%r', payload)
         router_id = payload['router_id']
         update = queue.ResourceUpdate(router_id,
-                                    queue.PRIORITY_RPC,
-                                    action=queue.DELETE_ROUTER)
+                                      queue.PRIORITY_RPC,
+                                      action=queue.DELETE_ROUTER)
         self._queue.add(update)
 
     def router_added_to_agent(self, context, payload):
@@ -547,9 +547,9 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         for atts in deleted_atts:
             router_id = atts.get("router_id")
             update = queue.ResourceUpdate(router_id,
-                                        queue.PRIORITY_SYNC_ROUTERS_TASK,
-                                        timestamp=sync_start_ts,
-                                        action=queue.DELETE_ROUTER)
+                                          queue.PRIORITY_SYNC_ROUTERS_TASK,
+                                          timestamp=sync_start_ts,
+                                          action=queue.DELETE_ROUTER)
             self._queue.add(update)
             router_deletes += 1
 
@@ -716,7 +716,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
             pool.spawn_n(self._process_router_update)
 
     def _requeue_router(self, router_update,
-                       priority=queue.PRIORITY_SYNC_ROUTERS_TASK):
+                        priority=queue.PRIORITY_SYNC_ROUTERS_TASK):
         router_update.timestamp = timeutils.utcnow()
         router_update.priority = priority
         router_update.resource = None  # Force the agent to resync the router
