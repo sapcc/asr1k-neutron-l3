@@ -101,6 +101,7 @@ class Router(Base):
                 if self.gateway_interface.address_scope is not None:
                     if interface.address_scope == self.gateway_interface.address_scope:
                         result.append(interface)
+        result = sorted(result, key=lambda _iface: _iface.id)
         return result
 
     def _build_interfaces(self):
