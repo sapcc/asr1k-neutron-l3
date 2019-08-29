@@ -10,6 +10,9 @@ class RouterProcessingQueue(object):
     def add(self, update):
         self._queue.put(update)
 
+    def get_size(self):
+        return self._queue.qsize()
+
     def each_update_to_next_router(self):
         """Grabs the next router from the queue and processes
 

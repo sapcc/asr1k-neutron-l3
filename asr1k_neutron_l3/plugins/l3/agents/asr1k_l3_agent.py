@@ -303,12 +303,15 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         self.fullsync = cfg.CONF.asr1k_l3.sync_active
         self.pause_process = False
         self.sync_routers_chunk_size = cfg.CONF.asr1k_l3.sync_chunk_size
+        self.sync_until_queue_size = cfg.CONF.asr1k_l3.sync_until_queue_size
 
         self.asr1k_pair = asr1k_pair.ASR1KPair()
 
         self._queue = asr1k_queue.RouterProcessingQueue()
         self._requeue = {}
         self._last_full_sync = timeutils.now()
+        self._router_sync_marker = None
+        self._last_config_save = None
         self.retry_tracker = {}
 
         # Get the list of service plugins from Neutron Server
@@ -401,8 +404,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
     def router_deleted(self, context, router_id):
         LOG.debug('************** Got router deleted notification for %s', router_id)
         update = queue.ResourceUpdate(router_id,
-                                    queue.PRIORITY_RPC,
-                                    action=queue.DELETE_ROUTER)
+                                      queue.PRIORITY_RPC,
+                                      action=queue.DELETE_ROUTER)
         self._queue.add(update)
 
     def routers_updated(self, context, routers=[], operation=None):
@@ -416,8 +419,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         LOG.debug('Got router removed from agent :%r', payload)
         router_id = payload['router_id']
         update = queue.ResourceUpdate(router_id,
-                                    queue.PRIORITY_RPC,
-                                    action=queue.DELETE_ROUTER)
+                                      queue.PRIORITY_RPC,
+                                      action=queue.DELETE_ROUTER)
         self._queue.add(update)
 
     def router_added_to_agent(self, context, payload):
@@ -439,7 +442,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
     def _periodic_sync_routers_task(self):
         try:
-            LOG.debug("Starting fullsync, last full sync started {} seconds ago"
+            LOG.debug("Starting partial sync, last partial sync started {} seconds ago"
                       "".format(int(timeutils.now() - self._last_full_sync)))
 
             all_stats = self.plugin_rpc.get_usage_stats(self.context)
@@ -454,19 +457,13 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 return
 
             self._last_full_sync = timeutils.now()
-
-            self.fetch_and_sync_all_routers(self.context)
+            self.fetch_and_sync_routers_partial(self.context)
         except Exception as e:
             LOG.error("Error in periodic sync : {}".format(e))
             self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
-    @instrument()
-    def fetch_and_sync_all_routers(self, context):
-        prev_router_ids = set(self.router_info)
-        curr_router_ids = set()
-        timestamp = timeutils.utcnow()
-
-        if cfg.CONF.asr1k.save_config:
+    def _save_config(self, force_save=False):
+        if cfg.CONF.asr1k.save_config or force_save:
             LOG.info("Saving running device config to startup config")
             start = time.time()
             rpc = CopyConfig()
@@ -476,27 +473,57 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 LOG.error("Copy config failed, results : {} ".format(result))
             else:
                 LOG.info("Saved running device config to startup config in {}s".format(time.time() - start))
+                self._last_config_save = timeutils.utcnow()
         else:
             LOG.info("Saving running device config disabled in ASR1K config")
 
+    @instrument()
+    def fetch_and_sync_routers_partial(self, context):
+        router_updates = 0
+        router_deletes = 0
+        sync_start_ts = timeutils.utcnow()
+
+        # save config once every syncloop or on a timeout basis
+        last_save_sec = (timeutils.utcnow() - self._last_config_save).total_seconds() if self._last_config_save else -1
+        if not self._last_config_save or last_save_sec >= cfg.CONF.asr1k_l3.max_config_save_interval or \
+                not self._router_sync_marker:
+            self._save_config()
+
+        LOG.debug("Starting partial router sync loop at sync marker %s", self._router_sync_marker)
         try:
-            router_ids = self.plugin_rpc.get_router_ids(context)
+            # fetch router ids, start with the router after the last one we already synced
+            router_ids = sorted(self.plugin_rpc.get_router_ids(context))
+            if self._router_sync_marker and router_ids and self._router_sync_marker < router_ids[-1]:
+                while router_ids[0] <= self._router_sync_marker:
+                    router_ids.pop(0)
 
             # fetch routers by chunks to reduce the load on server and to
             # start router processing earlier
             for i in range(0, len(router_ids), self.sync_routers_chunk_size):
                 routers = self.plugin_rpc.get_routers(
                     context, router_ids[i:i + self.sync_routers_chunk_size])
-                LOG.debug('Syncing {} routers in regular sync loop'.format(len(routers)))
+                LOG.debug('Fetching {} routers in regular sync loop'.format(len(routers)))
                 for r in routers:
-                    curr_router_ids.add(r['id'])
                     update = queue.ResourceUpdate(
                         r['id'],
                         queue.PRIORITY_SYNC_ROUTERS_TASK,
                         action=queue.ADD_UPDATE_ROUTER,
                         resource=r,
-                        timestamp=timestamp)
+                        timestamp=sync_start_ts)
                     self._queue.add(update)
+                    router_updates += 1
+                    self._router_sync_marker = r['id']
+                    if router_updates >= self.sync_routers_chunk_size and \
+                            self._queue.get_size() >= self.sync_until_queue_size:
+                        break
+                if router_updates >= self.sync_routers_chunk_size and \
+                        self._queue.get_size() >= self.sync_until_queue_size:
+                    break
+
+            if self._router_sync_marker == router_ids[-1]:
+                LOG.debug("Finished a complete round of queueing router updates with last router %s",
+                          self._router_sync_marker)
+                self._router_sync_marker = None
         except oslo_messaging.MessagingTimeout:
             if self.sync_routers_chunk_size > SYNC_ROUTERS_MIN_CHUNK_SIZE:
                 self.sync_routers_chunk_size = max(
@@ -522,27 +549,21 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 self.sync_routers_chunk_size + SYNC_ROUTERS_MIN_CHUNK_SIZE,
                 cfg.CONF.asr1k_l3.sync_chunk_size)
 
-        self.fullsync = cfg.CONF.asr1k_l3.sync_active
-
-        # Delete routers that have disappeared since the last sync
-        for router_id in prev_router_ids - curr_router_ids:
-            update = queue.ResourceUpdate(router_id,
-                                        queue.PRIORITY_SYNC_ROUTERS_TASK,
-                                        timestamp=timestamp,
-                                        action=queue.DELETE_ROUTER)
-            self._queue.add(update)
-
+        # handle router deletion
         deleted_atts = self.plugin_rpc.get_deleted_router_atts(context)
-
         for atts in deleted_atts:
             router_id = atts.get("router_id")
             update = queue.ResourceUpdate(router_id,
-                                        queue.PRIORITY_SYNC_ROUTERS_TASK,
-                                        timestamp=timestamp,
-                                        action=queue.DELETE_ROUTER)
+                                          queue.PRIORITY_SYNC_ROUTERS_TASK,
+                                          timestamp=sync_start_ts,
+                                          action=queue.DELETE_ROUTER)
             self._queue.add(update)
+            router_deletes += 1
 
-        LOG.debug("periodic_sync_routers_task successfully completed")
+        LOG.debug("periodic_sync_routers_task successfully queued %d router actions (%d update, %d delete)",
+                  router_updates + router_deletes, router_updates, router_deletes)
+
+        self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
     @periodic_task.periodic_task(spacing=60, run_immediately=True)
     def periodic_requeue_routers_task(self, context):
@@ -702,7 +723,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
             pool.spawn_n(self._process_router_update)
 
     def _requeue_router(self, router_update,
-                       priority=queue.PRIORITY_SYNC_ROUTERS_TASK):
+                        priority=queue.PRIORITY_SYNC_ROUTERS_TASK):
         router_update.timestamp = timeutils.utcnow()
         router_update.priority = priority
         router_update.resource = None  # Force the agent to resync the router

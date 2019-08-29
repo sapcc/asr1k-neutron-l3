@@ -181,6 +181,7 @@ class retry_on_failure(object):
                         return result
                 except exc.DeviceUnreachable as e:
                     if context is not None:
+                        LOG.debug("** [{}] request {}: Device is not reachable anymore: {}".format(host, uuid, e))
                         context.alive = False
                     break
                 except exc.EntityNotEmptyException as e:

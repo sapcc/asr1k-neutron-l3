@@ -70,7 +70,6 @@ def get_db_plugin():
 
 class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                address_scope_db.AddressScopeDbMixin,
-               portbindings_db.PortBindingMixin,
                external_net_db.External_net_db_mixin,
                l3_db.L3_NAT_dbonly_mixin,
                l3_agentschedulers_db.L3AgentSchedulerDbMixin,
