@@ -489,6 +489,9 @@ class NyBase(BulkOperations):
             value = ""
         return value
 
+    def __repr__(self):
+        return "{} at {} ({})".format(self.__class__.__name__, id(self), str(self))
+
     def __eq__(self, other):
 
         diff = self._diff(other)
