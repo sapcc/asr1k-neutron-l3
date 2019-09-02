@@ -262,40 +262,31 @@ class YangConnection(object):
         self.start = time.time()
 
     def xpath_get(self, filter='', entity=None, action=None):
-        if self.context.alive and self.connection is not None:
-            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
-                                                                    action=action).time():
-                return self.connection.get_config(source="running", filter=("xpath", filter))
-        else:
-            PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
-                                                          action=action).inc()
-            raise DeviceUnreachable(host=self.context.host)
+        return self._run_yang_cmd(filter=('xpath', filter), source="running", method='get_config',
+                                  entity=entity, action=action)
 
     def get(self, filter='', entity=None, action=None):
-        if self.context.alive and self.connection is not None:
-            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
-                                                                    action=action).time():
-                return self.connection.get(filter=('subtree', filter))
-        else:
-            PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
-                                                          action=action).inc()
-            raise DeviceUnreachable(host=self.context.host)
+        return self._run_yang_cmd(filter=('subtree', filter), method='get', entity=entity, action=action)
 
     def edit_config(self, config='', target='running', entity=None, action=None):
-        if self.context.alive and self.connection is not None:
-            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
-                                                                    action=action).time():
-                return self.connection.edit_config(target=target, config=config)
-        else:
-            PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
-                                                          action=action).inc()
-            raise DeviceUnreachable(host=self.context.host)
+        return self._run_yang_cmd(config=config, target=target, method='edit_config', entity=entity, action=action)
 
     def rpc(self, command, entity=None, action=None):
+        return self._run_yang_cmd(to_ele(command), method='dispatch', entity=entity, action=action)
+
+    def _run_yang_cmd(self, *args, **kwargs):
+        entity = kwargs.pop("entity", None)
+        action = kwargs.pop("action", None)
+        method = kwargs.pop("method")
         if self.context.alive and self.connection is not None:
-            with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
-                                                                    action=action).time():
-                return self.connection.dispatch(to_ele(command))
+            try:
+                with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
+                                                                        action=action).time():
+                    return getattr(self.connection, method)(*args, **kwargs)
+            except TimeoutExpiredError:
+                LOG.error("Timeout for yang operation on device %s method %s entity %s action %s args=%s kwargs=%s",
+                          self.context.host, method, entity, action, args, kwargs)
+                raise
         else:
             PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
                                                           action=action).inc()
