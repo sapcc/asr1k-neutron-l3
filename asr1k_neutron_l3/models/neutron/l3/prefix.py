@@ -13,6 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from operator import itemgetter, attrgetter
 
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.common import utils
@@ -21,45 +22,40 @@ from asr1k_neutron_l3.models.netconf_yang import prefix
 
 
 class BasePrefix(base.Base):
-    def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
+    def __init__(self, name_prefix, router_id, gateway_interface, internal_interfaces):
         self.vrf = utils.uuid_to_vrf_id(router_id)
         self.internal_interfaces = internal_interfaces
         self.gateway_interface = gateway_interface
         self.gateway_address_scope = None
+        self.has_prefixes = False
 
         if self.gateway_interface is not None:
             self.gateway_address_scope = self.gateway_interface.address_scope
 
-        self.has_prefixes = False
+        self._rest_definition = prefix.Prefix(name="{}-{}".format(name_prefix, self.vrf))
 
 
 class ExtPrefix(BasePrefix):
     def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
-        super(ExtPrefix, self).__init__(router_id=router_id, gateway_interface=gateway_interface,
+        super(ExtPrefix, self).__init__(name_prefix='ext', router_id=router_id, gateway_interface=gateway_interface,
                                         internal_interfaces=internal_interfaces)
-        self.name = 'ext-{}'.format(self.vrf)
-
-        self._rest_definition = prefix.Prefix(name=self.name)
 
         if self.gateway_interface is not None:
-            i = 0
-            for subnet in self.gateway_interface.subnets:
+            i = 1
+            for subnet in sorted(self.gateway_interface.subnets, key=itemgetter('id')):
                 self.has_prefixes = True
-                i += 1
                 self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
+                i += 1
 
 
 class SnatPrefix(BasePrefix):
     def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
-        super(SnatPrefix, self).__init__(router_id=router_id, gateway_interface=gateway_interface,
+        super(SnatPrefix, self).__init__(name_prefix='snat', router_id=router_id, gateway_interface=gateway_interface,
                                          internal_interfaces=internal_interfaces)
-        self.name = 'snat-{}'.format(self.vrf)
 
-        self._rest_definition = prefix.Prefix(name=self.name)
-        i = 0
-        for interface in self.internal_interfaces:
-            i += 1
-            for subnet in interface.subnets:
+        i = 1
+        for interface in sorted(self.internal_interfaces, key=attrgetter('id')):
+            for subnet in sorted(interface.subnets, key=itemgetter('id')):
                 self.has_prefixes = True
                 self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
                 i += 1
@@ -67,15 +63,12 @@ class SnatPrefix(BasePrefix):
 
 class RoutePrefix(BasePrefix):
     def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
-        super(RoutePrefix, self).__init__(router_id=router_id, gateway_interface=gateway_interface,
-                                         internal_interfaces=internal_interfaces)
-        self.name = 'route-{}'.format(self.vrf)
+        super(RoutePrefix, self).__init__(name_prefix='route', router_id=router_id, gateway_interface=gateway_interface,
+                                          internal_interfaces=internal_interfaces)
 
-        self._rest_definition = prefix.Prefix(name=self.name)
-        i = 0
-        for interface in self.internal_interfaces:
-            i += 1
-            for subnet in interface.subnets:
+        i = 1
+        for interface in sorted(self.internal_interfaces, key=attrgetter('id')):
+            for subnet in sorted(interface.subnets, key=itemgetter('id')):
                 self.has_prefixes = True
                 cidr = subnet.get('cidr')
                 permit_ge = utils.prefix_from_cidr(cidr) + 1
