@@ -200,6 +200,7 @@ class retry_on_failure(object):
                     exception = e
                 except (RPCError, SessionCloseError, SSHError, TimeoutExpiredError, exc.EntityNotEmptyException) as e:
                     if isinstance(e, RPCError):
+                        LOG.exception(e)
                         operation = f.__name__
 
                         if e.tag in ['data-missing']:
