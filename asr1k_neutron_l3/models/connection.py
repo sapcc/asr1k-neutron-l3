@@ -19,6 +19,7 @@ from retrying import retry
 from six.moves import urllib
 import socket
 import time
+import re
 
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
@@ -27,12 +28,13 @@ from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 from ncclient import manager
-from ncclient.xml_ import to_ele
+from ncclient.xml_ import to_ele, new_ele, to_xml
 from oslo_log import log as logging
 from oslo_service import loopingcall
 
 import paramiko
 from ncclient.operations.errors import TimeoutExpiredError
+from ncclient.operations import util
 from ncclient.transport.errors import SSHError
 from ncclient.transport.errors import SessionCloseError
 from ncclient.transport.errors import TransportError
@@ -200,6 +202,9 @@ class ConnectionPool(object):
 
 
 class YangConnection(object):
+    trace_all_yang_calls = False
+    trace_yang_call_failures = False
+
     def __init__(self, context, id=0):
         self.lock = Lock()
         self.context = context
@@ -278,19 +283,62 @@ class YangConnection(object):
         entity = kwargs.pop("entity", None)
         action = kwargs.pop("action", None)
         method = kwargs.pop("method")
+
         if self.context.alive and self.connection is not None:
+            success = False
+            if self.trace_all_yang_calls or self.trace_yang_call_failures:
+                call_start = time.time()
             try:
                 with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
                                                                         action=action).time():
-                    return getattr(self.connection, method)(*args, **kwargs)
+                    data = getattr(self.connection, method)(*args, **kwargs)
+                    success = True
+                    return data
             except TimeoutExpiredError:
                 LOG.error("Timeout for yang operation on device %s method %s entity %s action %s args=%s kwargs=%s",
                           self.context.host, method, entity, action, args, kwargs)
                 raise
+            finally:
+                if self.trace_all_yang_calls or not success and self.trace_yang_call_failures:
+                    try:
+                        duration = time.time() - call_start
+                        success = "succeeded" if success else "failed"
+                        xml_data = self.gen_xml_from_ncc_call(method=method, args=args, kwargs=kwargs)
+                        LOG.debug("YANG call trace %s in %.4f on %s: %s",
+                                  success, duration, self.context.host, xml_data)
+                    except Exception as e:
+                        LOG.exception(e)
         else:
             PrometheusMonitor().device_unreachable.labels(device=self.context.host, entity=entity,
                                                           action=action).inc()
             raise DeviceUnreachable(host=self.context.host)
+
+    @staticmethod
+    def gen_xml_from_ncc_call(method, args, kwargs, compact_output=True):
+        """Try to reconstruct xml for ncc call arguments - best effort approach"""
+        if method == 'dispatch':
+            node = args[0]
+        else:
+            node = new_ele(method.replace("_", "-"))
+        if kwargs.get("source"):
+            node.append(util.datastore_or_url("source", kwargs["source"]))
+        if kwargs.get("filter"):
+            node.append(util.build_filter(kwargs["filter"]))
+        if kwargs.get("target"):
+            node.append(util.datastore_or_url("target", kwargs["target"]))
+        if kwargs.get("config"):
+            config = to_ele(kwargs["config"])
+            # this one is for yang-explorer (without the namespace yang-explorer can't parse the request)
+            if config.tag == 'config' and hasattr(node, "nsmap") and node.nsmap.get("nc"):
+                config.tag = '{{{}}}config'.format(node.nsmap.get("nc"))
+            node.append(config)
+        rpc = new_ele("rpc", {"message-id": "yang-trace"})
+        rpc.append(node)
+
+        xml = to_xml(rpc)
+        if compact_output:
+            xml = re.sub(r"\s*\n\s*", "", xml)
+        return xml
 
     def check_capability(self, module, min_revision, baseurl='http://cisco.com/ns/yang/{module}'):
         baseurl = baseurl.format(module=module)
