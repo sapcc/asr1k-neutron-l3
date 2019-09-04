@@ -63,19 +63,23 @@ class ReQueueException(DeviceOperationException):
 
 
 class InternalErrorException(DeviceOperationException):
-    message = "An internal error executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
+    message = ("An internal error executing %(operation)s for model %(entity_name)s on device %(host)s. "
+               "Model entity: %(entity)s")
 
 
 class ConfigurationLockedException(ReQueueException):
-    message = "Encoutered a requeable lock exception executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
+    message = ("Encoutered a requeable lock exception executing %(operation)s for model %(entity_name)s "
+               "on device %(host)s.  Model entity: %(entity)s")
 
 
 class ReQueueableInternalErrorException(ReQueueException):
-    message = "An requeable internal error executing %(operation)s for model %(entity_name)s on device %(host)s .  Model entity : %(entity)s"
+    message = ("An requeable internal error executing %(operation)s for model %(entity_name)s on device %(host)s. "
+               "Model entity: %(entity)s")
 
 
 class InconsistentModelException(DeviceOperationException):
-    message = "%(operation)s for model %(entity_name)s cannot be executed on %(host)s due to a model/device inconsistency. Model entity : %(entity)s"
+    message = ("%(operation)s for model %(entity_name)s cannot be executed on %(host)s "
+               "due to a model/device inconsistency. Model entity: %(entity)s")
 
 
 class DeviceConnectionException(DeviceOperationException):
