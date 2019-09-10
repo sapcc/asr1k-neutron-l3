@@ -36,7 +36,7 @@ from oslo_log import log as logging
 from oslo_log import helpers as log_helpers
 from oslo_config import cfg
 from oslo_utils import timeutils
-from oslo_service import loopingcall
+from oslo_service import eventlet_backdoor, loopingcall
 
 from neutron_lib import context as n_context
 from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
@@ -69,6 +69,7 @@ def main():
     common_config.init(sys.argv[1:])
     asr1k_config.register_l2_opts()
     common_config.setup_logging()
+    eventlet_backdoor.initialize_if_enabled(cfg.CONF)
     agent = ASR1KNeutronAgent()
 
     # Start everything.
