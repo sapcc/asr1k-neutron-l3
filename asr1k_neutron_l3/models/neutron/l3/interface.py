@@ -133,7 +133,7 @@ class GatewayInterface(Interface):
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address,
                                         secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
-                                        redundancy_group=None)
+                                        redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS')
 
     def _nat_address(self):
         ips = self.router_port.get('fixed_ips')

@@ -49,6 +49,11 @@ class L3Constants(object):
     NAT_MODE_OUTSIDE = "outside"
     POLICY = "policy"
     ROUTE_MAP = "route-map"
+    ACCESS_GROUP = "access-group"
+    OUT = "out"
+    ACL = "acl"
+    ACL_NAME = "acl-name"
+    DIRECTION_OUT = "out"
 
 
 class BDIInterface(NyBase):
@@ -104,6 +109,7 @@ class BDIInterface(NyBase):
             {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'route_map', 'yang-key': 'route-map', 'yang-path': 'ip/policy'},
+            {'key': 'access_group_out', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/out/acl'},
             {'key': 'redundancy_group'},
             {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY}
 
@@ -145,6 +151,9 @@ class BDIInterface(NyBase):
 
         if self.route_map:
             ip[L3Constants.POLICY] = {L3Constants.ROUTE_MAP: self.route_map}
+
+        if self.access_group_out:
+            ip[L3Constants.ACCESS_GROUP] = {L3Constants.OUT: {L3Constants.ACL: {L3Constants.ACL_NAME: self.access_group_out, L3Constants.DIRECTION_OUT: None}}}
 
         vrf = OrderedDict()
         vrf[L3Constants.FORWARDING] = self.vrf

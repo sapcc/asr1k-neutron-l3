@@ -42,6 +42,8 @@ class RouteMapConstants(object):
     ASN = "asn-nn"
     PREFIX_LIST = "prefix-list"
     ACCESS_LIST = "access-list"
+    PRECEDENCE = "precedence"
+    PRECEDENCE_FIELDS = "precedence-fields"
 
 
 class RouteMap(NyBase):
@@ -123,6 +125,7 @@ class MapSequence(NyBase):
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'prefix_list', 'yang-key': 'prefix-list', 'yang-path': 'match/ip/address'},
             {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
+            {'key': 'ip_precedence', 'yang-path': 'set/ip/precedence', 'yang-key': 'precedence-fields'},
         ]
 
     def __init__(self, **kwargs):
@@ -153,6 +156,14 @@ class MapSequence(NyBase):
         if self.access_list is not None:
             seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
                                                                                RouteMapConstants.ACCESS_LIST: self.access_list}}}
+        if self.ip_precedence:
+            if RouteMapConstants.SET not in seq:
+                seq[RouteMapConstants.SET] = {}
+            if RouteMapConstants.IP not in seq[RouteMapConstants.SET]:
+                seq[RouteMapConstants.SET][RouteMapConstants.IP] = {}
+            seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.PRECEDENCE] = {
+                RouteMapConstants.PRECEDENCE_FIELDS: self.ip_precedence,
+            }
         seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
 
         return seq
