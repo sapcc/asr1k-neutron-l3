@@ -104,7 +104,6 @@ class execute_on_pair(object):
 
                     pool.spawn_n(self._execute_method, *args, **kwargs)
                 pool.waitall()
-
             else:
                 # Context passed explitly execute once and return
                 # base result
@@ -112,10 +111,8 @@ class execute_on_pair(object):
                     kwargs['context'] = asr1k_pair.ASR1KPair().contexts[0]
 
                 try:
-
                     response = method(*args, **kwargs)
                     result = response
-
                 except Exception as e:
                     raise e
 
@@ -129,7 +126,6 @@ class execute_on_pair(object):
                 setattr(result, 'duration', duration)
 
             return result
-
         return wrapper
 
 
@@ -147,9 +143,7 @@ class retry_on_failure(object):
             uuid = uuidutils.generate_uuid()
             retries = 0
             exception = None
-
             entity = args[0]
-
             context = kwargs.get('context')
             host = None
             if context is not None:
@@ -169,7 +163,6 @@ class retry_on_failure(object):
 
                 try:
                     result = f(*args, **kwargs)
-
                     if result is not None and not isinstance(result, PairResult) and not result.ok:
                         time.sleep(self.retry_interval)
                         retries += 1
@@ -205,7 +198,6 @@ class retry_on_failure(object):
 
                         if e.tag in ['data-missing']:
                             return None
-
                         elif e.message == "resource denied: Sync is in progress":
                             PrometheusMonitor().rpc_sync_errors.labels(device=context.host,
                                                                        entity=entity.__class__.__name__,
@@ -253,7 +245,6 @@ class retry_on_failure(object):
                                     "retry limit reached, failing "
                                     "".format(host, uuid, retries, f.__name__, args[0].__class__.__name__))
                                 raise exc.ConfigurationLockedException(host=host, entity=entity, operation=operation)
-
                         else:
                             LOG.debug(e.to_dict())
                     elif isinstance(e, SSHError):
@@ -308,7 +299,6 @@ class PairResult(object):
             operation = operation[1:]
 
         check_attr = 'raise_on_{}'.format(operation)
-
         should_raise = False
 
         if hasattr(self.entity, check_attr):
@@ -332,7 +322,6 @@ class PairResult(object):
                 error = self.errors.get(host, None)
                 if hasattr(self.entity, 'to_xml'):
                     result += "{}\n".format(self.entity.to_xml())
-
                 result += "{} : {} : {}\n".format(host, error.__class__.__name__, error)
 
         return result
@@ -421,7 +410,6 @@ class NyBase(BulkOperations):
             for param in self.__parameters__():
                 key = param.get('key')
                 yang_key = param.get('yang-key', key)
-
                 default = param.get('default')
                 mandatory = param.get('mandatory', False)
 
@@ -430,7 +418,6 @@ class NyBase(BulkOperations):
                     id_field = key
 
                 value = kwargs.get(key)
-
                 if value is None:
                     value = kwargs.get(yang_key)
                 if value is None:
@@ -449,7 +436,6 @@ class NyBase(BulkOperations):
                         new_value = []
                         for item in value:
                             item = self._get_value(param, item)
-
                             new_value.append(item)
                         value = new_value
                     else:
@@ -493,9 +479,7 @@ class NyBase(BulkOperations):
         return "{} at {} ({})".format(self.__class__.__name__, id(self), str(self))
 
     def __eq__(self, other):
-
         diff = self._diff(other)
-
         return diff.valid
 
     # Define what constitutes an empty diff
@@ -519,7 +503,6 @@ class NyBase(BulkOperations):
         for param in self.__parameters__():
             if not param.get('validate', True):
                 ignore.append(param.get('key', param.get('yang-key')))
-
         diff = self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=ignore))
 
         return diff
@@ -558,9 +541,7 @@ class NyBase(BulkOperations):
 
             for param in cls.__parameters__():
                 if param.get('deserialise', True):
-
                     key = param.get('key', "")
-
                     cisco_key = key.replace("_", "-")
                     yang_key = param.get("yang-key", cisco_key)
                     yang_path = param.get("yang-path")
@@ -610,7 +591,6 @@ class NyBase(BulkOperations):
                                         result.append(type.from_json(value))
                                     else:
                                         result.append(value)
-
                                 value = result
                             else:
                                 value = type.from_json(value)
@@ -652,7 +632,6 @@ class NyBase(BulkOperations):
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
                 result = connection.get(filter=nc_filter, entity=cls.__name__, action="get")
-
                 json = cls.to_json(result.xml)
                 if json is not None:
                     json = json.get(cls.ITEM_KEY, None)
@@ -687,7 +666,6 @@ class NyBase(BulkOperations):
                     rpc_result = connection.get(filter=nc_filter, entity=cls.__name__, action="get_all")
 
                 json = cls.to_json(rpc_result.xml)
-
                 if json is not None:
                     json = json.get(cls.ITEM_KEY, json)
 
@@ -719,7 +697,6 @@ class NyBase(BulkOperations):
     @classmethod
     def __parameters_as_dict(cls):
         result = {}
-
         for param in cls.__parameters__():
             result[param.get('key')] = param
 
@@ -741,7 +718,6 @@ class NyBase(BulkOperations):
     def _internal_exists(self, context=None):
         kwargs = self.__dict__
         kwargs['context'] = context
-
         return self.__class__._exists(**kwargs)
 
     def _internal_get(self, context=None):
@@ -774,9 +750,7 @@ class NyBase(BulkOperations):
     @retry_on_failure()
     def _update(self, context=None, method=NC_OPERATION.PATCH, json=None, postflight=False):
         if len(self._internal_validate(context=context)) > 0:
-
             self.preflight(context)
-
             if postflight:
                 self.postflight(context)
 
@@ -801,14 +775,11 @@ class NyBase(BulkOperations):
         self._delete_no_retry(context, method)
 
     def _delete_no_retry(self, context=None, method=NC_OPERATION.DELETE):
-
         self.postflight(context)
 
         with ConnectionManager(context=context) as connection:
-
             if self._internal_exists(context) or self.force_delete:
                 json = self.to_delete_dict()
-
                 result = connection.edit_config(config=self.to_xml(json=json, operation=method),
                                                 entity=self.__class__.__name__,
                                                 action="delete")
@@ -822,7 +793,6 @@ class NyBase(BulkOperations):
                 return []
 
         diff = self._diff(device_config)
-
         if len(diff) > 0:
             LOG.info("Internal validate of {} for {} produced {} diff(s)  {}"
                      "".format(self.__class__.__name__, context.host, len(diff), diff))

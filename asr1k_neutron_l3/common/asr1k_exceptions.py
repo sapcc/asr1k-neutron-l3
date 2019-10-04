@@ -33,7 +33,6 @@ class DeviceUnreachable(BaseException):
 
 
 class DeviceOperationException(Asr1kException):
-
     def __init__(self, **kwargs):
         self.host = kwargs.get('host')
         self.entity = kwargs.get('entity')
