@@ -125,9 +125,8 @@ class ConnectionPool(object):
                     if connection.age > self.max_age:
                         LOG.debug("***** closing aged connection with session id {} aged {:10.2f}s"
                                   "".format(connection.session_id, connection.age))
-                        connection.lock.acquire()
-                        connection.close()
-                        connection.lock.release()
+                        with connection.lock:
+                            connection.close()
         except Exception as e:
             LOG.exception(e)
 
