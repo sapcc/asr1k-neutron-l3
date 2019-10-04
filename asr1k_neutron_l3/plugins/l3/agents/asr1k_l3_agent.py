@@ -358,18 +358,18 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
             if cfg.CONF.asr1k_l3.sync_active and cfg.CONF.asr1k_l3.sync_interval > 0:
                 self.sync_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_sync_routers_task)
-                self.sync_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
+                self.sync_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval, stop_on_exception=False)
 
                 self.scavenge_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_scavenge_task)
-                self.scavenge_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval)
+                self.scavenge_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval, stop_on_exception=False)
 
             self.device_check_loop = loopingcall.FixedIntervalLoopingCall(self._check_devices_alive, self.context)
-            self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval / 2)
+            self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval / 2, stop_on_exception=False)
 
             if cfg.CONF.asr1k.clean_orphans:
                 LOG.info("Orphan clean is active, starting cleaning loop")
                 self.orphan_loop = loopingcall.FixedIntervalLoopingCall(self.clean_device, dry_run=False)
-                self.orphan_loop.start(interval=cfg.CONF.asr1k.clean_orphan_interval)
+                self.orphan_loop.start(interval=cfg.CONF.asr1k.clean_orphan_interval, stop_on_exception=False)
 
             eventlet.spawn_n(self._process_routers_loop)
 
@@ -827,7 +827,7 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
         if report_interval:
             self.heartbeat = loopingcall.FixedIntervalLoopingCall(
                 self._report_state)
-            self.heartbeat.start(interval=report_interval)
+            self.heartbeat.start(interval=report_interval, stop_on_exception=False)
 
     def _report_state(self):
         num_ex_gw_ports = 0

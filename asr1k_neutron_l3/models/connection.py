@@ -163,7 +163,7 @@ class ConnectionPool(object):
                 LOG.debug("Setting up looping call to close connections older than {} seconds".format(self.max_age))
                 self.monitor = loopingcall.FixedIntervalLoopingCall(
                     self._ensure_connections_aged)
-                self.monitor.start(interval=self.max_age)
+                self.monitor.start(interval=self.max_age, stop_on_exception=False)
 
             self.initialized = True
         except Exception as e:
