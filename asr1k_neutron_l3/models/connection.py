@@ -29,6 +29,7 @@ from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 from ncclient import manager
 from ncclient.xml_ import to_ele, new_ele, to_xml
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_service import loopingcall
 
@@ -201,9 +202,6 @@ class ConnectionPool(object):
 
 
 class YangConnection(object):
-    trace_all_yang_calls = False
-    trace_yang_call_failures = False
-
     def __init__(self, context, id=0):
         self.lock = Lock()
         self.context = context
@@ -285,7 +283,7 @@ class YangConnection(object):
 
         if self.context.alive and self.connection is not None:
             success = False
-            if self.trace_all_yang_calls or self.trace_yang_call_failures:
+            if cfg.CONF.asr1k.trace_all_yang_calls or cfg.CONF.asr1k.trace_yang_call_failures:
                 call_start = time.time()
             try:
                 with PrometheusMonitor().yang_operation_duration.labels(device=self.context.host, entity=entity,
@@ -298,7 +296,8 @@ class YangConnection(object):
                           self.context.host, method, entity, action, args, kwargs)
                 raise
             finally:
-                if self.trace_all_yang_calls or not success and self.trace_yang_call_failures:
+                if cfg.CONF.asr1k.trace_all_yang_calls or \
+                        not success and cfg.CONF.asr1k.trace_yang_call_failures:
                     try:
                         duration = time.time() - call_start
                         success = "succeeded" if success else "failed"

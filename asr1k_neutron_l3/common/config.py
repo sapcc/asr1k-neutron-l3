@@ -38,6 +38,10 @@ ASR1K_OPTS = [
 
     cfg.IntOpt('clean_orphan_interval', default=(120), help=_("Interval for regular orphan cleanup")),
 
+    cfg.BoolOpt('trace_all_yang_calls', default=False, help=_("Log all YANG xml calls, including how long they took")),
+    cfg.BoolOpt('trace_yang_call_failures', default=False,
+                help=_("Log all failed YANG xml calls, including how long they took")),
+
 ]
 
 ASR1K_L3_OPTS = [
