@@ -175,6 +175,9 @@ class retry_on_failure(object):
                         return result
                 except exc.DeviceUnreachable as e:
                     if context is not None:
+                        if context.alive:
+                            LOG.error("Device {} not reachable anymore, setting alive to false".format(host),
+                                      exc_info=exc_info_full())
                         LOG.debug("** [{}] request {}: Device is not reachable anymore: {}".format(host, uuid, e))
                         context.alive = False
                     break
