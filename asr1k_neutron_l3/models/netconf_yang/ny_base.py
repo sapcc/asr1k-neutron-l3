@@ -30,6 +30,7 @@ from asr1k_neutron_l3.models.connection import ConnectionManager
 from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict
 from asr1k_neutron_l3.models.netconf_yang.bulk_operations import BulkOperations
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
+from asr1k_neutron_l3.common.exc_helper import exc_info_full
 
 from ncclient.operations.rpc import RPCError
 from ncclient.transport.errors import SessionCloseError
@@ -87,7 +88,7 @@ class execute_on_pair(object):
             else:
                 result.append(kwargs.get('context'), response)
         except BaseException as e:
-            LOG.exception(e)
+            LOG.error(e, exc_info=exc_info_full())
             result.append(kwargs.get('context'), e)
 
     def __call__(self, method):
@@ -193,7 +194,7 @@ class retry_on_failure(object):
                     exception = e
                 except (RPCError, SessionCloseError, SSHError, TimeoutExpiredError, exc.EntityNotEmptyException) as e:
                     if isinstance(e, RPCError):
-                        LOG.exception(e)
+                        LOG.error(e, exc_info=exc_info_full())
                         operation = f.__name__
 
                         if e.tag in ['data-missing']:
@@ -261,7 +262,7 @@ class retry_on_failure(object):
                     exception = e
 
             if exception is not None:
-                LOG.error(entity)
+                LOG.error(entity, exc_info=exc_info_full())
                 raise exception
 
         return wrapper
