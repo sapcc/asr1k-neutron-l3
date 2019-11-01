@@ -88,8 +88,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         self.yang_connection_pool_size = cfg.CONF.asr1k_l2.yang_connection_pool_size
 
-        connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size,
-                                                max_age=cfg.CONF.asr1k.connection_max_age)
+        connection.ConnectionPool().initialise(yang_connection_pool_size=self.yang_connection_pool_size,
+                                               max_age=cfg.CONF.asr1k.connection_max_age)
 
         self.catch_sigterm = False
         self.catch_sighup = False
