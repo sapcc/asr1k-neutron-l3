@@ -288,8 +288,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         if not cfg.CONF.asr1k.init_mode:
             LOG.debug("Preparing connection pool  yang : {} max age : {}"
                       "".format(self.yang_connection_pool_size, cfg.CONF.asr1k.connection_max_age))
-            connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size,
-                                                    max_age=cfg.CONF.asr1k.connection_max_age)
+            connection.ConnectionPool().initialise(yang_connection_pool_size=self.yang_connection_pool_size,
+                                                   max_age=cfg.CONF.asr1k.connection_max_age)
             LOG.debug("Connection pool initialized")
 
         self.router_info = {}

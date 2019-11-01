@@ -134,10 +134,10 @@ class ConnectionPool(object):
     def __check_initialized(self):
         if not hasattr(self, 'initialized'):
             msg = ("Please ensure pool is before first use initilized with "
-                   "`ConnectionPool().initialiase(self, yang_connection_pool_size=0,max_age=0)`")
+                   "`ConnectionPool().initialise(self, yang_connection_pool_size=0,max_age=0)`")
             raise ConnectionPoolNotInitialized(msg)
 
-    def initialiase(self, yang_connection_pool_size=0, max_age=0):
+    def initialise(self, yang_connection_pool_size=0, max_age=0):
         try:
             yang_pool_size = min(yang_connection_pool_size, asr1k_constants.MAX_CONNECTIONS)
 
