@@ -65,7 +65,7 @@ class AddressFamily(NyBase):
     ITEM_KEY = BGPConstants.VRF
 
     @classmethod
-    def get_for_vrf(cls, context=None, asn=None, vrf=None):
+    def get_for_vrf(cls, context, asn=None, vrf=None):
         return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"asn": asn, "vrf": vrf}))
 
     @classmethod
@@ -87,12 +87,12 @@ class AddressFamily(NyBase):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, vrf, asn, context=None):
+    def get(cls, vrf, asn, context):
         return super(AddressFamily, cls)._get(vrf=vrf, asn=asn, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, vrf, asn, context=None):
+    def exists(cls, vrf, asn, context):
         return super(AddressFamily, cls)._exists(vrf=vrf, asn=asn, context=context)
 
     @classmethod
@@ -136,7 +136,7 @@ class AddressFamily(NyBase):
         if self.asn is None:
             self.asn = kwargs.get("asn", None)
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
         if self.vrf is not None:
             vrf = OrderedDict()
@@ -151,7 +151,7 @@ class AddressFamily(NyBase):
             result[BGPConstants.VRF] = vrf
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         result = OrderedDict()
         if self.vrf is not None:
             vrf = OrderedDict()

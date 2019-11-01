@@ -57,7 +57,6 @@ class L3Constants(object):
 
 
 class BDIInterface(NyBase):
-
     ID_FILTER = """
                 <native>
                     <interface>
@@ -88,7 +87,7 @@ class BDIInterface(NyBase):
     MAX_MTU = 9216
 
     @classmethod
-    def get_for_vrf(cls, context=None, vrf=None):
+    def get_for_vrf(cls, context, vrf=None):
         return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
 
     @classmethod
@@ -127,7 +126,7 @@ class BDIInterface(NyBase):
         if self.vrf:
             return utils.vrf_id_to_uuid(self.vrf)
 
-    def to_dict(self):
+    def to_dict(self, context):
         bdi = OrderedDict()
         bdi[L3Constants.NAME] = self.name
         bdi[L3Constants.DESCRIPTION] = self.description
@@ -168,7 +167,7 @@ class BDIInterface(NyBase):
 
         return dict(result)
 
-    def to_delete_dict(self, existing=None):
+    def to_delete_dict(self, context, existing=None):
         bdi = OrderedDict()
         bdi[L3Constants.NAME] = self.name
         bdi[L3Constants.DESCRIPTION] = self.description
@@ -199,7 +198,6 @@ class BDIInterface(NyBase):
                 raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
 
     def init_config(self):
-
         if self.nat_inside:
             nat = L3Constants.NAT_MODE_INSIDE
 
@@ -277,19 +275,19 @@ class BDISecondaryIpAddress(NyBase):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, bridge_domain, id, context=None):
+    def get(cls, bridge_domain, id, context):
         return super(BDISecondaryIpAddress, cls)._get(id=id, bridge_domain=bridge_domain, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, bridge_domain, id, context=None):
+    def exists(cls, bridge_domain, id, context):
         return super(BDISecondaryIpAddress, cls)._exists(id=id, bridge_domain=bridge_domain, context=context)
 
     def __init__(self, **kwargs):
         super(BDISecondaryIpAddress, self).__init__(**kwargs)
         self.bridge_domain = kwargs.get('bridge_domain')
 
-    def to_dict(self):
+    def to_dict(self, context):
         ip = OrderedDict()
         secondary = OrderedDict()
         secondary[L3Constants.ADDRESS] = self.address
@@ -315,7 +313,7 @@ class BDIPrimaryIpAddress(NyBase):
         super(BDIPrimaryIpAddress, self).__init__(**kwargs)
         self.bridge_domain = kwargs.get('bridge_domain')
 
-    def to_dict(self):
+    def to_dict(self, context):
         ip = OrderedDict()
         primary = OrderedDict()
         primary[L3Constants.ADDRESS] = self.address

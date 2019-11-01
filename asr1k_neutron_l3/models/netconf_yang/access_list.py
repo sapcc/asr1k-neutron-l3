@@ -96,14 +96,14 @@ class AccessList(NyBase):
     def add_rule(self, rule):
         self.rules.append(rule)
 
-    def to_dict(self):
+    def to_dict(self, context):
         entry = OrderedDict()
         entry[ACLConstants.NAME] = self.name
         # entry[ACLConstants.ACL_RULE]=self.rules
         entry[ACLConstants.ACL_RULE] = []
         for rule in self.rules:
             if rule is not None:
-                entry[ACLConstants.ACL_RULE].append(rule.to_child_dict())
+                entry[ACLConstants.ACL_RULE].append(rule.to_child_dict(context))
 
         result = OrderedDict()
         result[ACLConstants.EXTENDED] = entry
@@ -111,7 +111,7 @@ class AccessList(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         # we need to check if the ACL needs to be updated, if it does selectively delete,
         # because we can't easily update individual rules
         if len(self._internal_validate(context=context)) > 0:
@@ -135,21 +135,21 @@ class ACLRule(NyBase):
     def __init__(self, **kwargs):
         super(ACLRule, self).__init__(**kwargs)
 
-    def to_child_dict(self):
+    def to_child_dict(self, context):
         entry = OrderedDict()
         entry[ACLConstants.SEQUENCE] = self.id
 
         entry[ACLConstants.ACE_RULE] = []
 
         for ace_rule in self.ace_rule:
-            entry[ACLConstants.ACE_RULE].append(ace_rule.to_child_dict())
+            entry[ACLConstants.ACE_RULE].append(ace_rule.to_child_dict(context))
 
         return entry
 
-    def to_dict(self):
+    def to_dict(self, context):
 
         result = OrderedDict()
-        result[ACLConstants.ACL_RULE] = self.to_child_dict()
+        result[ACLConstants.ACL_RULE] = self.to_child_dict(context)
 
         return dict(result)
 
@@ -176,7 +176,7 @@ class ACERule(NyBase):
     def __init__(self, **kwargs):
         super(ACERule, self).__init__(**kwargs)
 
-    def to_child_dict(self):
+    def to_child_dict(self, context):
         ace_rule = OrderedDict()
         ace_rule[ACLConstants.ACTION] = self.action
         ace_rule[ACLConstants.PROTOCOL] = self.protocol
@@ -195,8 +195,8 @@ class ACERule(NyBase):
 
         return ace_rule
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
-        result[ACLConstants.ACE_RULE] = self.to_child_dict()
+        result[ACLConstants.ACE_RULE] = self.to_child_dict(context)
 
         return dict(result)

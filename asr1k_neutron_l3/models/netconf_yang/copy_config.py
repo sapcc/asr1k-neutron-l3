@@ -24,7 +24,7 @@ class CopyConfig(NyBase):
         return []
 
     @execute_on_pair()
-    def copy_config(self, context=None, source='running-config', destination='startup-config'):
+    def copy_config(self, context, source='running-config', destination='startup-config'):
         try:
             with PrometheusMonitor().config_copy_duration.labels(device=context.host,
                                                                  entity=self.__class__.__name__,
@@ -50,5 +50,5 @@ class CopyConfig(NyBase):
                                                           action='copy').inc()
             raise e
 
-    def to_dict(self):
+    def to_dict(self, context):
         return None
