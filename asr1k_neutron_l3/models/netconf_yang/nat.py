@@ -107,7 +107,7 @@ class NatPool(NyBase):
         super(NatPool, self).__init__(**kwargs)
         self.vrf = self.id
 
-    def to_dict(self):
+    def to_dict(self, context):
         pool = OrderedDict()
         pool[NATConstants.ID] = self.id
 
@@ -120,7 +120,7 @@ class NatPool(NyBase):
 
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         pool = OrderedDict()
         pool[NATConstants.ID] = self.id
 
@@ -171,7 +171,7 @@ class DynamicNat(NyBase):
             return utils.vrf_id_to_uuid(self.vrf)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         return super(DynamicNat, self)._update(context=context, method=NC_OPERATION.PUT)
 
 
@@ -196,7 +196,7 @@ class InterfaceDynamicNat(DynamicNat):
     VRF_XPATH_FILTER = "/native/ip/nat/inside/source/list[id='NAT-{vrf}']"
 
     @classmethod
-    def get_for_vrf(cls, context=None, vrf=None):
+    def get_for_vrf(cls, context, vrf=None):
         return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
 
     @classmethod
@@ -236,7 +236,7 @@ class InterfaceDynamicNat(DynamicNat):
         else:
             self.bd = int(self.interface[3:])
 
-    def to_dict(self):
+    def to_dict(self, context):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
 
@@ -301,7 +301,7 @@ class PoolDynamicNat(DynamicNat):
 
         return False
 
-    def to_dict(self):
+    def to_dict(self, context):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
 
@@ -413,16 +413,16 @@ class StaticNatList(NyBase):
     def __init__(self, **kwargs):
         super(StaticNatList, self).__init__(**kwargs)
 
-    def to_dict(self):
+    def to_dict(self, context):
         nat_list = []
 
         for static_nat in sorted(self.static_nats, key=lambda static_nat: static_nat.local_ip):
-            nat_list.append(dict({self.ITEM_KEY: static_nat.to_single_dict()}))
+            nat_list.append(dict({self.ITEM_KEY: static_nat.to_single_dict(context)}))
 
         return nat_list
 
-    def clean_nat(self, context=None):
-        nat_list = self._internal_get(context)
+    def clean_nat(self, context):
+        nat_list = self._internal_get(context=context)
 
         neutron_ids = []
         neutron_local_ips = {}
@@ -434,21 +434,21 @@ class StaticNatList(NyBase):
                 if nat_entry.id not in neutron_ids:
                     LOG.debug('Removing unknown mapping local {} > {} from vrf {}'
                               ''.format(nat_entry.local_ip, nat_entry.global_ip, self.vrf))
-                    nat_entry.delete()
+                    nat_entry.delete(context=context)
                 global_ip = neutron_local_ips.get(nat_entry.local_ip)
                 if global_ip is not None and global_ip != nat_entry.global_ip:
                     LOG.debug('Removing invalid local mapping local {} > {} from vrf {}'
                               ''.format(nat_entry.local_ip, nat_entry.global_ip, self.vrf))
-                    nat_entry.delete()
+                    nat_entry.delete(context=context)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         self.clean_nat(context)
         result = super(StaticNatList, self)._update(context=context, method=NC_OPERATION.PUT)
         return result
 
     @execute_on_pair()
-    def delete(self, context=None):
+    def delete(self, context):
         self.clean_nat(context)
         result = super(StaticNatList, self)._delete(context=context)
         return result
@@ -553,7 +553,7 @@ class StaticNat(NyBase):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, local_ip, global_ip, context=None):
+    def get(cls, local_ip, global_ip, context):
         return super(StaticNat, cls)._get(local_ip=local_ip, global_ip=global_ip, context=context)
 
     @classmethod
@@ -563,7 +563,7 @@ class StaticNat(NyBase):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, local_ip, global_ip, context=None):
+    def exists(cls, local_ip, global_ip, context):
         return super(StaticNat, cls)._exists(local_ip=local_ip, global_ip=global_ip, context=context)
 
     @classmethod
@@ -605,14 +605,14 @@ class StaticNat(NyBase):
     def __id_function__(self, id_field, **kwargs):
         self.id = "{},{}".format(self.local_ip, self.global_ip)
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
         result[NATConstants.TRANSPORT_LIST] = []
-        result[NATConstants.TRANSPORT_LIST].append(self.to_single_dict())
+        result[NATConstants.TRANSPORT_LIST].append(self.to_single_dict(context))
 
         return dict(result)
 
-    def to_single_dict(self):
+    def to_single_dict(self, context):
         entry = OrderedDict()
         entry[NATConstants.LOCAL_IP] = self.local_ip
         entry[NATConstants.GLOBAL_IP] = self.global_ip
@@ -628,7 +628,7 @@ class StaticNat(NyBase):
 
         return entry
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         entry = OrderedDict()
         entry[NATConstants.LOCAL_IP] = self.local_ip
         entry[NATConstants.GLOBAL_IP] = self.global_ip
@@ -642,7 +642,7 @@ class StaticNat(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         self._check_and_clean_mapping_id(context=context)
         self._check_and_clean_local_ip(context=context)
         result = super(StaticNat, self)._update(context=context)
@@ -673,7 +673,7 @@ class StaticNat(NyBase):
                 nat._delete(context)
 
     @execute_on_pair()
-    def delete(self, context=None):
+    def delete(self, context):
         result = super(StaticNat, self)._delete(context=context)
 
         return result

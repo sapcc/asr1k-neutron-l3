@@ -91,26 +91,26 @@ class Prefix(NyBase):
             seq.no = (len(self.seq) + 1) * 10
         self.seq.append(seq)
 
-    def update(self, context=None):
+    def update(self):
         if len(self.seq) > 0:
             return super(Prefix, self).update()
         else:
             return super(Prefix, self).delete()
 
-    def to_dict(self):
+    def to_dict(self, context):
         prefix = OrderedDict()
         prefix[PrefixConstants.NAME] = self.name
         prefix[PrefixConstants.SEQ] = []
 
         for seq in self.seq:
-            prefix[PrefixConstants.SEQ].append(seq.to_dict())
+            prefix[PrefixConstants.SEQ].append(seq.to_dict(context))
 
         result = OrderedDict()
         result[PrefixConstants.PREFIXES] = prefix
 
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         prefix = OrderedDict()
         prefix[PrefixConstants.NAME] = self.name
         result = OrderedDict()
@@ -138,7 +138,7 @@ class PrefixSeq(NyBase):
         if self.deny_ip is not None and self.permit_ip is not None:
             raise Exception("Permit and Deny statements canot coexist on the same sequence")
 
-    def to_dict(self):
+    def to_dict(self, context):
         seq = OrderedDict()
 
         seq[PrefixConstants.NUMBER] = self.no

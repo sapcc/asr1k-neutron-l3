@@ -77,7 +77,7 @@ class execute_on_pair(object):
     def _execute_method(self, *args, **kwargs):
         method = kwargs.pop('_method')
         result = kwargs.pop('_result')
-        context = kwargs.get('context')
+        context = kwargs['context']
         try:
             response = method(*args, **kwargs)
 
@@ -86,10 +86,10 @@ class execute_on_pair(object):
             if isinstance(response, self.result_type):
                 result = response
             else:
-                result.append(kwargs.get('context'), response)
+                result.append(context, response)
         except BaseException as e:
             LOG.error(e, exc_info=exc_info_full())
-            result.append(kwargs.get('context'), e)
+            result.append(context, e)
 
     def __call__(self, method):
         @six.wraps(method)
@@ -325,7 +325,7 @@ class PairResult(object):
             for host in self.errors:
                 error = self.errors.get(host, None)
                 if hasattr(self.entity, 'to_xml'):
-                    result += "{}\n".format(self.entity.to_xml())
+                    result += "{}\n".format(self.entity.to_xml(context=None))
                 result += "{} : {} : {}\n".format(host, error.__class__.__name__, error)
 
         return result
@@ -385,7 +385,6 @@ class DiffResult(PairResult):
 
 
 class NyBase(BulkOperations):
-
     _ncc_connection = {}
 
     PARENT = 'parent'
@@ -469,7 +468,7 @@ class NyBase(BulkOperations):
             raise Exception("ID field {} is None".format(id_field))
 
     def __str__(self):
-        json = self.to_dict()
+        json = self.to_dict(context=None)  # FIXME: either provide context (e.g. first device) or run_on_pairs...
         if isinstance(json, dict):
             value = JsonDict(json).__str__()
         else:
@@ -483,7 +482,7 @@ class NyBase(BulkOperations):
         return "{} at {} ({})".format(self.__class__.__name__, id(self), str(self))
 
     def __eq__(self, other):
-        diff = self._diff(other)
+        diff = self._diff(context=None, other=other)  # FIXME: Same as with __str__
         return diff.valid
 
     # Define what constitutes an empty diff
@@ -491,12 +490,12 @@ class NyBase(BulkOperations):
     def empty_diff(self):
         return self.EMPTY_TYPE
 
-    def _diff(self, other):
-        self_json = self._to_plain_json(self.to_dict())
+    def _diff(self, context, other):
+        self_json = self._to_plain_json(self.to_dict(context=context))
 
         other_json = {}
         if other is not None:
-            other_json = self._to_plain_json(other.to_dict())
+            other_json = self._to_plain_json(other.to_dict(context=context))
         else:
             other_json = self.empty_diff()
 
@@ -618,12 +617,12 @@ class NyBase(BulkOperations):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, id, context=None):
+    def get(cls, id, context):
         return cls._get(id=id, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, id, context=None):
+    def exists(cls, id, context):
         return cls._exists(id=id, context=context)
 
     @classmethod
@@ -719,12 +718,12 @@ class NyBase(BulkOperations):
 
         return False
 
-    def _internal_exists(self, context=None):
+    def _internal_exists(self, context):
         kwargs = self.__dict__
         kwargs['context'] = context
         return self.__class__._exists(**kwargs)
 
-    def _internal_get(self, context=None):
+    def _internal_get(self, context):
         kwargs = self.__dict__
         kwargs['context'] = context
         return self.__class__._get(**kwargs)
@@ -735,24 +734,24 @@ class NyBase(BulkOperations):
         return cls._get_all_mass(context=context)
 
     @execute_on_pair()
-    def create(self, context=None):
+    def create(self, context):
         return self._create(context=context)
 
     @retry_on_failure()
-    def _create(self, context=None):
+    def _create(self, context):
         with ConnectionManager(context=context) as connection:
 
-            result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT),
+            result = connection.edit_config(config=self.to_xml(context, operation=NC_OPERATION.PUT),
                                             entity=self.__class__.__name__,
                                             action="create")
             return result
 
     @execute_on_pair()
-    def update(self, context=None, method=NC_OPERATION.PATCH):
+    def update(self, context, method=NC_OPERATION.PATCH):
         return self._update(context=context, method=method)
 
     @retry_on_failure()
-    def _update(self, context=None, method=NC_OPERATION.PATCH, json=None, postflight=False):
+    def _update(self, context, method=NC_OPERATION.PATCH, json=None, postflight=False):
         if len(self._internal_validate(context=context)) > 0:
             self.preflight(context)
             if postflight:
@@ -760,43 +759,43 @@ class NyBase(BulkOperations):
 
             with ConnectionManager(context=context) as connection:
                 if json is None:
-                    json = self.to_dict()
+                    json = self.to_dict(context=context)
 
                 if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
                     raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
-                result = connection.edit_config(config=self.to_xml(operation=method, json=json),
+                result = connection.edit_config(config=self.to_xml(context, operation=method, json=json),
                                                 entity=self.__class__.__name__,
                                                 action="update")
                 return result
 
     @execute_on_pair()
-    def delete(self, context=None, method=NC_OPERATION.DELETE):
+    def delete(self, context, method=NC_OPERATION.DELETE):
         return self._delete(context=context, method=method)
 
     @retry_on_failure()
-    def _delete(self, context=None, method=NC_OPERATION.DELETE):
+    def _delete(self, context, method=NC_OPERATION.DELETE):
         self._delete_no_retry(context, method)
 
-    def _delete_no_retry(self, context=None, method=NC_OPERATION.DELETE):
+    def _delete_no_retry(self, context, method=NC_OPERATION.DELETE):
         self.postflight(context)
 
         with ConnectionManager(context=context) as connection:
             if self._internal_exists(context) or self.force_delete:
-                json = self.to_delete_dict()
-                result = connection.edit_config(config=self.to_xml(json=json, operation=method),
+                json = self.to_delete_dict(context)
+                result = connection.edit_config(config=self.to_xml(context, json=json, operation=method),
                                                 entity=self.__class__.__name__,
                                                 action="delete")
                 return result
 
-    def _internal_validate(self, should_be_none=False, context=None):
+    def _internal_validate(self, context, should_be_none=False):
         device_config = self._internal_get(context=context)
 
         if should_be_none:
             if device_config is None:
                 return []
 
-        diff = self._diff(device_config)
+        diff = self._diff(context, device_config)
         if len(diff) > 0:
             LOG.info("Internal validate of {} for {} produced {} diff(s)  {}"
                      "".format(self.__class__.__name__, context.host, len(diff), diff))
@@ -804,15 +803,15 @@ class NyBase(BulkOperations):
         return diff
 
     @execute_on_pair(result_type=DiffResult)
-    def _validate(self, context=None, should_be_none=False):
-        return self._internal_validate(should_be_none=False, context=context)
+    def _validate(self, context, should_be_none=False):
+        return self._internal_validate(context=context, should_be_none=False)
 
     def diff(self, should_be_none=False):
         result = self._validate(should_be_none=should_be_none)
         return result
 
-    def is_valid(self, should_be_none=False):
-        result = self.diff(should_be_none=should_be_none)
+    def is_valid(self, context, should_be_none=False):
+        result = self.diff(context, should_be_none=should_be_none)
 
         return result.valid
 

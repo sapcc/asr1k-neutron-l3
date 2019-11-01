@@ -54,7 +54,7 @@ class EfpStats(NyBase):
 
         return dict
 
-    def to_dict(self):
+    def to_dict(self, context):
         return {'in_pkts': self.in_pkts, 'in_bytes': self.in_bytes,
                 'out_pkts': self.out_pkts, 'out_bytes': self.out_bytes}
 

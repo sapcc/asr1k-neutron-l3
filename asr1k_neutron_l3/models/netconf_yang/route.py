@@ -58,7 +58,7 @@ class VrfRoute(NyBase):
     ITEM_KEY = RouteConstants.DEFINITION
 
     @classmethod
-    def get_for_vrf(cls, context=None, vrf=None):
+    def get_for_vrf(cls, context, vrf=None):
         return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
 
     @classmethod
@@ -98,35 +98,29 @@ class VrfRoute(NyBase):
             return utils.vrf_id_to_uuid(self.name)
 
     @execute_on_pair()
-    def update(self, context=None):
-
+    def update(self, context):
         if len(self.routes) > 0:
             return super(VrfRoute, self)._update(context=context, method=NC_OPERATION.PUT)
         else:
             return self._delete(context=context)
 
-    def to_dict(self):
-
+    def to_dict(self, context):
         vrf_route = OrderedDict()
         vrf_route[RouteConstants.NAME] = self.name
-
         vrf_route[RouteConstants.FOWARDING] = []
 
         if isinstance(self.routes, list):
             for route in sorted(self.routes, key=lambda route: route.prefix):
-
-                vrf_route[RouteConstants.FOWARDING].append(route.to_single_dict())
+                vrf_route[RouteConstants.FOWARDING].append(route.to_single_dict(context))
 
         result = OrderedDict()
         result[RouteConstants.DEFINITION] = vrf_route
 
         return dict(result)
 
-    def to_delete_dict(self):
-
+    def to_delete_dict(self, context):
         vrf_route = OrderedDict()
         vrf_route[RouteConstants.NAME] = self.name
-
         vrf_route[RouteConstants.FOWARDING] = []
 
         result = OrderedDict()
@@ -167,7 +161,7 @@ class IpRoute(NyBase):
     def __id_function__(self, id_field, **kwargs):
         self.id = "{},{}".format(self.prefix, self.mask)
 
-    def to_single_dict(self):
+    def to_single_dict(self, context):
         ip_route = OrderedDict()
         ip_route[RouteConstants.PREFIX] = self.prefix
         ip_route[RouteConstants.MASK] = self.mask
@@ -175,8 +169,8 @@ class IpRoute(NyBase):
 
         return ip_route
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
-        result[RouteConstants.FOWARDING] = self.to_single_dict()
+        result[RouteConstants.FOWARDING] = self.to_single_dict(context)
 
         return dict(result)
