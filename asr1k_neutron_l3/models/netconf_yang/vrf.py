@@ -117,8 +117,7 @@ class VrfDefinition(NyBase, Requeable):
         if self.name is not None:
             return utils.vrf_id_to_uuid(self.name)
 
-    def to_dict(self):
-
+    def to_dict(self, context):
         definition = OrderedDict()
         definition[VrfConstants.NAME] = self.name
         if bool(self.description):
@@ -130,7 +129,7 @@ class VrfDefinition(NyBase, Requeable):
         definition[VrfConstants.RD] = self.rd
 
         if self.address_family_ipv4 is not None:
-            definition[VrfConstants.ADDRESS_FAMILY][VrfConstants.IPV4] = self.address_family_ipv4.to_dict()
+            definition[VrfConstants.ADDRESS_FAMILY][VrfConstants.IPV4] = self.address_family_ipv4.to_dict(context)
 
         # if self.enable_bgp:
         #     definition[VrfConstants.RD] = self.rd
@@ -145,7 +144,7 @@ class VrfDefinition(NyBase, Requeable):
         result[VrfConstants.DEFINITION] = definition
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         definition = OrderedDict()
         definition[VrfConstants.NAME] = self.name
         result = OrderedDict()
@@ -154,11 +153,10 @@ class VrfDefinition(NyBase, Requeable):
         return dict(result)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         return super(VrfDefinition, self)._update(context=context, method=NC_OPERATION.PUT)
 
     def preflight(self, context):
-
         LOG.debug("Running preflight check for VRF {}".format(self.id))
 
         # check for VRFs with the same RD
@@ -196,7 +194,6 @@ class VrfDefinition(NyBase, Requeable):
         LOG.debug("Processing Routes")
 
         routes = []
-
         try:
             routes = VrfRoute.get_for_vrf(context=context, vrf=self.id)
             if len(routes) == 0:
@@ -269,7 +266,7 @@ class IpV4AddressFamily(NyBase):
         self.rt_export = kwargs.get("rt_export")
         self.rt_import = kwargs.get("rt_import")
 
-    def to_dict(self):
+    def to_dict(self, context):
         address_family = OrderedDict()
 
         if self.map is not None:

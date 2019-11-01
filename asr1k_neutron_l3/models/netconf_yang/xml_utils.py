@@ -127,12 +127,12 @@ class XMLUtils(object):
         dict = {CONFIG: result}
         return dict
 
-    def to_delete_dict(self):
-        return self.to_dict()
+    def to_delete_dict(self, context):
+        return self.to_dict(context)
 
-    def to_xml(self, json=None, operation=None):
+    def to_xml(self, context, json=None, operation=None):
         if json is None:
-            json = self.to_dict()
+            json = self.to_dict(context)
 
         j = self.add_wrapper(json, operation)
 

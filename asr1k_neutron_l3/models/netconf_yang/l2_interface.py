@@ -48,9 +48,7 @@ class BridgeDomain(NyBase):
 
 
 class ServiceInstance(NyBase):
-
     PORT_CHANNEL = 0
-
     ID_FILTER = """
               <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
                 <interface>
@@ -88,12 +86,12 @@ class ServiceInstance(NyBase):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, id, context=None):
+    def get(cls, id, context):
         return super(ServiceInstance, cls)._get(id=id, port_channel=cls.PORT_CHANNEL, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, id, context=None):
+    def exists(cls, id, context):
         return super(ServiceInstance, cls)._exists(id=id, port_channel=cls.PORT_CHANNEL, context=context)
 
     @classmethod
@@ -139,7 +137,7 @@ class ServiceInstance(NyBase):
         if self.id == 'None' or self.id is None:
             self.id = -1
 
-    def to_dict(self):
+    def to_dict(self, context):
         dot1q = dict(OrderedDict())
 
         dot1q[L2Constants.ID] = [str(self.dot1q)]
@@ -174,7 +172,7 @@ class ServiceInstance(NyBase):
 
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         instance = OrderedDict()
         instance[L2Constants.ID] = "{}".format(str(self.id))
         instance[L2Constants.ETHERNET] = ''
@@ -185,7 +183,7 @@ class ServiceInstance(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         result = super(ServiceInstance, self)._update(context=context, method=NC_OPERATION.PUT)
 
 
@@ -193,7 +191,6 @@ class ExternalInterface(ServiceInstance):
     PORT_CHANNEL = "1"
 
     def __init__(self, **kwargs):
-
         kwargs['bridge_domain'] = kwargs.get('id')
         kwargs['dot1q'] = kwargs.get('id')
         super(ExternalInterface, self).__init__(**kwargs)

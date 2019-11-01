@@ -74,7 +74,7 @@ class RouteMap(NyBase):
         if self.name is not None and (self.name.startswith('exp-') or self.name.startswith('pbr-')):
             return utils.vrf_id_to_uuid(self.name[4:])
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
 
         map = OrderedDict()
@@ -83,7 +83,7 @@ class RouteMap(NyBase):
         map[RouteMapConstants.ROUTE_MAP_SEQ] = []
         for item in self.seq:
             if item is not None:
-                map[RouteMapConstants.ROUTE_MAP_SEQ].append(item.to_dict())
+                map[RouteMapConstants.ROUTE_MAP_SEQ].append(item.to_dict(context=context))
 
         result[self.ITEM_KEY] = map
 
@@ -94,7 +94,7 @@ class RouteMap(NyBase):
         dict = super(RouteMap, cls)._remove_base_wrapper(dict)
         return dict
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         result = OrderedDict()
 
         map = OrderedDict()
@@ -105,12 +105,11 @@ class RouteMap(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         return super(RouteMap, self)._update(context=context, method=NC_OPERATION.PUT)
 
 
 class MapSequence(NyBase):
-
     LIST_KEY = RouteMapConstants.ROUTE_MAP
     ITEM_KEY = RouteMapConstants.ROUTE_MAP_SEQ
 
@@ -135,7 +134,7 @@ class MapSequence(NyBase):
 
         self.enable_bgp = kwargs.get('enable_bgp', False)
 
-    def to_dict(self):
+    def to_dict(self, context):
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
 
@@ -168,12 +167,10 @@ class MapSequence(NyBase):
 
         return seq
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
-
         seq[RouteMapConstants.OPERATION] = self.operation
-
         seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
 
         return seq

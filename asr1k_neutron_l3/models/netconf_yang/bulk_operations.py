@@ -39,7 +39,7 @@ class BulkOperations(xml_utils.XMLUtils):
         return result
 
     @classmethod
-    def get_device_config(cls, context=None):
+    def get_device_config(cls, context):
         try:
             with ConnectionManager(context=context) as connection:
                 rpc_result = connection.get(filter=cls.FULL_CONFIG_FILTER)
