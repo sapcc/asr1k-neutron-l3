@@ -30,7 +30,7 @@ class CopyConfig(NyBase):
                                                                  entity=self.__class__.__name__,
                                                                  action='copy').time():
                 with ConnectionManager(context=context) as connection:
-                    if connection.is_min_version_1612:
+                    if context.version_min_1612:
                         COPY_CMD = self.COPY_1612
                     else:
                         COPY_CMD = self.COPY
