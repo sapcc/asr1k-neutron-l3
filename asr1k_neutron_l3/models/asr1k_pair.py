@@ -18,11 +18,14 @@ from oslo_log import log as logging
 from oslo_config import cfg
 
 from asr1k_neutron_l3.common import config as asr1k_config
+from asr1k_neutron_l3.common.asr1k_exceptions import VersionInfoNotAvailable
 
 LOG = logging.getLogger(__name__)
 
 
 class ASR1KContext(object):
+    version_min_1612 = property(lambda self: self._get_version_attr('_version_min_1612'))
+
     def __init__(self, name, host, yang_port, nc_timeout, username, password, insecure=True,
                  headers={}):
         self.name = name
@@ -37,6 +40,25 @@ class ASR1KContext(object):
         self.headers['accept'] = headers.get('accept', "application/yang-data+json")
         self.alive = False
         self.enabled = True
+        self._got_version_info = False
+
+    def _collect_version_info(self):
+        """Collect firmware version info by YANG version and maybe other means"""
+        from asr1k_neutron_l3.models.connection import ConnectionManager
+
+        with ConnectionManager(context=self.context) as connection:
+            # ASR 16.12 has at least this version for the YANG native model
+            self._version_min_1612 = connection.check_capability(module="Cisco-IOS-XE-native",
+                                                                 min_revision="2019-07-01")
+
+        self._got_version_info = True
+
+    def _get_version_attr(self, attr_name):
+        if not self._got_version_info:
+            self._collect_version_info()
+        if not hasattr(self, attr_name):
+            raise VersionInfoNotAvailable(host=self.context.host, entity=attr_name)
+        return getattr(self, attr_name)
 
 
 class ASR1KPair(object):
