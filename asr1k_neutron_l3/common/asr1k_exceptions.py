@@ -95,3 +95,7 @@ class MissingParentException(ReQueueException):
 
 class CapabilityNotFoundException(DeviceOperationException):
     message = "Could not find capability %(entity)s on host %(host)s"
+
+
+class VersionInfoNotAvailable(DeviceOperationException):
+    message = "Could not get version info for attribute %(entity) from host %(host)s"
