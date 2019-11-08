@@ -79,7 +79,7 @@ class DeviceCleanerMixin(object):
             ignore = 0
             entities = 0
             for entity in self.L3_ENTITIES:
-                items = entity.get_all_from_device_config(device_config)
+                items = entity.get_all_from_device_config(device_config, context)
                 for item in items:
                     entities += 1
                     if item.neutron_router_id and item.neutron_router_id not in all_router_ids:
@@ -144,7 +144,7 @@ class DeviceCleanerMixin(object):
             device_config = BulkOperations.get_device_config(context)
 
             for entity in self.L2_ENTITIES:
-                items = entity.get_all_from_device_config(device_config)
+                items = entity.get_all_from_device_config(device_config, context)
 
                 filtered = self._filter_l2_interfaces(items, all_extra_atts)
 

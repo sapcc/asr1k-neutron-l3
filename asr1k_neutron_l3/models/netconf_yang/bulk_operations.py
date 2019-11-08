@@ -11,7 +11,7 @@ class BulkOperations(xml_utils.XMLUtils):
     FULL_CONFIG_FILTER = """<native xmlns = "http://cisco.com/ns/yang/Cisco-IOS-XE-native"></native>"""
 
     @classmethod
-    def get_all_from_device_config(cls, device_config_json):
+    def get_all_from_device_config(cls, device_config_json, context):
         result = []
 
         json = cls.remove_wrapper(device_config_json)
@@ -31,10 +31,10 @@ class BulkOperations(xml_utils.XMLUtils):
 
             if isinstance(json, list):
                 for item in json:
-                    result.append(cls.from_json(item))
+                    result.append(cls.from_json(item, context))
             else:
 
-                result.append(cls.from_json(json))
+                result.append(cls.from_json(json, context))
 
         return result
 
