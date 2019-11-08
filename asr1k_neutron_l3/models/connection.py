@@ -209,6 +209,9 @@ class YangConnection(object):
         self.start = time.time()
         self.id = "{}-{}".format(context.host, id)
 
+    def __repr__(self):
+        return "<{} to {} at {}>".format(self.__class__.__name__, self.context.host, hex(id(self)))
+
     @property
     def age(self):
         return time.time() - self.start
