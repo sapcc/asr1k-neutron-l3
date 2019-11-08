@@ -66,7 +66,7 @@ class AddressFamily(NyBase):
 
     @classmethod
     def get_for_vrf(cls, context, asn=None, vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"asn": asn, "vrf": vrf}))
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(asn=asn, vrf=vrf))
 
     @classmethod
     def __parameters__(cls):
@@ -76,14 +76,16 @@ class AddressFamily(NyBase):
             {'key': 'connected', 'yang-path': 'ipv4-unicast/redistribute', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute', 'default': False,
-             'yang-type': YANG_TYPE.EMPTY}
-
-
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'connected', 'yang-path': 'ipv4-unicast/redistribute-vrf', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute-vrf', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
         ]
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'asn': kwargs.get('asn'), 'vrf': kwargs.get('vrf')})
+        return cls.ID_FILTER.format(asn=kwargs.get('asn'), vrf=kwargs.get('vrf'))
 
     @classmethod
     @execute_on_pair(return_raw=True)

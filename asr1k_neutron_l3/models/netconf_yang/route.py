@@ -59,7 +59,7 @@ class VrfRoute(NyBase):
 
     @classmethod
     def get_for_vrf(cls, context, vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
 
     @classmethod
     def __parameters__(cls):
@@ -70,7 +70,7 @@ class VrfRoute(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id')})
+        return cls.ID_FILTER.format(id=kwargs.get('id'))
 
     @classmethod
     def remove_wrapper(cls, dict):

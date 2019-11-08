@@ -609,7 +609,7 @@ class NyBase(BulkOperations):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id')})
+        return cls.ID_FILTER.format(id=kwargs.get('id'))
 
     @classmethod
     def get_all_filter(cls, **kwargs):
