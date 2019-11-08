@@ -88,7 +88,7 @@ class BDIInterface(NyBase):
 
     @classmethod
     def get_for_vrf(cls, context, vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
 
     @classmethod
     def __parameters__(cls):
@@ -205,16 +205,16 @@ class BDIInterface(NyBase):
             nat = L3Constants.NAT_MODE_OUTSIDE
 
         if self.route_map is not None:
-            return cli_snippets.BDI_POLICY_CLI_INIT.format(**{'id': self.id, 'description': self.description,
-                                                              'mac': self.mac_address, 'mtu': self.mtu,
-                                                              'vrf': self.vrf, 'ip': self.ip_address.address,
-                                                              'netmask': self.ip_address.mask, 'nat': nat,
-                                                              'route_map': self.route_map})
+            return cli_snippets.BDI_POLICY_CLI_INIT.format(id=self.id, description=self.description,
+                                                           mac=self.mac_address, mtu=self.mtu,
+                                                           vrf=self.vrf, ip=self.ip_address.address,
+                                                           netmask=self.ip_address.mask, nat=nat,
+                                                           route_map=self.route_map)
         else:
-            return cli_snippets.BDI_NO_POLICY_CLI_INIT.format(**{'id': self.id, 'description': self.description,
-                                                                 'mac': self.mac_address, 'mtu': self.mtu,
-                                                                 'vrf': self.vrf, 'ip': self.ip_address.address,
-                                                                 'netmask': self.ip_address.mask, 'nat': nat})
+            return cli_snippets.BDI_NO_POLICY_CLI_INIT.format(id=self.id, description=self.description,
+                                                              mac=self.mac_address, mtu=self.mtu,
+                                                              vrf=self.vrf, ip=self.ip_address.address,
+                                                              netmask=self.ip_address.mask, nat=nat)
 
 
 class BDISecondaryIpAddress(NyBase):
@@ -271,7 +271,7 @@ class BDISecondaryIpAddress(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id'), 'bridge_domain': kwargs.get('bridge_domain')})
+        return cls.ID_FILTER.format(id=kwargs.get('id'), bridge_domain=kwargs.get('bridge_domain'))
 
     @classmethod
     @execute_on_pair(return_raw=True)
