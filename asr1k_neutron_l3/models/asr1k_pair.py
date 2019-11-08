@@ -23,6 +23,16 @@ from asr1k_neutron_l3.common.asr1k_exceptions import VersionInfoNotAvailable
 LOG = logging.getLogger(__name__)
 
 
+class FakeASR1KContext(object):
+    """Fake ASR1K context, to be used where no context can be found
+
+    This context can be used where no device is available, but a version decision needs to be
+    made, e.g. in a __str__ method. It pins the version checks to a specific version to produce
+    stable results
+    """
+    version_min_1612 = True
+
+
 class ASR1KContext(object):
     version_min_1612 = property(lambda self: self._get_version_attr('_version_min_1612'))
 
