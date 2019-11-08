@@ -44,7 +44,7 @@ class VrfArpList(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf')})
+        return cls.ID_FILTER.format(vrf=kwargs.get('vrf'))
 
     def __init__(self, **kwargs):
         super(VrfArpList, self).__init__(**kwargs)
@@ -130,7 +130,7 @@ class ArpEntry(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf'), 'ip': kwargs.get('ip')})
+        return cls.ID_FILTER.format(vrf=kwargs.get('vrf'), ip=kwargs.get('ip'))
 
     @classmethod
     @execute_on_pair(return_raw=True)

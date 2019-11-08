@@ -197,7 +197,7 @@ class InterfaceDynamicNat(DynamicNat):
 
     @classmethod
     def get_for_vrf(cls, context, vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
 
     @classmethod
     def __parameters__(cls):
@@ -384,7 +384,7 @@ class StaticNatList(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf')})
+        return cls.ID_FILTER.format(vrf=kwargs.get('vrf'))
 
     @classmethod
     def remove_wrapper(cls, dict):
@@ -545,11 +545,11 @@ class StaticNat(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'local_ip': kwargs.get('local_ip'), 'global_ip': kwargs.get('global_ip')})
+        return cls.ID_FILTER.format(local_ip=kwargs.get('local_ip'), global_ip=kwargs.get('global_ip'))
 
     @classmethod
     def get_global_ip_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'global_ip': kwargs.get('global_ip')})
+        return cls.ID_FILTER.format(global_ip=kwargs.get('global_ip'))
 
     @classmethod
     @execute_on_pair(return_raw=True)
@@ -650,7 +650,7 @@ class StaticNat(NyBase):
 
     def _check_and_clean_mapping_id(self, context):
         # check if mapping ID is already in use in another VRF: if so its orphaned and should be removed
-        filter = self.MAPPING_ID_FILTER.format(**{'mapping_id': self.mapping_id})
+        filter = self.MAPPING_ID_FILTER.format(mapping_id=self.mapping_id)
 
         nats = self._get_all(nc_filter=filter, context=context)
 
@@ -662,7 +662,7 @@ class StaticNat(NyBase):
 
     def _check_and_clean_local_ip(self, context):
         # check if local IP is already mapped in VRF: if so its orphaned and should be removed
-        filter = self.LOCAL_IP_FILTER.format(**{'local_ip': self.local_ip, 'vrf': self.vrf})
+        filter = self.LOCAL_IP_FILTER.format(local_ip=self.local_ip, vrf=self.vrf)
 
         nats = self._get_all(nc_filter=filter, context=context)
 

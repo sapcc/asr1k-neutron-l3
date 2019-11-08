@@ -33,7 +33,7 @@ class EfpStats(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id'), 'port_channel': cls.PORT_CHANNEL})
+        return cls.ID_FILTER.format(id=kwargs.get('id'), port_channel=cls.PORT_CHANNEL)
 
     def __init__(self, **kwargs):
         super(EfpStats, self).__init__(**kwargs)

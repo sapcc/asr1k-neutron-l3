@@ -160,7 +160,7 @@ class VrfDefinition(NyBase, Requeable):
         LOG.debug("Running preflight check for VRF {}".format(self.id))
 
         # check for VRFs with the same RD
-        rd_filter = self.RD_FILTER.format(**{'rd': self.rd})
+        rd_filter = self.RD_FILTER.format(rd=self.rd)
 
         rd_vrf = self._get(context=context, nc_filter=rd_filter)
 
@@ -242,7 +242,7 @@ class VrfDefinition(NyBase, Requeable):
         LOG.debug("Postflight check completed for VRF {}".format(self.id))
 
     def init_config(self):
-        return cli_snippets.VRF_CLI_INIT.format(**{'name': self.name, 'description': self.description, 'rd': self.rd})
+        return cli_snippets.VRF_CLI_INIT.format(name=self.name, description=self.description, rd=self.rd)
 
 
 class IpV4AddressFamily(NyBase):

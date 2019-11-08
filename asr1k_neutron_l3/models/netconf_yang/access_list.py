@@ -66,7 +66,7 @@ class AccessList(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'name': kwargs.get('name')})
+        return cls.ID_FILTER.format(name=kwargs.get('name'))
 
     @classmethod
     def remove_wrapper(cls, dict):
