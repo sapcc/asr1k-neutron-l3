@@ -34,6 +34,7 @@ class BGPConstants(object):
     NAME = "name"
     VRF = "vrf"
     REDISTRIBUTE = "redistribute"
+    REDISTRIBUTE_VRF = "redistribute-vrf"
     CONNECTED = "connected"
     STATIC = "static"
     UNICAST = "unicast"
@@ -144,11 +145,13 @@ class AddressFamily(NyBase):
             vrf = OrderedDict()
             vrf[BGPConstants.NAME] = self.vrf
             vrf[BGPConstants.IPV4_UNICAST] = {}
-            vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE] = {}
+
+            REDIST_CONST = BGPConstants.REDISTRIBUTE_VRF if context.version_min_1612 else BGPConstants.REDISTRIBUTE
+            vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST] = {}
             if self.connected:
-                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.CONNECTED] = ''
+                vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST][BGPConstants.CONNECTED] = ''
             if self.static:
-                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.REDISTRIBUTE][BGPConstants.STATIC] = ''
+                vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST][BGPConstants.STATIC] = ''
 
             result[BGPConstants.VRF] = vrf
         return dict(result)
