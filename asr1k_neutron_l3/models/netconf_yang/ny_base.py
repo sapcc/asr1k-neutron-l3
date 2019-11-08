@@ -538,7 +538,7 @@ class NyBase(BulkOperations):
         return result
 
     @classmethod
-    def from_json(cls, json, parent=None):
+    def from_json(cls, json, context, parent=None):
         try:
             if not bool(json):
                 return None
@@ -587,18 +587,18 @@ class NyBase(BulkOperations):
                                     for v in value:
                                         if isinstance(v, dict) and not type == str:
                                             v[cls.PARENT] = params
-                                            result.append(type.from_json(v))
+                                            result.append(type.from_json(v, context))
                                         else:
                                             result.append(v)
                                 else:
                                     if value is not None and not isinstance(value, unicode) and not type == str:
                                         value[cls.PARENT] = params
-                                        result.append(type.from_json(value))
+                                        result.append(type.from_json(value, context))
                                     else:
                                         result.append(value)
                                 value = result
                             else:
-                                value = type.from_json(value)
+                                value = type.from_json(value, context)
 
                         if isinstance(value, dict) and value == {}:
                             value = True
@@ -644,7 +644,7 @@ class NyBase(BulkOperations):
                     if json is None:
                         return None
 
-                    result = cls.from_json(json)
+                    result = cls.from_json(json, context)
 
                     # Add missing primary keys from get
                     cls.__ensure_primary_keys(result, **kwargs)
@@ -676,9 +676,9 @@ class NyBase(BulkOperations):
 
                     if isinstance(json, list):
                         for item in json:
-                            result.append(cls.from_json(item))
+                            result.append(cls.from_json(item, context))
                     else:
-                        result.append(cls.from_json(json))
+                        result.append(cls.from_json(json, context))
 
                     # Add missing primary keys from get
                     for item in result:
