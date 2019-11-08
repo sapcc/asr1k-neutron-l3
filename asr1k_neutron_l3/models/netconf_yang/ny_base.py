@@ -468,7 +468,7 @@ class NyBase(BulkOperations):
             raise Exception("ID field {} is None".format(id_field))
 
     def __str__(self):
-        json = self.to_dict(context=None)  # FIXME: either provide context (e.g. first device) or run_on_pairs...
+        json = self.to_dict(context=asr1k_pair.FakeASR1KContext())
         if isinstance(json, dict):
             value = JsonDict(json).__str__()
         else:
@@ -482,7 +482,9 @@ class NyBase(BulkOperations):
         return "{} at {} ({})".format(self.__class__.__name__, id(self), str(self))
 
     def __eq__(self, other):
-        diff = self._diff(context=None, other=other)  # FIXME: Same as with __str__
+        LOG.error("EQ was used here, therefore cannot phase out this operator",
+                  exc_info=exc_info_full('EQ with fake context'))
+        diff = self._diff(context=asr1k_pair.FakeASR1KContext(), other=other)
         return diff.valid
 
     # Define what constitutes an empty diff
