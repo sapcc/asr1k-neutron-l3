@@ -52,11 +52,14 @@ class ASR1KContext(object):
         self.enabled = True
         self._got_version_info = False
 
+    def __repr__(self):
+        return "<{} of {} at {}>".format(self.__class__.__name__, self.host, hex(id(self)))
+
     def _collect_version_info(self):
         """Collect firmware version info by YANG version and maybe other means"""
         from asr1k_neutron_l3.models.connection import ConnectionManager
 
-        with ConnectionManager(context=self.context) as connection:
+        with ConnectionManager(context=self) as connection:
             # ASR 16.12 has at least this version for the YANG native model
             self._version_min_1612 = connection.check_capability(module="Cisco-IOS-XE-native",
                                                                  min_revision="2019-07-01")
