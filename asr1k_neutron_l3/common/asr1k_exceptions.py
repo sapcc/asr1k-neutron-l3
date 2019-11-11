@@ -102,4 +102,4 @@ class CapabilityNotFoundException(DeviceOperationException):
 
 
 class VersionInfoNotAvailable(DeviceOperationException):
-    message = "Could not get version info for attribute %(entity) from host %(host)s"
+    message = "Could not get version info for attribute %(entity)s from host %(host)s"

@@ -23,7 +23,8 @@ import re
 
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
-from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable, CapabilityNotFoundException
+from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable, CapabilityNotFoundException, \
+    VersionInfoNotAvailable
 from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
@@ -344,6 +345,10 @@ class YangConnection(object):
     def check_capability(self, module, min_revision, baseurl='http://cisco.com/ns/yang/{module}'):
         baseurl = baseurl.format(module=module)
         min_rev_date = datetime.datetime.strptime(min_revision, "%Y-%m-%d")
+
+        if not self.connection or self.connection.server_capabilities is None:
+            raise VersionInfoNotAvailable(host=self.context.host, entity='<capability list>')
+
         for url in self.connection.server_capabilities:
             url = url.strip()  # some urls still have spaces and \n around them
             if url.startswith(baseurl + '?'):
