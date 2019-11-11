@@ -21,9 +21,11 @@ from oslo_log import log as logging
 from asr1k_neutron_l3.models.netconf_yang.bgp import AddressFamily
 from asr1k_neutron_l3.common import cli_snippets
 from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.models.connection import ConnectionManager
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, Requeable, NC_OPERATION, execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, Requeable, NC_OPERATION, execute_on_pair, \
+    retry_on_failure
 from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
 
 LOG = logging.getLogger(__name__)
@@ -82,6 +84,24 @@ class VrfDefinition(NyBase, Requeable):
     rd {}
     address-family ipv4
         export map exp-{}"""
+
+    DELETE_VRF_RD = """
+        <config>
+            <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+                <vrf>
+                    <definition>
+                        <name>{id}</name>
+                        <rd operation="delete"/>
+                        <address-family>
+                            <ipv4>
+                                <export operation="delete"/>
+                            </ipv4>
+                        </address-family>
+                    </definition>
+                </vrf>
+            </native>
+        </config>
+             """
 
     LIST_KEY = VrfConstants.VRF
     ITEM_KEY = VrfConstants.DEFINITION
@@ -168,8 +188,22 @@ class VrfDefinition(NyBase, Requeable):
             if self.id != rd_vrf.id:
                 LOG.warning("Preflight on {} found existing VRF {} with RD {} - attempting to remove"
                             "".format(self.id, rd_vrf.id, self.rd))
-                rd_vrf._delete(context)
+                # remove the rd, as we want to repurpose it
+                rd_vrf._delete_rd(context)
+
+                # try deleting the VRF, but don't fail if we cannot do so
+                try:
+                    rd_vrf._delete(context)
+                except Exception as e:
+                    LOG.warning("Deleting VRF %s failed, but deleting its RD succeeded - continuing with creating %s",
+                                rd_vrf.id, self.id)
                 LOG.warning("Preflight on {} deleted existing VRF {} with RD {}".format(self.id, rd_vrf.id, self.rd))
+
+    @retry_on_failure()
+    def _delete_rd(self, context):
+        config = self.DELETE_VRF_RD.format(id=self.id)
+        with ConnectionManager(context=context) as connection:
+            return connection.edit_config(config=config, entity=self.__class__.__name__, action="update")
 
     def postflight(self, context):
         # Clean remaining interface NAT
