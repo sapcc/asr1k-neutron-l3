@@ -70,6 +70,10 @@ class Router(Base):
         if self.gateway_interface is not None:
             rt = address_scope_config.get(self.gateway_interface.address_scope)
 
+        if not self.router_atts.get('rd'):
+            LOG.error("Router %s has no rd attached, configuration is likely to fail!",
+                      self.router_info.get('id'))
+
         self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn,
                            rd=self.router_atts.get('rd'), routeable_interface=self.routeable_interface,
                            rt_import=self.rt_import, rt_export=self.rt_export)
