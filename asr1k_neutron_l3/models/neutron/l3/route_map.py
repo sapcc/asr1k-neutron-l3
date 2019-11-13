@@ -13,6 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from oslo_config import cfg
 
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang import route_map
@@ -76,7 +77,8 @@ class PBRRouteMap(base.Base):
                                                    access_list='PBR-{}'.format(self.vrf),
                                                    next_hop=gateway_interface.primary_gateway_ip,
                                                    ip_precedence='routine',
-                                                   force=True))
+                                                   force=True,
+                                                   drop_on_1612=cfg.CONF.asr1k_l3.use_nat_stick))
             sequences.append(route_map.MapSequence(seq_no=15,
                                                    operation='permit',
                                                    ip_precedence='routine'))

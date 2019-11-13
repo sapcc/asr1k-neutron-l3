@@ -47,6 +47,7 @@ class L3Constants(object):
     NAT = "nat"
     NAT_MODE_INSIDE = "inside"
     NAT_MODE_OUTSIDE = "outside"
+    NAT_MODE_STICK = "stick"
     POLICY = "policy"
     ROUTE_MAP = "route-map"
     ACCESS_GROUP = "access-group"
@@ -107,11 +108,13 @@ class BDIInterface(NyBase):
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'nat_stick', 'yang-key': 'stick', 'yang-path': 'ip/nat', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
             {'key': 'route_map', 'yang-key': 'route-map', 'yang-path': 'ip/policy'},
             {'key': 'access_group_out', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/out/acl'},
             {'key': 'redundancy_group'},
-            {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY}
-
+            {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'desire_nat_stick', 'default': False},
         ]
 
     def __init__(self, **kwargs):
@@ -144,9 +147,10 @@ class BDIInterface(NyBase):
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.ADDRESS] = self.ip_address.address
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.MASK] = self.ip_address.mask
 
-        if self.nat_inside:
+        if self.nat_stick or (self.nat_inside and context.version_min_1612 and self.desire_nat_stick):
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_STICK: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
+        elif self.nat_inside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
-
         elif self.nat_outside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
 
