@@ -63,6 +63,8 @@ ASR1K_L3_OPTS = [
     cfg.IntOpt('max_config_save_interval', default=900,
                help=_('Maximum interval in which the device config should be saved. Only triggers if a complete '
                       'router sync loop takes longer than this interval.')),
+    cfg.BoolOpt('use_nat_stick', default=False, help=_("Use nat stick when possible for internal BDIs. "
+                                                       "Also disables setting a next-hop in the pbr route-map.")),
 ]
 
 ASR1K_L2_OPTS = [
