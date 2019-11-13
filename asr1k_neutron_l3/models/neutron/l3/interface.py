@@ -13,14 +13,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from oslo_config import cfg
 from oslo_log import log as logging
 
+from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.netconf_yang import l3_interface
 from asr1k_neutron_l3.models.netconf_yang import l3_interface_state
-
-from asr1k_neutron_l3.common import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -151,7 +150,8 @@ class InternalInterface(Interface):
         self._rest_definition = l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
                                         mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                         ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
-                                        nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf))
+                                        nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf),
+                                        desire_nat_stick=cfg.CONF.asr1k_l3.use_nat_stick)
 
 
 class OrphanedInterface(Interface):
