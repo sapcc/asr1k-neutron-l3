@@ -164,3 +164,9 @@ class AddressFamily(NyBase):
             result[BGPConstants.VRF] = vrf
 
         return dict(result)
+
+    def _delete_no_retry(self, context, *args, **kwargs):
+        # only delete if present on device
+        device_af = self._internal_get(context=context)
+        if device_af and device_af.vrf:
+            return super(AddressFamily, self)._delete_no_retry(context, *args, **kwargs)
