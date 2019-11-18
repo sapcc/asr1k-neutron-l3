@@ -15,7 +15,7 @@
 #    under the License.
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE, NC_OPERATION
 import asr1k_neutron_l3.models.netconf_yang.nat
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
@@ -137,6 +137,8 @@ class BDIInterface(NyBase):
             bdi[L3Constants.SHUTDOWN] = ''
 
         ip = OrderedDict()
+        ip[xml_utils.OPERATION] = NC_OPERATION.PUT
+
         if self.ip_address is not None:
             ip[L3Constants.ADDRESS] = OrderedDict()
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY] = OrderedDict()
