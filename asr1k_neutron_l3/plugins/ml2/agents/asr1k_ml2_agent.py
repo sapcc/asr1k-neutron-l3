@@ -346,7 +346,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             with timeutils.StopWatch() as w:
                 try:
                     self.sync_known_ports()
-                except Exception as e:
+                except BaseException as e:
                     LOG.exception(e)
 
             self.loop_count_and_wait(w.elapsed(), self.sync_interval)
