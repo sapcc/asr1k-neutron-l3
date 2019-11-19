@@ -260,8 +260,8 @@ class BDISecondaryIpAddress(NyBase):
         ]
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(BDISecondaryIpAddress, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(VBISecondaryIpAddress, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(L3Constants.INTERFACE, dict)
@@ -270,7 +270,7 @@ class BDISecondaryIpAddress(NyBase):
         dict = dict.get(cls.LIST_KEY, None)
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         a = OrderedDict()

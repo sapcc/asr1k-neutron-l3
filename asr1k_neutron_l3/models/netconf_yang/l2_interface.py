@@ -96,8 +96,8 @@ class ServiceInstance(NyBase):
         return super(ServiceInstance, cls)._exists(id=id, port_channel=cls.PORT_CHANNEL, context=context)
 
     @classmethod
-    def remove_wrapper(cls, json):
-        json = super(ServiceInstance, cls)._remove_base_wrapper(json)
+    def remove_wrapper(cls, json, context):
+        json = super(ServiceInstance, cls)._remove_base_wrapper(json, context)
         if json is None:
             return
         json = json.get(L2Constants.INTERFACE, json)
@@ -122,7 +122,7 @@ class ServiceInstance(NyBase):
         return {self.__class__.__name__: {'description': self.description, 'service_instance': self.id,
                                           'port_channel': self.PORT_CHANNEL, 'bridge_domain': self.bridge_domain}}
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         dict[xml_utils.NS] = xml_utils.NS_CISCO_ETHERNET
         result[self.LIST_KEY] = dict

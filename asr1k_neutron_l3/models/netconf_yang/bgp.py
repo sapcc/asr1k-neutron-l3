@@ -101,8 +101,8 @@ class AddressFamily(NyBase):
         return super(AddressFamily, cls)._exists(vrf=vrf, asn=asn, context=context)
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(AddressFamily, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(AddressFamily, cls)._remove_base_wrapper(dict, context)
 
         if dict is not None:
             dict = dict.get(BGPConstants.ROUTER, dict)
@@ -120,7 +120,7 @@ class AddressFamily(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         dict[BGPConstants.AF_NAME] = BGPConstants.UNICAST
         result = {}
         result[self.LIST_KEY] = dict
