@@ -683,8 +683,6 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                                 raise e
                         except BaseException as e:
                             LOG.exception(e)
-                        except:
-                            LOG.error("An exception occured om the router update loop")
                     else:
                         if len(utils.get_router_ports(router)) > 0:
                             LOG.debug("Requeuing update for router {}".format(update.id))
