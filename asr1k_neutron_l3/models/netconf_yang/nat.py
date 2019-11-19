@@ -242,11 +242,15 @@ class InterfaceDynamicNat(DynamicNat):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
 
-        entry[NATConstants.INTERFACE_WITH_VRF] = {}
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE] = {}
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.NAME] = self.interface
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF] = {}
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.VRF_NAME] = self.vrf
+        entry[NATConstants.INTERFACE_WITH_VRF] = {
+            NATConstants.INTERFACE: {
+                NATConstants.NAME: self.interface,
+                NATConstants.VRF: {
+                    NATConstants.VRF_NAME: self.vrf
+                },
+            },
+        }
+
         if self.overload:
             entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.OVERLOAD] = ""
 
