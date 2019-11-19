@@ -15,8 +15,7 @@ class EfpStats(NyBase):
               <id>{id}</id>
               <interface>Port-channel{port_channel}</interface>
             </efp-stat>
-          </efp-stats>    
-
+          </efp-stats>
     """
 
     @classmethod

@@ -4,12 +4,12 @@ from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 class BDIInterfaceState(NyBase):
     ID_FILTER = """
-                  <interfaces-state xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">
-                    <interface>
-                      <name>BDI{id}</name>
-                    </interface>
-                  </interfaces-state>          
-             """
+          <interfaces-state xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">
+            <interface>
+              <name>BDI{id}</name>
+            </interface>
+          </interfaces-state>
+    """
 
     LIST_KEY = "interfaces-state"
     ITEM_KEY = "interface"

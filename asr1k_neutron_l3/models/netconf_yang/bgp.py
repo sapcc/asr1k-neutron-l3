@@ -42,26 +42,28 @@ class BGPConstants(object):
 
 class AddressFamily(NyBase):
     ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-bgp="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
-                    <router>
-                      <ios-bgp:bgp>
-                        <ios-bgp:id>{asn}</ios-bgp:id>
-                        <ios-bgp:address-family>
-                            <ios-bgp:with-vrf>
-                                <ios-bgp:ipv4>
-                                    <ios-bgp:af-name>unicast</ios-bgp:af-name>
-                                    <ios-bgp:vrf>
+        <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                  xmlns:ios-bgp="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
+            <router>
+                <ios-bgp:bgp>
+                    <ios-bgp:id>{asn}</ios-bgp:id>
+                    <ios-bgp:address-family>
+                        <ios-bgp:with-vrf>
+                            <ios-bgp:ipv4>
+                                <ios-bgp:af-name>unicast</ios-bgp:af-name>
+                                <ios-bgp:vrf>
                                     <ios-bgp:name>{vrf}</ios-bgp:name>
-                                    </ios-bgp:vrf>
-                                </ios-bgp:ipv4>
-                            </ios-bgp:with-vrf>                                                            
-                        </ios-bgp:address-family>
-                      </ios-bgp:bgp>
-                    </router>
-                  </native>         
-             """
+                                </ios-bgp:vrf>
+                            </ios-bgp:ipv4>
+                        </ios-bgp:with-vrf>
+                    </ios-bgp:address-family>
+                </ios-bgp:bgp>
+            </router>
+        </native>
+    """
 
-    VRF_XPATH_FILTER = "/native/router/bgp[id='{asn}']/address-family/with-vrf/ipv4[af-name='unicast']/vrf[name='{vrf}']"
+    VRF_XPATH_FILTER = ("/native/router/bgp[id='{asn}']/address-family/with-vrf/"
+                        "ipv4[af-name='unicast']/vrf[name='{vrf}']")
     LIST_KEY = BGPConstants.IPV4
     ITEM_KEY = BGPConstants.VRF
 

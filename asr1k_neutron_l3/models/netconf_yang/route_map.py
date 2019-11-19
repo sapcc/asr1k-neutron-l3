@@ -47,12 +47,13 @@ class RouteMapConstants(object):
 
 class RouteMap(NyBase):
     ID_FILTER = """
-                <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-route-map="http://cisco.com/ns/yang/Cisco-IOS-XE-route-map">
-                    <route-map>
-                            <name>{id}</name>
-                    </route-map>
-                </native>            
-             """
+            <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                    xmlns:ios-route-map="http://cisco.com/ns/yang/Cisco-IOS-XE-route-map">
+                <route-map>
+                    <name>{id}</name>
+                </route-map>
+            </native>
+    """
 
     LIST_KEY = None
     ITEM_KEY = RouteMapConstants.ROUTE_MAP
