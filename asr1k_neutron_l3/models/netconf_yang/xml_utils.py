@@ -69,9 +69,9 @@ class XMLUtils(object):
         return xmltodict.parse(xml, process_namespaces=True, namespaces=cls.namespaces)
 
     @classmethod
-    def to_json(cls, xml):
+    def to_json(cls, xml, context):
         result = cls.to_raw_json(xml)
-        result = cls.remove_wrapper(result)
+        result = cls.remove_wrapper(result, context)
 
         return cls._to_plain_json(result)
 
@@ -80,15 +80,15 @@ class XMLUtils(object):
         return json.loads(json.dumps(dict))
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = cls._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = cls._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(cls.LIST_KEY, dict)
         return dict
 
     @classmethod
-    def _remove_base_wrapper(cls, dict):
+    def _remove_base_wrapper(cls, dict, context):
         if dict is None:
             return
 
@@ -100,13 +100,13 @@ class XMLUtils(object):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         if self.LIST_KEY is not None:
             dict = {self.LIST_KEY: dict}
 
         return dict
 
-    def add_wrapper(self, dict, operation):
+    def add_wrapper(self, dict, operation, context):
         if operation and operation != 'override':
             if isinstance(dict, list):
                 for item in dict:
@@ -118,7 +118,7 @@ class XMLUtils(object):
             else:
                 dict[self.ITEM_KEY][OPERATION] = operation
 
-        dict = self._wrapper_preamble(dict)
+        dict = self._wrapper_preamble(dict, context)
         dict[NS] = NS_CISCO_NATIVE
 
         result = OrderedDict()
@@ -134,7 +134,7 @@ class XMLUtils(object):
         if json is None:
             json = self.to_dict(context)
 
-        j = self.add_wrapper(json, operation)
+        j = self.add_wrapper(json, operation, context)
 
         xml = xmltodict.unparse(j)
         xml = xml.replace(ENCODING, "")

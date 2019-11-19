@@ -44,7 +44,7 @@ class EfpStats(NyBase):
         return cls._get(id=id, port_channel=cls.PORT_CHANNEL, context=context)
 
     @classmethod
-    def _remove_base_wrapper(cls, dict):
+    def _remove_base_wrapper(cls, dict, context):
         dict = dict.get(xml_utils.RPC_REPLY, dict)
         dict = dict.get(xml_utils.DATA, dict)
         if dict is None:

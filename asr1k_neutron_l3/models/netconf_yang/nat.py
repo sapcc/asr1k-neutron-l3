@@ -83,8 +83,8 @@ class NatPool(NyBase):
         ]
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(NatPool, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(NatPool, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(NATConstants.IP, dict)
@@ -97,7 +97,7 @@ class NatPool(NyBase):
         if self.vrf is not None:
             return utils.vrf_id_to_uuid(self.id)
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         dict[xml_utils.NS] = xml_utils.NS_CISCO_NAT
         result[self.LIST_KEY] = dict
@@ -140,8 +140,8 @@ class DynamicNat(NyBase):
     #     return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'vrf':kwargs.get('vrf')})
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(DynamicNat, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(DynamicNat, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(NATConstants.IP, dict)
@@ -152,7 +152,7 @@ class DynamicNat(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {NATConstants.INSIDE: result}
@@ -368,8 +368,8 @@ class StaticNatList(NyBase):
         return cls.ID_FILTER.format(vrf=kwargs.get('vrf'))
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(StaticNatList, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(StaticNatList, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
 
@@ -381,7 +381,7 @@ class StaticNatList(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {NATConstants.SOURCE: result}
@@ -552,8 +552,8 @@ class StaticNat(NyBase):
         return super(StaticNat, cls)._exists(local_ip=local_ip, global_ip=global_ip, context=context)
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(StaticNat, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(StaticNat, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(NATConstants.IP, dict)
@@ -567,7 +567,7 @@ class StaticNat(NyBase):
     def orphan_info(self):
         return {self.__class__.__name__: {'local_ip': self.local_ip, 'global_ip': self.global_ip, 'vrf': self.vrf}}
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {NATConstants.SOURCE: result}

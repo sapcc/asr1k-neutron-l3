@@ -637,7 +637,7 @@ class NyBase(BulkOperations):
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
                 result = connection.get(filter=nc_filter, entity=cls.__name__, action="get")
-                json = cls.to_json(result.xml)
+                json = cls.to_json(result.xml, context)
                 if json is not None:
                     json = json.get(cls.ITEM_KEY, None)
 
@@ -670,7 +670,7 @@ class NyBase(BulkOperations):
                 else:
                     rpc_result = connection.get(filter=nc_filter, entity=cls.__name__, action="get_all")
 
-                json = cls.to_json(rpc_result.xml)
+                json = cls.to_json(rpc_result.xml, context)
                 if json is not None:
                     json = json.get(cls.ITEM_KEY, json)
 

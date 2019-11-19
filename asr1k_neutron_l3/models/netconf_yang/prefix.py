@@ -60,8 +60,8 @@ class Prefix(NyBase):
         ]
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(Prefix, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(Prefix, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(PrefixConstants.IP, dict)
@@ -69,7 +69,7 @@ class Prefix(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {PrefixConstants.IP: result}
