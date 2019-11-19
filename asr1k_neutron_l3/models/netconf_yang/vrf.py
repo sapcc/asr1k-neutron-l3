@@ -56,7 +56,7 @@ class VrfDefinition(NyBase, Requeable):
                             <name>{id}</name>
                         </definition>
                     </vrf>
-                </native>            
+                </native>
              """
 
     RD_FILTER = """
@@ -66,7 +66,7 @@ class VrfDefinition(NyBase, Requeable):
                             <rd>{rd}</rd>
                         </definition>
                     </vrf>
-                </native>            
+                </native>
              """
 
     ALL_FILTER = """
@@ -75,11 +75,10 @@ class VrfDefinition(NyBase, Requeable):
                         <definition>
                         </definition>
                     </vrf>
-                </native>            
+                </native>
              """
 
-    CLI_INIT =\
-"""vrf definition {}
+    CLI_INIT = """vrf definition {}
     description {}
     rd {}
     address-family ipv4

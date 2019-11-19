@@ -50,19 +50,20 @@ class BridgeDomain(NyBase):
 class ServiceInstance(NyBase):
     PORT_CHANNEL = 0
     ID_FILTER = """
-              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
-                <interface>
-                  <Port-channel>
-                    <name>{port_channel}</name>
-                    <ios-eth:service>
-                      <ios-eth:instance>
-                        <id>{id}</id>
-                      </ios-eth:instance>
-                    </ios-eth:service>
-                  </Port-channel>
-                </interface>
-              </native>        
-             """
+          <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                  xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+            <interface>
+              <Port-channel>
+                <name>{port_channel}</name>
+                <ios-eth:service>
+                  <ios-eth:instance>
+                    <id>{id}</id>
+                  </ios-eth:instance>
+                </ios-eth:service>
+              </Port-channel>
+            </interface>
+          </native>
+    """
 
     LIST_KEY = L2Constants.SERVICE
     ITEM_KEY = L2Constants.SERVICE_INSTANCE

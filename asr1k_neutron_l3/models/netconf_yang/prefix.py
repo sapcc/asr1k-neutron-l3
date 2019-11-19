@@ -45,8 +45,8 @@ class Prefix(NyBase):
             </prefixes>
           </prefix-list>
         </ip>
-      </native>        
-             """
+      </native>
+    """
 
     LIST_KEY = PrefixConstants.PREFIX_LIST
     ITEM_KEY = PrefixConstants.PREFIXES

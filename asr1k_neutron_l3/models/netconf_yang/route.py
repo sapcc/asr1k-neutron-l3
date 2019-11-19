@@ -41,16 +41,17 @@ class RouteConstants(object):
 
 class VrfRoute(NyBase):
     ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
-                    <ip>
-                      <route>
-                       <vrf>
-                        <name>{id}</name>
-                       </vrf>
-                      </route>
-                    </ip>
-                  </native>
-                """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                <ip>
+                  <route>
+                   <vrf>
+                    <name>{id}</name>
+                   </vrf>
+                  </route>
+                </ip>
+              </native>
+    """
 
     VRF_XPATH_FILTER = "/native/ip/route/vrf[name='{vrf}']"
 
