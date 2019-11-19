@@ -150,15 +150,6 @@ class VrfDefinition(NyBase, Requeable):
         if self.address_family_ipv4 is not None:
             definition[VrfConstants.ADDRESS_FAMILY][VrfConstants.IPV4] = self.address_family_ipv4.to_dict(context)
 
-        # if self.enable_bgp:
-        #     definition[VrfConstants.RD] = self.rd
-        #     for address_family in self.address_family.keys():
-        #         definition[VrfConstants.ADDRESS_FAMILY][address_family] = {VrfConstants.EXPORT:{VrfConstants.MAP:'exp-{}'.format(self.name)}}
-        # else:
-        #
-        #     for address_family in self.address_family.keys():
-        #          definition[VrfConstants.ADDRESS_FAMILY][address_family] = {}
-
         result = OrderedDict()
         result[VrfConstants.DEFINITION] = definition
         return dict(result)

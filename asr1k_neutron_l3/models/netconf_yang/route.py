@@ -129,16 +129,6 @@ class VrfRoute(NyBase):
 
         return dict(result)
 
-    # def preflight(self, context):
-    #
-    #     LOG.debug("Running preflight check for route {}".format(self.id))
-    #
-    #     vrf = Ayang_vrf.VrfDefinition.get(self.name,context=context)
-    #
-    #     if vrf is None and self._ncc_connection:
-    #         raise exc.MissingParentException(device=context.host,entity=self,action="create")
-    #     LOG.dAbug("Preflight check completed for route {}".format(self.id))
-
 
 class IpRoute(NyBase):
     LIST_KEY = RouteConstants.FOWARDING
