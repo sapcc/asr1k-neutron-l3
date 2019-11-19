@@ -74,8 +74,8 @@ class VrfRoute(NyBase):
         return cls.ID_FILTER.format(id=kwargs.get('id'))
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(VrfRoute, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(VrfRoute, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
 
@@ -84,7 +84,7 @@ class VrfRoute(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {RouteConstants.IP: result}

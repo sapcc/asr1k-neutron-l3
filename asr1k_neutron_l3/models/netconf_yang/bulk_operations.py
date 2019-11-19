@@ -14,7 +14,7 @@ class BulkOperations(xml_utils.XMLUtils):
     def get_all_from_device_config(cls, device_config_json, context):
         result = []
 
-        json = cls.remove_wrapper(device_config_json)
+        json = cls.remove_wrapper(device_config_json, context)
 
         if json is not None:
             if isinstance(json, list):

@@ -51,9 +51,9 @@ class VrfArpList(NyBase):
         super(VrfArpList, self).__init__(**kwargs)
 
     @classmethod
-    def remove_wrapper(cls, dict):
+    def remove_wrapper(cls, dict, context):
 
-        dict = super(VrfArpList, cls)._remove_base_wrapper(dict)
+        dict = super(VrfArpList, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
 
@@ -73,7 +73,7 @@ class VrfArpList(NyBase):
 
         return {ARPConstants.VRF: arp_list}
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
 
@@ -144,8 +144,8 @@ class ArpEntry(NyBase):
         return super(ArpEntry, cls)._exists(ip=ip, vrf=vrf, context=context)
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(ArpEntry, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(ArpEntry, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
 
@@ -157,7 +157,7 @@ class ArpEntry(NyBase):
     def orphan_info(self):
         return {self.__class__.__name__: {'ip': self.ip, 'hardware_address': self.hardware_address, 'vrf': self.vrf}}
 
-    def _wrapper_preamble(self, single_dict):
+    def _wrapper_preamble(self, single_dict, context):
         result = OrderedDict()
         result[self.LIST_KEY] = single_dict
 

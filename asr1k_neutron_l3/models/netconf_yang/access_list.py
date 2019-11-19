@@ -70,8 +70,8 @@ class AccessList(NyBase):
         return cls.ID_FILTER.format(name=kwargs.get('name'))
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(AccessList, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(AccessList, cls)._remove_base_wrapper(dict, context)
 
         if dict is not None:
             dict = dict.get(ACLConstants.IP, dict)
@@ -79,7 +79,7 @@ class AccessList(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         dict[self.ITEM_KEY][xml_utils.NS] = xml_utils.NS_CISCO_ACL
         result[self.LIST_KEY] = dict
