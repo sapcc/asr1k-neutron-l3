@@ -330,33 +330,6 @@ class PoolDynamicNat(DynamicNat):
 
         return dict(result)
 
-    # def to_delete_dict(self):
-    #     entry = OrderedDict()
-    #     entry[NATConstants.ID] = self.id
-    #
-    #     entry[NATConstants.POOL_WITH_VRF]   ={}
-    #     entry[NATConstants.POOL_WITH_VRF][xml_utils.OPERATION] = "delete"
-    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL] = {}
-    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.NAME] = self.pool
-    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF] = {}
-    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF][NATConstants.NAME] = self.vrf
-    #     result = OrderedDict()
-    #     result[NATConstants.LIST] = []
-    #     result[NATConstants.LIST].append(entry)
-    #
-    #     return dict(result)
-    #
-    # @execute_on_pair()
-    # def delete(self,context=None):
-    #
-    #     return super(PoolDynamicNat, self)._delete(context=context,method=NC_OPERATION.OVERRIDE)
-
-    # @execute_on_pair()
-    # def delete(self, context=None):
-    #     device = self._internal_get(context=context)
-    #     if (device is not None and device.pool is not None) or self.force_delete:
-    #         self.ncc.delete_pool(context)
-
 
 class StaticNatList(NyBase):
     ID_FILTER = """
