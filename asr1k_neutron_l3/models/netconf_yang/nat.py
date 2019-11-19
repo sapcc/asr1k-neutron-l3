@@ -61,16 +61,17 @@ class NatPool(NyBase):
     ITEM_KEY = NATConstants.POOL
 
     ID_FILTER = """
-                    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                        <ip>
-                          <ios-nat:nat>
-                            <ios-nat:pool>
-                               <id>{id}</id>
-                            </ios-nat:pool>   
-                          </ios-nat:nat>
-                        </ip>
-                    </native>
-                """
+            <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                    xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                    <ios-nat:nat>
+                        <ios-nat:pool>
+                            <id>{id}</id>
+                        </ios-nat:pool>
+                    </ios-nat:nat>
+                </ip>
+            </native>
+    """
 
     @classmethod
     def __parameters__(cls):
@@ -177,21 +178,22 @@ class DynamicNat(NyBase):
 
 class InterfaceDynamicNat(DynamicNat):
     ID_FILTER = """
-                      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
-                        <ip>
-                          <ios-nat:nat>
-                            <ios-nat:inside>
-                              <ios-nat:source>
-                                <ios-nat:list>
-                                  <ios-nat:id>{id}</ios-nat:id>
-                                </ios-nat:list>
-                              </ios-nat:source>
-                            </ios-nat:inside>
-                          </ios-nat:nat>
-                        </ip>
-                      </native>
-
-                    """
+                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                          xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat"
+                          xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                    <ip>
+                      <ios-nat:nat>
+                        <ios-nat:inside>
+                          <ios-nat:source>
+                            <ios-nat:list>
+                              <ios-nat:id>{id}</ios-nat:id>
+                            </ios-nat:list>
+                          </ios-nat:source>
+                        </ios-nat:inside>
+                      </ios-nat:nat>
+                    </ip>
+                  </native>
+    """
 
     VRF_XPATH_FILTER = "/native/ip/nat/inside/source/list[id='NAT-{vrf}']"
 
@@ -261,21 +263,22 @@ class InterfaceDynamicNat(DynamicNat):
 
 class PoolDynamicNat(DynamicNat):
     ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:list>
-                              <ios-nat:id>{id}</ios-nat:id>
-                            </ios-nat:list>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
-
-                """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat"
+                      xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:list>
+                          <ios-nat:id>{id}</ios-nat:id>
+                        </ios-nat:list>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
+    """
 
     @classmethod
     def __parameters__(cls):
@@ -353,22 +356,23 @@ class PoolDynamicNat(DynamicNat):
 
 class StaticNatList(NyBase):
     ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                                <ios-nat:vrf>{vrf}</ios-nat:vrf>
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
-                """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                            <ios-nat:vrf>{vrf}</ios-nat:vrf>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
+    """
 
     LIST_KEY = NATConstants.STATIC
     ITEM_KEY = NATConstants.TRANSPORT_LIST
@@ -456,77 +460,81 @@ class StaticNatList(NyBase):
 
 class StaticNat(NyBase):
     ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                                <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
-                                <ios-nat:global-ip>{global_ip}</ios-nat:global-ip>
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
-                """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                            <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
+                            <ios-nat:global-ip>{global_ip}</ios-nat:global-ip>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
+    """
 
     MAPPING_ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                                <ios-nat:mapping-id>{mapping_id}</ios-nat:mapping-id>
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                            <ios-nat:mapping-id>{mapping_id}</ios-nat:mapping-id>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
                 """
 
     LOCAL_IP_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                                <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
-                                <ios-nat:vrf>{vrf}</ios-nat:vrf> 
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                            <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
+                            <ios-nat:vrf>{vrf}</ios-nat:vrf>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
                 """
 
     ALL_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                               <ios-nat:vrf>{vrf}</ios-nat:vrf> 
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                           <ios-nat:vrf>{vrf}</ios-nat:vrf>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
                 """
 
     LIST_KEY = NATConstants.STATIC

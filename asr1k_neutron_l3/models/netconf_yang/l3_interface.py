@@ -65,7 +65,7 @@ class BDIInterface(NyBase):
                             <name>{id}</name>
                         </BDI>
                     </interface>
-                </native>            
+                </native>
              """
 
     VRF_FILTER = """
@@ -77,7 +77,7 @@ class BDIInterface(NyBase):
                             </vrf>
                         </BDI>
                     </interface>
-                </native>            
+                </native>
              """
 
     VRF_XPATH_FILTER = "/native/interface/BDI/vrf[forwarding='{vrf}']"
@@ -239,7 +239,7 @@ class BDISecondaryIpAddress(NyBase):
                         </ip>
                       </BDI>
                     </interface>
-                  </native>    
+                  </native>
                 """
 
     @classmethod
