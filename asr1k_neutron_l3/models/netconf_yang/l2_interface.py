@@ -185,7 +185,7 @@ class ServiceInstance(NyBase):
 
     @execute_on_pair()
     def update(self, context):
-        result = super(ServiceInstance, self)._update(context=context, method=NC_OPERATION.PUT)
+        return super(ServiceInstance, self)._update(context=context, method=NC_OPERATION.PUT)
 
 
 class ExternalInterface(ServiceInstance):
