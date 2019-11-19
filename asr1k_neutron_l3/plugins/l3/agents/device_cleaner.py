@@ -119,16 +119,12 @@ class DeviceCleanerMixin(object):
                         LOG.error(e.message)
                     except BaseException as e:
                         LOG.exception(e)
-                    except:
-                        LOG.error("An exception accurred in the cleaning loop")
 
                 try:
                     result[context.host] = json.dumps(items, cls=OrphanEncoder)
                     LOG.debug("Result {}".format(json.dumps(items, cls=OrphanEncoder)))
                 except BaseException as e:
                     LOG.exception(e)
-                except:
-                    LOG.error("An exception accurred reporting result")
 
         LOG.info("L3 Cleaner complete")
 
