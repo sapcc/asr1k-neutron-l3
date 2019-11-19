@@ -158,7 +158,14 @@ class BDIInterface(NyBase):
             ip[L3Constants.POLICY] = {L3Constants.ROUTE_MAP: self.route_map}
 
         if self.access_group_out:
-            ip[L3Constants.ACCESS_GROUP] = {L3Constants.OUT: {L3Constants.ACL: {L3Constants.ACL_NAME: self.access_group_out, L3Constants.DIRECTION_OUT: None}}}
+            ip[L3Constants.ACCESS_GROUP] = {
+                L3Constants.OUT: {
+                    L3Constants.ACL: {
+                        L3Constants.ACL_NAME: self.access_group_out,
+                        L3Constants.DIRECTION_OUT: None
+                    }
+                }
+            }
 
         vrf = OrderedDict()
         vrf[L3Constants.FORWARDING] = self.vrf
