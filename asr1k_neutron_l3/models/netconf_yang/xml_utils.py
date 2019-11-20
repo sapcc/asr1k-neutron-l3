@@ -110,13 +110,13 @@ class XMLUtils(object):
         if operation and operation != 'override':
             if isinstance(dict, list):
                 for item in dict:
-                    item[self.ITEM_KEY][OPERATION] = operation
+                    item[self.get_item_key(context)][OPERATION] = operation
 
-            elif isinstance(dict[self.ITEM_KEY], list):
-                for item in dict[self.ITEM_KEY]:
+            elif isinstance(dict[self.get_item_key(context)], list):
+                for item in dict[self.get_item_key(context)]:
                     item[OPERATION] = operation
             else:
-                dict[self.ITEM_KEY][OPERATION] = operation
+                dict[self.get_item_key(context)][OPERATION] = operation
 
         dict = self._wrapper_preamble(dict, context)
         dict[NS] = NS_CISCO_NATIVE

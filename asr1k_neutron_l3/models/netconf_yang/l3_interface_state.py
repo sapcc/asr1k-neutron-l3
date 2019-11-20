@@ -2,11 +2,11 @@ from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 
-class BDIInterfaceState(NyBase):
+class VBInterfaceState(NyBase):
     ID_FILTER = """
           <interfaces-state xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">
             <interface>
-              <name>BDI{id}</name>
+              <name>{iftype}{id}</name>
             </interface>
           </interfaces-state>
     """
@@ -40,12 +40,12 @@ class BDIInterfaceState(NyBase):
         ]
 
     def __init__(self, **kwargs):
-        super(BDIInterfaceState, self).__init__(**kwargs)
+        super(VBInterfaceState, self).__init__(**kwargs)
 
     @classmethod
     @execute_on_pair()
     def get(cls, id=None, port_channel=None, context=None):
-        return cls._get(id=id, context=context)
+        return cls._get(id=id, iftype=context.bd_iftype, context=context)
 
     @classmethod
     def _remove_base_wrapper(cls, dict, context):

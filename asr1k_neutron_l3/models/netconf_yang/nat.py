@@ -229,22 +229,25 @@ class InterfaceDynamicNat(DynamicNat):
     def __init__(self, **kwargs):
         super(InterfaceDynamicNat, self).__init__(**kwargs)
 
-        self.interface = kwargs.get("interface", None)
-
-        if self.interface is None:
-            self.bd = kwargs.get("bridge_domain", None)
-            if self.bd is not None:
-                self.interface = "BDI{}".format(self.bd)
+        if kwargs.get("interface") is not None:
+            if self.interface.startswith("BDI"):
+                self.bd = int(self.interface[3:])
+            elif self.interface.startswith("BD-VIF"):
+                self.bd = int(self.interface[6:])
+            else:
+                raise ValueError("Could not determine bd id from interface '{}'".format(self.interface))
         else:
-            self.bd = int(self.interface[3:])
+            self.bd = kwargs.get("bridge_domain")
 
     def to_dict(self, context):
+        ifname = "{}{}".format(context.bd_iftype, self.bd)
+
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
 
         entry[NATConstants.INTERFACE_WITH_VRF] = {
             NATConstants.INTERFACE: {
-                NATConstants.NAME: self.interface,
+                NATConstants.NAME: ifname,
                 NATConstants.VRF: {
                     NATConstants.VRF_NAME: self.vrf
                 },
