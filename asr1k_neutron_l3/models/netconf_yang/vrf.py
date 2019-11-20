@@ -22,7 +22,7 @@ from asr1k_neutron_l3.models.netconf_yang.bgp import AddressFamily
 from asr1k_neutron_l3.common import cli_snippets
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.connection import ConnectionManager
-from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, Requeable, NC_OPERATION, execute_on_pair, \
     retry_on_failure
@@ -231,20 +231,20 @@ class VrfDefinition(NyBase, Requeable):
             LOG.error("Failed to delete {} routes in VRF {} postlight : {}".format(len(routes), self.id, e))
 
         LOG.debug("Processing Interfaces")
-        bdis = []
+        vbis = []
         try:
-            bdis = BDIInterface.get_for_vrf(context=context, vrf=self.id)
-
-            if len(bdis) == 0:
+            vbis = VBInterface.get_for_vrf(context=context, vrf=self.id)
+            if len(vbis) == 0:
                 LOG.info("No interfaces to clean")
 
-            for bdi in bdis:
-                LOG.info("Deleting hanging interface BDI{} in vrf {} postflight.".format(bdi.name, self.name))
-                bdi._delete(context=context)
-                LOG.info("Deleted hanging interface BDI{} in vrf {} postflight.".format(bdi.name, self.name))
-
+            for vbi in vbis:
+                LOG.info("Deleting hanging interface {}{} in vrf {} postflight."
+                         .format(context.bd_iftype, vbi.name, self.name))
+                vbi._delete(context=context)
+                LOG.info("Deleted hanging interface {}{} in vrf {} postflight."
+                         .format(context.bd_iftype, vbi.name, self.name))
         except BaseException as e:
-            LOG.error("Failed to delete {} intefaces in VRF {} postlight : {}".format(len(bdis), self.id, e))
+            LOG.error("Failed to delete {} intefaces in VRF {} postlight : {}".format(len(vbis), self.id, e))
 
         LOG.debug("Processing Address Families")
         afs = []
