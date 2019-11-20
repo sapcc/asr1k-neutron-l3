@@ -31,12 +31,14 @@ class FakeASR1KContext(object):
     stable results
     """
     version_min_1612 = True
+    use_bdvif = False
+    bd_iftype = "BD-VIF"
 
 
 class ASR1KContext(object):
     version_min_1612 = property(lambda self: self._get_version_attr('_version_min_1612'))
 
-    def __init__(self, name, host, yang_port, nc_timeout, username, password, insecure=True,
+    def __init__(self, name, host, yang_port, nc_timeout, username, password, use_bdvif, insecure=True,
                  headers={}):
         self.name = name
         self.host = host
@@ -44,6 +46,7 @@ class ASR1KContext(object):
         self.nc_timeout = nc_timeout
         self.username = username
         self.password = password
+        self._use_bdvif = use_bdvif
         self.insecure = insecure
         self.headers = headers
         self.headers['content-type'] = headers.get('content-type', "application/yang-data+json")
@@ -73,6 +76,14 @@ class ASR1KContext(object):
             raise VersionInfoNotAvailable(host=self.context.host, entity=attr_name)
         return getattr(self, attr_name)
 
+    @property
+    def use_bdvif(self):
+        return self.version_min_1612 and self._use_bdvif
+
+    @property
+    def bd_iftype(self):
+        return "BD-VIF" if self.use_bdvif else "BDI"
+
 
 class ASR1KPair(object):
     __instance = None
@@ -96,6 +107,7 @@ class ASR1KPair(object):
             asr1kctx = ASR1KContext(device_name, config.get('host'),
                                     config.get('yang_port', self.config.asr1k_devices.yang_port),
                                     int(config.get('nc_timeout', self.config.asr1k_devices.nc_timeout)),
-                                    config.get('user_name'), config.get('password'), insecure=True)
+                                    config.get('user_name'), config.get('password'), config.get('use_bdvif'),
+                                    insecure=True)
 
             self.contexts.append(asr1kctx)

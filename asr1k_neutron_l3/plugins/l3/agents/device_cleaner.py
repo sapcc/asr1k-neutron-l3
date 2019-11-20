@@ -11,7 +11,7 @@ from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
 from asr1k_neutron_l3.models.netconf_yang.access_list import AccessList
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat, NatPool, InterfaceDynamicNat, PoolDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.arp import VrfArpList
-from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDIInterface
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
@@ -34,7 +34,7 @@ class OrphanEncoder(json.JSONEncoder):
 
 class DeviceCleanerMixin(object):
     L3_ENTITIES = [RouteMap, Prefix, AccessList, StaticNat, VrfArpList, PoolDynamicNat, InterfaceDynamicNat, NatPool,
-                   VrfRoute, BDIInterface, VrfDefinition]
+                   VrfRoute, VBInterface, VrfDefinition]
     L2_ENTITIES = [LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface]
 
     def clean_device(self, dry_run=True):

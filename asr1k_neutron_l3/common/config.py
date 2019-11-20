@@ -28,6 +28,7 @@ DEVICE_OPTS = [
     cfg.IntOpt('nc_timeout', default=(5), help=('')),
     cfg.StrOpt('user_name', default=('admin'), help=('')),
     cfg.StrOpt('password', default=('secret'), help=('')),
+    cfg.StrOpt('use_bdvif', default=False, help=('Use BD-VIF when supported by device firmware')),
 ]
 
 ASR1K_OPTS = [
