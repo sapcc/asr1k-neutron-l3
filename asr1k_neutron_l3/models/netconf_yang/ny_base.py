@@ -492,6 +492,10 @@ class NyBase(BulkOperations):
     def empty_diff(self):
         return self.EMPTY_TYPE
 
+    @classmethod
+    def get_item_key(cls, context):
+        return cls.ITEM_KEY
+
     def _diff(self, context, other):
         self_json = self._to_plain_json(self.to_dict(context=context))
 
@@ -639,7 +643,7 @@ class NyBase(BulkOperations):
                 result = connection.get(filter=nc_filter, entity=cls.__name__, action="get")
                 json = cls.to_json(result.xml, context)
                 if json is not None:
-                    json = json.get(cls.ITEM_KEY, None)
+                    json = json.get(cls.get_item_key(context), None)
 
                     if json is None:
                         return None
@@ -672,7 +676,7 @@ class NyBase(BulkOperations):
 
                 json = cls.to_json(rpc_result.xml, context)
                 if json is not None:
-                    json = json.get(cls.ITEM_KEY, json)
+                    json = json.get(cls.get_item_key(context), json)
 
                     if isinstance(json, list):
                         for item in json:
