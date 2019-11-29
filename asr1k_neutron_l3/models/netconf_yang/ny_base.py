@@ -761,7 +761,7 @@ class NyBase(BulkOperations):
         if len(self._internal_validate(context=context)) > 0:
             self.preflight(context)
             if postflight:
-                self.postflight(context)
+                self.postflight(context, method)
 
             with ConnectionManager(context=context) as connection:
                 if json is None:
@@ -785,7 +785,7 @@ class NyBase(BulkOperations):
 
     def _delete_no_retry(self, context, method=NC_OPERATION.DELETE, postflight=True):
         if not postflight:
-            self.postflight(context)
+            self.postflight(context, method)
 
         with ConnectionManager(context=context) as connection:
             if self._internal_exists(context) or self.force_delete:
@@ -828,7 +828,7 @@ class NyBase(BulkOperations):
     def preflight(self, context):
         pass
 
-    def postflight(self, context):
+    def postflight(self, context, method):
         pass
 
     def init_config(self):

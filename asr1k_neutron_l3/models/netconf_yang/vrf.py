@@ -195,7 +195,7 @@ class VrfDefinition(NyBase, Requeable):
         with ConnectionManager(context=context) as connection:
             return connection.edit_config(config=config, entity=self.__class__.__name__, action="update")
 
-    def postflight(self, context):
+    def postflight(self, context, method):
         # Clean remaining interface NAT
         LOG.debug("Processing Interface NAT")
         interface_nats = []
