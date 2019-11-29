@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from collections import OrderedDict
+import copy
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE, NC_OPERATION
 import asr1k_neutron_l3.models.netconf_yang.nat
@@ -141,6 +142,21 @@ class VBInterface(NyBase):
     @staticmethod
     def is_bdvif(context):
         return context.version_min_1612 and context.use_bdvif
+
+    def preflight(self, context):
+        """Remove BDI with same name when BD-VIF is in use (migration code)"""
+        if not context.use_bdvif:
+            return
+
+        # XXX: to get the BDI we need to act like this context does
+        # this should be removed after we're done with the migration
+        nobdvif_context = copy.copy(context)
+        nobdvif_context._use_bdvif = False
+
+        bdi = self._internal_get(context=nobdvif_context)
+        if bdi:
+            LOG.debug("Removing BDI%s from %s before adding new BD-VIF%s", bdi.name, context.host, self.name)
+            bdi._delete(context=nobdvif_context, postflight=False)  # disable postflight checks
 
     def to_dict(self, context):
         vbi = OrderedDict()
