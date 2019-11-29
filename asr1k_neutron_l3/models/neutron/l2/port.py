@@ -116,10 +116,16 @@ class Port(object):
                                                                   dot1q=self.segmentation_id,
                                                                   second_dot1q=self.second_dot1q,
                                                                   way=2, mode="symmetric")
-        return ext_interface, lb_ext_interface, lb_int_interface
+
+        pc_member = l2_interface.BDIfMember(interface='Port-channel1', service_instance=self.segmentation_id)
+        bdvif_member = l2_interface.BDVIFMember(name=self.bridge_domain)
+        bridge_domain = l2_interface.BridgeDomain(id=self.segmentation_id,
+                                                  if_members=[pc_member], bdvif_members=[bdvif_member])
+
+        return ext_interface, lb_ext_interface, lb_int_interface, bridge_domain
 
     def diff(self):
-        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
+        ext_interface, lb_ext_interface, lb_int_interface, bridge_domain = self._rest_definition()
 
         result = {}
 
@@ -135,14 +141,19 @@ class Port(object):
         if not lb_int_diff.valid:
             result["l2_internal_lb"] = lb_int_diff.to_dict()
 
+        bridge_domain_diff = bridge_domain.diff()
+        if not bridge_domain_diff.valid:
+            result["bridge_domain"] = bridge_domain_diff.to_dict()
+
         return result
 
     def get(self):
         ext_interface = l2_interface.ExternalInterface.get(self.segmentation_id)
         lb_ext_interface = l2_interface.LoopbackExternalInterface.get(self.service_instance)
         lb_int_interface = l2_interface.LoopbackInternalInterface.get(self.service_instance)
+        bridge_domain = l2_interface.BridgeDomain.get(self.service_instance)
 
-        return ext_interface, lb_ext_interface, lb_int_interface
+        return ext_interface, lb_ext_interface, lb_int_interface, bridge_domain
 
     def get_stats(self):
         lb_ext_interface = efp_stats.LoopbackExternalEfpStats.get(id=self.service_instance)
@@ -153,7 +164,7 @@ class Port(object):
     def update(self, callback=None):
         failure = []
         success = [self.id]
-        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
+        ext_interface, lb_ext_interface, lb_int_interface, bridge_domain = self._rest_definition()
 
         result = ext_interface.update()
 
@@ -173,6 +184,12 @@ class Port(object):
             failure.append(self.id)
             success = []
 
+        result = bridge_domain.update()
+
+        if not result.success:
+            failure.append(self.id)
+            success = []
+
         if callable(callback):
             callback(success, failure)
 
@@ -184,7 +201,7 @@ class Port(object):
         return self.update(callback)
 
     def delete(self, callback=None):
-        ext_interface, lb_ext_interface, lb_int_interface = self._rest_definition()
+        ext_interface, lb_ext_interface, lb_int_interface, bridge_domain = self._rest_definition()
 
         failure = []
         success = [self.id]
@@ -195,6 +212,16 @@ class Port(object):
             if not result.success:
                 failure.append(self.id)
                 success = []
+
+            result = bridge_domain.delete()
+            if not result.success:
+                failure.append(self.id)
+                success = []
+        else:
+            # if not last port, only delete bdvif from bridge
+            bridge_domain.bdvif_members[0].mark_deleted = True
+            bridge_domain.update()
+
         # For every port deletion
         result = lb_ext_interface.delete()
         if not result.success:

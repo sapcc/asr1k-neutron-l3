@@ -776,15 +776,16 @@ class NyBase(BulkOperations):
                 return result
 
     @execute_on_pair()
-    def delete(self, context, method=NC_OPERATION.DELETE):
-        return self._delete(context=context, method=method)
+    def delete(self, context, method=NC_OPERATION.DELETE, postflight=True):
+        return self._delete(context=context, method=method, postflight=postflight)
 
     @retry_on_failure()
-    def _delete(self, context, method=NC_OPERATION.DELETE):
+    def _delete(self, context, method=NC_OPERATION.DELETE, postflight=True):
         self._delete_no_retry(context, method)
 
-    def _delete_no_retry(self, context, method=NC_OPERATION.DELETE):
-        self.postflight(context)
+    def _delete_no_retry(self, context, method=NC_OPERATION.DELETE, postflight=True):
+        if not postflight:
+            self.postflight(context)
 
         with ConnectionManager(context=context) as connection:
             if self._internal_exists(context) or self.force_delete:
