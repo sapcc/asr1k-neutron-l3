@@ -229,7 +229,7 @@ class VBInterface(NyBase):
 
         return min <= int(self.id) <= max
 
-    def postflight(self, context):
+    def postflight(self, context, method):
         dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
         if self.nat_outside and dyn_nat is not None:
             if dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
