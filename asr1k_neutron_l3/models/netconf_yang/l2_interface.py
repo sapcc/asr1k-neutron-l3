@@ -24,6 +24,7 @@ class L2Constants(object):
     PORT_CHANNEL = 'Port-channel'
     SERVICE = "service"
     SERVICE_INSTANCE = "instance"
+    BD_SERVICE_INSTANCE = "service-instance"
 
     ID = "id"
     NAME = "name"
@@ -33,6 +34,8 @@ class L2Constants(object):
     ENCAPSULATION = 'encapsulation'
     BRIDGE_DOMAIN = "bridge-domain"
     BRIDGE_ID = "bridge-id"
+    BRIDGE_DOMAIN_ID = "bridge-domain-id"
+    BRIDGE_DOMAIN_BRIDGE_ID = "brd-id"
     DOT1Q = "dot1q"
     SECOND_DOT1Q = "second-dot1q"
     INGRESS = "ingress"
@@ -42,9 +45,89 @@ class L2Constants(object):
     REWRITE_WAY = "way"
     REWRITE_MODE = "mode"
 
+    MEMBER = "member"
+    MEMBER_IFACE = "member-interface"
+    MEMBER_BDVIF = "BD-VIF"
+
 
 class BridgeDomain(NyBase):
-    pass
+    LIST_KEY = L2Constants.BRIDGE_DOMAIN
+    ITEM_KEY = L2Constants.BRIDGE_DOMAIN_BRIDGE_ID
+
+    ID_FILTER = """
+        <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+            <bridge-domain>
+                <brd-id xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bridge-domain">
+                    <bridge-domain-id>{id}</bridge-domain-id>
+                </brd-id>
+            </bridge-domain>
+        </native>
+    """
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {"key": "id", "yang-key": L2Constants.BRIDGE_DOMAIN_ID, "primary_key": True},
+            {"key": "if_members", "type": [BDIfMember],
+             "yang-path": L2Constants.MEMBER, "yang-key": L2Constants.MEMBER_IFACE, "default": []},
+            {"key": "bdvif_members", "type": [BDVIFMember],
+             "yang-path": L2Constants.MEMBER, "yang-key": L2Constants.MEMBER_BDVIF, "default": []},
+        ]
+
+    def to_dict(self, context):
+        bddef = OrderedDict()
+        bddef[xml_utils.NS] = xml_utils.NS_CISCO_BRIDGE_DOMAIN
+        bddef[L2Constants.BRIDGE_DOMAIN_ID] = self.id
+
+        if context.version_min_1612:
+            if context.use_bdvif:
+                bddef[L2Constants.MEMBER] = {
+                    L2Constants.MEMBER_IFACE: [_m.to_dict(context) for _m in self.if_members],
+                    L2Constants.MEMBER_BDVIF: [_m.to_dict(context) for _m in self.bdvif_members],
+                }
+            else:
+                # This can be used for migrating back from new-style bridges, but might bring some problems
+                # if the bridge was never used as a new-stlye bridge
+                # bddef[L2Constants.MEMBER] = {xml_utils.OPERATION: NC_OPERATION.DELETE}
+                pass
+
+        return {L2Constants.BRIDGE_DOMAIN_BRIDGE_ID: bddef}
+
+
+class BDIfMember(NyBase):
+    """Normal interface as a member of a bridge-domain"""
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {"key": "interface", "yang-key": L2Constants.INTERFACE},
+            {"key": "service_instance", "yang-key": L2Constants.BD_SERVICE_INSTANCE, "default": None},
+        ]
+
+    def to_dict(self, context):
+        return {
+            L2Constants.INTERFACE: self.interface,
+            L2Constants.BD_SERVICE_INSTANCE: self.service_instance,
+        }
+
+
+class BDVIFMember(NyBase):
+    """BD-VIF as a member of a bridge-domain"""
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {"key": "name"},
+            {"key": "mark_deleted", "default": False},
+        ]
+
+    def to_dict(self, context):
+        result = {
+            L2Constants.NAME: self.name,
+        }
+        if self.mark_deleted:
+            result[xml_utils.OPERATION] = NC_OPERATION.DELETE
+
+        return result
 
 
 class ServiceInstance(NyBase):
@@ -139,6 +222,12 @@ class ServiceInstance(NyBase):
             self.id = -1
 
     def to_dict(self, context):
+        if context.use_bdvif and self.PORT_CHANNEL in (2, 3):
+            # with bd-vif port-channel2 and 3 are no longer in use, --> delete the service instance
+            result = self.to_delete_dict()
+            result[L2Constants.SERVICE_INSTANCE][xml_utils.OPERATION] = NC_OPERATION.DELETE
+            return result
+
         dot1q = dict(OrderedDict())
 
         dot1q[L2Constants.ID] = [str(self.dot1q)]
@@ -165,8 +254,9 @@ class ServiceInstance(NyBase):
 
         instance[L2Constants.ENCAPSULATION] = OrderedDict()
         instance[L2Constants.ENCAPSULATION][L2Constants.DOT1Q] = dot1q
-        instance[L2Constants.BRIDGE_DOMAIN] = bridge_domain
         instance[L2Constants.REWRITE] = rewrite
+        if not context.use_bdvif:
+            instance[L2Constants.BRIDGE_DOMAIN] = bridge_domain
 
         result = OrderedDict()
         result[L2Constants.SERVICE_INSTANCE] = instance
