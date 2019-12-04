@@ -243,11 +243,16 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
             bgpvpns = self.db.get_bgpvpns_by_router_id(context, router['id'])
 
             for bgpvpn in bgpvpns:
-                rt_import += bgpvpn.import_targets.split(",")
-                rt_export += bgpvpn.export_targets.split(",")
+                if bgpvpn.route_targets:
+                    rt_import += bgpvpn.route_targets.split(",")
+                    rt_export += bgpvpn.route_targets.split(",")
+                if bgpvpn.import_targets:
+                    rt_import += bgpvpn.import_targets.split(",")
+                if bgpvpn.export_targets:
+                    rt_export += bgpvpn.export_targets.split(",")
 
-            router["rt_export"] = rt_export
-            router["rt_import"] = rt_import
+            router["rt_export"] = list(set(rt_export))
+            router["rt_import"] = list(set(rt_import))
 
         return routers
 
