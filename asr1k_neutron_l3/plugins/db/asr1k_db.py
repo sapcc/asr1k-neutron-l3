@@ -36,6 +36,7 @@ from neutron.db import segments_db
 from neutron.db.models import agent as agent_model
 from neutron.db.models import l3 as l3_models
 from neutron.db.models import l3agent as l3agent_models
+from neutron.db.models import segment as segment_models
 from neutron.plugins.ml2 import db as ml2_db
 from neutron.plugins.ml2 import models as ml2_models
 from neutron_lib import constants as n_constants
@@ -272,6 +273,73 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                            })
 
         return result
+
+    def get_networks_with_asr1k_ports(self, context, limit=None, offset=None, host=None, networks=None):
+        # get networks with segment information
+        squery = (context.session.query(segment_models.NetworkSegment.id,
+                                        segment_models.NetworkSegment.network_id,
+                                        asr1k_models.ASR1KExtraAttsModel.segmentation_id)
+                  .join(asr1k_models.ASR1KExtraAttsModel,
+                        asr1k_models.ASR1KExtraAttsModel.segment_id == segment_models.NetworkSegment.id)
+                  .distinct()
+                  )
+        if offset:
+            squery = squery.filter(segment_models.NetworkSegment.network_id > offset)
+        if networks:
+            squery = squery.filter(segment_models.NetworkSegment.network_id.in_(networks))
+        if host is not None:
+            squery = squery.filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host)
+        squery = squery.order_by(segment_models.NetworkSegment.network_id.asc())
+        if limit:
+            squery = squery.limit(limit)
+
+        # get all ports for each network/segment
+        result = []
+        for dbsegment in squery.all():
+            query = context.session.query(models_v2.Port.id,
+                                          models_v2.Port.network_id,
+                                          asr1k_models.ASR1KExtraAttsModel.router_id,
+                                          asr1k_models.ASR1KExtraAttsModel.second_dot1q,
+                                          asr1k_models.ASR1KExtraAttsModel.segmentation_id,
+                                          asr1k_models.ASR1KExtraAttsModel.deleted_l2,
+                                          asr1k_models.ASR1KExtraAttsModel.deleted_l3
+                                          ).filter(
+                models_v2.Port.device_owner.like("network:router%"))
+            if host is not None:
+                query = query.filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host)
+
+            query = (query.filter(asr1k_models.ASR1KExtraAttsModel.segment_id == dbsegment.id)
+                          .join(asr1k_models.ASR1KExtraAttsModel,
+                                asr1k_models.ASR1KExtraAttsModel.port_id == models_v2.Port.id))
+
+            ports = []
+            for row in query.all():
+                # id is duplicated by port_id here, as different parts of the code use either id or port_id
+                ports.append({'id': row.id,
+                              'port_id': row.id,
+                              'network_id': row.network_id,
+                              'router_id': row.router_id,
+                              'segmentation_id': row.segmentation_id,
+                              'second_dot1q': int(row.second_dot1q),
+                              'deleted_l2': int(row.deleted_l2),
+                              'deleted_l3': int(row.deleted_l3)
+                              })
+            result.append({
+                'network_id': dbsegment.network_id,
+                'segmentation_id': dbsegment.segmentation_id,
+                'ports': ports
+            })
+
+        return result
+
+    def get_asr1k_hosts_for_network(self, context, network_id):
+        query = (context.session.query(asr1k_models.ASR1KExtraAttsModel.agent_host)
+                 .join(segment_models.NetworkSegment,
+                       asr1k_models.ASR1KExtraAttsModel.segment_id == segment_models.NetworkSegment.id)
+                 .filter(segment_models.NetworkSegment.network_id == network_id)
+                 .distinct())
+
+        return [row.agent_host for row in query.all()]
 
     def get_router_ports(self, context, id):
         query = context.session.query(models_v2.Port).join(ml2_models.PortBinding,

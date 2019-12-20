@@ -58,6 +58,11 @@ class ASR1KPluginApi(object):
         return cctxt.call(context, 'get_interface_ports', limit=limit,
                           offset=offset, host=host)
 
+    def get_networks_with_asr1k_ports(self, context, limit=None, offset=None, host=None, networks=None):
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_networks_with_asr1k_ports', limit=limit,
+                          offset=offset, host=host, networks=networks)
+
     def get_device_info(self, context, host):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_device_info', host=host)
@@ -95,6 +100,10 @@ class ASR1KPluginCallback(object):
         LOG.debug("ports len %s", len(ports))
 
         return ports
+
+    @instrument.instrument()
+    def get_networks_with_asr1k_ports(self, rpc_context, limit=None, offset=None, host=None, networks=None):
+        return self.db.get_networks_with_asr1k_ports(self.context, limit, offset, host, networks)
 
     @instrument.instrument()
     def get_device_info(self, context, host):
