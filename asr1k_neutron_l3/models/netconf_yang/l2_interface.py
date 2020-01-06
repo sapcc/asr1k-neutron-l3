@@ -102,13 +102,17 @@ class BDIfMember(NyBase):
         return [
             {"key": "interface", "yang-key": L2Constants.INTERFACE},
             {"key": "service_instance", "yang-key": L2Constants.BD_SERVICE_INSTANCE, "default": None},
+            {"key": "mark_deleted", "default": False},
         ]
 
     def to_dict(self, context):
-        return {
+        result = {
             L2Constants.INTERFACE: self.interface,
             L2Constants.BD_SERVICE_INSTANCE: self.service_instance,
         }
+        if self.mark_deleted:
+            result[xml_utils.OPERATION] = NC_OPERATION.DELETE
+        return result
 
 
 class BDVIFMember(NyBase):
