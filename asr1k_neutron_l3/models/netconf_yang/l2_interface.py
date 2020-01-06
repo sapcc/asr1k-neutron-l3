@@ -13,6 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from operator import attrgetter
 
 from collections import OrderedDict
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NC_OPERATION, NyBase, execute_on_pair
@@ -83,8 +84,11 @@ class BridgeDomain(NyBase):
         if context.version_min_1612:
             if context.use_bdvif:
                 bddef[L2Constants.MEMBER] = {
-                    L2Constants.MEMBER_IFACE: [_m.to_dict(context) for _m in self.if_members],
-                    L2Constants.MEMBER_BDVIF: [_m.to_dict(context) for _m in self.bdvif_members],
+                    L2Constants.MEMBER_IFACE: [_m.to_dict(context)
+                                               for _m in sorted(self.if_members,
+                                                                key=lambda _x: (_x.interface, _x.service_instance))],
+                    L2Constants.MEMBER_BDVIF: [_m.to_dict(context)
+                                               for _m in sorted(self.bdvif_members, key=attrgetter('name'))],
                 }
                 if self.has_complete_member_config:
                     bddef[L2Constants.MEMBER][xml_utils.OPERATION] = NC_OPERATION.PUT
