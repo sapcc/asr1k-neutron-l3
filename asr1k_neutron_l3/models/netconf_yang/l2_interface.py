@@ -72,6 +72,7 @@ class BridgeDomain(NyBase):
              "yang-path": L2Constants.MEMBER, "yang-key": L2Constants.MEMBER_IFACE, "default": []},
             {"key": "bdvif_members", "type": [BDVIFMember],
              "yang-path": L2Constants.MEMBER, "yang-key": L2Constants.MEMBER_BDVIF, "default": []},
+            {"key": "has_complete_member_config", "default": False},
         ]
 
     def to_dict(self, context):
@@ -85,6 +86,8 @@ class BridgeDomain(NyBase):
                     L2Constants.MEMBER_IFACE: [_m.to_dict(context) for _m in self.if_members],
                     L2Constants.MEMBER_BDVIF: [_m.to_dict(context) for _m in self.bdvif_members],
                 }
+                if self.has_complete_member_config:
+                    bddef[L2Constants.MEMBER][xml_utils.OPERATION] = NC_OPERATION.PUT
             else:
                 # This can be used for migrating back from new-style bridges, but might bring some problems
                 # if the bridge was never used as a new-stlye bridge
