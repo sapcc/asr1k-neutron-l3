@@ -521,7 +521,10 @@ class NyBase(BulkOperations):
                     device = None
 
                     if len(diff[2]) == 1:
-                        neutron = diff[2][0]
+                        if diff[0] == 'add':
+                            device = diff[2][0]
+                        else:
+                            neutron = diff[2][0]
 
                     elif len(diff[2]) == 2:
                         neutron = diff[2][0]
