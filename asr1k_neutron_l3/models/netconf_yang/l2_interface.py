@@ -316,9 +316,21 @@ class LoopbackExternalInterface(ServiceInstance):
         kwargs['dot1q'] = kwargs.get('dot1q')
         super(LoopbackExternalInterface, self).__init__(**kwargs)
 
+    def to_dict(self, context):
+        if context.use_bdvif:
+            return {}
+        else:
+            return super(LoopbackExternalInterface, self).to_dict(context)
+
 
 class LoopbackInternalInterface(ServiceInstance):
     PORT_CHANNEL = "3"
 
     def __init__(self, **kwargs):
         super(LoopbackInternalInterface, self).__init__(**kwargs)
+
+    def to_dict(self, context):
+        if context.use_bdvif:
+            return {}
+        else:
+            return super(LoopbackInternalInterface, self).to_dict(context)
