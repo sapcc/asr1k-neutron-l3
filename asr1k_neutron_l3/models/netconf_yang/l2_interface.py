@@ -100,6 +100,16 @@ class BridgeDomain(NyBase):
 
         return {L2Constants.BRIDGE_DOMAIN_BRIDGE_ID: bddef}
 
+    def _diff(self, context, device_config):
+        if context.use_bdvif and device_config and not self.has_complete_member_config:
+            # we don't know all bd-vif members - the diff should represent if
+            # the bd-vifs we know about are configured
+            neutron_bdvif_names = [_m.name for _m in self.bdvif_members]
+            for bdvif in list(device_config.bdvif_members):
+                if bdvif.name not in neutron_bdvif_names:
+                    device_config.bdvif_members.remove(bdvif)
+        return super(BridgeDomain, self)._diff(context, device_config)
+
 
 class BDIfMember(NyBase):
     """Normal interface as a member of a bridge-domain"""
