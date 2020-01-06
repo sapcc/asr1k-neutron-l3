@@ -334,3 +334,16 @@ class LoopbackInternalInterface(ServiceInstance):
             return {}
         else:
             return super(LoopbackInternalInterface, self).to_dict(context)
+
+
+class KeepBDUpInterface(ServiceInstance):
+    PORT_CHANNEL = "2"
+
+    def __init__(self, **kwargs):
+        super(KeepBDUpInterface, self).__init__(**kwargs)
+
+    def to_dict(self, context):
+        if context.use_bdvif:
+            return super(KeepBDUpInterface, self).to_dict(context)
+        else:
+            return {}
