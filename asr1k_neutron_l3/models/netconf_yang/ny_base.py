@@ -481,12 +481,6 @@ class NyBase(BulkOperations):
     def __repr__(self):
         return "{} at {} ({})".format(self.__class__.__name__, id(self), str(self))
 
-    def __eq__(self, other):
-        LOG.error("EQ was used here, therefore cannot phase out this operator",
-                  exc_info=exc_info_full('EQ with fake context'))
-        diff = self._diff(context=asr1k_pair.FakeASR1KContext(), other=other)
-        return diff.valid
-
     # Define what constitutes an empty diff
     # defaults to the empty type for the class
     def empty_diff(self):
