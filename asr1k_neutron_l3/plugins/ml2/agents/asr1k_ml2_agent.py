@@ -98,7 +98,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.iter_num = 0
 
         self.updated_ports = {}
-        self.known_ports = {}
         self.unbound_ports = {}
         self.deleted_ports = {}
         self.added_ports = set()
@@ -107,6 +106,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.sync_offset = 0
         self.sync_interval = self.conf.asr1k_l2.sync_interval
         self.sync_active = self.conf.asr1k_l2.sync_active
+        self._last_synced_network = None
 
         self.pool = eventlet.greenpool.GreenPool(size=10)  # Start small, so we identify possible bottlenecks
         self.loop_pool = eventlet.greenpool.GreenPool(size=5)  # Start small, so we identify possible bottlenecks
@@ -158,8 +158,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     def port_update(self, context, **kwargs):
         port = kwargs.get('port')
         port_id = port['id']
-        # Avoid updating a port, which has not been created yet
-        # if port_id in self.known_ports and not port_id in self.deleted_ports:
         self.updated_ports[port_id] = port
         LOG.debug("port_update message processed for port {}".format(port_id))
 
@@ -276,27 +274,27 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                 LOG.exception(err)
 
     @instrument()
-    def sync_known_ports(self):
-
+    def sync_networks_with_ports(self):
         connection.check_devices(self.agent_rpc.get_device_info(self.context, self.conf.host))
-
         if self.sync_active:
+            networks = self.agent_rpc.get_networks_with_asr1k_ports(self.context, limit=self.sync_chunk_size,
+                                                                    offset=self._last_synced_network,
+                                                                    host=self.conf.host)
+            if not networks:
+                LOG.debug("ml2 network sync cycle complete, starting from the beginning")
+                self._last_synced_network = None
+                networks = self.agent_rpc.get_networks_with_asr1k_ports(self.context, limit=self.sync_chunk_size,
+                                                                        offset=self._last_synced_network,
+                                                                        host=self.conf.host)
 
-            interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size,
-                                                                 offset=self.sync_offset, host=self.conf.host)
+            portcount = sum(len(_n['ports']) for _n in networks)
+            LOG.debug("Starting to sync %d networks with %d ports", len(networks), portcount)
 
-            LOG.debug("Syncing {} ports ".format(len(interface_ports)))
-
-            if len(interface_ports) == 0:
-                self.sync_offset = 0
-                interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size,
-                                                                     offset=self.sync_offset, host=self.conf.host)
-            else:
-                self.sync_offset = self.sync_offset + self.sync_chunk_size
-
-            bridgedomain.update_ports(interface_ports, callback=self._bound_ports)
-
-            LOG.debug("Syncing {} ports completed".format(len(interface_ports)))
+            with timeutils.StopWatch() as stopwatch:
+                bridgedomain.sync_networks(networks, callback=self._bound_ports)
+            self._last_synced_network = networks[-1]['network_id']
+            LOG.debug("Syncing %d networks with %d ports completed in %.2f, last synced network is %s",
+                      len(networks), portcount, stopwatch.elapsed(), self._last_synced_network)
         else:
             LOG.info("Skipping sync, disabled in config")
 
@@ -342,10 +340,10 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
     def sync_loop(self):
         while self._check_and_handle_signal():
-            LOG.debug("**** SYNC Loop : known ports")
+            LOG.debug("**** SYNC Loop: sync networks")
             with timeutils.StopWatch() as w:
                 try:
-                    self.sync_known_ports()
+                    self.sync_networks_with_ports()
                 except BaseException as e:
                     LOG.exception(e)
 
