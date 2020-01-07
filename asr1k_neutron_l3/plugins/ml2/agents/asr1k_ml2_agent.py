@@ -51,7 +51,7 @@ from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import connection
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api
-from asr1k_neutron_l3.models.neutron.l2 import port as l2_port
+from asr1k_neutron_l3.models.neutron.l2 import bridgedomain
 
 import urllib3
 
@@ -258,7 +258,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                 router_ports = self.agent_rpc.get_ports_with_extra_atts(self.context, ports_to_bind, self.agent_id,
                                                                         self.conf.host)
 
-                l2_port.create_ports(router_ports, callback=self._bound_ports)
+                bridgedomain.update_ports(router_ports, callback=self._bound_ports)
                 self.updated_ports = {}
             except BaseException as err:
                 LOG.exception(err)
@@ -270,7 +270,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             try:
                 extra_atts = self.agent_rpc.get_extra_atts(self.context, ports_to_delete, agent_id=self.agent_id,
                                                            host=self.conf.host)
-                l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
+                bridgedomain.delete_ports(extra_atts, callback=self._deleted_ports)
                 self.deleted_ports = {}
             except BaseException as err:
                 LOG.exception(err)
@@ -294,7 +294,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             else:
                 self.sync_offset = self.sync_offset + self.sync_chunk_size
 
-            l2_port.update_ports(interface_ports, callback=self._bound_ports)
+            bridgedomain.update_ports(interface_ports, callback=self._bound_ports)
 
             LOG.debug("Syncing {} ports completed".format(len(interface_ports)))
         else:
@@ -309,7 +309,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                                                                     host=self.conf.host)
                 LOG.info(self.conf.host)
                 LOG.info("***** {}".format(extra_atts))
-                l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
+                bridgedomain.delete_ports(extra_atts, callback=self._deleted_ports)
                 self.deleted_ports = {}
             except BaseException as err:
                 LOG.exception(err)
