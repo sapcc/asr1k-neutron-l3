@@ -243,12 +243,6 @@ class ServiceInstance(NyBase):
             self.id = -1
 
     def to_dict(self, context):
-        if context.use_bdvif and self.PORT_CHANNEL in (2, 3):
-            # with bd-vif port-channel2 and 3 are no longer in use, --> delete the service instance
-            result = self.to_delete_dict()
-            result[L2Constants.SERVICE_INSTANCE][xml_utils.OPERATION] = NC_OPERATION.DELETE
-            return result
-
         dot1q = dict(OrderedDict())
 
         dot1q[L2Constants.ID] = [str(self.dot1q)]
