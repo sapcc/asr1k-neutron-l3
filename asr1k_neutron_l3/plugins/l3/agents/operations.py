@@ -1,7 +1,9 @@
+import itertools
+
 from oslo_log import helpers as log_helpers
 
 from asr1k_neutron_l3.models.neutron.l3.router import Router
-from asr1k_neutron_l3.models.neutron.l2.port import Port
+from asr1k_neutron_l3.models.neutron.l2.bridgedomain import BridgeDomain
 from asr1k_neutron_l3.common import utils, asr1k_constants
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k.rpc_api import ASR1KPluginApi
@@ -29,10 +31,11 @@ class OperationsMixin(object):
                 port_ids.append(interface.id)
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
-
-        for port in ports:
-            l2_port = Port(port)
-            l2_port.update()
+        for segmentation_id, ports in itertools.groupby(ports, itemgetter('segmentation_id')):
+            ports = list(ports)
+            network_id = ports[0]['network_id']
+            bd = BridgeDomain(segmentation_id, network_id, ports, has_complete_portset=False)
+            bd.update()
 
         return "Sync"
 
@@ -53,10 +56,11 @@ class OperationsMixin(object):
             router.delete()
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
-
-        for port in ports:
-            l2_port = Port(port)
-            l2_port.delete()
+        for segmentation_id, ports in itertools.groupby(ports, itemgetter('segmentation_id')):
+            ports = list(ports)
+            network_id = ports[0]['network_id']
+            bd = BridgeDomain(segmentation_id, network_id, ports, has_complete_portset=False)
+            bd.delete_internal_ifaces()
 
         return "Teardown"
 
@@ -79,9 +83,11 @@ class OperationsMixin(object):
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
 
-        for port in ports:
-            l2_port = Port(port)
-            result = self._merge_dicts(result, l2_port.diff())
+        for segmentation_id, ports in itertools.groupby(ports, itemgetter('segmentation_id')):
+            ports = list(ports)
+            network_id = ports[0]['network_id']
+            bd = BridgeDomain(segmentation_id, network_id, ports, has_complete_portset=False)
+            result.update(bd.diff())
 
         return result
 
@@ -125,31 +131,6 @@ class OperationsMixin(object):
         z = x.copy()
         z.update(y)
         return z
-
-    # @log_helpers.log_method_call
-    # def interface_statistics(self,context,router_id):
-    #     result = {}
-    #     ri = self._get_router_info(context, router_id)
-    #     router = Router(ri)
-    #     port_ids = []
-    #     gateway_interface = router.interfaces.gateway_interface
-    #     if gateway_interface:
-    #         port_ids.append(gateway_interface.id)
-    #         result[gateway_interface.id] = {"type":"gateway","stats":[]}
-    #
-    #     for interface in router.interfaces.internal_interfaces:
-    #         result[interface.id] = {"type": "internal", "stats": []}
-    #         port_ids.append(interface.id)
-    #
-    #
-    #     ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context,port_ids)
-    #
-    #     for port in ports:
-    #         l2_port = Port(port)
-    #
-    #         result[port['id']]["stats"] = l2_port.get_stats()
-    #
-    #     return result
 
     @log_helpers.log_method_call
     def interface_statistics(self, context, router_id):
