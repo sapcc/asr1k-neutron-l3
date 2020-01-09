@@ -27,7 +27,7 @@ from oslo_utils import uuidutils
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.connection import ConnectionManager
-from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict
+from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict, OPERATION
 from asr1k_neutron_l3.models.netconf_yang.bulk_operations import BulkOperations
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.common.exc_helper import exc_info_full
@@ -64,6 +64,12 @@ class Requeable(object):
 
     def requeable_operations(self):
         return []
+
+
+class IgnorePartialKeys(set):
+    def __contains__(self, key):
+        return super(IgnorePartialKeys, self).__contains__(key) or \
+            isinstance(key, tuple) and super(IgnorePartialKeys, self).__contains__(key[-1])
 
 
 class execute_on_pair(object):
@@ -502,11 +508,11 @@ class NyBase(BulkOperations):
         return self.__json_diff(self_json, other_json)
 
     def __json_diff(self, self_json, other_json):
-        ignore = []
+        ignore = [OPERATION]
         for param in self.__parameters__():
             if not param.get('validate', True):
                 ignore.append(param.get('key', param.get('yang-key')))
-        diff = self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=ignore))
+        diff = self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=IgnorePartialKeys(ignore)))
 
         return diff
 
