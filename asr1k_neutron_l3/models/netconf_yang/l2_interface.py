@@ -265,7 +265,8 @@ class ServiceInstance(NyBase):
         instance = OrderedDict()
         instance[L2Constants.ID] = "{}".format(str(self.id))
         instance[L2Constants.ETHERNET] = ''
-        instance[L2Constants.DESCRIPTION] = "{}".format(self.description)
+        if self.description is not None:
+            instance[L2Constants.DESCRIPTION] = "{}".format(self.description)
 
         instance[L2Constants.ENCAPSULATION] = OrderedDict()
         instance[L2Constants.ENCAPSULATION][L2Constants.DOT1Q] = dot1q
