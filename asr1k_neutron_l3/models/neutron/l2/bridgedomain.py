@@ -97,11 +97,13 @@ class BridgeDomain(object):
 
         # create portchannel service instances
         self.ext_iface = l2_interface.ExternalInterface(id=self.bd_id,
-                                                        description="Network: {}".format(self.network_id),
+                                                        description="Network: {}".format(self.network_id)
+                                                                    if self.network_id else None,
                                                         way=1, mode="symmetric")
         self.bd_up_iface = l2_interface.KeepBDUpInterface(id=self.bd_id,
                                                           description="Network: {} (keep bd up iface)"
-                                                                      .format(self.network_id))
+                                                                      .format(self.network_id)
+                                                                      if self.network_id else None)
 
         # process ports (16.9: build hyperloop, 16.12: build bdvif members)
         self.lb_ext_ifaces = []
