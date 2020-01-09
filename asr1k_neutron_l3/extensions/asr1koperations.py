@@ -10,6 +10,8 @@ from neutron import wsgi
 from oslo_log import log as logging
 from webob import exc as exceptions
 
+from asr1k_neutron_l3.common.exc_helper import exc_info_full
+
 LOG = logging.getLogger(__name__)
 
 ASR1K_DEVICES_ALIAS = 'asr1k_operations'
@@ -56,6 +58,8 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
 
         routers = extensions.ResourceExtension('asr1k/routers',
                                                Resource(RoutersController(plugin)))
+        networks = extensions.ResourceExtension('asr1k/networks',
+                                                Resource(NetworksController(plugin)))
         orphans = extensions.ResourceExtension('asr1k/orphans',
                                                Resource(OrphansController(plugin)))
         config = extensions.ResourceExtension('asr1k/config',
@@ -80,6 +84,7 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
                                                    Resource(InitConfigController(plugin)))
 
         resources.append(routers)
+        resources.append(networks)
         resources.append(orphans)
         resources.append(config)
         resources.append(devices)
@@ -120,6 +125,31 @@ class RoutersController(wsgi.Controller):
             return self.plugin.teardown(request.context, id)
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=e.message)
+
+
+class NetworksController(wsgi.Controller):
+    def __init__(self, plugin):
+        super(NetworksController, self).__init__()
+        self.plugin = plugin
+
+    def show(self, request, id, **kwargs):
+        check_access(request)
+        try:
+            return self.plugin.validate_network(request.context, id)
+        except BaseException as e:
+            LOG.error("Error diffing network", exc_info=exc_info_full())
+            raise exceptions.HTTPInternalServerError(detail=e.message)
+
+    def update(self, request, id, **kwargs):
+        check_access(request)
+        try:
+            return self.plugin.sync_network(request.context, id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=e.message)
+
+    def delete(self, request, id, **kwargs):
+        check_access(request)
+        raise exceptions.HTTPInternalServerError(detail="Deleting networks via API not implemented")
 
 
 class OrphansController(wsgi.Controller):

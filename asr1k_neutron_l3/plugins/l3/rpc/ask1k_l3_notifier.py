@@ -49,6 +49,29 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
             return self._agent_rpc(context, 'router_teardown', router_id=router_id)
 
     @log_helpers.log_method_call
+    def network_sync(self, context, network_id):
+        return self._network_rpc(context, network_id, 'network_sync')
+
+    @log_helpers.log_method_call
+    def network_validate(self, context, network_id):
+        return self._network_rpc(context, network_id, 'network_validate')
+
+    def _network_rpc(self, context, network_id, method):
+        if network_id:
+            result = {}
+            admin_context = context if context.is_admin else context.elevated()
+            plugin = directory.get_plugin(svc_constants.L3)
+            hosts = plugin.get_hosts_for_network(admin_context, network_id)
+            if hosts:
+                for host in hosts:
+                    agent_result = self._agent_rpc(context, method, host=host, network_id=network_id)
+                    if agent_result:
+                        result[host] = agent_result
+                return result
+            else:
+                raise Exception("No devices found hosting network")
+
+    @log_helpers.log_method_call
     def interface_statistics(self, context, router_id):
         if router_id:
             return self._agent_rpc(context, 'interface_statistics', router_id=router_id)
@@ -74,7 +97,7 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
         return self._agent_rpc(context, 'agent_init_config', host=host, router_info=router_info)
 
     @log_helpers.log_method_call
-    def _agent_rpc(self, context, method, router_id=None, host=None, device_id=None, router_info=None):
+    def _agent_rpc(self, context, method, router_id=None, host=None, device_id=None, router_info=None, network_id=None):
         """Notify changed routers to hosting l3 agents."""
         adminContext = context if context.is_admin else context.elevated()
         plugin = directory.get_plugin(svc_constants.L3)
@@ -99,4 +122,6 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
             kwargs['device_id'] = device_id
         if router_info is not None:
             kwargs['router_info'] = router_info
+        if network_id is not None:
+            kwargs['network_id'] = network_id
         return cctxt.call(context, method, **kwargs)
