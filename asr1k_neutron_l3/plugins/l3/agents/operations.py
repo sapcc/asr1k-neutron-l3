@@ -1,6 +1,8 @@
 import itertools
+from operator import itemgetter
 
 from oslo_log import helpers as log_helpers
+from oslo_log import log
 
 from asr1k_neutron_l3.models.neutron.l3.router import Router
 from asr1k_neutron_l3.models.neutron.l2.bridgedomain import BridgeDomain
@@ -8,6 +10,8 @@ from asr1k_neutron_l3.common import utils, asr1k_constants
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k.rpc_api import ASR1KPluginApi
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
+
+LOG = log.getLogger(__name__)
 
 
 class OperationsMixin(object):
@@ -92,6 +96,37 @@ class OperationsMixin(object):
         return result
 
     @log_helpers.log_method_call
+    def network_validate(self, context, network_id):
+        result = {}
+        network = self._l2_plugin_rpc(context).get_networks_with_asr1k_ports(context, networks=[network_id],
+                                                                             host=self.host)
+        if network:
+            if len(network) > 0:
+                LOG.error("Network diff for network %s returned more than one result - using first: %s",
+                          network_id, network)
+            network = network[0]
+            bd = BridgeDomain(network['segmentation_id'], network['network_id'], network['ports'],
+                              has_complete_portset=True)
+            result.update(bd.diff())
+
+        return result
+
+    @log_helpers.log_method_call
+    def network_sync(self, context, network_id):
+        network = self._l2_plugin_rpc(context).get_networks_with_asr1k_ports(context, networks=[network_id],
+                                                                             host=self.host)
+        if network:
+            if len(network) > 0:
+                LOG.error("Network diff for network %s returned more than one result - using first: %s",
+                          network_id, network)
+            network = network[0]
+            bd = BridgeDomain(network['segmentation_id'], network['network_id'], network['ports'],
+                              has_complete_portset=True)
+            bd.update()
+
+        return "Sync"
+
+    @log_helpers.log_method_call
     def list_devices(self, context):
         result = {}
         for device_context in ASR1KPair().contexts:
@@ -154,6 +189,12 @@ class OperationsMixin(object):
             routers[0][constants.ADDRESS_SCOPE_CONFIG] = address_scopes
 
             return routers[0]
+
+    def _get_network_info(self, context, network_id):
+        networks = self.plugin_rpc.get_networks(context, [network_id])
+
+        if networks:
+            return networks[0]
 
     def _l2_plugin_rpc(self, context):
         if self.__l2_plugin_rpc is None:
