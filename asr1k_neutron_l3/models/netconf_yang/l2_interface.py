@@ -76,6 +76,17 @@ class BridgeDomain(NyBase):
             {"key": "has_complete_member_config", "default": False},
         ]
 
+    def __init__(self, *args, **kwargs):
+        super(BridgeDomain, self).__init__(*args, **kwargs)
+
+        # data from the device might result in a single list with one None element
+        # this should be fixed in NyBase.from_json(), but as this might impact other parts of the code
+        # we just filter out the values for now
+        if self.if_members == [None]:
+            self.if_members = []
+        if self.bdvif_members == [None]:
+            self.bdvif_members = []
+
     def to_dict(self, context):
         bddef = OrderedDict()
         bddef[xml_utils.NS] = xml_utils.NS_CISCO_BRIDGE_DOMAIN
