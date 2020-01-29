@@ -14,29 +14,21 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""ASRK1 BOOKKEEPING
+"""ASR1K Initial db version
 
-Revision ID: 3746afa3a3bd
-Revises: 56f6afdea3be
-Create Date: 2017-11-13 14:25:39.157776
+Revision ID: 5678db342f9
+Create Date: 2017-11-13 12:37:34.38453
 
 """
 
-import sqlalchemy as sa
-from alembic import op
+from neutron.db.migration import cli
 
 # revision identifiers, used by Alembic.
-revision = '3746afa3a3bd'
-down_revision = '56f6afdea3be'
+revision = '5678db342f9'
+down_revision = '495c6d0435e2'
+
+branch_labels = (cli.EXPAND_BRANCH,)
 
 
 def upgrade():
-    op.create_table(
-        'asr1k_router_atts',
-        sa.Column('router_id', sa.String(length=36), nullable=False),
-        sa.Column('rd', sa.Integer(), nullable=False),
-
-        sa.ForeignKeyConstraint(['router_id'], ['routers.id'],
-                                ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint("router_id"),
-    )
+    pass
