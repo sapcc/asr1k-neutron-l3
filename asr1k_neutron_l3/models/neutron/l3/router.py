@@ -68,7 +68,12 @@ class Router(Base):
 
         rt = None
         if self.gateway_interface is not None:
-            rt = address_scope_config.get(self.gateway_interface.address_scope)
+            if self.gateway_interface.address_scope in address_scope_config:
+                rt = address_scope_config[self.gateway_interface.address_scope]
+            else:
+                LOG.error("Router %s has a gateway interface, but no address scope was found in config"
+                          "(address scope of router: %s, available scopes: %s",
+                          self.router_id, self.gateway_interface.address_scope, list(address_scope_config.keys()))
 
         if not self.router_atts.get('rd'):
             LOG.error("Router %s has no rd attached, configuration is likely to fail!",
