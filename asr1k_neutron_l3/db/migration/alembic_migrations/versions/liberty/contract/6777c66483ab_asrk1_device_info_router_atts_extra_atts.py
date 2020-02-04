@@ -54,10 +54,7 @@ def upgrade():
 
     op.create_table(
         'asr1k_extra_atts',
-        sa.Column('router_id',
-                  sa.String(length=36),
-                  nullable=False,
-                  primary_key=True),
+        sa.Column('router_id', sa.String(length=36), nullable=False),
         sa.Column('agent_host', sa.String(length=36), nullable=False),
         sa.Column('port_id', sa.String(length=36), nullable=False),
         sa.Column('segment_id', sa.String(length=36), nullable=False),
@@ -65,5 +62,6 @@ def upgrade():
         sa.Column('second_dot1q', sa.BigInteger(), nullable=False),
         sa.Column('deleted_l2', sa.Boolean(), server_default=sa.sql.false()),
         sa.Column('deleted_l3', sa.Boolean(), server_default=sa.sql.false()),
+        sa.PrimaryKeyConstraint('router_id', 'agent_host', 'port_id'),
         sa.UniqueConstraint('agent_host', 'second_dot1q')
     )
