@@ -17,7 +17,7 @@
 """ASRK1 BOOKKEEPING
 
 Revision ID: 6777c66483ab
-Revises: 5678db342f9
+Revises: 495c6d0435e2
 Create Date: 2020-01-29 14:25:39.157776
 
 """
@@ -27,7 +27,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '6777c66483ab'
-down_revision = '5678db342f9'
+down_revision = '495c6d0435e2'
 
 
 def upgrade():

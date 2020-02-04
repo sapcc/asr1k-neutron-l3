@@ -25,7 +25,7 @@ from neutron.db.migration import cli
 
 # revision identifiers, used by Alembic.
 revision = '5678db342f9'
-down_revision = '495c6d0435e2'
+down_revision = None
 
 branch_labels = (cli.EXPAND_BRANCH,)
 
