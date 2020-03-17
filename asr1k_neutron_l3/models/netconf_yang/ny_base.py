@@ -784,10 +784,10 @@ class NyBase(BulkOperations):
 
     @retry_on_failure()
     def _delete(self, context, method=NC_OPERATION.DELETE, postflight=True):
-        self._delete_no_retry(context, method)
+        self._delete_no_retry(context, method, postflight=postflight)
 
     def _delete_no_retry(self, context, method=NC_OPERATION.DELETE, postflight=True):
-        if not postflight:
+        if postflight:
             self.postflight(context, method)
 
         with ConnectionManager(context=context) as connection:
