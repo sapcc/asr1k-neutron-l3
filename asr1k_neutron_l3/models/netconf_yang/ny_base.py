@@ -601,7 +601,7 @@ class NyBase(BulkOperations):
                                     if value is not None and not isinstance(value, unicode) and not type == str:
                                         value[cls.PARENT] = params
                                         result.append(type.from_json(value, context))
-                                    else:
+                                    elif value is not None:
                                         result.append(value)
                                 value = result
                             else:
