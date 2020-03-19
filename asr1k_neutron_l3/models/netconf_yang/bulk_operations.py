@@ -20,14 +20,14 @@ class BulkOperations(xml_utils.XMLUtils):
             if isinstance(json, list):
                 sub_items = []
                 for item in json:
-                    obj = item.get(cls.ITEM_KEY, item)
+                    obj = item.get(cls.get_item_key(context), item)
                     if isinstance(obj, list):
                         sub_items += obj
                     else:
                         sub_items.append(item)
                 json = sub_items
             else:
-                json = json.get(cls.ITEM_KEY, json)
+                json = json.get(cls.get_item_key(context), json)
 
             if isinstance(json, list):
                 for item in json:
