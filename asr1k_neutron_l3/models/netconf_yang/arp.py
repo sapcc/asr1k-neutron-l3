@@ -32,6 +32,17 @@ class VrfArpList(NyBase):
       </native>
     """
 
+    GET_ALL_STUB = """
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+              xmlns:ios-arp="http://cisco.com/ns/yang/Cisco-IOS-XE-arp">
+        <ios-arp:arp>
+          <ios-arp:vrf>
+            <ios-arp:vrf-name/>
+          </ios-arp:vrf>
+        </ios-arp:arp>
+      </native>
+    """
+
     LIST_KEY = ARPConstants.ARP
     ITEM_KEY = ARPConstants.VRF
     EMPTY_TYPE = []

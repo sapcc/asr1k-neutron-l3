@@ -55,6 +55,19 @@ class AccessList(NyBase):
         </native>
     """
 
+    GET_ALL_STUB = """
+        <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                xmlns:ios-acl="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
+            <ip>
+              <access-list>
+                <ios-acl:extended>
+                    <ios-acl:name/>
+                </ios-acl:extended>
+              </access-list>
+            </ip>
+        </native>
+        """
+
     LIST_KEY = ACLConstants.ACCESS_LIST
     ITEM_KEY = ACLConstants.EXTENDED
 

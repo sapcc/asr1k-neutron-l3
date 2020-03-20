@@ -52,6 +52,46 @@ class BulkOperations(xml_utils.XMLUtils):
         except Exception as e:
             LOG.exception(e)
 
+    @classmethod
+    def get_all_stub_filter(cls, context):
+        if not hasattr(cls, "GET_ALL_STUB"):
+            raise NotImplementedError("Class {} is missing a GET_ALL_STUB to retrieve all entities"
+                                      .format(cls.__name__))
+
+        return cls.GET_ALL_STUB
+
+    @classmethod
+    def get_all_stubs_from_device(cls, context):
+        """Get all objects as stub  present on a device
+
+        The object will be created with only a minimal set of values, required to identify it
+        """
+        try:
+            with ConnectionManager(context=context) as connection:
+                rpc_result = connection.get(filter=cls.get_all_stub_filter(context))
+
+                result = cls.to_raw_json(rpc_result.xml)
+                result = cls._to_plain_json(result)
+                return cls.get_all_from_device_config(result, context)
+        except Exception as e:
+            LOG.exception("Could not fetch entity {} for cleaning".format(cls.__name__))
+            return []
+
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids):
+        """Check if this entity is an orphan"""
+        if self.neutron_router_id:
+            return self.neutron_router_id not in all_router_ids
+        else:
+            if self.in_neutron_namespace:
+                # e.g. a device without a vrf/router association
+                return True
+
+        return False
+
+    @property
+    def neutron_router_id(self):
+        return None
+
     @property
     def in_neutron_namespace(self):
         return False
