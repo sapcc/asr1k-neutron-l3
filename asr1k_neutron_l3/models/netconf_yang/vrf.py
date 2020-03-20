@@ -59,6 +59,16 @@ class VrfDefinition(NyBase, Requeable):
                 </native>
              """
 
+    GET_ALL_STUB = """
+                <native>
+                    <vrf xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+                        <definition>
+                            <name/>
+                        </definition>
+                    </vrf>
+                </native>
+             """
+
     RD_FILTER = """
                 <native>
                     <vrf>

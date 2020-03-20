@@ -55,6 +55,14 @@ class RouteMap(NyBase):
             </native>
     """
 
+    GET_ALL_STUB = """
+            <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+              <route-map>
+                <name/>
+              </route-map>
+            </native>
+    """
+
     LIST_KEY = None
     ITEM_KEY = RouteMapConstants.ROUTE_MAP
 

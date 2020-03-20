@@ -48,6 +48,18 @@ class Prefix(NyBase):
       </native>
     """
 
+    GET_ALL_STUB = """
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+        <ip>
+          <prefix-list>
+            <prefixes>
+              <name/>
+            </prefixes>
+          </prefix-list>
+        </ip>
+      </native>
+    """
+
     LIST_KEY = PrefixConstants.PREFIX_LIST
     ITEM_KEY = PrefixConstants.PREFIXES
 

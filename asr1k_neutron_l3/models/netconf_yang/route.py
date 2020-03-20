@@ -53,6 +53,18 @@ class VrfRoute(NyBase):
               </native>
     """
 
+    GET_ALL_STUB = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+                <ip>
+                  <route>
+                   <vrf>
+                    <name/>
+                   </vrf>
+                  </route>
+                </ip>
+              </native>
+    """
+
     VRF_XPATH_FILTER = "/native/ip/route/vrf[name='{vrf}']"
 
     LIST_KEY = RouteConstants.ROUTE
