@@ -59,11 +59,12 @@ class DeviceCleanerMixin(object):
     def clean_device(self, dry_run):
         try:
             clean_start = time.time()
+            prom = PrometheusMonitor()
             LOG.info("Starting a cleaning run with dry run=%s", dry_run)
 
             # 0. reset monitoring
             for context in ASR1KPair().contexts:
-                PrometheusMonitor().l3_orphan_count.labels(device=context.host).set(0)
+                prom.l3_orphan_count.labels(device=context.host).set(0)
 
             # 1. get all item names (from device)
             all_entity_stubs = []
@@ -74,6 +75,7 @@ class DeviceCleanerMixin(object):
                 for context in ASR1KPair().contexts:
                     result[context] = entity_cls.get_all_stubs_from_device(context)
                     item_count += len(result[context])
+                    prom.device_entity_count.labels(device=context.host, entity=entity_cls.__name__).set(item_count)
                 all_entity_stubs.append((entity_cls, result))
                 LOG.debug("Cleaner fetched %d %s in %.2f",
                           item_count, entity_cls.__name__, time.time() - fetch_start)
@@ -113,7 +115,7 @@ class DeviceCleanerMixin(object):
                             orphan_count += 1
                             LOG.debug("%s %s on %s for router %s can be cleaned",
                                       entity_cls.__name__, stub.id, context.name, stub.neutron_router_id)
-                            PrometheusMonitor().l3_orphan_count.labels(device=context.host).inc()
+                            prom.l3_orphan_count.labels(device=context.host).inc()
                             if not dry_run:
                                 try:
                                     item = stub._internal_get(context=context)
