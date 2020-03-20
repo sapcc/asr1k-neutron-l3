@@ -111,7 +111,7 @@ class DeviceCleanerMixin(object):
                 for context, stubs in entity_stubs.items():
                     for stub in stubs:
                         item_count += 1
-                        if stub.is_orphan(all_router_ids, all_segmentation_ids, all_bd_ids):
+                        if stub.is_orphan(all_router_ids, all_segmentation_ids, all_bd_ids, context):
                             orphan_count += 1
                             LOG.debug("%s %s on %s for router %s can be cleaned",
                                       entity_cls.__name__, stub.id, context.name, stub.neutron_router_id)
