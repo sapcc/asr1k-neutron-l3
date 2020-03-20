@@ -89,11 +89,6 @@ class RouteMap(NyBase):
 
         return dict(result)
 
-    @classmethod
-    def remove_wrapper(cls, dict, context):
-        dict = super(RouteMap, cls)._remove_base_wrapper(dict, context)
-        return dict
-
     def to_delete_dict(self, context):
         result = OrderedDict()
 
