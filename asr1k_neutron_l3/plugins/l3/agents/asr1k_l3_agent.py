@@ -63,7 +63,7 @@ from neutron import manager
 from neutron.agent.common import resource_processing_queue as queue
 
 from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
-
+from asr1k_neutron_l3.common.exc_helper import exc_info_full
 from asr1k_neutron_l3.common import prometheus_monitor
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
@@ -458,7 +458,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
             self._last_full_sync = timeutils.now()
             self.fetch_and_sync_routers_partial(self.context)
         except Exception as e:
-            LOG.error("Error in periodic sync : {}".format(e))
+            LOG.error("Error in periodic sync: %s", e, exc_info=exc_info_full())
             self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
     def _save_config(self, force_save=False):
