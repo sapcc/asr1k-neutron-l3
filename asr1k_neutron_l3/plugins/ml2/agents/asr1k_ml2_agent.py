@@ -292,7 +292,10 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
             with timeutils.StopWatch() as stopwatch:
                 bridgedomain.sync_networks(networks, callback=self._bound_ports)
-            self._last_synced_network = networks[-1]['network_id']
+            if networks:
+                self._last_synced_network = networks[-1]['network_id']
+            else:
+                self._last_synced_network = None
             LOG.debug("Syncing %d networks with %d ports completed in %.2f, last synced network is %s",
                       len(networks), portcount, stopwatch.elapsed(), self._last_synced_network)
         else:

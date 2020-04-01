@@ -534,7 +534,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                         self._queue.get_size() >= self.sync_until_queue_size:
                     break
 
-            if self._router_sync_marker == router_ids[-1]:
+            if not router_ids or self._router_sync_marker == router_ids[-1]:
                 LOG.debug("Finished a complete round of queueing router updates with last router %s",
                           self._router_sync_marker)
                 self._router_sync_marker = None
