@@ -13,7 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from asr1k_neutron_l3.common import multi_config_parser
 from oslo_log import log as logging
 from oslo_config import cfg
 from neutron.conf.agent import common
@@ -95,7 +95,7 @@ AVAILABILITY_ZONE_OPTS = [
 def _get_specific_config(name):
     """retrieve config in the format [<label>]."""
     conf_dict = {}
-    multi_parser = cfg.MultiConfigParser()
+    multi_parser = multi_config_parser.MultiConfigParser()
     multi_parser.read(cfg.CONF.config_file)
     for parsed_file in multi_parser.parsed:
         for parsed_item in list(parsed_file.keys()):
@@ -107,7 +107,7 @@ def _get_specific_config(name):
 def _get_group_config(prefix):
     """retrieve config in the format [<label>:<key>]."""
     conf_dict = {}
-    multi_parser = cfg.MultiConfigParser()
+    multi_parser = multi_config_parser.MultiConfigParser()
     multi_parser.read(cfg.CONF.config_file)
     for parsed_file in multi_parser.parsed:
         for parsed_item in list(parsed_file.keys()):
