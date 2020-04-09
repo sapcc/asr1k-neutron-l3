@@ -68,7 +68,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         """Start the RPC loop to let the plugin communicate with agents."""
         self._setup_rpc()
         self.topic = asr1k_constants.ASR1K_TOPIC
-        self.conn = n_rpc.create_connection()
+        self.conn = n_rpc.Connection()
         self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
 
         return self.conn.consume_in_threads()
