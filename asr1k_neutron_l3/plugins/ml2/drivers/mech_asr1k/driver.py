@@ -16,7 +16,7 @@
 
 
 from neutron_lib import context as n_context
-from neutron.common import rpc as n_rpc
+from neutron_lib import rpc as n_rpc
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as p_constants
 from neutron_lib.plugins.ml2 import api

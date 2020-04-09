@@ -17,23 +17,27 @@
 import random
 
 import sqlalchemy as sa
+from asr1k_neutron_l3.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import asr1k_exceptions
+from asr1k_neutron_l3.plugins.db import models as asr1k_models
+from networking_bgpvpn.neutron.db import bgpvpn_db
+from neutron_lib import constants as n_constants
+from neutron_lib import context as n_context
+from neutron_lib.api.definitions import portbindings
+from neutron_lib.db import api as db_api
+from neutron_lib.exceptions import l3 as l3_exc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 from oslo_utils import timeutils
 from sqlalchemy import and_
 from sqlalchemy import func
 
-from asr1k_neutron_l3.common import asr1k_constants as constants
-from asr1k_neutron_l3.common import asr1k_exceptions
-from asr1k_neutron_l3.plugins.db import models as asr1k_models
 from neutron.db import address_scope_db
-from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import l3_agentschedulers_db
 from neutron.db import l3_db
 from neutron.db import models_v2
-from neutron.db import portbindings_db
 from neutron.db import segments_db
 from neutron.db.models import agent as agent_model
 from neutron.db.models import l3 as l3_models
@@ -41,12 +45,7 @@ from neutron.db.models import l3agent as l3agent_models
 from neutron.db.models import segment as segment_models
 from neutron.plugins.ml2 import db as ml2_db
 from neutron.plugins.ml2 import models as ml2_models
-from neutron_lib import constants as n_constants
-from neutron_lib import context as n_context
-from neutron_lib.api.definitions import portbindings
-from neutron_lib.exceptions import l3 as l3_exc
-from networking_bgpvpn.neutron.db import bgpvpn_db
-from neutron_lib.db import api as db_api
+
 
 MIN_DOT1Q = 1000
 MAX_DOT1Q = 4096

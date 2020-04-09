@@ -16,7 +16,7 @@
 
 import oslo_messaging
 from neutron_lib import context
-from neutron.common import rpc as n_rpc
+from neutron_lib import rpc as n_rpc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 

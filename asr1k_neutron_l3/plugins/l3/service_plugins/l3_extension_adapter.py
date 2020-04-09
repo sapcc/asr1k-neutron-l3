@@ -28,8 +28,7 @@ from asr1k_neutron_l3.plugins.db import models as asr1k_models
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
 from asr1k_neutron_l3.plugins.l3.schedulers import asr1k_scheduler_db
 from asr1k_neutron_l3.plugins.l3.service_plugins.initializer import Initializer
-from neutron.db import api as db_api
-from neutron.db import common_db_mixin
+from neutron_lib.db import api as db_api
 from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db as l3_db
@@ -134,7 +133,7 @@ class L3RpcNotifierMixin(object):
         return notifier.agent_init_config(context, host, router_infos)
 
 
-class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
+class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
                       dns_db.DNSDbMixin, L3RpcNotifierMixin, asr1k_ext.DevicePluginBase):
     def __init__(self):
@@ -368,7 +367,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         ports = []
 
         if atts is not None:
-            for port_id in atts.keys():
+            for port_id in list(atts.keys()):
                 port = OrderedDict({'port_id': port_id})
                 att = atts.get(port_id)
                 if att is not None:

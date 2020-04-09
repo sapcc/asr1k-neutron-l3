@@ -35,7 +35,7 @@ def calculate_deleted_ports(router):
 
     extra_atts_ports = []
     if extra_atts is not None:
-        extra_atts_ports = extra_atts.keys()
+        extra_atts_ports = list(extra_atts.keys())
 
     return list(set(extra_atts_ports) - set(router_ports))
 
@@ -74,7 +74,7 @@ def uuid_to_mapping_id(uuid):
 
     numbers = [int(s) for s in uuid if s.isdigit()]
     number = ("".join(str(x) for x in numbers))
-    if (len(number) < 10):
+    if len(number) < 10:
         result = number
     else:
         result = number[0:9]
@@ -116,7 +116,7 @@ def to_cidr(ip, netmask):
 
 
 def to_wildcard_mask(prefix_len):
-    if isinstance(prefix_len, (int, long)):
+    if isinstance(prefix_len, int):
         netmask = to_netmask(prefix_len)
     else:
         netmask = prefix_len
@@ -131,7 +131,7 @@ def ip_in_network(ip, net):
 
 
 def to_netmask(prefix_len):
-    if isinstance(prefix_len, (int, long)):
+    if isinstance(prefix_len, int):
         host_bits = 32 - prefix_len
         netmask = socket.inet_ntoa(struct.pack('!I', (1 << 32) - (1 << host_bits)))
     else:
@@ -140,19 +140,19 @@ def to_netmask(prefix_len):
 
 
 def to_rd(asn, rd):
-        if asn is None or rd is None:
-            return
-        return "{}:{}".format(asn, rd)
+    if asn is None or rd is None:
+        return
+    return "{}:{}".format(asn, rd)
 
 
 def get_address_scope_config(plugin_rpc, context):
     scope_config = asr1k_config.create_address_scope_dict()
 
-    db_scopes = plugin_rpc.get_address_scopes(context, scope_config.keys())
+    db_scopes = plugin_rpc.get_address_scopes(context, list(scope_config.keys()))
 
     result = {}
-    for name in scope_config.keys():
-        if name in db_scopes.keys():
+    for name in list(scope_config.keys()):
+        if name in list(db_scopes.keys()):
             id = db_scopes.get(name, {}).get("id")
             result[id] = scope_config.get(name)
         else:

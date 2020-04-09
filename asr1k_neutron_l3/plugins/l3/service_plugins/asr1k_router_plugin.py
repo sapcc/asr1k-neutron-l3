@@ -17,9 +17,10 @@
 import asr1k_neutron_l3
 
 from neutron_lib import constants as n_const
-from neutron.common import rpc as n_rpc
+from neutron_lib import rpc as n_rpc
 from neutron_lib.agent import topics
-from neutron_lib import constants as svc_constants
+from neutron_lib.plugins import constants as plugin_constants
+from neutron_lib.services import base
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -33,7 +34,7 @@ from asr1k_neutron_l3.plugins.l3.service_plugins import l3_extension_adapter
 LOG = logging.getLogger(__name__)
 
 
-class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
+class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePluginBase):
     supported_extension_aliases = ["router",
                                    "extraroute",
                                    "l3_agent_scheduler",
@@ -66,7 +67,7 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
     def start_rpc_listeners(self):
         # RPC support
         self.topic = topics.L3PLUGIN
-        self.conn = n_rpc.create_connection()
+        self.conn = n_rpc.Connection()
         self.agent_notifiers.update(
             {n_const.AGENT_TYPE_L3: ask1k_l3_notifier.ASR1KAgentNotifyAPI()})
         self.endpoints = [rpc_api.ASR1KRpcAPI()]
@@ -74,8 +75,9 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
                                   fanout=False)
         return self.conn.consume_in_threads()
 
-    def get_plugin_type(self):
-        return svc_constants.L3
+    @classmethod
+    def get_plugin_type(cls):
+        return plugin_constants.L3
 
     def get_plugin_description(self):
         return ("ASR1K Router Service Plugin for basic L3 forwarding"

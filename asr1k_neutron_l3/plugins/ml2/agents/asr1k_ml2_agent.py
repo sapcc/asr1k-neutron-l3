@@ -39,9 +39,11 @@ from oslo_utils import timeutils
 from oslo_service import eventlet_backdoor, loopingcall
 
 from neutron_lib import context as n_context
-from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
-from neutron.common import config as common_config, topics
+from neutron.agent import rpc as agent_rpc
+from neutron.api.rpc.handlers import securitygroups_rpc as sg_rpc
+from neutron.common import config as common_config
 from neutron_lib import constants as n_const
+from neutron_lib.agent import topics
 
 from asr1k_neutron_l3.common import prometheus_monitor, asr1k_constants
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor

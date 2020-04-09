@@ -98,9 +98,9 @@ def _get_specific_config(name):
     multi_parser = cfg.MultiConfigParser()
     multi_parser.read(cfg.CONF.config_file)
     for parsed_file in multi_parser.parsed:
-        for parsed_item in parsed_file.keys():
+        for parsed_item in list(parsed_file.keys()):
             if parsed_item == name:
-                conf_dict = parsed_file[parsed_item].items()
+                conf_dict = list(parsed_file[parsed_item].items())
     return conf_dict
 
 
@@ -110,11 +110,11 @@ def _get_group_config(prefix):
     multi_parser = cfg.MultiConfigParser()
     multi_parser.read(cfg.CONF.config_file)
     for parsed_file in multi_parser.parsed:
-        for parsed_item in parsed_file.keys():
+        for parsed_item in list(parsed_file.keys()):
             if parsed_item.startswith(prefix):
                 label, key = parsed_item.split(':')
                 if label.lower() == prefix:
-                    conf_dict[key] = parsed_file[parsed_item].items()
+                    conf_dict[key] = list(parsed_file[parsed_item].items())
     return conf_dict
 
 
@@ -126,10 +126,10 @@ def create_device_pair_dictionary():
         for key, value in conf[device_name]:
             device_dict[device_name][key] = value[0]
 
-    if len(device_dict.keys()) > 2:
+    if len(list(device_dict.keys())) > 2:
         LOG.warning("More than 2 devices were configured, only the first two will be used ")
 
-    if len(device_dict.keys()) == 0:
+    if len(list(device_dict.keys())) == 0:
         raise Exception("No devices were configured. Please review asr1k configuration file. ")
 
     return device_dict
@@ -151,7 +151,6 @@ def register_l3_opts():
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
     cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
     cfg.CONF.register_opts(AVAILABILITY_ZONE_OPTS, 'AGENT')
-    cfg.CONF.register_opts(common.EXT_NET_BRIDGE_OPTS)
     common.register_interface_opts()
     common.register_interface_driver_opts_helper(cfg.CONF)
 
