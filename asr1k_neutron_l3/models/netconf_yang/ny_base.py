@@ -342,7 +342,7 @@ class DiffResult(PairResult):
     @property
     def valid(self):
         valid = True
-        for host in self.results.keys():
+        for host in list(self.results.keys()):
             diffs = self.results.get(host)
             valid = valid and not diffs
 
@@ -351,7 +351,7 @@ class DiffResult(PairResult):
     @property
     def invalid_devicess(self):
         results = []
-        for host in self.results.keys():
+        for host in list(self.results.keys()):
             diffs = self.results.get(host)
             if len(diffs) > 0:
                 results.append(host)
@@ -454,7 +454,7 @@ class NyBase(BulkOperations):
             type = type[0]
 
         if type is not None and item is not None and not isinstance(item, type) and \
-                not isinstance(item, unicode) and not type == str:
+                not isinstance(item, str) and not type == str:
             return type(**item)
 
         return item
@@ -586,7 +586,7 @@ class NyBase(BulkOperations):
                                         else:
                                             result.append(v)
                                 else:
-                                    if value is not None and not isinstance(value, unicode) and not type == str:
+                                    if value is not None and not isinstance(value, str) and not type == str:
                                         value[cls.PARENT] = params
                                         result.append(type.from_json(value))
                                     else:
@@ -689,7 +689,7 @@ class NyBase(BulkOperations):
     def __ensure_primary_keys(cls, item, **kwargs):
         # Add missing primary keys from get
         params = cls.__parameters_as_dict()
-        for key in kwargs.keys():
+        for key in list(kwargs.keys()):
             param = params.get(key, {})
             if key != 'context' and param.get('primary_key', False):
                 setattr(item, key, kwargs.get(key))

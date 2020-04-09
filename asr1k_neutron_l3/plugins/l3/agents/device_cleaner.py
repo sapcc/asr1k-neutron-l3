@@ -186,7 +186,7 @@ class DeviceCleanerMixin(object):
         all_segmentation_ids = []
         all_ports = []
 
-        for router_ports in all_extra_atts.values():
+        for router_ports in list(all_extra_atts.values()):
             for port_id, atts in six.iteritems(router_ports):
                 all_service_instances.append(utils.to_bridge_domain(atts.get('second_dot1q')))
                 all_segmentation_ids.append(atts.get('segmentation_id'))

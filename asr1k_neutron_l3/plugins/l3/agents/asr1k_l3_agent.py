@@ -52,7 +52,7 @@ from neutron_lib.callbacks import resources
 
 from neutron.agent import rpc as agent_rpc
 from neutron.common import exceptions as n_exc
-from neutron.common import rpc as n_rpc
+from neutron_lib import rpc as n_rpc
 from neutron.common import topics
 from neutron.common import config as common_config
 from neutron_lib import context as n_context
@@ -445,7 +445,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                       "".format(int(timeutils.now() - self._last_full_sync)))
 
             all_stats = self.plugin_rpc.get_usage_stats(self.context)
-            for status in all_stats.keys():
+            for status in list(all_stats.keys()):
                 stats = all_stats.get(status, {})
                 PrometheusMonitor().routers.labels(status=status).set(stats.get('routers', 0))
                 PrometheusMonitor().interfaces.labels(status=status).set(stats.get('interface_ports', 0))
@@ -566,7 +566,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
     @periodic_task.periodic_task(spacing=60, run_immediately=True)
     def periodic_requeue_routers_task(self, context):
-        for update in self._requeue.values():
+        for update in list(self._requeue.values()):
             LOG.debug("Adding requeued router {} to processing queue".format(update.id))
             self._queue.add(update)
 
@@ -705,8 +705,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
         complete = False
 
-        if extra_atts is not None and extra_atts.keys() is not None:
-            complete = set(utils.get_router_ports(router)).issubset(extra_atts.keys())
+        if extra_atts is not None and list(extra_atts.keys()) is not None:
+            complete = set(utils.get_router_ports(router)).issubset(list(extra_atts.keys()))
 
         return complete
 
@@ -833,7 +833,7 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
         num_ex_gw_ports = 0
         num_interfaces = 0
         num_floating_ips = 0
-        router_infos = self.router_info.values()
+        router_infos = list(self.router_info.values())
         num_routers = len(router_infos)
         for ri in router_infos:
             ex_gw_port = ri.get_ex_gw_port()

@@ -55,7 +55,7 @@ class ASR1KPair(object):
 
         device_config = asr1k_config.create_device_pair_dictionary()
 
-        for device_name in device_config.keys():
+        for device_name in list(device_config.keys()):
             config = device_config.get(device_name)
 
             asr1kctx = ASR1KContext(device_name, config.get('host'),

@@ -347,7 +347,7 @@ class Router(Base):
         results.append(self.arp_entries.delete())
         results.append(self.routes.delete())
 
-        for key in self.dynamic_nat.keys():
+        for key in list(self.dynamic_nat.keys()):
             results.append(self.dynamic_nat.get(key).delete())
         if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
             results.append(self.nat_pool.delete())

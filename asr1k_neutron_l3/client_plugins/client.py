@@ -231,7 +231,7 @@ def Client(version=None, session=None, *args, **kwargs):
             client_class = importutils.import_class(client_path)
             return client_class(session=session, *args, **kwargs)
         except (KeyError, ValueError):
-            supported_versions = ', '.join(_SUPPORTED_API_VERSION_MAP.keys())
+            supported_versions = ', '.join(list(_SUPPORTED_API_VERSION_MAP.keys()))
             msg = ("Invalid client version %(version)s; must be one of: "
                    "%(versions)s") % {'version': version,
                                       'versions': supported_versions}
