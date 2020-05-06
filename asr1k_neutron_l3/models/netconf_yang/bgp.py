@@ -121,9 +121,11 @@ class AddressFamily(NyBase):
         return dict
 
     def _wrapper_preamble(self, dict, context):
-        dict[BGPConstants.AF_NAME] = BGPConstants.UNICAST
+        af = OrderedDict()
+        af[BGPConstants.AF_NAME] = BGPConstants.UNICAST
+        af.update(dict)
         result = {}
-        result[self.LIST_KEY] = dict
+        result[self.LIST_KEY] = af
         result = {BGPConstants.WITH_VRF: result}
 
         bgp = OrderedDict()
