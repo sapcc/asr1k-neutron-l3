@@ -17,6 +17,7 @@ from asr1k_neutron_l3.common import multi_config_parser
 from oslo_log import log as logging
 from oslo_config import cfg
 from neutron.conf.agent import common
+from neutron.conf import service
 from neutron_lib._i18n import _
 
 LOG = logging.getLogger(__name__)
@@ -160,5 +161,6 @@ def register_l2_opts():
     cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
     cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
+    cfg.CONF.register_opts(service.RPC_EXTRA_OPTS)
 
     cfg.CONF.asr1k.yang_connection_pool_size = cfg.CONF.asr1k_l2.yang_connection_pool_size
