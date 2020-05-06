@@ -350,7 +350,8 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         result = []
         for port in ports:
             port_dict = self._make_port_dict(port)
-            port_dict[portbindings.HOST_ID] = port.port_binding.host
+            if portbindings.HOST_ID not in port_dict:
+                port_dict[portbindings.HOST_ID] = port.port_bindings[0].host
 
             result.append(port_dict)
 
@@ -364,7 +365,8 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         result = []
         for port in ports:
             port_dict = self._make_port_dict(port)
-            port_dict[portbindings.HOST_ID] = port.port_binding.host
+            if portbindings.HOST_ID not in port_dict:
+                port_dict[portbindings.HOST_ID] = port.port_bindings[0].host
 
             result.append(port_dict)
 
