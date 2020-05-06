@@ -11,5 +11,5 @@ osc-lib>=1.8.0 # Apache-2.0
 retrying >=1.3.3
 prometheus_client>=0.0.19
 bs4>=0.0.1
--e git+https://github.com/sapcc/ncclient.git@sapcc#egg=ncclient==v0.5.3
+-e git+https://github.com/sapcc/ncclient.git@sapcc-py3#egg=ncclient==0.6.7+17.gc6f51ed
 networking_bgpvpn>=11.0.0
