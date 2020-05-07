@@ -86,7 +86,8 @@ class XMLUtils(object):
         dict = cls._remove_base_wrapper(dict, context)
         if dict is None:
             return
-        dict = dict.get(cls.LIST_KEY, dict)
+        if cls.LIST_KEY is not None:
+            dict = dict.get(cls.LIST_KEY, dict)
         return dict
 
     @classmethod

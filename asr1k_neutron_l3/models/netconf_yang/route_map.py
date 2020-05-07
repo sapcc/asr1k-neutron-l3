@@ -55,6 +55,14 @@ class RouteMap(NyBase):
             </native>
     """
 
+    GET_ALL_STUB = """
+            <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+              <route-map>
+                <name/>
+              </route-map>
+            </native>
+    """
+
     LIST_KEY = None
     ITEM_KEY = RouteMapConstants.ROUTE_MAP
 
@@ -88,11 +96,6 @@ class RouteMap(NyBase):
         result[self.ITEM_KEY] = map
 
         return dict(result)
-
-    @classmethod
-    def remove_wrapper(cls, dict, context):
-        dict = super(RouteMap, cls)._remove_base_wrapper(dict, context)
-        return dict
 
     def to_delete_dict(self, context):
         result = OrderedDict()

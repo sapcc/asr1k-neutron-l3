@@ -70,6 +70,19 @@ class VBInterface(NyBase):
                 </native>
              """
 
+    GET_ALL_STUB = """
+                <native>
+                    <interface>
+                        <{iftype}>
+                            <name/>
+                            <vrf>
+                                <forwarding/>
+                            </vrf>
+                        </{iftype}>
+                    </interface>
+                </native>
+             """
+
     VRF_FILTER = """
                 <native>
                     <interface>
@@ -95,6 +108,10 @@ class VBInterface(NyBase):
     @classmethod
     def get_primary_filter(cls, id, context, **kwargs):
         return cls.ID_FILTER.format(id=id, iftype=context.bd_iftype)
+
+    @classmethod
+    def get_all_stub_filter(cls, context):
+        return cls.GET_ALL_STUB.format(iftype=context.bd_iftype)
 
     @classmethod
     def get_for_vrf(cls, context, vrf=None):
@@ -255,6 +272,18 @@ class VBInterface(NyBase):
                                                               mac=self.mac_address, mtu=self.mtu,
                                                               vrf=self.vrf, ip=self.ip_address.address,
                                                               netmask=self.ip_address.mask, nat=nat)
+
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+        # An interface is an orphan if ALL of these conditions are met
+        #   * it does not belong to any VRF or the router does not exist anymore
+        #   * ID is in neutron namespace
+        #   * its ID is not referenced in the extra atts table
+        # We don't delete vrf-less interfaces that are in the extra atts table as they could be reused
+        # while we're deleting them
+        return ((self.neutron_router_id and self.neutron_router_id not in all_router_ids) or
+                not self.neutron_router_id) and \
+            self.in_neutron_namespace and \
+            int(self.name) not in all_bd_ids
 
 
 class VBISecondaryIpAddress(NyBase):

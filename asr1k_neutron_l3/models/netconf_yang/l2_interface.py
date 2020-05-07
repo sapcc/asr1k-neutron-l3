@@ -16,8 +16,10 @@
 from operator import attrgetter
 
 from collections import OrderedDict
+from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NC_OPERATION, NyBase, execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
+from asr1k_neutron_l3.plugins.db import asr1k_db
 
 
 class L2Constants(object):
@@ -60,6 +62,16 @@ class BridgeDomain(NyBase):
             <bridge-domain>
                 <brd-id xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bridge-domain">
                     <bridge-domain-id>{id}</bridge-domain-id>
+                </brd-id>
+            </bridge-domain>
+        </native>
+    """
+
+    GET_ALL_STUB = """
+        <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+            <bridge-domain>
+                <brd-id xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bridge-domain">
+                    <bridge-domain-id/>
                 </brd-id>
             </bridge-domain>
         </native>
@@ -121,6 +133,10 @@ class BridgeDomain(NyBase):
                     device_config.bdvif_members.remove(bdvif)
         return super(BridgeDomain, self)._diff(context, device_config)
 
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+        return asr1k_db.MIN_DOT1Q <= int(self.id) <= asr1k_db.MAX_DOT1Q and \
+            int(self.id) not in all_segmentation_ids
+
 
 class BDIfMember(NyBase):
     """Normal interface as a member of a bridge-domain"""
@@ -180,6 +196,22 @@ class ServiceInstance(NyBase):
           </native>
     """
 
+    GET_ALL_STUB = """
+          <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                  xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+            <interface>
+              <Port-channel>
+                <name>{port_channel}</name>
+                <ios-eth:service>
+                  <ios-eth:instance>
+                    <ios-eth:id/>
+                  </ios-eth:instance>
+                </ios-eth:service>
+              </Port-channel>
+            </interface>
+          </native>
+    """
+
     LIST_KEY = L2Constants.SERVICE
     ITEM_KEY = L2Constants.SERVICE_INSTANCE
 
@@ -199,6 +231,10 @@ class ServiceInstance(NyBase):
     @classmethod
     def get_primary_filter(cls, **kwargs):
         return cls.ID_FILTER.format(id=kwargs.get('id'), port_channel=cls.PORT_CHANNEL)
+
+    @classmethod
+    def get_all_stub_filter(cls, context):
+        return cls.GET_ALL_STUB.format(port_channel=cls.PORT_CHANNEL)
 
     @classmethod
     @execute_on_pair(return_raw=True)
@@ -313,6 +349,10 @@ class ExternalInterface(ServiceInstance):
         kwargs['dot1q'] = kwargs.get('id')
         super(ExternalInterface, self).__init__(**kwargs)
 
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+        return asr1k_db.MIN_DOT1Q <= int(self.id) <= asr1k_db.MAX_DOT1Q and \
+            int(self.id) not in all_segmentation_ids
+
 
 class LoopbackExternalInterface(ServiceInstance):
     PORT_CHANNEL = "2"
@@ -328,6 +368,12 @@ class LoopbackExternalInterface(ServiceInstance):
         else:
             return super(LoopbackExternalInterface, self).to_dict(context)
 
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+        return context.use_bdvif or \
+            (utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) <= int(self.id) <=
+             utils.to_bridge_domain(asr1k_db.MAX_SECOND_DOT1Q) and
+             int(self.id) not in all_bd_ids)
+
 
 class LoopbackInternalInterface(ServiceInstance):
     PORT_CHANNEL = "3"
@@ -341,6 +387,12 @@ class LoopbackInternalInterface(ServiceInstance):
         else:
             return super(LoopbackInternalInterface, self).to_dict(context)
 
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+        return context.use_bdvif or \
+            (utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) <= int(self.id) <=
+             utils.to_bridge_domain(asr1k_db.MAX_SECOND_DOT1Q) and
+             int(self.id) not in all_bd_ids)
+
 
 class KeepBDUpInterface(ServiceInstance):
     PORT_CHANNEL = "2"
@@ -353,3 +405,8 @@ class KeepBDUpInterface(ServiceInstance):
             return super(KeepBDUpInterface, self).to_dict(context)
         else:
             return {}
+
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+        return not context.use_bdvif or \
+            (asr1k_db.MIN_DOT1Q <= int(self.id) <= asr1k_db.MAX_DOT1Q and
+             int(self.id) not in all_segmentation_ids)
