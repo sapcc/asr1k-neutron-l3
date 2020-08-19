@@ -329,11 +329,7 @@ class YangConnection(object):
         if kwargs.get("target"):
             node.append(util.datastore_or_url("target", kwargs["target"]))
         if kwargs.get("config"):
-            config = to_ele(kwargs["config"])
-            # this one is for yang-explorer (without the namespace yang-explorer can't parse the request)
-            if config.tag == 'config' and hasattr(node, "nsmap") and node.nsmap.get("nc"):
-                config.tag = '{{{}}}config'.format(node.nsmap.get("nc"))
-            node.append(config)
+            node.append(to_ele(kwargs["config"]))
         rpc = new_ele("rpc", {"message-id": "yang-trace"})
         rpc.append(node)
 
