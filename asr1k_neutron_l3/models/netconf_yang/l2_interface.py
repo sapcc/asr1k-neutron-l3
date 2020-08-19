@@ -28,6 +28,8 @@ class L2Constants(object):
     SERVICE = "service"
     SERVICE_INSTANCE = "instance"
     BD_SERVICE_INSTANCE = "service-instance"
+    BD_SERVICE_INSTANCE_LIST = "service-instance-list"
+    BD_SERVICE_INSTANCE_ID = "instance-id"
 
     ID = "id"
     NAME = "name"
@@ -109,7 +111,7 @@ class BridgeDomain(NyBase):
                 bddef[L2Constants.MEMBER] = {
                     L2Constants.MEMBER_IFACE: [_m.to_dict(context)
                                                for _m in sorted(self.if_members,
-                                                                key=lambda _x: (_x.interface, _x.service_instance))],
+                                                                key=lambda _x: _x.interface)],
                     L2Constants.MEMBER_BDVIF: [_m.to_dict(context)
                                                for _m in sorted(self.bdvif_members, key=attrgetter('name'))],
                 }
@@ -145,18 +147,40 @@ class BDIfMember(NyBase):
     def __parameters__(cls):
         return [
             {"key": "interface", "yang-key": L2Constants.INTERFACE},
-            {"key": "service_instance", "yang-key": L2Constants.BD_SERVICE_INSTANCE, "default": None},
+            {"key": "service_instances", "yang-key": L2Constants.BD_SERVICE_INSTANCE_LIST, "default": [],
+             "type": [BDIfMemberServiceInstance]},
             {"key": "mark_deleted", "default": False},
         ]
 
     def to_dict(self, context):
         result = {
             L2Constants.INTERFACE: self.interface,
-            L2Constants.BD_SERVICE_INSTANCE: self.service_instance,
         }
+
+        if self.service_instances:
+            service_instances = []
+            for service_instance in sorted(self.service_instances, key=attrgetter('id')):
+                service_instances.append(service_instance.to_dict(context))
+            result[L2Constants.BD_SERVICE_INSTANCE_LIST] = service_instances
+
         if self.mark_deleted:
             result[xml_utils.OPERATION] = NC_OPERATION.DELETE
         return result
+
+
+class BDIfMemberServiceInstance(NyBase):
+    """Represents a service instance id of a BDIfMember"""
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {"key": "id", "yang-key": L2Constants.BD_SERVICE_INSTANCE_ID},
+        ]
+
+    def to_dict(self, context):
+        return {
+            L2Constants.BD_SERVICE_INSTANCE_ID: self.id,
+        }
 
 
 class BDVIFMember(NyBase):
