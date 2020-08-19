@@ -566,11 +566,11 @@ class NyBase(BulkOperations):
                             if bool(values):
                                 values = values.get(path_item)
                                 if isinstance(values, list):
-                                    LOG.debug("Unexpected list found for {} path {} values {}"
-                                              "".format(cls.__name__, yang_path, values))
+                                    LOG.error("Unexpected list found for %s path %s values %s",
+                                              cls.__name__, yang_path, values)
                                 if bool(values) is None:
-                                    LOG.warning("Invalid yang segment {} in {} please check against yang model. "
-                                                "Values: {}".format(path_item, yang_path, values))
+                                    LOG.error("Invalid yang segment %s in %s please check against yang model. "
+                                              "Values: %s", path_item, yang_path, values)
 
                     if bool(values):
                         if param.get('yang-type') == YANG_TYPE.EMPTY:

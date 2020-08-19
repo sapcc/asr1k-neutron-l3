@@ -60,8 +60,8 @@ def delete_ports(port_extra_atts, callback=None):
 
     if callable(callback):
         callback(succeeded_ports, [])
-    LOG.debug("Batch delete of %d/%d ports completed successfully"
-              "".format(len(succeeded_ports), len(port_extra_atts)))
+    LOG.debug("Batch delete of %d/%d ports completed successfully",
+              len(succeeded_ports), len(port_extra_atts))
     return succeeded_ports
 
 
