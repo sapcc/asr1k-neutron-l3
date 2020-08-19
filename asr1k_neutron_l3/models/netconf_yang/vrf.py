@@ -13,8 +13,9 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from collections import OrderedDict
+from operator import attrgetter
+import re
 
 from oslo_log import log as logging
 
@@ -46,6 +47,9 @@ class VrfConstants(object):
     IPV6 = "ipv6"
     RD = "rd"
     ROUTE_TARGET = "route-target"
+    ROUTE_TARGET_EXPORT = "export-route-target"
+    ROUTE_TARGET_IMPORT = "import-route-target"
+    WITHOUT_STITCHING = "without-stitching"
 
 
 class VrfDefinition(NyBase, Requeable):
@@ -287,18 +291,21 @@ class IpV4AddressFamily(NyBase):
     def __parameters__(cls):
         return [
             {'key': 'map', 'yang-path': "export", "default": None},
-            {'key': 'rt_export', 'yang-key': "asn-ip", 'yang-path': "route-target/export",
-             'type': [str], "default": []},
-            {'key': 'rt_import', 'yang-key': "asn-ip", 'yang-path': "route-target/import",
-             'type': [str], "default": []},
+
+            # >16.9
+            {'key': 'rt_export', 'yang-key': "export", 'yang-path': "route-target",
+             'type': [RouteTarget], "default": []},
+            {'key': 'rt_import', 'yang-key': "import", 'yang-path': "route-target",
+             'type': [RouteTarget], "default": []},
+
+            # =16.9
+            {'key': 'rt_export', 'yang-key': "without-stitching",
+             'yang-path': "route-target/export-route-target",
+             'type': [RouteTarget], "default": []},
+            {'key': 'rt_import', 'yang-key': "without-stitching",
+             'yang-path': "route-target/import-route-target",
+             'type': [RouteTarget], "default": []},
         ]
-
-    def __init__(self, **kwargs):
-        super(IpV4AddressFamily, self).__init__(**kwargs)
-
-        self.map = kwargs.get("map")
-        self.rt_export = kwargs.get("rt_export")
-        self.rt_import = kwargs.get("rt_import")
 
     def to_dict(self, context):
         address_family = OrderedDict()
@@ -308,18 +315,50 @@ class IpV4AddressFamily(NyBase):
 
         address_family[VrfConstants.ROUTE_TARGET] = {}
 
-        if self.rt_export is not None and len(self.rt_export) > 0:
+        if self.rt_export:
             asns = []
-            for rt in self.rt_export:
-                if rt is not None and rt != '':
-                    asns.append({"asn-ip": rt})
-            address_family[VrfConstants.ROUTE_TARGET][VrfConstants.EXPORT] = asns
+            for rt in sorted(self.rt_export, key=attrgetter('normalized_asn_ip')):
+                asns.append(rt.to_dict(context))
 
-        if self.rt_import is not None and len(self.rt_import) > 0:
+            if context.version_min_1612:
+                rt = {VrfConstants.ROUTE_TARGET_EXPORT: {VrfConstants.WITHOUT_STITCHING: asns}}
+            else:
+                rt = {VrfConstants.EXPORT: asns}
+            address_family[VrfConstants.ROUTE_TARGET] = rt
+
+        if self.rt_import:
             asns = []
-            for rt in self.rt_import:
-                if rt is not None and rt != '':
-                    asns.append({"asn-ip": rt})
-            address_family[VrfConstants.ROUTE_TARGET][VrfConstants.IMPORT] = asns
+            for rt in sorted(self.rt_import, key=attrgetter('normalized_asn_ip')):
+                asns.append(rt.to_dict(context))
+
+            if context.version_min_1612:
+                rt = {VrfConstants.ROUTE_TARGET_IMPORT: {VrfConstants.WITHOUT_STITCHING: asns}}
+            else:
+                rt = {VrfConstants.IMPORT: asns}
+            address_family[VrfConstants.ROUTE_TARGET] = rt
 
         return dict(address_family)
+
+
+class RouteTarget(NyBase):
+    # matches 65001.4:1234
+    SHORT_4B_RE = re.compile(r"^(?P<a>\d+)\.(?P<b>\d+):(?P<c>\d+)$")
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {'key': 'asn_ip'},
+        ]
+
+    def to_dict(self, context):
+        return {
+            "asn-ip": self.normalized_asn_ip,
+        }
+
+    @property
+    def normalized_asn_ip(self):
+        m = self.SHORT_4B_RE.match(self.asn_ip)
+        if m:
+            asn = (int(m.group('a')) << 16) + int(m.group('b'))
+            return "{}:{}".format(asn, m.group('c'))
+        return self.asn_ip
