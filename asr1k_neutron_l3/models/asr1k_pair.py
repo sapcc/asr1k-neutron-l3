@@ -23,19 +23,29 @@ from asr1k_neutron_l3.common.asr1k_exceptions import VersionInfoNotAvailable
 LOG = logging.getLogger(__name__)
 
 
-class FakeASR1KContext(object):
+class ASR1KContextBase(object):
+    @property
+    def use_bdvif(self):
+        return self.version_min_1612 and self._use_bdvif
+
+    @property
+    def bd_iftype(self):
+        return "BD-VIF" if self.use_bdvif else "BDI"
+
+
+class FakeASR1KContext(ASR1KContextBase):
     """Fake ASR1K context, to be used where no context can be found
 
     This context can be used where no device is available, but a version decision needs to be
     made, e.g. in a __str__ method. It pins the version checks to a specific version to produce
     stable results
     """
-    version_min_1612 = True
-    use_bdvif = False
-    bd_iftype = "BD-VIF"
+    def __init__(self, version_min_1612=True, use_bdvif=False):
+        self.version_min_1612 = version_min_1612
+        self._use_bdvif = use_bdvif
 
 
-class ASR1KContext(object):
+class ASR1KContext(ASR1KContextBase):
     version_min_1612 = property(lambda self: self._get_version_attr('_version_min_1612'))
 
     def __init__(self, name, host, yang_port, nc_timeout, username, password, use_bdvif, insecure=True,
@@ -75,14 +85,6 @@ class ASR1KContext(object):
         if not hasattr(self, attr_name):
             raise VersionInfoNotAvailable(host=self.context.host, entity=attr_name)
         return getattr(self, attr_name)
-
-    @property
-    def use_bdvif(self):
-        return self.version_min_1612 and self._use_bdvif
-
-    @property
-    def bd_iftype(self):
-        return "BD-VIF" if self.use_bdvif else "BDI"
 
 
 class ASR1KPair(object):
