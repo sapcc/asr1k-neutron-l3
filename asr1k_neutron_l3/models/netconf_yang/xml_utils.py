@@ -126,8 +126,10 @@ class XMLUtils(object):
 
         result = OrderedDict()
         result[IOS_NATIVE] = dict
+        result[NS] = NS_NETCONF_BASE
 
         dict = {CONFIG: result}
+
         return dict
 
     def to_delete_dict(self, context):
