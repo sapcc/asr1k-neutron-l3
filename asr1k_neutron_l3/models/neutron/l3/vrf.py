@@ -39,8 +39,8 @@ class Vrf(base.Base):
 
         self.map = "exp-{}".format(self.name)
 
-        self.rt_import = rt_import
-        self.rt_export = rt_export
+        self.rt_import = [{'asn_ip': asn_ip} for asn_ip in rt_import] if rt_import else None
+        self.rt_export = [{'asn_ip': asn_ip} for asn_ip in rt_export] if rt_export else None
 
         self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description,
                                                   rd=self.rd, enable_bgp=self.enable_bgp, map=self.map,
