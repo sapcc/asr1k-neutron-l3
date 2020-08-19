@@ -644,21 +644,22 @@ class NyBase(BulkOperations):
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
                 result = connection.get(filter=nc_filter, entity=cls.__name__, action="get")
-                json = cls.to_json(result.xml, context)
-                if json is not None:
-                    json = json.get(cls.get_item_key(context), None)
-
-                    if json is None:
-                        return None
-
-                    result = cls.from_json(json, context)
-
+                result = cls.from_xml(result.xml, context)
+                if result is not None:
                     # Add missing primary keys from get
                     cls.__ensure_primary_keys(result, **kwargs)
 
                     return result
         except exc.DeviceUnreachable:
             pass
+
+    @classmethod
+    def from_xml(cls, xml_str, context):
+        data = cls.to_json(xml_str, context)
+        if data is not None:
+            data = data.get(cls.get_item_key(context))
+            if data is not None:
+                return cls.from_json(data, context)
 
     @classmethod
     def _get_all(cls, **kwargs):
