@@ -8,13 +8,13 @@ from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 class CopyConfig(NyBase):
     COPY = """
-    <copy xmlns='http://cisco.com/ns/yang/Cisco-IOS-XE-rpc'>
+    <copy xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-rpc">
         <_source>{source}</_source>
         <_destination>{destination}</_destination>
     </copy>"""
 
     COPY_1612 = """
-    <copy xmlns='http://cisco.com/ns/yang/Cisco-IOS-XE-rpc'>
+    <copy xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-rpc">
         <source-drop-node-name>{source}</source-drop-node-name>
         <destination-drop-node-name>{destination}</destination-drop-node-name>
     </copy>"""
