@@ -342,7 +342,7 @@ class YangConnection(object):
         baseurl = baseurl.format(module=module)
         min_rev_date = datetime.datetime.strptime(min_revision, "%Y-%m-%d")
 
-        if not self.connection or self.connection.server_capabilities is None:
+        if getattr(self.connection, "server_capabilities", None) is None:
             raise VersionInfoNotAvailable(host=self.context.host, entity='<capability list>')
 
         for url in self.connection.server_capabilities:
