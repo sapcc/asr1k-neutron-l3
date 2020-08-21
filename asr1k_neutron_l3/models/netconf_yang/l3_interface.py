@@ -16,6 +16,7 @@
 from collections import OrderedDict
 import copy
 
+from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE, NC_OPERATION
 import asr1k_neutron_l3.models.netconf_yang.nat
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
@@ -253,6 +254,16 @@ class VBInterface(NyBase):
                 LOG.warning("Postflight failed for interface {} due to configured interface presence of dynamic NAT {}"
                             "".format(self.id, dyn_nat))
                 raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
+
+        # remove bridge domain membership, as this stops us from deleting the interface
+        if context.version_min_1612:
+            bd = BridgeDomain.get_for_bdvif(self.name, context, partial=True)
+            if bd is not None:
+                # in theory there should be only one member, as we're only getting a partial config, but who knows
+                for member in bd.bdvif_members:
+                    if member.name == self.name:
+                        member.mark_deleted = True
+                bd.update(context=context)
 
     def init_config(self):
         if self.nat_inside:
