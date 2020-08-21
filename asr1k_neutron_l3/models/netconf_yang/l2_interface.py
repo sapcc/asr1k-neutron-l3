@@ -90,6 +90,15 @@ class BridgeDomain(NyBase):
             {"key": "has_complete_member_config", "default": False},
         ]
 
+    @classmethod
+    def get_for_bdvif(self, bdvif_name, context, partial=False):
+        xpath_filter = "/native/bridge-domain/brd-id/member/BD-VIF[name='{}']".format(bdvif_name)
+        bd = self._get(xpath_filter=xpath_filter, context=context)
+        if bd is not None:
+            if partial:
+                return bd
+            return bd._internal_get(context=context)
+
     def __init__(self, *args, **kwargs):
         super(BridgeDomain, self).__init__(*args, **kwargs)
 
