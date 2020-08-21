@@ -637,13 +637,18 @@ class NyBase(BulkOperations):
     @classmethod
     def _get(cls, **kwargs):
         try:
-            nc_filter = kwargs.get('nc_filter')
-            if nc_filter is None:
-                nc_filter = cls.get_primary_filter(**kwargs)
+            xpath_filter = kwargs.get('xpath_filter')
+            if not xpath_filter:
+                nc_filter = kwargs.get('nc_filter')
+                if nc_filter is None:
+                    nc_filter = cls.get_primary_filter(**kwargs)
 
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
-                result = connection.get(filter=nc_filter, entity=cls.__name__, action="get")
+                if xpath_filter:
+                    result = connection.xpath_get(filter=xpath_filter, entity=cls.__name__, action="get")
+                else:
+                    result = connection.get(filter=nc_filter, entity=cls.__name__, action="get")
                 result = cls.from_xml(result.xml, context)
                 if result is not None:
                     # Add missing primary keys from get
