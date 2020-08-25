@@ -22,7 +22,6 @@ import asr1k_neutron_l3.models.netconf_yang.nat
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 from asr1k_neutron_l3.common import cli_snippets, utils
-from asr1k_neutron_l3.common import asr1k_exceptions as exc
 
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from oslo_log import log as logging
@@ -248,12 +247,12 @@ class VBInterface(NyBase):
         return min <= int(self.id) <= max
 
     def postflight(self, context, method):
-        dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
-        if self.nat_outside and dyn_nat is not None:
-            if dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
-                LOG.warning("Postflight failed for interface {} due to configured interface presence of dynamic NAT {}"
-                            "".format(self.id, dyn_nat))
-                raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
+        if self.nat_outside:
+            dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
+            if dyn_nat is not None and dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
+                LOG.warning("Postflight found instance of dynamic NAT for interface {}, deleting it (instance is {})"
+                            "".format(self.id, dyn_nat.id))
+                dyn_nat.delete()
 
         # remove bridge domain membership, as this stops us from deleting the interface
         if context.version_min_1612:
