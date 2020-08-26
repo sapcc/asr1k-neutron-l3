@@ -292,13 +292,13 @@ class IpV4AddressFamily(NyBase):
         return [
             {'key': 'map', 'yang-path': "export", "default": None},
 
-            # >16.9
+            # =16.9
             {'key': 'rt_export', 'yang-key': "export", 'yang-path': "route-target",
              'type': [RouteTarget], "default": []},
             {'key': 'rt_import', 'yang-key': "import", 'yang-path': "route-target",
              'type': [RouteTarget], "default": []},
 
-            # =16.9
+            # >16.9
             {'key': 'rt_export', 'yang-key': "without-stitching",
              'yang-path': "route-target/export-route-target",
              'type': [RouteTarget], "default": []},
@@ -324,7 +324,7 @@ class IpV4AddressFamily(NyBase):
                 rt = {VrfConstants.ROUTE_TARGET_EXPORT: {VrfConstants.WITHOUT_STITCHING: asns}}
             else:
                 rt = {VrfConstants.EXPORT: asns}
-            address_family[VrfConstants.ROUTE_TARGET] = rt
+            address_family[VrfConstants.ROUTE_TARGET].update(rt)
 
         if self.rt_import:
             asns = []
@@ -335,7 +335,7 @@ class IpV4AddressFamily(NyBase):
                 rt = {VrfConstants.ROUTE_TARGET_IMPORT: {VrfConstants.WITHOUT_STITCHING: asns}}
             else:
                 rt = {VrfConstants.IMPORT: asns}
-            address_family[VrfConstants.ROUTE_TARGET] = rt
+            address_family[VrfConstants.ROUTE_TARGET].update(rt)
 
         return dict(address_family)
 
