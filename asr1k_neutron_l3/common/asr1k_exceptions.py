@@ -25,6 +25,10 @@ class RdPoolExhausted(nexception.NotFound):
     message = "No free RD could be allocated to the router. Please raise an issue with support."
 
 
+class SecondDot1QPoolExhausted(nexception.NotFound):
+    message = "No free second dot1q id could be allocated for agent host %(agent_host)s."
+
+
 class DeviceUnreachable(BaseException):
     message = "Device %(host)s is not reachable"
 
