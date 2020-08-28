@@ -14,6 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import random
+
 import sqlalchemy as sa
 from oslo_log import helpers as log_helpers
 from oslo_log import log
@@ -529,6 +531,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
 
 class ExtraAttsDb(object):
+
     @classmethod
     def ensure(cls, router_id, port, segment):
         context = n_context.get_admin_context()
@@ -570,22 +573,19 @@ class ExtraAttsDb(object):
 
     def set_next_entries(self):
         extra_atts = self.session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(agent_host=self.agent_host)
-        second_dot1qs = []
+        second_dot1qs_used = set([item.second_dot1q for item in extra_atts])
+        second_dot1qs_available = list(set(range(MIN_SECOND_DOT1Q, MAX_SECOND_DOT1Q)) - second_dot1qs_used)
+        if len(second_dot1qs_available) == 0:
+            raise asr1k_exceptions.SecondDot1QPoolExhausted(agent_host=self.agent_host)
+        self.second_dot1q = random.choice(second_dot1qs_available)
 
-        for extra_att in extra_atts:
-            second_dot1qs.append(extra_att.second_dot1q)
-
-        for x in range(MIN_SECOND_DOT1Q, MAX_SECOND_DOT1Q):
-            if x not in second_dot1qs:
-                self.second_dot1q = x
-                break
 
     def _ensure(self):
         if not self._record_exists:
             LOG.debug("L2 extra atts not existing, attempting create")
-            self.set_next_entries()
 
             with self.session.begin(subtransactions=True):
+                self.set_next_entries()
                 extra_atts = asr1k_models.ASR1KExtraAttsModel(
                     router_id=self.router_id,
                     agent_host=self.agent_host,
@@ -618,33 +618,18 @@ class RouterAttsDb(object):
         return entry is not None
 
     def _set_next_entries(self):
-        router_att = self.session.query(asr1k_models.ASR1KRouterAttsModel).order_by(
-            asr1k_models.ASR1KRouterAttsModel.rd.desc()).first()
-
-        if router_att is None:
-            self.rd = 1
-        elif router_att.rd <= MAX_RD:
-            self.rd = router_att.rd + 1
-        else:
-            rds = []
-            router_atts = self.session.query(asr1k_models.ASR1KRouterAttsModel).all()
-            for router_att in router_atts:
-                rds.append(router_att.rd)
-
-            for x in range(MIN_RD, MAX_RD):
-                if x not in rds:
-                    self.rd = x
-                    break
-
-        if self.rd is None:
+        rds_used = set([item.rd for item in self.session.query(asr1k_models.ASR1KRouterAttsModel)])
+        rds_available = list(set(range(MIN_RD, MAX_RD)) - rds_used)
+        if len(rds_available) == 0:
             raise asr1k_exceptions.RdPoolExhausted()
+        self.rd = random.choice(rds_available)
 
     def _ensure(self):
         if not self._record_exists:
             LOG.debug("Router atts not existing, attempting create")
-            self._set_next_entries()
 
             with self.session.begin(subtransactions=True):
+                self._set_next_entries()
                 router_atts = asr1k_models.ASR1KRouterAttsModel(
                     router_id=self.router_id,
                     rd=self.rd,
