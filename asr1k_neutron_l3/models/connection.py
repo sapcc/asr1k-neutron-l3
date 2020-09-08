@@ -23,8 +23,7 @@ import re
 
 from threading import Lock
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
-from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable, CapabilityNotFoundException, \
-    VersionInfoNotAvailable
+from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable, CapabilityNotFoundException
 from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
@@ -343,7 +342,7 @@ class YangConnection(object):
         min_rev_date = datetime.datetime.strptime(min_revision, "%Y-%m-%d")
 
         if getattr(self.connection, "server_capabilities", None) is None:
-            raise VersionInfoNotAvailable(host=self.context.host, entity='<capability list>')
+            raise DeviceUnreachable(host=self.context.host)
 
         for url in self.connection.server_capabilities:
             url = url.strip()  # some urls still have spaces and \n around them
