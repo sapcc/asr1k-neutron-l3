@@ -150,8 +150,7 @@ class InternalInterface(Interface):
                                             mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                             ip_address=self.ip_address,
                                             secondary_ip_addresses=self.secondary_ip_addresses,
-                                            nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf),
-                                            desire_nat_stick=cfg.CONF.asr1k_l3.use_nat_stick)
+                                            nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf))
 
 
 class OrphanedInterface(Interface):
