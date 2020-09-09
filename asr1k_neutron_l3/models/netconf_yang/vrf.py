@@ -320,7 +320,7 @@ class IpV4AddressFamily(NyBase):
             for rt in sorted(self.rt_export, key=attrgetter('normalized_asn_ip')):
                 asns.append(rt.to_dict(context))
 
-            if context.version_min_1612:
+            if context.version_min_17_3:
                 rt = {VrfConstants.ROUTE_TARGET_EXPORT: {VrfConstants.WITHOUT_STITCHING: asns}}
             else:
                 rt = {VrfConstants.EXPORT: asns}
@@ -331,7 +331,7 @@ class IpV4AddressFamily(NyBase):
             for rt in sorted(self.rt_import, key=attrgetter('normalized_asn_ip')):
                 asns.append(rt.to_dict(context))
 
-            if context.version_min_1612:
+            if context.version_min_17_3:
                 rt = {VrfConstants.ROUTE_TARGET_IMPORT: {VrfConstants.WITHOUT_STITCHING: asns}}
             else:
                 rt = {VrfConstants.IMPORT: asns}

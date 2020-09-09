@@ -90,7 +90,7 @@ class RouteMap(NyBase):
         map[RouteMapConstants.NAME] = self.name
         map[RouteMapConstants.ROUTE_MAP_SEQ] = []
         for item in self.seq:
-            if item is not None and not (context.version_min_1612 and item.drop_on_1612):
+            if item is not None and not (context.version_min_17_3 and item.drop_on_17_3):
                 map[RouteMapConstants.ROUTE_MAP_SEQ].append(item.to_dict(context=context))
 
         result[self.ITEM_KEY] = map
@@ -128,7 +128,7 @@ class MapSequence(NyBase):
             {'key': 'prefix_list', 'yang-key': 'prefix-list', 'yang-path': 'match/ip/address'},
             {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
             {'key': 'ip_precedence', 'yang-path': 'set/ip/precedence', 'yang-key': 'precedence-fields'},
-            {'key': 'drop_on_1612', 'default': False},
+            {'key': 'drop_on_17_3', 'default': False},
         ]
 
     def __init__(self, **kwargs):
@@ -140,7 +140,7 @@ class MapSequence(NyBase):
 
     @classmethod
     def from_json(cls, json, context, *args, **kwargs):
-        if context.version_min_1612:
+        if context.version_min_17_3:
             nh = (json.get(RouteMapConstants.SET, {})
                       .get(RouteMapConstants.IP, {})
                       .get(RouteMapConstants.NEXT_HOP, {}))
@@ -162,12 +162,12 @@ class MapSequence(NyBase):
                 RouteMapConstants.EXTCOMMUNITY: {RouteMapConstants.RT: {RouteMapConstants.ASN: self.asn}}}
 
         if self.next_hop is not None:
-            if context.version_min_1612:
+            if context.version_min_17_3:
                 seq[RouteMapConstants.SET] = {
                     RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP: {RouteMapConstants.ADDRESS: [self.next_hop]}}
                 }
                 if self.force:
-                    # it looks like the force flag is now part of the address list in 16.12
+                    # it looks like the force flag is now part of the address list in 17.3+
                     seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][
                         RouteMapConstants.ADDRESS].append(RouteMapConstants.FORCE)
             else:

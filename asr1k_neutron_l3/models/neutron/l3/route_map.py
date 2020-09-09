@@ -78,7 +78,7 @@ class PBRRouteMap(base.Base):
                                                    next_hop=gateway_interface.primary_gateway_ip,
                                                    ip_precedence='routine',
                                                    force=True,
-                                                   drop_on_1612=cfg.CONF.asr1k_l3.use_nat_stick))
+                                                   drop_on_17_3=cfg.CONF.asr1k_l3.use_nat_stick))
             sequences.append(route_map.MapSequence(seq_no=15,
                                                    operation='permit',
                                                    ip_precedence='routine'))

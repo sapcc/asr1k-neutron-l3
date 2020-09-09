@@ -144,7 +144,7 @@ class PrefixSeq(NyBase):
             {'key': 'permit_ge', 'yang-key': 'ge', 'yang-path': 'permit'},
             {'key': 'permit_le', 'yang-key': 'le', 'yang-path': 'permit'},
 
-            # new seq format for 16.12+
+            # new seq format for 17.3+
             {'key': 'action'},
             {'key': 'action_ip', 'yang-key': 'ip'},
             {'key': 'le'},
@@ -161,9 +161,9 @@ class PrefixSeq(NyBase):
         seq = OrderedDict()
 
         seq[PrefixConstants.NUMBER] = self.no
-        if context.version_min_1612:
+        if context.version_min_17_3:
             if self.action is not None:
-                # parameters passed in 16.12 format
+                # parameters passed in 17.3 format
                 seq[PrefixConstants.ACTION] = self.action
                 seq[PrefixConstants.IP] = self.action_ip
                 if self.ge:

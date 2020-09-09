@@ -158,7 +158,7 @@ class VBInterface(NyBase):
 
     @staticmethod
     def is_bdvif(context):
-        return context.version_min_1612 and context.use_bdvif
+        return context.version_min_17_3 and context.use_bdvif
 
     def preflight(self, context):
         """Remove BDI with same name when BD-VIF is in use (migration code)"""
@@ -193,7 +193,7 @@ class VBInterface(NyBase):
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.ADDRESS] = self.ip_address.address
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.MASK] = self.ip_address.mask
 
-        if self.nat_stick or (self.nat_inside and context.version_min_1612 and self.desire_nat_stick):
+        if self.nat_stick or (self.nat_inside and context.version_min_17_3 and self.desire_nat_stick):
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_STICK: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
         elif self.nat_inside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
@@ -255,7 +255,7 @@ class VBInterface(NyBase):
                 dyn_nat.delete()
 
         # remove bridge domain membership, as this stops us from deleting the interface
-        if context.version_min_1612:
+        if context.version_min_17_3:
             bd = BridgeDomain.get_for_bdvif(self.name, context, partial=True)
             if bd is not None:
                 # in theory there should be only one member, as we're only getting a partial config, but who knows

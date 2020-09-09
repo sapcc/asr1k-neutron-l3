@@ -148,7 +148,7 @@ class AddressFamily(NyBase):
             vrf[BGPConstants.NAME] = self.vrf
             vrf[BGPConstants.IPV4_UNICAST] = {}
 
-            REDIST_CONST = BGPConstants.REDISTRIBUTE_VRF if context.version_min_1612 else BGPConstants.REDISTRIBUTE
+            REDIST_CONST = BGPConstants.REDISTRIBUTE_VRF if context.version_min_17_3 else BGPConstants.REDISTRIBUTE
             vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST] = {}
             if self.connected:
                 vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST][BGPConstants.CONNECTED] = ''
