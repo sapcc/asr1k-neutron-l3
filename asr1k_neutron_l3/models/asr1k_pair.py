@@ -26,7 +26,7 @@ LOG = logging.getLogger(__name__)
 class ASR1KContextBase(object):
     @property
     def use_bdvif(self):
-        return self.version_min_17_3 and self._use_bdvif
+        return self.version_min_17_3
 
     @property
     def bd_iftype(self):
@@ -40,15 +40,14 @@ class FakeASR1KContext(ASR1KContextBase):
     made, e.g. in a __str__ method. It pins the version checks to a specific version to produce
     stable results
     """
-    def __init__(self, version_min_17_3=True, use_bdvif=False):
+    def __init__(self, version_min_17_3=True):
         self.version_min_17_3 = version_min_17_3
-        self._use_bdvif = use_bdvif
 
 
 class ASR1KContext(ASR1KContextBase):
     version_min_17_3 = property(lambda self: self._get_version_attr('_version_min_17_3'))
 
-    def __init__(self, name, host, yang_port, nc_timeout, username, password, use_bdvif, insecure=True,
+    def __init__(self, name, host, yang_port, nc_timeout, username, password, insecure=True,
                  headers={}):
         self.name = name
         self.host = host
@@ -56,7 +55,6 @@ class ASR1KContext(ASR1KContextBase):
         self.nc_timeout = nc_timeout
         self.username = username
         self.password = password
-        self._use_bdvif = use_bdvif
         self.insecure = insecure
         self.headers = headers
         self.headers['content-type'] = headers.get('content-type', "application/yang-data+json")
@@ -109,7 +107,7 @@ class ASR1KPair(object):
             asr1kctx = ASR1KContext(device_name, config.get('host'),
                                     config.get('yang_port', self.config.asr1k_devices.yang_port),
                                     int(config.get('nc_timeout', self.config.asr1k_devices.nc_timeout)),
-                                    config.get('user_name'), config.get('password'), config.get('use_bdvif'),
+                                    config.get('user_name'), config.get('password'),
                                     insecure=True)
 
             self.contexts.append(asr1kctx)
