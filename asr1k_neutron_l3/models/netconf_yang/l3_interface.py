@@ -155,10 +155,6 @@ class VBInterface(NyBase):
         if self.vrf:
             return utils.vrf_id_to_uuid(self.vrf)
 
-    @staticmethod
-    def is_bdvif(context):
-        return context.version_min_17_3 and context.use_bdvif
-
     def preflight(self, context):
         """Remove BDI with same name when BD-VIF is in use (migration code)"""
         if not context.use_bdvif:
