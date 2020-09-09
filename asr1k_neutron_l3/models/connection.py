@@ -354,12 +354,3 @@ class YangConnection(object):
                 return schema_rev_date >= min_rev_date
 
         raise CapabilityNotFoundException(host=self.context.host, entity_name=baseurl)
-
-    def collect_version_info(self):
-        self._min_version_1612 = self.check_capability(module="Cisco-IOS-XE-native", min_revision="2019-07-01")
-
-    @property
-    def is_min_version_1612(self):
-        if not hasattr(self, '_min_version_1612'):
-            self.collect_version_info()
-        return self._min_version_1612

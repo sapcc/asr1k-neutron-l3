@@ -115,7 +115,7 @@ class BridgeDomain(NyBase):
         bddef[xml_utils.NS] = xml_utils.NS_CISCO_BRIDGE_DOMAIN
         bddef[L2Constants.BRIDGE_DOMAIN_ID] = self.id
 
-        if context.version_min_1612:
+        if context.version_min_17_3:
             if context.use_bdvif:
                 bddef[L2Constants.MEMBER] = {
                     L2Constants.MEMBER_IFACE: [_m.to_dict(context)

@@ -192,16 +192,16 @@ class ParsingTest(base.BaseTestCase):
             "rt_import": {"4268359685:12345", "65148:12345"},
         }
 
-        context_1609 = FakeASR1KContext(version_min_1612=False)
-        context_1612 = FakeASR1KContext(version_min_1612=True)
+        context_1609 = FakeASR1KContext(version_min_17_3=False)
+        context_17_3 = FakeASR1KContext(version_min_17_3=True)
 
         for context, vrf_xml, expected in ((context_1609, vrf_xml_1609_single, expected_single),
                                            (context_1609, vrf_xml_1609_multi, expected_multi),
-                                           (context_1612, vrf_xml_1731, expected_multi)):
+                                           (context_17_3, vrf_xml_1731, expected_multi)):
             vrf = VrfDefinition.from_xml(vrf_xml, context)
             self.assertEqual(expected['rt_export'],
                              set([rt.normalized_asn_ip for rt in vrf.address_family_ipv4.rt_export]),
-                             "rt_export failed for 1612={}".format(context.version_min_1612))
+                             "rt_export failed for 17_3={}".format(context.version_min_17_3))
             self.assertEqual(expected['rt_import'],
                              set([rt.normalized_asn_ip for rt in vrf.address_family_ipv4.rt_import]),
-                             "rt_import failed for 1612={}".format(context.version_min_1612))
+                             "rt_import failed for 17_3={}".format(context.version_min_17_3))

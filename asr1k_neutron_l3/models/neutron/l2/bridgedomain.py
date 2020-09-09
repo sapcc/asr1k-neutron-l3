@@ -105,13 +105,13 @@ class BridgeDomain(object):
                                                                       .format(self.network_id)
                                                                       if self.network_id else None)
 
-        # process ports (16.9: build hyperloop, 16.12: build bdvif members)
+        # process ports (16.9: build hyperloop, 17.3: build bdvif members)
         self.lb_ext_ifaces = []
         self.lb_int_ifaces = []
         self.if_members = [
             l2_interface.BDIfMember(interface='Port-channel1',
                                     service_instances=[l2_interface.BDIfMemberServiceInstance(id=self.bd_id)]),
-            # this second interface is only here to keep the BD up on 16.12
+            # this second interface is only here to keep the BD up on 17.3
             # this can be removed after github issue #29 has been fixed by cisco
             l2_interface.BDIfMember(interface='Port-channel2',
                                     service_instances=[l2_interface.BDIfMemberServiceInstance(id=self.bd_id)]),
@@ -136,7 +136,7 @@ class BridgeDomain(object):
                                                                   way=2, mode="symmetric")
             self.lb_int_ifaces.append(lb_int_iface)
 
-            # only used for 16.12
+            # only used for 17.3
             bdvif_member = l2_interface.BDVIFMember(name=int_service_instance)
             self.bdvif_members.append(bdvif_member)
 
