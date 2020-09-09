@@ -141,7 +141,6 @@ class VBInterface(NyBase):
             {'key': 'access_group_out', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/out/acl'},
             {'key': 'redundancy_group'},
             {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
-            {'key': 'desire_nat_stick', 'default': False},
         ]
 
     def __init__(self, **kwargs):
@@ -193,7 +192,7 @@ class VBInterface(NyBase):
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.ADDRESS] = self.ip_address.address
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.MASK] = self.ip_address.mask
 
-        if self.nat_stick or (self.nat_inside and context.version_min_17_3 and self.desire_nat_stick):
+        if self.nat_stick or (self.nat_inside and context.version_min_17_3):
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_STICK: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
         elif self.nat_inside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
