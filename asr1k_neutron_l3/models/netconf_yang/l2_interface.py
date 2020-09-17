@@ -402,10 +402,14 @@ class LoopbackExternalInterface(ServiceInstance):
             return super(LoopbackExternalInterface, self).to_dict(context)
 
     def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
-        return context.use_bdvif or \
+        # KeepBDUpInterface is included here, as they share a port-channel
+        return not context.use_bdvif and \
             (utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) <= int(self.id) <=
              utils.to_bridge_domain(asr1k_db.MAX_SECOND_DOT1Q) and
-             int(self.id) not in all_bd_ids)
+             int(self.id) not in all_bd_ids) or \
+            context.use_bdvif and \
+            (asr1k_db.MIN_DOT1Q <= int(self.id) <= asr1k_db.MAX_DOT1Q and
+             int(self.id) not in all_segmentation_ids)
 
 
 class LoopbackInternalInterface(ServiceInstance):
@@ -440,6 +444,4 @@ class KeepBDUpInterface(ServiceInstance):
             return {}
 
     def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
-        return not context.use_bdvif or \
-            (asr1k_db.MIN_DOT1Q <= int(self.id) <= asr1k_db.MAX_DOT1Q and
-             int(self.id) not in all_segmentation_ids)
+        raise NotImplementedError("This class' orphan check is handled by LoopbackExternalInterface")
