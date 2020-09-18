@@ -19,14 +19,15 @@ from asr1k_neutron_l3.models.netconf_yang import access_list
 
 
 class AccessList(base.Base):
-    def __init__(self, id,):
+    def __init__(self, id, drop_on_17_3=False):
         super(AccessList, self).__init__()
         self.id = id
+        self._drop_on_17_3 = drop_on_17_3
         self.rules = []
 
     @property
     def _rest_definition(self):
-        acl = access_list.AccessList(name=self.id)
+        acl = access_list.AccessList(name=self.id, drop_on_17_3=self._drop_on_17_3)
         for i, rule in enumerate(self.rules):
             sequence = (i + 1) * 10
             ace_rule = access_list.ACERule(access_list=self.id, acl_rule=sequence, action=rule.action,

@@ -169,7 +169,7 @@ class Router(Base):
         return acl
 
     def _build_pbr_acl(self):
-        acl = access_list.AccessList("PBR-{}".format(utils.uuid_to_vrf_id(self.router_id)))
+        acl = access_list.AccessList("PBR-{}".format(utils.uuid_to_vrf_id(self.router_id)), drop_on_17_3=True)
 
         if self.gateway_interface:
             subnet = self.gateway_interface.primary_subnet
