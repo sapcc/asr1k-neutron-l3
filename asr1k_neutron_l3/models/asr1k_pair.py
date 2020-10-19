@@ -40,12 +40,18 @@ class FakeASR1KContext(ASR1KContextBase):
     made, e.g. in a __str__ method. It pins the version checks to a specific version to produce
     stable results
     """
-    def __init__(self, version_min_17_3=True):
+    def __init__(self, version_min_17_3=True, has_stateless_nat=True):
         self.version_min_17_3 = version_min_17_3
+        self._has_stateless_nat = has_stateless_nat
+
+    @property
+    def has_stateless_nat(self):
+        return self._has_stateless_nat
 
 
 class ASR1KContext(ASR1KContextBase):
     version_min_17_3 = property(lambda self: self._get_version_attr('_version_min_17_3'))
+    has_stateless_nat = property(lambda self: self._get_version_attr('_has_stateless_nat'))
 
     def __init__(self, name, host, yang_port, nc_timeout, username, password, insecure=True,
                  headers={}):
@@ -74,6 +80,8 @@ class ASR1KContext(ASR1KContextBase):
             # ASR 17.3 has at least this version for the YANG native model
             self._version_min_17_3 = connection.check_capability(module="Cisco-IOS-XE-native",
                                                                  min_revision="2020-07-01")
+            self._has_stateless_nat = connection.check_capability(module="Cisco-IOS-XE-nat",
+                                                                  min_revision="2020-11-01")
 
         self._got_version_info = True
 

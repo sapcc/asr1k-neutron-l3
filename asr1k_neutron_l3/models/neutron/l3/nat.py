@@ -158,7 +158,7 @@ class FloatingIp(BaseNAT):
         self._rest_definition = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
                                                  mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
                                                  redundancy=self.redundancy, mapping_id=self.mapping_id,
-                                                 mac_address=self.mac_address, match_in_vrf=True)
+                                                 mac_address=self.mac_address, match_in_vrf=True, stateless=True)
 
     def get(self):
         static_nat = l3_nat.StaticNat.get(self.local_ip, self.global_ip)

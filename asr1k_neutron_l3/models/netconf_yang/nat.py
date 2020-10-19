@@ -54,6 +54,7 @@ class NATConstants(object):
     GLOBAL_IP = "global-ip"
     FORCED = "forced"
     MATCH_IN_VRF = "match-in-vrf"
+    STATELESS = "stateless"
 
 
 class NatPool(NyBase):
@@ -596,7 +597,8 @@ class StaticNat(NyBase):
             {'key': 'vrf'},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
-            {'key': 'match_in_vrf', 'yang-key': 'match-in-vrf', 'default': False}
+            {'key': 'match_in_vrf', 'yang-key': 'match-in-vrf', 'default': False},
+            {'key': 'stateless', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
         ]
 
     @classmethod
@@ -681,6 +683,9 @@ class StaticNat(NyBase):
         if self.match_in_vrf:
             entry[NATConstants.MATCH_IN_VRF] = ""
         entry[NATConstants.MATCH_IN_VRF] = ""
+
+        if self.stateless and context.has_stateless_nat:
+            entry[NATConstants.STATELESS] = ""
 
         return entry
 
