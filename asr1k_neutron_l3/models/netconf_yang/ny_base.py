@@ -406,6 +406,7 @@ class NyBase(BulkOperations):
         # Should we delete even if object reports not existing
         #
         self.force_delete = False
+        self.from_device = kwargs.get("from_device", False)
 
         # Should fatal exceptions be raised
 
@@ -549,7 +550,9 @@ class NyBase(BulkOperations):
         try:
             if not bool(json):
                 return None
-            params = {}
+            params = {
+                'from_device': True,
+            }
 
             for param in cls.__parameters__():
                 if param.get('deserialise', True):
