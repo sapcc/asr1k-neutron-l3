@@ -676,16 +676,24 @@ class StaticNat(NyBase):
         entry[NATConstants.GLOBAL_IP] = self.global_ip
         entry[NATConstants.VRF] = self.vrf
 
-        if self.redundancy is not None:
-            entry[NATConstants.REDUNDANCY] = self.redundancy
-            entry[NATConstants.MAPPING_ID] = self.mapping_id
-
         if self.match_in_vrf:
             entry[NATConstants.MATCH_IN_VRF] = ""
         entry[NATConstants.MATCH_IN_VRF] = ""
 
-        if self.stateless and context.has_stateless_nat:
-            entry[NATConstants.STATELESS] = ""
+        if not self.from_device:
+            if self.stateless and context.has_stateless_nat:
+                entry[NATConstants.STATELESS] = ""
+            elif self.redundancy is not None:
+                # only set redundancy if we should not or cannot enable stateless
+                entry[NATConstants.REDUNDANCY] = self.redundancy
+                entry[NATConstants.MAPPING_ID] = self.mapping_id
+        else:
+            if self.stateless:
+                entry[NATConstants.STATELESS] = ""
+            if self.redundancy:
+                entry[NATConstants.REDUNDANCY] = self.redundancy
+            if self.mapping_id:
+                entry[NATConstants.MAPPING_ID] = self.mapping_id
 
         return entry
 

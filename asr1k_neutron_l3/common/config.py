@@ -63,6 +63,8 @@ ASR1K_L3_OPTS = [
     cfg.IntOpt('max_config_save_interval', default=900,
                help=_('Maximum interval in which the device config should be saved. Only triggers if a complete '
                       'router sync loop takes longer than this interval.')),
+    cfg.BoolOpt('stateless_nat', default=True,
+                help=_("Enable stateless nat for floating if the device supports it")),
 ]
 
 ASR1K_L2_OPTS = [
