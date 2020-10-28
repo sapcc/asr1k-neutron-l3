@@ -20,6 +20,7 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import cache_utils
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.extensions import asr1koperations as asr1k_ext
@@ -308,8 +309,19 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
     def get_router(self, context, id, fields=None):
         return super(ASR1KPluginBase, self).get_router(context, id, fields)
 
+    def _add_router_to_cache(self, context, router_id):
+        LOG.debug("Adding router %s to internal router cache", router_id)
+        host = self.get_host_for_router(context, [router_id])
+        routers = self.get_sync_data(context, [router_id])
+        if not routers:
+            LOG.warning("Could not add router %s to internal router cache: get_sync_data came up empty", router_id)
+            return
+
+        cache_utils.cache_deleted_router(host, router_id, routers[0])
+
     @log_helpers.log_method_call
     def delete_router(self, context, id):
+        self._add_router_to_cache(context, id)
         return super(ASR1KPluginBase, self).delete_router(context, id)
 
     @log_helpers.log_method_call

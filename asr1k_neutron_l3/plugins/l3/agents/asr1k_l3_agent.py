@@ -144,11 +144,11 @@ class L3PluginApi(object):
                           router_ids=router_ids)
 
     @instrument()
-    def get_deleted_routers(self, context, router_ids=None):
+    def get_deleted_router(self, context, router_id):
         """Make a remote process call to retrieve the deleted router data."""
         cctxt = self.client.prepare()
-        return cctxt.call(context, 'get_deleted_routers', host=self.host,
-                          router_ids=router_ids)
+        return cctxt.call(context, 'get_deleted_router', host=self.host,
+                          router_id=router_id)
 
     @instrument()
     def delete_extra_atts_orphans(self, context, router_ids=None):
@@ -621,16 +621,12 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                     router = self._ensure_snat_mode_config(update)
 
                     if not router:
-                        removed = self._safe_router_deleted(update.id)
-                        if not removed:
-                            self._resync_router(update)
-                            LOG.debug("Router delete failed for %s requeuing for processing", update.id)
-                        else:
-                            # need to update timestamp of removed router in case
-                            # there are older events for the same router in the
-                            # processing queue (like events from fullsync) in order to
-                            # prevent deleted router re-creation
-                            rp.fetched_and_processed(update.timestamp)
+                        self._safe_router_deleted(update.id)
+                        # need to update timestamp of removed router in case
+                        # there are older events for the same router in the
+                        # processing queue (like events from fullsync) in order to
+                        # prevent deleted router re-creation
+                        rp.fetched_and_processed(update.timestamp)
                         continue
 
                     if self._extra_atts_complete(router):
@@ -745,13 +741,10 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                         self, router=router_id)
 
         LOG.debug('Got router deleted notification for %s', router_id)
-
-        routers = self.plugin_rpc.get_deleted_routers(self.context, [router_id])
-
-        router = None
-        if bool(routers):
-            router = routers[0]
-        else:
+        router = self.plugin_rpc.get_deleted_router(self.context, router_id)
+        if not router:
+            LOG.info("Delete of router %s was probably not for %s (no data found in neutron deleted router cache)",
+                     router_id, self.host)
             return True
 
         result = l3_router.Router(router).delete()
@@ -762,16 +755,18 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
         success = self.check_success(result)
         if success:
+            LOG.debug("Successfully deleted router %s", router['id'])
             deleted_ports = utils.calculate_deleted_ports(router)
             if len(deleted_ports) > 0:
+                LOG.debug("Requesting delete for port extra atts router %s ports %s", router['id'], deleted_ports)
                 self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
 
             if self._clean(router):
+                LOG.debug("Router %s clean, requesting delete for router extra atts", router['id'])
                 self.plugin_rpc.delete_router_atts(self.context, [router.get('id')])
             registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router.get('id'))
         else:
-            LOG.warning("Failed to clean up router {} on device, its been left to the scanvenger"
-                        "".format(router.get('id')))
+            LOG.warning("Failed to clean up router %s on device, its been left to the scanvenger", router['id'])
 
         return success
 
@@ -791,12 +786,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         return False
 
     def check_success(self, results):
-        success = True
-        if results is not None:
-            for result in results:
-                if result is not None:
-                    success = success and result.success
-        return success
+        return results is not None and all(result.success for result in results)
 
     def _init_noop(self):
         LOG.debug("Init mode active - in noop mode")
