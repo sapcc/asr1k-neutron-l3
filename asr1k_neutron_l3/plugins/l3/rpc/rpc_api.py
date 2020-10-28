@@ -17,6 +17,7 @@
 from neutron.api.rpc.handlers import l3_rpc
 from oslo_log import log
 
+from asr1k_neutron_l3.common import cache_utils
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
 
@@ -55,11 +56,12 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
             self.db.update_router_status(context, router_id, status)
 
     @instrument()
-    def get_deleted_routers(self, context, **kwargs):
-        host = kwargs.get('host')
-        router_ids = kwargs.get('router_ids')
-
-        return self.l3plugin.get_sync_data(context, router_ids=router_ids, active=None, host=host)
+    def get_deleted_router(self, context, host, router_id):
+        router = cache_utils.get_deleted_router(host, router_id)
+        if not router:
+            LOG.debug("No entry for router %s on host %s in deleted router cache", router_id, host)
+            return
+        return router
 
     @instrument()
     def delete_extra_atts_orphans(self, context, **kwargs):
