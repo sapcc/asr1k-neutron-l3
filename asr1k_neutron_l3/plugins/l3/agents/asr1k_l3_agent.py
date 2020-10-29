@@ -19,6 +19,7 @@ if not os.environ.get('DISABLE_EVENTLET_PATCHING'):
     import eventlet
     eventlet.monkey_patch()
 
+import datetime
 import time
 import eventlet
 import requests
@@ -312,6 +313,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         self._router_sync_marker = None
         self._last_config_save = None
         self.retry_tracker = {}
+        self._deleted_routers = {}
 
         # Get the list of service plugins from Neutron Server
         # This is the first place where we contact neutron-server on startup
@@ -371,6 +373,10 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 self.orphan_loop = loopingcall.FixedIntervalLoopingCall(self.clean_device, dry_run=False)
                 self.orphan_loop.start(interval=cfg.CONF.asr1k.clean_orphan_interval, stop_on_exception=False)
 
+            self.clean_deleted_routers_dict_loop = loopingcall.FixedIntervalLoopingCall(
+                self._clean_deleted_routers_dict)
+            self.clean_deleted_routers_dict_loop.start(interval=3600, stop_on_exception=False)
+
             eventlet.spawn_n(self._process_routers_loop)
 
             LOG.info("L3 agent started")
@@ -401,6 +407,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         return monitor
 
     def router_deleted(self, context, router_id):
+        self._deleted_routers[router_id] = datetime.datetime.now()
         LOG.debug('************** Got router deleted notification for %s', router_id)
         update = queue.ResourceUpdate(router_id,
                                       queue.PRIORITY_RPC,
@@ -411,6 +418,9 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         LOG.debug('************** Got routers updated notification :%s %s', routers, operation)
         if routers:
             for id in routers:
+                # make sure router is not marked as deleted if it was previously already scheduled on this device
+                self._deleted_routers.pop(id, None)
+
                 update = queue.ResourceUpdate(id, queue.PRIORITY_RPC)
                 self._queue.add(update)
 
@@ -438,6 +448,11 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
             self.plugin_rpc.delete_router_atts_orphans(self.context)
         except Exception as e:
             LOG.exception(e)
+
+    def _clean_deleted_routers_dict(self):
+        for router_id, created_at in list(self._deleted_routers.items()):
+            if (datetime.datetime.now() - created_at).total_seconds() > 3600:
+                self._deleted_routers.pop(router_id, None)
 
     def _periodic_sync_routers_task(self):
         try:
@@ -618,6 +633,10 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         try:
             if not self.pause_process:
                 for rp, update in self._queue.each_update_to_next_router():
+                    if update.action != queue.DELETE_ROUTER and update.id in self._deleted_routers:
+                        LOG.debug("Ignoring update request for already deleted router %s", update.id)
+                        continue
+
                     router = self._ensure_snat_mode_config(update)
 
                     if not router:
