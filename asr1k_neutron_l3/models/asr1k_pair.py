@@ -54,7 +54,7 @@ class ASR1KContext(ASR1KContextBase):
     has_stateless_nat = property(lambda self: self._get_version_attr('_has_stateless_nat'))
 
     def __init__(self, name, host, yang_port, nc_timeout, username, password, insecure=True,
-                 headers={}):
+                 force_bdi=False, headers={}):
         self.name = name
         self.host = host
         self.yang_port = yang_port
@@ -62,6 +62,7 @@ class ASR1KContext(ASR1KContextBase):
         self.username = username
         self.password = password
         self.insecure = insecure
+        self.force_bdi = force_bdi
         self.headers = headers
         self.headers['content-type'] = headers.get('content-type', "application/yang-data+json")
         self.headers['accept'] = headers.get('accept', "application/yang-data+json")
@@ -91,6 +92,10 @@ class ASR1KContext(ASR1KContextBase):
         if not hasattr(self, attr_name):
             raise VersionInfoNotAvailable(host=self.context.host, entity=attr_name)
         return getattr(self, attr_name)
+
+    @property
+    def use_bdvif(self):
+        return self.version_min_17_3 and not self.force_bdi
 
 
 class ASR1KPair(object):

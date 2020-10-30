@@ -163,7 +163,7 @@ class VBInterface(NyBase):
         # XXX: to get the BDI we need to act like this context does
         # this should be removed after we're done with the migration
         nobdvif_context = copy.copy(context)
-        nobdvif_context._use_bdvif = False
+        nobdvif_context.force_bdi = True
 
         bdi = self._internal_get(context=nobdvif_context)
         if bdi:
