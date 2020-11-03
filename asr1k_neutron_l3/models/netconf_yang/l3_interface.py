@@ -178,6 +178,8 @@ class VBInterface(NyBase):
         vbi[L3Constants.MTU] = self.mtu
         if self.shutdown:
             vbi[L3Constants.SHUTDOWN] = ''
+        else:
+            vbi[L3Constants.SHUTDOWN] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
 
         ip = OrderedDict()
         ip[xml_utils.OPERATION] = NC_OPERATION.PUT
