@@ -778,9 +778,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 LOG.debug("Requesting delete for port extra atts router %s ports %s", router['id'], deleted_ports)
                 self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
 
-            if self._clean(router):
-                LOG.debug("Router %s clean, requesting delete for router extra atts", router['id'])
-                self.plugin_rpc.delete_router_atts(self.context, [router.get('id')])
+            self._clean(router)
             registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router.get('id'))
         else:
             LOG.warning("Failed to clean up router %s on device, its been left to the scanvenger", router['id'])
