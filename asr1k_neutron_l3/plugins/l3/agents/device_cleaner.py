@@ -135,7 +135,8 @@ class DeviceCleanerMixin(object):
                                 try:
                                     item = stub._internal_get(context=context)
                                     if item is None:
-                                        raise ValueError("Entity not present on device {}".format(context.name))
+                                        raise ValueError("Entity {} {} not present on device {}"
+                                                         .format(entity_cls.__name__, stub.id, context.name))
                                     item._delete_no_retry(context=context)
                                     orphan_deleted_count += 1
                                 except RPCError as e:
@@ -143,6 +144,8 @@ class DeviceCleanerMixin(object):
                                     LOG.error("Cleaning of %s %s failed, extra info: %s",
                                               entity_cls.__name__, stub.id, extra_info,
                                               exc_info=exc_info_full())
+                                except ValueError as e:
+                                    LOG.warning(e)
                                 except BaseException:
                                     LOG.error("Cleaning of %s %s failed", entity_cls.__name__, stub.id,
                                               exc_info=exc_info_full())
