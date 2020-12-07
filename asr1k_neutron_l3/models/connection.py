@@ -305,7 +305,7 @@ class YangConnection(object):
                         duration = time.time() - call_start
                         success = "succeeded" if success else "failed"
                         xml_data = self.gen_xml_from_ncc_call(method=method, args=args, kwargs=kwargs)
-                        LOG.debug("YANG call trace %s in %.4f on %s: %s",
+                        LOG.debug("YANG call trace %s in %.4fs on %s: %s",
                                   success, duration, self.context.host, xml_data)
                     except Exception as e:
                         LOG.exception(e)
