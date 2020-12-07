@@ -99,7 +99,7 @@ class VrfDefinition(NyBase, Requeable):
         export map exp-{}"""
 
     DELETE_VRF_RD = """
-        <config>
+        <config  xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
             <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
                 <vrf>
                     <definition>
