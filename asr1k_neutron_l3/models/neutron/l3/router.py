@@ -53,10 +53,10 @@ class Router(Base):
         self.interfaces = self._build_interfaces()
         self.routes = self._build_routes()
         self.enable_snat = False
-        self.routeable_interface = False
+        self.routable_interface = False
         if router_info.get('external_gateway_info') is not None:
             self.enable_snat = router_info.get('external_gateway_info', {}).get('enable_snat', False)
-            self.routeable_interface = len(self.address_scope_matches()) > 0
+            self.routable_interface = len(self.address_scope_matches()) > 0
 
         description = self.router_info.get('description')
 
@@ -80,19 +80,19 @@ class Router(Base):
                       self.router_info.get('id'))
 
         self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn,
-                           rd=self.router_atts.get('rd'), routeable_interface=self.routeable_interface,
+                           rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
                            rt_import=self.rt_import, rt_export=self.rt_export)
 
         self.nat_acl = self._build_nat_acl()
         self.pbr_acl = self._build_pbr_acl()
 
         self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,
-                                            routeable_interface=self.routeable_interface)
+                                            routable_interface=self.routable_interface)
 
         self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'), gateway_interface=self.gateway_interface)
 
         self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
-                                                    routeable_interface=self.routeable_interface,
+                                                    routable_interface=self.routable_interface,
                                                     rt_export=self.rt_export)
 
         self.dynamic_nat = self._build_dynamic_nat()
@@ -293,7 +293,7 @@ class Router(Base):
 
         # results.append(self.bgp_address_family.update())
 
-        if self.routeable_interface or len(self.rt_export) > 0:
+        if self.routable_interface or len(self.rt_export) > 0:
             results.append(self.bgp_address_family.update())
         else:
             results.append(self.bgp_address_family.delete())
@@ -380,7 +380,7 @@ class Router(Base):
         if not vrf_diff.valid:
             diff_results['vrf'] = vrf_diff.to_dict()
 
-        if self.routeable_interface:
+        if self.routable_interface:
             bgp_diff = self.bgp_address_family.diff()
 
             if not bgp_diff.valid:

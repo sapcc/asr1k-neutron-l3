@@ -19,7 +19,7 @@ from asr1k_neutron_l3.models.neutron.l3 import base
 
 
 class RouteMap(base.Base):
-    def __init__(self, name, rt=None, routeable_interface=False):
+    def __init__(self, name, rt=None, routable_interface=False):
         super(RouteMap, self).__init__()
         self.vrf = utils.uuid_to_vrf_id(name)
         self.name = "exp-{}".format(self.vrf)
@@ -30,14 +30,14 @@ class RouteMap(base.Base):
             if len(components) == 2:
                 self.secondary_rt = components[0] + ":" + str(int(components[1]) + 1000)
 
-        self.routeable_interface = routeable_interface
+        self.routable_interface = routable_interface
         self.enable_bgp = False
-        if self.routeable_interface:
+        if self.routable_interface:
             self.enable_bgp = True
 
         sequences = []
         seq = 10
-        if self.routeable_interface:
+        if self.routable_interface:
             sequences.append(route_map.MapSequence(seq_no=seq,
                                                    operation='permit',
                                                    prefix_list='snat-{}'.format(self.vrf),
