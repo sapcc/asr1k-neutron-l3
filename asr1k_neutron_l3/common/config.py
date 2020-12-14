@@ -65,6 +65,8 @@ ASR1K_L3_OPTS = [
                       'router sync loop takes longer than this interval.')),
     cfg.BoolOpt('stateless_nat', default=True,
                 help=_("Enable stateless nat for floating if the device supports it")),
+    cfg.StrOpt('dapnet_rm_prefix', default='RM-DAP-CCLOUD',
+               help="Route-Map prefix for Directly Accessible Private Networks (DAPNets)"),
 ]
 
 ASR1K_L2_OPTS = [

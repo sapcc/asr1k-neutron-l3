@@ -14,6 +14,8 @@
 from neutron.tests import base
 
 from asr1k_neutron_l3.models.asr1k_pair import FakeASR1KContext
+from asr1k_neutron_l3.common.utils import from_cidr
+from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 
@@ -205,3 +207,68 @@ class ParsingTest(base.BaseTestCase):
             self.assertEqual(expected['rt_import'],
                              set([rt.normalized_asn_ip for rt in vrf.address_family_ipv4.rt_import]),
                              "rt_import failed for 17_3={}".format(context.version_min_17_3))
+
+    def test_bgp_parsing(self):
+        bgp_xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="urn:uuid:9caf3918-3eb9-4d0e-a8a5-5ec268e3bf97">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <router>
+        <bgp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
+          <id>65148</id>
+          <address-family>
+            <with-vrf>
+              <ipv4>
+                <af-name>unicast</af-name>
+                <vrf>
+                  <name>7beea201af384c1385fb9b531c73ad95</name>
+                  <ipv4-unicast>
+                    <network>
+                      <with-mask>
+                        <number>10.180.0.0</number>
+                        <mask>255.255.255.0</mask>
+                      </with-mask>
+                      <with-mask>
+                        <number>10.180.1.0</number>
+                        <mask>255.255.255.0</mask>
+                      </with-mask>
+                      <with-mask>
+                        <number>10.236.41.192</number>
+                        <mask>255.255.255.192</mask>
+                      </with-mask>
+                      <with-mask>
+                        <number>10.236.41.201</number>
+                        <mask>255.255.255.255</mask>
+                      </with-mask>
+                    </network>
+                    <redistribute-vrf>
+                      <connected/>
+                      <static/>
+                    </redistribute-vrf>
+                  </ipv4-unicast>
+                </vrf>
+              </ipv4>
+            </with-vrf>
+          </address-family>
+        </bgp>
+      </router>
+    </native>
+  </data>
+</rpc-reply>
+"""
+        orig_cidrs = {"10.180.0.0/24", "10.180.1.0/24", "10.236.41.192/26", "10.236.41.201/32"}
+
+        context = FakeASR1KContext()
+        bgp_af = bgp.AddressFamily.from_xml(bgp_xml, context)
+        parsed_cidrs = {net.cidr for net in bgp_af.networks_v4}
+        self.assertEqual(orig_cidrs, parsed_cidrs)
+
+        nets = [bgp.Network.from_cidr(cidr) for cidr in orig_cidrs]
+        bgp_af = bgp.AddressFamily(vrf="meow", networks_v4=nets)
+        result = bgp_af.to_dict(context)
+
+        orig_netmasks = {from_cidr(cidr) for cidr in orig_cidrs}
+        parsed_netmasks = set()
+        for network in result["vrf"]["ipv4-unicast"]["network"]["with-mask"]:
+            parsed_netmasks.add((network['number'], network['mask']))
+        self.assertEqual(orig_netmasks, parsed_netmasks)

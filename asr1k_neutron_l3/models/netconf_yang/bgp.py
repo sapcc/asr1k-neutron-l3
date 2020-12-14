@@ -16,7 +16,8 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE
+from asr1k_neutron_l3.common.utils import from_cidr, to_cidr
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION, YANG_TYPE
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 
@@ -38,6 +39,10 @@ class BGPConstants(object):
     CONNECTED = "connected"
     STATIC = "static"
     UNICAST = "unicast"
+    NETWORK = "network"
+    WITH_MASK = "with-mask"
+    NUMBER = "number"
+    MASK = "mask"
 
 
 class AddressFamily(NyBase):
@@ -84,6 +89,8 @@ class AddressFamily(NyBase):
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute-vrf', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'networks_v4', 'yang-path': 'ipv4-unicast/network', 'yang-key': BGPConstants.WITH_MASK,
+             'type': [Network], 'default': []},
         ]
 
     @classmethod
@@ -146,15 +153,28 @@ class AddressFamily(NyBase):
         if self.vrf is not None:
             vrf = OrderedDict()
             vrf[BGPConstants.NAME] = self.vrf
-            vrf[BGPConstants.IPV4_UNICAST] = {}
+            vrf[BGPConstants.IPV4_UNICAST] = {
+                xml_utils.OPERATION: NC_OPERATION.PUT,
+            }
 
             REDIST_CONST = BGPConstants.REDISTRIBUTE_VRF if context.version_min_17_3 else BGPConstants.REDISTRIBUTE
-            vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST] = {}
-            if self.connected:
-                vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST][BGPConstants.CONNECTED] = ''
-            if self.static:
-                vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST][BGPConstants.STATIC] = ''
 
+            # redistribute connected/static is only used with 16.9
+            if self.from_device or not context.version_min_17_3:
+                if self.connected or self.static:
+                    vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST] = {}
+                    if self.connected:
+                        vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST][BGPConstants.CONNECTED] = ''
+                    if self.static:
+                        vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST][BGPConstants.STATIC] = ''
+
+            # networks are currently only announced with 17.4
+            if self.networks_v4 and (self.from_device or context.version_min_17_3):
+                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.NETWORK] = {
+                    BGPConstants.WITH_MASK: [
+                        net.to_dict(context) for net in sorted(self.networks_v4, key=lambda x: (x.number, x.mask))
+                    ]
+                }
             result[BGPConstants.VRF] = vrf
         return dict(result)
 
@@ -172,3 +192,27 @@ class AddressFamily(NyBase):
         device_af = self._internal_get(context=context)
         if device_af and device_af.vrf:
             return super(AddressFamily, self)._delete_no_retry(context, *args, **kwargs)
+
+
+class Network(NyBase):
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {'key': 'number'},
+            {'key': 'mask'},
+        ]
+
+    @classmethod
+    def from_cidr(cls, cidr):
+        ip, netmask = from_cidr(cidr)
+        return cls(number=ip, mask=netmask)
+
+    @property
+    def cidr(self):
+        return to_cidr(self.number, str(self.mask))
+
+    def to_dict(self, context):
+        net = OrderedDict()
+        net[BGPConstants.NUMBER] = self.number
+        net[BGPConstants.MASK] = self.mask
+        return net

@@ -67,9 +67,11 @@ class Router(Base):
         address_scope_config = router_info.get(constants.ADDRESS_SCOPE_CONFIG, {})
 
         rt = None
+        global_vrf_id = None
         if self.gateway_interface is not None:
             if self.gateway_interface.address_scope in address_scope_config:
                 rt = address_scope_config[self.gateway_interface.address_scope]
+                global_vrf_id = self._to_global_vrf_id(rt)
             else:
                 LOG.error("Router %s has a gateway interface, but no address scope was found in config"
                           "(address scope of router: %s, available scopes: %s",
@@ -81,7 +83,7 @@ class Router(Base):
 
         self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn,
                            rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
-                           rt_import=self.rt_import, rt_export=self.rt_export)
+                           rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=global_vrf_id)
 
         self.nat_acl = self._build_nat_acl()
         self.pbr_acl = self._build_pbr_acl()
@@ -93,7 +95,7 @@ class Router(Base):
 
         self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
                                                     routable_interface=self.routable_interface,
-                                                    rt_export=self.rt_export)
+                                                    rt_export=self.rt_export, networks_v4=self.get_internal_cidrs())
 
         self.dynamic_nat = self._build_dynamic_nat()
         self.nat_pool = self._build_nat_pool()
@@ -102,6 +104,14 @@ class Router(Base):
         self.arp_entries = self._build_arp_entries()
 
         self.prefix_lists = self._build_prefix_lists()
+
+    def _to_global_vrf_id(self, rt):
+        # 65126:106 --> 6
+        global_vrf_id = int(rt.split(":")[1]) - 100
+        if global_vrf_id < 0:
+            LOG.error("Global vrf id for rt %s was %s, needs to be >= 0! Continuing, but unlikely to succeed",
+                      rt, global_vrf_id)
+        return global_vrf_id
 
     def address_scope_matches(self):
         result = []
@@ -112,6 +122,9 @@ class Router(Base):
                         result.append(interface)
         result = sorted(result, key=lambda _iface: _iface.id)
         return result
+
+    def get_routable_networks(self):
+        return [iface.primary_subnet['cidr'] for iface in self.address_scope_matches()]
 
     def _build_interfaces(self):
         interfaces = l3_interface.InterfaceList()
@@ -133,6 +146,9 @@ class Router(Base):
             interfaces.append(l3_interface.OrphanedInterface(self.router_id, port, self._port_extra_atts(port)))
 
         return interfaces
+
+    def get_internal_cidrs(self):
+        return [iface.primary_subnet['cidr'] for iface in self.interfaces.internal_interfaces]
 
     def _build_routes(self):
         routes = route.RouteCollection(self.router_id)
