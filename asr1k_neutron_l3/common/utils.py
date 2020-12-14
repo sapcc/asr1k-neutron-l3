@@ -112,7 +112,7 @@ def to_cidr(ip, netmask):
     else:
         cidr = netmask
 
-    return '{}/{}'.format(ip, netmask)
+    return '{}/{}'.format(ip, cidr)
 
 
 def to_wildcard_mask(prefix_len):
