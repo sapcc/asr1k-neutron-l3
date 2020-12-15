@@ -466,12 +466,12 @@ class StaticNatList(NyBase):
                 if nat_entry.id not in neutron_ids:
                     LOG.debug('Removing unknown mapping local {} > {} from vrf {}'
                               ''.format(nat_entry.local_ip, nat_entry.global_ip, self.vrf))
-                    nat_entry.delete(context=context)
+                    nat_entry._delete(context=context)
                 global_ip = neutron_local_ips.get(nat_entry.local_ip)
                 if global_ip is not None and global_ip != nat_entry.global_ip:
                     LOG.debug('Removing invalid local mapping local {} > {} from vrf {}'
                               ''.format(nat_entry.local_ip, nat_entry.global_ip, self.vrf))
-                    nat_entry.delete(context=context)
+                    nat_entry._delete(context=context)
 
     @execute_on_pair()
     def update(self, context):
@@ -740,9 +740,3 @@ class StaticNat(NyBase):
                 LOG.info('Removing invalid local mapping {} > {} in VRF {}'
                          ''.format(nat.local_ip, nat.global_ip, nat.vrf))
                 nat._delete(context)
-
-    @execute_on_pair()
-    def delete(self, context):
-        result = super(StaticNat, self)._delete(context=context)
-
-        return result
