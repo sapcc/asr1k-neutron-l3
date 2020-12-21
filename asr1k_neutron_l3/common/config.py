@@ -67,6 +67,8 @@ ASR1K_L3_OPTS = [
                 help=_("Enable stateless nat for floating if the device supports it")),
     cfg.StrOpt('dapnet_rm_prefix', default='RM-DAP-CCLOUD',
                help="Route-Map prefix for Directly Accessible Private Networks (DAPNets)"),
+    cfg.StrOpt('dapnet_network_rm', default='RM-DAP',
+               help="Route-Map to apply to all DAPNet BGP network statements"),
 ]
 
 ASR1K_L2_OPTS = [

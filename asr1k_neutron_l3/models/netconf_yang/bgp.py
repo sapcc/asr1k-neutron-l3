@@ -43,6 +43,7 @@ class BGPConstants(object):
     WITH_MASK = "with-mask"
     NUMBER = "number"
     MASK = "mask"
+    ROUTE_MAP = "route-map"
 
 
 class AddressFamily(NyBase):
@@ -200,12 +201,13 @@ class Network(NyBase):
         return [
             {'key': 'number'},
             {'key': 'mask'},
+            {'key': 'route_map', 'yang-key': BGPConstants.ROUTE_MAP, 'default': None},
         ]
 
     @classmethod
-    def from_cidr(cls, cidr):
+    def from_cidr(cls, cidr, route_map=None):
         ip, netmask = from_cidr(cidr)
-        return cls(number=ip, mask=netmask)
+        return cls(number=ip, mask=netmask, route_map=route_map)
 
     @property
     def cidr(self):
@@ -215,4 +217,6 @@ class Network(NyBase):
         net = OrderedDict()
         net[BGPConstants.NUMBER] = self.number
         net[BGPConstants.MASK] = self.mask
+        if self.route_map:
+            net[BGPConstants.ROUTE_MAP] = self.route_map
         return net

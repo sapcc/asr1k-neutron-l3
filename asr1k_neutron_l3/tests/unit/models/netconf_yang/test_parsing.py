@@ -14,7 +14,7 @@
 from neutron.tests import base
 
 from asr1k_neutron_l3.models.asr1k_pair import FakeASR1KContext
-from asr1k_neutron_l3.common.utils import from_cidr
+from asr1k_neutron_l3.common.utils import from_cidr, to_cidr
 from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
@@ -235,6 +235,7 @@ class ParsingTest(base.BaseTestCase):
                       <with-mask>
                         <number>10.236.41.192</number>
                         <mask>255.255.255.192</mask>
+                        <route-map>wubwubwub</route-map>
                       </with-mask>
                       <with-mask>
                         <number>10.236.41.201</number>
@@ -257,18 +258,27 @@ class ParsingTest(base.BaseTestCase):
 </rpc-reply>
 """
         orig_cidrs = {"10.180.0.0/24", "10.180.1.0/24", "10.236.41.192/26", "10.236.41.201/32"}
+        cidrs_with_route_map = {"10.236.41.192/26"}
+        rm_name = "wubwubwub"
 
         context = FakeASR1KContext()
         bgp_af = bgp.AddressFamily.from_xml(bgp_xml, context)
         parsed_cidrs = {net.cidr for net in bgp_af.networks_v4}
         self.assertEqual(orig_cidrs, parsed_cidrs)
+        for network in bgp_af.networks_v4:
+            expected_rm = rm_name if network.cidr in cidrs_with_route_map else None
+            self.assertEqual(network.route_map, expected_rm)
 
-        nets = [bgp.Network.from_cidr(cidr) for cidr in orig_cidrs]
+        nets = [bgp.Network.from_cidr(cidr, route_map=rm_name if cidr in cidrs_with_route_map else None)
+                for cidr in orig_cidrs]
         bgp_af = bgp.AddressFamily(vrf="meow", networks_v4=nets)
         result = bgp_af.to_dict(context)
 
         orig_netmasks = {from_cidr(cidr) for cidr in orig_cidrs}
         parsed_netmasks = set()
         for network in result["vrf"]["ipv4-unicast"]["network"]["with-mask"]:
+            cidr = to_cidr(network['number'], network['mask'])
+            expected_rm = rm_name if cidr in cidrs_with_route_map else None
+            self.assertEqual(network.get("route-map"), expected_rm)
             parsed_netmasks.add((network['number'], network['mask']))
         self.assertEqual(orig_netmasks, parsed_netmasks)

@@ -14,20 +14,28 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_config import cfg
+
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.neutron.l3 import base
 
 
 class AddressFamily(base.Base):
-    def __init__(self, vrf, asn=None, routable_interface=False, rt_export=[], networks_v4=[]):
+    def __init__(self, vrf, asn=None, routable_interface=False, rt_export=[], networks_v4=[], routable_networks=[]):
         super(AddressFamily, self).__init__()
         self.vrf = utils.uuid_to_vrf_id(vrf)
         self.routable_interface = routable_interface
         self.asn = asn
         self.enable_bgp = False
         self.rt_export = rt_export
-        self.networks_v4 = [bgp.Network.from_cidr(net) for net in networks_v4]
+        self.routable_networks = routable_networks
+        self.networks_v4 = []
+        for net in networks_v4:
+            rm = cfg.CONF.asr1k_l3.dapnet_network_rm if net in routable_networks else None
+            net = bgp.Network.from_cidr(net, rm)
+            self.networks_v4.append(net)
+
         if self.routable_interface or len(self.rt_export) > 0:
             self.enable_bgp = True
 

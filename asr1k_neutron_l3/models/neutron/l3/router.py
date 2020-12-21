@@ -95,7 +95,8 @@ class Router(Base):
 
         self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
                                                     routable_interface=self.routable_interface,
-                                                    rt_export=self.rt_export, networks_v4=self.get_internal_cidrs())
+                                                    rt_export=self.rt_export, networks_v4=self.get_internal_cidrs(),
+                                                    routable_networks=self.get_routable_networks())
 
         self.dynamic_nat = self._build_dynamic_nat()
         self.nat_pool = self._build_nat_pool()
