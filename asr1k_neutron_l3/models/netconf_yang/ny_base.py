@@ -222,7 +222,7 @@ class retry_on_failure(object):
                                                                             action=operation).inc()
 
                             raise exc.InconsistentModelException(device=context.host, host=host,
-                                                                 entity=entity, operation=operation)
+                                                                 entity=entity, operation=operation, info=e.info)
                         elif e.message == 'internal error':
                             # something can't be configured maybe due to transient state
                             # e.g. BGP session active these should be requeued
@@ -238,7 +238,8 @@ class retry_on_failure(object):
                                 PrometheusMonitor().internal_errors.labels(device=context.host,
                                                                            entity=entity.__class__.__name__,
                                                                            action=f.__name__).inc()
-                                raise exc.InternalErrorException(host=host, entity=entity, operation=operation)
+                                raise exc.InternalErrorException(host=host, entity=entity, operation=operation,
+                                                                 info=e.info)
                         elif e.tag in ['in-use']:  # Lock
                             PrometheusMonitor().config_locks.labels(device=context.host,
                                                                     entity=entity.__class__.__name__,
