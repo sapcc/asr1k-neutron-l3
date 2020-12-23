@@ -93,10 +93,7 @@ class Router(Base):
 
         self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'), gateway_interface=self.gateway_interface)
 
-        self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
-                                                    routable_interface=self.routable_interface,
-                                                    rt_export=self.rt_export, networks_v4=self.get_internal_cidrs(),
-                                                    routable_networks=self.get_routable_networks())
+        self.bgp_address_family = self._build_bgp_address_family()
 
         self.dynamic_nat = self._build_dynamic_nat()
         self.nat_pool = self._build_nat_pool()
@@ -215,6 +212,17 @@ class Router(Base):
                     return True
 
         return False
+
+    def _build_bgp_address_family(self):
+        networks_v4 = self.get_internal_cidrs()
+        for router_route in self.routes.routes:
+            if router_route.cidr != "0.0.0.0/0":
+                networks_v4.append(router_route.cidr)
+
+        return bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
+                                 routable_interface=self.routable_interface,
+                                 rt_export=self.rt_export, networks_v4=networks_v4,
+                                 routable_networks=self.get_routable_networks())
 
     def _build_dynamic_nat(self):
         pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,

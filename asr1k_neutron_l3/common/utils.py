@@ -130,6 +130,11 @@ def ip_in_network(ip, net):
     return IPAddress(ip) in IPNetwork(net)
 
 
+def network_in_network(net, parent_net):
+    """Check if a network is contained inside another network (also true for net == parent_net)"""
+    return IPNetwork(net) in IPNetwork(parent_net)
+
+
 def to_netmask(prefix_len):
     if isinstance(prefix_len, (int, long)):
         host_bits = 32 - prefix_len

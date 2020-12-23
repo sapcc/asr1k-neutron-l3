@@ -31,8 +31,13 @@ class AddressFamily(base.Base):
         self.rt_export = rt_export
         self.routable_networks = routable_networks
         self.networks_v4 = []
+
         for net in networks_v4:
-            rm = cfg.CONF.asr1k_l3.dapnet_network_rm if net in routable_networks else None
+            # rm is applied to all routable networks and their subnets
+            rm = None
+            if any(utils.network_in_network(net, routable_network) for routable_network in routable_networks):
+                rm = cfg.CONF.asr1k_l3.dapnet_network_rm
+
             net = bgp.Network.from_cidr(net, rm)
             self.networks_v4.append(net)
 
