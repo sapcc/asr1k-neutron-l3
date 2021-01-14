@@ -35,6 +35,7 @@ class OperationsMixin(object):
                 port_ids.append(interface.id)
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
+        ports.sort(key=itemgetter('segmentation_id'))
         for segmentation_id, ports in itertools.groupby(ports, itemgetter('segmentation_id')):
             ports = list(ports)
             network_id = ports[0]['network_id']
@@ -60,6 +61,7 @@ class OperationsMixin(object):
             router.delete()
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
+        ports.sort(key=itemgetter('segmentation_id'))
         for segmentation_id, ports in itertools.groupby(ports, itemgetter('segmentation_id')):
             ports = list(ports)
             network_id = ports[0]['network_id']
@@ -86,7 +88,7 @@ class OperationsMixin(object):
             result = router.diff()
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
-
+        ports.sort(key=itemgetter('segmentation_id'))
         for segmentation_id, ports in itertools.groupby(ports, itemgetter('segmentation_id')):
             ports = list(ports)
             network_id = ports[0]['network_id']
