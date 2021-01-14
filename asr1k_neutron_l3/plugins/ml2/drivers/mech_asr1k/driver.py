@@ -99,7 +99,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
             device_id = context.current.get('device_id', None)
             segment = context.bottom_bound_segment
             if device_id is not None and segment is not None:
-                asr1k_db.ExtraAttsDb.ensure(device_id, context.current, segment)
+                asr1k_db.ExtraAttsDb.ensure(device_id, context.current, segment, clean_old=True)
 
     def delete_port_precommit(self, context):
         pass
@@ -134,7 +134,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
 
             LOG.debug("Creating extra atts for segment {}".format(segment))
 
-            asr1k_db.ExtraAttsDb.ensure(device_id, context.current, segment)
+            asr1k_db.ExtraAttsDb.ensure(device_id, context.current, segment, clean_old=True)
 
             context.set_binding(segment[api.ID],
                                 self.vif_type,

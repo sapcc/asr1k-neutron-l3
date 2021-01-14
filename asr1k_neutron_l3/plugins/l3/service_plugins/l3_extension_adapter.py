@@ -88,6 +88,17 @@ class L3RpcNotifierMixin(object):
         return notifier.router_validate(context, router_id)
 
     @log_helpers.log_method_call
+    def notify_network_sync(self, context, network_id):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+        return notifier.network_sync(context, network_id)
+
+    @log_helpers.log_method_call
+    def notify_network_validate(self, context, network_id):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
+        return notifier.network_validate(context, network_id)
+
+    @log_helpers.log_method_call
     def notify_interface_statistics(self, context, router_id):
         notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
 
@@ -145,6 +156,9 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         agent = self.get_agent_for_router(context, router_id)
         if agent is not None:
             return agent.get('host')
+
+    def get_hosts_for_network(self, context, network_id):
+        return self.db.get_asr1k_hosts_for_network(context, network_id)
 
     def _ensure_second_dot1q(self, context):
         session = db_api.get_writer_session()
@@ -325,6 +339,17 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         return super(ASR1KPluginBase, self).delete_router(context, id)
 
     @log_helpers.log_method_call
+    def add_router_to_l3_agent(self, context, agent_id, router_id):
+        result = super(ASR1KPluginBase, self).add_router_to_l3_agent(context, agent_id, router_id)
+        asr1k_db.RouterAttsDb.ensure(context, router_id)
+        return result
+
+    @log_helpers.log_method_call
+    def remove_router_from_l3_agent(self, context, agent_id, router_id):
+        self._add_router_to_cache(context, router_id)
+        return super(ASR1KPluginBase, self).remove_router_from_l3_agent(context, agent_id, router_id)
+
+    @log_helpers.log_method_call
     def add_router_interface(self, context, router_id, interface_info=None):
         return super(ASR1KPluginBase, self).add_router_interface(context, router_id, interface_info)
 
@@ -338,7 +363,15 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
 
     def sync(self, context, id, fields=None):
         result = self.notify_router_sync(context, id)
-        return {'device': {'router_id': result}}
+        return {'device': {'network_id': result}}
+
+    def validate_network(self, context, id, fields=None):
+        result = self.notify_network_validate(context, id)
+        return {'diffs': result}
+
+    def sync_network(self, context, id, fields=None):
+        result = self.notify_network_sync(context, id)
+        return {'device': {'network_id': result}}
 
     def orphans(self, context, dry_run=True):
         result = self.notify_router_sync(context, dry_run)
@@ -382,7 +415,7 @@ class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
         ports = self.db.get_router_ports(context, id)
         for port in ports:
             segment = self.db.get_router_segment_for_port(context, id, port.get('id'))
-            asr1k_db.ExtraAttsDb.ensure(id, port, segment)
+            asr1k_db.ExtraAttsDb.ensure(id, port, segment, clean_old=True)
 
         return self.get_config(context, id)
 

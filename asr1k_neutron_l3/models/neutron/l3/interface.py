@@ -13,14 +13,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+from oslo_config import cfg
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.netconf_yang import l3_interface
-from asr1k_neutron_l3.models.netconf_yang import l3_interface_state
-
 from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.models.neutron.l3 import base
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface, VBIPrimaryIpAddress, VBISecondaryIpAddress
+from asr1k_neutron_l3.models.netconf_yang.l3_interface_state import VBInterfaceState
 
 LOG = logging.getLogger(__name__)
 
@@ -75,8 +74,8 @@ class Interface(base.Base):
         self.address_scope = router_port.get('address_scopes', {}).get('4')
 
     def add_secondary_ip_address(self, ip_address, netmask):
-        self.secondary_ip_addresses.append(l3_interface.BDISecondaryIpAddress(address=ip_address,
-                                                                              mask=utils.to_netmask(netmask)))
+        self.secondary_ip_addresses.append(VBISecondaryIpAddress(address=ip_address,
+                                           mask=utils.to_netmask(netmask)))
 
     def _ip_address(self):
         if self.router_port.get('fixed_ips'):
@@ -84,8 +83,8 @@ class Interface(base.Base):
 
             self._primary_subnet_id = n_fixed_ip.get('subnet_id')
 
-            return l3_interface.BDIPrimaryIpAddress(address=n_fixed_ip.get('ip_address'),
-                                                    mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
+            return VBIPrimaryIpAddress(address=n_fixed_ip.get('ip_address'),
+                                       mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
 
     def _primary_subnet(self):
         for subnet in self.router_port.get('subnets', []):
@@ -97,7 +96,7 @@ class Interface(base.Base):
         return self.router_port.get('subnets', [])
 
     def get_state(self):
-        state = l3_interface_state.BDIInterfaceState.get(id=self.bridge_domain)
+        state = VBInterfaceState.get(id=self.bridge_domain)
 
         result = {}
         if state is not None:
@@ -106,20 +105,19 @@ class Interface(base.Base):
         return result
 
     def get(self):
-        bdi = l3_interface.BDIInterface.get(self.bridge_domain)
-        return bdi
+        return VBInterface.get(self.bridge_domain)
 
     def delete(self):
-        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain, vrf=self.vrf)
-        return bdi_interface.delete()
+        vbi = VBInterface(name=self.bridge_domain, vrf=self.vrf)
+        return vbi.delete()
 
     def disable_nat(self):
-        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain)
-        return bdi_interface.disable_nat()
+        vbi = VBInterface(name=self.bridge_domain)
+        return vbi.disable_nat()
 
     def enable_nat(self):
-        bdi_interface = l3_interface.BDIInterface(name=self.bridge_domain)
-        return bdi_interface.enable_nat()
+        vbi = VBInterface(name=self.bridge_domain)
+        return vbi.enable_nat()
 
 
 class GatewayInterface(Interface):
@@ -129,11 +127,11 @@ class GatewayInterface(Interface):
 
         self.nat_address = self._nat_address()
 
-        self._rest_definition = l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
-                                        mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
-                                        ip_address=self.ip_address,
-                                        secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
-                                        redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS')
+        self._rest_definition = VBInterface(name=self.bridge_domain, description=self.router_id,
+                                            mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
+                                            ip_address=self.ip_address,
+                                            secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
+                                            redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS')
 
     def _nat_address(self):
         ips = self.router_port.get('fixed_ips')
@@ -148,10 +146,11 @@ class GatewayInterface(Interface):
 class InternalInterface(Interface):
     def __init__(self, router_id, router_port, extra_atts):
         super(InternalInterface, self).__init__(router_id, router_port, extra_atts)
-        self._rest_definition = l3_interface.BDIInterface(name=self.bridge_domain, description=self.router_id,
-                                        mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
-                                        ip_address=self.ip_address, secondary_ip_addresses=self.secondary_ip_addresses,
-                                        nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf))
+        self._rest_definition = VBInterface(name=self.bridge_domain, description=self.router_id,
+                                            mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
+                                            ip_address=self.ip_address,
+                                            secondary_ip_addresses=self.secondary_ip_addresses,
+                                            nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf))
 
 
 class OrphanedInterface(Interface):

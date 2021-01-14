@@ -18,14 +18,16 @@ from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang import vrf
 from asr1k_neutron_l3.models.neutron.l3 import base
 
+from oslo_config import cfg
+
 
 class Vrf(base.Base):
-    def __init__(self, name, description=None, asn=None, rd=None, routeable_interface=False,
-                 rt_import=[], rt_export=[]):
+    def __init__(self, name, description=None, asn=None, rd=None, routable_interface=False,
+                 rt_import=[], rt_export=[], global_vrf_id=None):
         super(Vrf, self).__init__()
         self.name = utils.uuid_to_vrf_id(name)
         self.description = description
-        self.routeable_interface = routeable_interface
+        self.routable_interface = routable_interface
 
         self.asn = None
         self.rd = None
@@ -33,17 +35,19 @@ class Vrf(base.Base):
         self.rd = utils.to_rd(self.asn, rd)
 
         self.enable_bgp = False
-
-        if self.routeable_interface:
+        self.map_17_3 = None
+        if self.routable_interface:
             self.enable_bgp = True
+            self.map_17_3 = "{}{:02d}".format(cfg.CONF.asr1k_l3.dapnet_rm_prefix, global_vrf_id)
 
         self.map = "exp-{}".format(self.name)
 
-        self.rt_import = rt_import
-        self.rt_export = rt_export
+        self.rt_import = [{'asn_ip': asn_ip} for asn_ip in rt_import] if rt_import else None
+        self.rt_export = [{'asn_ip': asn_ip} for asn_ip in rt_export] if rt_export else None
 
         self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description,
-                                                  rd=self.rd, enable_bgp=self.enable_bgp, map=self.map,
+                                                  rd=self.rd, enable_bgp=self.enable_bgp,
+                                                  map=self.map, map_17_3=self.map_17_3,
                                                   rt_import=self.rt_import, rt_export=self.rt_export)
 
     def get(self):

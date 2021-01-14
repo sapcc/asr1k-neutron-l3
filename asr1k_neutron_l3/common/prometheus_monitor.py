@@ -38,6 +38,7 @@ CONNECTION_POOL_LABELS = ['host', 'device']
 DETAIL_LABELS = ['host', 'device', 'entity', 'action']
 BASIC_LABELS = ['host']
 STATS_LABELS = ['host', 'status']
+DEVICE_ENTITY_COUNT_LABELS = ['host', 'device', 'entity']
 
 L2 = "l2"
 L3 = "l3"
@@ -83,6 +84,9 @@ class PrometheusMonitor(object):
                                       ORPHANS_LABELS, namespace=self.namespace)
         self._l2_orphan_count = Gauge('l2_orphan_count', 'Number of L2 orphans found on device',
                                       ORPHANS_LABELS, namespace=self.namespace)
+
+        self._device_entity_count = Gauge('device_entity_count', 'Number of instances of an entity present on device',
+                                          DEVICE_ENTITY_COUNT_LABELS, namespace=self.namespace)
 
         if self.type == L3:
             self._router_create_duration = Histogram("router_create_duration", "Router create duration in seconds",

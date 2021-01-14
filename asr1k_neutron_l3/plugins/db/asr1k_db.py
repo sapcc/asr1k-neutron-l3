@@ -533,9 +533,9 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 class ExtraAttsDb(object):
 
     @classmethod
-    def ensure(cls, router_id, port, segment):
+    def ensure(cls, router_id, port, segment, clean_old):
         context = n_context.get_admin_context()
-        ExtraAttsDb(context, router_id, port, segment)._ensure()
+        ExtraAttsDb(context, router_id, port, segment)._ensure(clean_old)
 
     def __init__(self, context, router_id, port, segment):
         self.session = db_api.get_writer_session()
@@ -579,8 +579,17 @@ class ExtraAttsDb(object):
             raise asr1k_exceptions.SecondDot1QPoolExhausted(agent_host=self.agent_host)
         self.second_dot1q = random.choice(second_dot1qs_available)
 
+    def _ensure(self, clean_old):
+        if clean_old and self.agent_host:
+            with self.session.begin(subtransactions=True):
+                old_data = self.session.query(asr1k_models.ASR1KExtraAttsModel)\
+                                       .filter(asr1k_models.ASR1KExtraAttsModel.port_id == self.port_id,
+                                               asr1k_models.ASR1KExtraAttsModel.agent_host != self.agent_host)
+                if old_data:
+                    LOG.debug("Port %s had dangling extra atts on agent %s, deleting", self.port_id,
+                              ", ".join(od.agent_host for od in old_data.all()))
+                    old_data.delete()
 
-    def _ensure(self):
         if not self._record_exists:
             LOG.debug("L2 extra atts not existing, attempting create")
 

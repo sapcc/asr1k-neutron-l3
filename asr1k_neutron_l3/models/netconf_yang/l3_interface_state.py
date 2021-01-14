@@ -2,14 +2,14 @@ from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 
-class BDIInterfaceState(NyBase):
+class VBInterfaceState(NyBase):
     ID_FILTER = """
-                  <interfaces-state xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">
-                    <interface>
-                      <name>BDI{id}</name>
-                    </interface>
-                  </interfaces-state>          
-             """
+          <interfaces-state xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">
+            <interface>
+              <name>{iftype}{id}</name>
+            </interface>
+          </interfaces-state>
+    """
 
     LIST_KEY = "interfaces-state"
     ITEM_KEY = "interface"
@@ -40,15 +40,15 @@ class BDIInterfaceState(NyBase):
         ]
 
     def __init__(self, **kwargs):
-        super(BDIInterfaceState, self).__init__(**kwargs)
+        super(VBInterfaceState, self).__init__(**kwargs)
 
     @classmethod
     @execute_on_pair()
     def get(cls, id=None, port_channel=None, context=None):
-        return cls._get(id=id, context=context)
+        return cls._get(id=id, iftype=context.bd_iftype, context=context)
 
     @classmethod
-    def _remove_base_wrapper(cls, dict):
+    def _remove_base_wrapper(cls, dict, context):
         dict = dict.get(xml_utils.RPC_REPLY, dict)
         dict = dict.get(xml_utils.DATA, dict)
         if dict is None:
@@ -57,7 +57,7 @@ class BDIInterfaceState(NyBase):
 
         return dict
 
-    def to_dict(self):
+    def to_dict(self, context):
         statistics = {'in_octets': self.in_octets, 'in_unicast_pkts': self.in_unicast_pkts,
                       'in_broadcast_pkts': self.in_broadcast_pkts,
                       'in_multicast_pkts': self.in_multicast_pkts, 'in_discards': self.in_discards,

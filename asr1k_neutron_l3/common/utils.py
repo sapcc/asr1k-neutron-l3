@@ -112,7 +112,7 @@ def to_cidr(ip, netmask):
     else:
         cidr = netmask
 
-    return '{}/{}'.format(ip, netmask)
+    return '{}/{}'.format(ip, cidr)
 
 
 def to_wildcard_mask(prefix_len):
@@ -128,6 +128,11 @@ def to_wildcard_mask(prefix_len):
 
 def ip_in_network(ip, net):
     return IPAddress(ip) in IPNetwork(net)
+
+
+def network_in_network(net, parent_net):
+    """Check if a network is contained inside another network (also true for net == parent_net)"""
+    return IPNetwork(net) in IPNetwork(parent_net)
 
 
 def to_netmask(prefix_len):

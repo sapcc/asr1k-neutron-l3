@@ -18,13 +18,43 @@ from oslo_log import log as logging
 from oslo_config import cfg
 
 from asr1k_neutron_l3.common import config as asr1k_config
+from asr1k_neutron_l3.common.asr1k_exceptions import VersionInfoNotAvailable
 
 LOG = logging.getLogger(__name__)
 
 
-class ASR1KContext(object):
+class ASR1KContextBase(object):
+    @property
+    def use_bdvif(self):
+        return self.version_min_17_3
+
+    @property
+    def bd_iftype(self):
+        return "BD-VIF" if self.use_bdvif else "BDI"
+
+
+class FakeASR1KContext(ASR1KContextBase):
+    """Fake ASR1K context, to be used where no context can be found
+
+    This context can be used where no device is available, but a version decision needs to be
+    made, e.g. in a __str__ method. It pins the version checks to a specific version to produce
+    stable results
+    """
+    def __init__(self, version_min_17_3=True, has_stateless_nat=True):
+        self.version_min_17_3 = version_min_17_3
+        self._has_stateless_nat = has_stateless_nat
+
+    @property
+    def has_stateless_nat(self):
+        return self._has_stateless_nat
+
+
+class ASR1KContext(ASR1KContextBase):
+    version_min_17_3 = property(lambda self: self._get_version_attr('_version_min_17_3'))
+    has_stateless_nat = property(lambda self: self._get_version_attr('_has_stateless_nat'))
+
     def __init__(self, name, host, yang_port, nc_timeout, username, password, insecure=True,
-                 headers={}):
+                 force_bdi=False, headers={}):
         self.name = name
         self.host = host
         self.yang_port = yang_port
@@ -32,11 +62,40 @@ class ASR1KContext(object):
         self.username = username
         self.password = password
         self.insecure = insecure
+        self.force_bdi = force_bdi
         self.headers = headers
         self.headers['content-type'] = headers.get('content-type', "application/yang-data+json")
         self.headers['accept'] = headers.get('accept', "application/yang-data+json")
         self.alive = False
         self.enabled = True
+        self._got_version_info = False
+
+    def __repr__(self):
+        return "<{} of {} at {}>".format(self.__class__.__name__, self.host, hex(id(self)))
+
+    def _collect_version_info(self):
+        """Collect firmware version info by YANG version and maybe other means"""
+        from asr1k_neutron_l3.models.connection import ConnectionManager
+
+        with ConnectionManager(context=self) as connection:
+            # ASR 17.3 has at least this version for the YANG native model
+            self._version_min_17_3 = connection.check_capability(module="Cisco-IOS-XE-native",
+                                                                 min_revision="2020-07-01")
+            self._has_stateless_nat = connection.check_capability(module="Cisco-IOS-XE-nat",
+                                                                  min_revision="2020-11-01")
+
+        self._got_version_info = True
+
+    def _get_version_attr(self, attr_name):
+        if not self._got_version_info:
+            self._collect_version_info()
+        if not hasattr(self, attr_name):
+            raise VersionInfoNotAvailable(host=self.context.host, entity=attr_name)
+        return getattr(self, attr_name)
+
+    @property
+    def use_bdvif(self):
+        return self.version_min_17_3 and not self.force_bdi
 
 
 class ASR1KPair(object):
@@ -61,6 +120,7 @@ class ASR1KPair(object):
             asr1kctx = ASR1KContext(device_name, config.get('host'),
                                     config.get('yang_port', self.config.asr1k_devices.yang_port),
                                     int(config.get('nc_timeout', self.config.asr1k_devices.nc_timeout)),
-                                    config.get('user_name'), config.get('password'), insecure=True)
+                                    config.get('user_name'), config.get('password'),
+                                    insecure=True)
 
             self.contexts.append(asr1kctx)

@@ -134,10 +134,10 @@ class ConnectionPool(object):
     def __check_initialized(self):
         if not hasattr(self, 'initialized'):
             msg = ("Please ensure pool is before first use initilized with "
-                   "`ConnectionPool().initialiase(self, yang_connection_pool_size=0,max_age=0)`")
+                   "`ConnectionPool().initialise(self, yang_connection_pool_size=0,max_age=0)`")
             raise ConnectionPoolNotInitialized(msg)
 
-    def initialiase(self, yang_connection_pool_size=0, max_age=0):
+    def initialise(self, yang_connection_pool_size=0, max_age=0):
         try:
             yang_pool_size = min(yang_connection_pool_size, asr1k_constants.MAX_CONNECTIONS)
 
@@ -208,6 +208,9 @@ class YangConnection(object):
         self._ncc_connection = None
         self.start = time.time()
         self.id = "{}-{}".format(context.host, id)
+
+    def __repr__(self):
+        return "<{} to {} at {}>".format(self.__class__.__name__, self.context.host, hex(id(self)))
 
     @property
     def age(self):
@@ -302,7 +305,7 @@ class YangConnection(object):
                         duration = time.time() - call_start
                         success = "succeeded" if success else "failed"
                         xml_data = self.gen_xml_from_ncc_call(method=method, args=args, kwargs=kwargs)
-                        LOG.debug("YANG call trace %s in %.4f on %s: %s",
+                        LOG.debug("YANG call trace %s in %.4fs on %s: %s",
                                   success, duration, self.context.host, xml_data)
                     except Exception as e:
                         LOG.exception(e)
@@ -325,11 +328,7 @@ class YangConnection(object):
         if kwargs.get("target"):
             node.append(util.datastore_or_url("target", kwargs["target"]))
         if kwargs.get("config"):
-            config = to_ele(kwargs["config"])
-            # this one is for yang-explorer (without the namespace yang-explorer can't parse the request)
-            if config.tag == 'config' and hasattr(node, "nsmap") and node.nsmap.get("nc"):
-                config.tag = '{{{}}}config'.format(node.nsmap.get("nc"))
-            node.append(config)
+            node.append(to_ele(kwargs["config"]))
         rpc = new_ele("rpc", {"message-id": "yang-trace"})
         rpc.append(node)
 
@@ -341,6 +340,10 @@ class YangConnection(object):
     def check_capability(self, module, min_revision, baseurl='http://cisco.com/ns/yang/{module}'):
         baseurl = baseurl.format(module=module)
         min_rev_date = datetime.datetime.strptime(min_revision, "%Y-%m-%d")
+
+        if getattr(self.connection, "server_capabilities", None) is None:
+            raise DeviceUnreachable(host=self.context.host)
+
         for url in self.connection.server_capabilities:
             url = url.strip()  # some urls still have spaces and \n around them
             if url.startswith(baseurl + '?'):
@@ -351,12 +354,3 @@ class YangConnection(object):
                 return schema_rev_date >= min_rev_date
 
         raise CapabilityNotFoundException(host=self.context.host, entity_name=baseurl)
-
-    def collect_version_info(self):
-        self._min_version_1612 = self.check_capability(module="Cisco-IOS-XE-native", min_revision="2019-07-01")
-
-    @property
-    def is_min_version_1612(self):
-        if not hasattr(self, '_min_version_1612'):
-            self.collect_version_info()
-        return self._min_version_1612

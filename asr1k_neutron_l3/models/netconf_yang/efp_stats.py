@@ -15,8 +15,7 @@ class EfpStats(NyBase):
               <id>{id}</id>
               <interface>Port-channel{port_channel}</interface>
             </efp-stat>
-          </efp-stats>    
-
+          </efp-stats>
     """
 
     @classmethod
@@ -33,7 +32,7 @@ class EfpStats(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id'), 'port_channel': cls.PORT_CHANNEL})
+        return cls.ID_FILTER.format(id=kwargs.get('id'), port_channel=cls.PORT_CHANNEL)
 
     def __init__(self, **kwargs):
         super(EfpStats, self).__init__(**kwargs)
@@ -45,7 +44,7 @@ class EfpStats(NyBase):
         return cls._get(id=id, port_channel=cls.PORT_CHANNEL, context=context)
 
     @classmethod
-    def _remove_base_wrapper(cls, dict):
+    def _remove_base_wrapper(cls, dict, context):
         dict = dict.get(xml_utils.RPC_REPLY, dict)
         dict = dict.get(xml_utils.DATA, dict)
         if dict is None:
@@ -54,7 +53,7 @@ class EfpStats(NyBase):
 
         return dict
 
-    def to_dict(self):
+    def to_dict(self, context):
         return {'in_pkts': self.in_pkts, 'in_bytes': self.in_bytes,
                 'out_pkts': self.out_pkts, 'out_bytes': self.out_bytes}
 

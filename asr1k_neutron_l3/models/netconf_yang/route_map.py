@@ -13,7 +13,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 from collections import OrderedDict
 
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
@@ -48,12 +47,21 @@ class RouteMapConstants(object):
 
 class RouteMap(NyBase):
     ID_FILTER = """
-                <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-route-map="http://cisco.com/ns/yang/Cisco-IOS-XE-route-map">
-                    <route-map>
-                            <name>{id}</name>
-                    </route-map>
-                </native>            
-             """
+            <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                    xmlns:ios-route-map="http://cisco.com/ns/yang/Cisco-IOS-XE-route-map">
+                <route-map>
+                    <name>{id}</name>
+                </route-map>
+            </native>
+    """
+
+    GET_ALL_STUB = """
+            <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+              <route-map>
+                <name/>
+              </route-map>
+            </native>
+    """
 
     LIST_KEY = None
     ITEM_KEY = RouteMapConstants.ROUTE_MAP
@@ -74,7 +82,7 @@ class RouteMap(NyBase):
         if self.name is not None and (self.name.startswith('exp-') or self.name.startswith('pbr-')):
             return utils.vrf_id_to_uuid(self.name[4:])
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
 
         map = OrderedDict()
@@ -82,19 +90,14 @@ class RouteMap(NyBase):
         map[RouteMapConstants.NAME] = self.name
         map[RouteMapConstants.ROUTE_MAP_SEQ] = []
         for item in self.seq:
-            if item is not None:
-                map[RouteMapConstants.ROUTE_MAP_SEQ].append(item.to_dict())
+            if item is not None and not (context.version_min_17_3 and item.drop_on_17_3):
+                map[RouteMapConstants.ROUTE_MAP_SEQ].append(item.to_dict(context=context))
 
         result[self.ITEM_KEY] = map
 
         return dict(result)
 
-    @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(RouteMap, cls)._remove_base_wrapper(dict)
-        return dict
-
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         result = OrderedDict()
 
         map = OrderedDict()
@@ -105,12 +108,11 @@ class RouteMap(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         return super(RouteMap, self)._update(context=context, method=NC_OPERATION.PUT)
 
 
 class MapSequence(NyBase):
-
     LIST_KEY = RouteMapConstants.ROUTE_MAP
     ITEM_KEY = RouteMapConstants.ROUTE_MAP_SEQ
 
@@ -126,6 +128,7 @@ class MapSequence(NyBase):
             {'key': 'prefix_list', 'yang-key': 'prefix-list', 'yang-path': 'match/ip/address'},
             {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
             {'key': 'ip_precedence', 'yang-path': 'set/ip/precedence', 'yang-key': 'precedence-fields'},
+            {'key': 'drop_on_17_3', 'default': False},
         ]
 
     def __init__(self, **kwargs):
@@ -135,27 +138,55 @@ class MapSequence(NyBase):
 
         self.enable_bgp = kwargs.get('enable_bgp', False)
 
-    def to_dict(self):
+    @classmethod
+    def from_json(cls, json, context, *args, **kwargs):
+        if context.version_min_17_3:
+            nh = (json.get(RouteMapConstants.SET, {})
+                      .get(RouteMapConstants.IP, {})
+                      .get(RouteMapConstants.NEXT_HOP, {}))
+            if nh:
+                addrs = nh[RouteMapConstants.ADDRESS]
+                nh[RouteMapConstants.NEXT_HOP_ADDR] = {RouteMapConstants.ADDRESS: addrs[0]}
+                if addrs[-1] == 'force':
+                    nh[RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE] = None
+
+        return super(MapSequence, cls).from_json(json, context, *args, **kwargs)
+
+    def to_dict(self, context):
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
-
         seq[RouteMapConstants.OPERATION] = self.operation
 
-        if bool(self.asn):
-            seq[RouteMapConstants.SET] = {RouteMapConstants.EXTCOMMUNITY: {RouteMapConstants.RT: {RouteMapConstants.ASN: self.asn}}}
+        if self.asn:
+            seq[RouteMapConstants.SET] = {
+                RouteMapConstants.EXTCOMMUNITY: {RouteMapConstants.RT: {RouteMapConstants.ASN: self.asn}}}
 
         if self.next_hop is not None:
-            seq[RouteMapConstants.SET] = {
-                RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP: {RouteMapConstants.NEXT_HOP_ADDR: {RouteMapConstants.ADDRESS: self.next_hop}}}}
-            if self.force:
-                seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE] = ""
+            if context.version_min_17_3:
+                seq[RouteMapConstants.SET] = {
+                    RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP: {RouteMapConstants.ADDRESS: [self.next_hop]}}
+                }
+                if self.force:
+                    # it looks like the force flag is now part of the address list in 17.3+
+                    seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][
+                        RouteMapConstants.ADDRESS].append(RouteMapConstants.FORCE)
+            else:
+                seq[RouteMapConstants.SET] = {
+                    RouteMapConstants.IP: {
+                        RouteMapConstants.NEXT_HOP: {
+                            RouteMapConstants.NEXT_HOP_ADDR: {
+                                RouteMapConstants.ADDRESS: self.next_hop}}}}
+                if self.force:
+                    seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][
+                        RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE] = ""
+
         if self.prefix_list is not None:
-            seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
-                                                                               RouteMapConstants.PREFIX_LIST: self.prefix_list}}}
+            seq[RouteMapConstants.MATCH] = {
+                RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {RouteMapConstants.PREFIX_LIST: self.prefix_list}}}
 
         if self.access_list is not None:
-            seq[RouteMapConstants.MATCH] = {RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {
-                                                                               RouteMapConstants.ACCESS_LIST: self.access_list}}}
+            seq[RouteMapConstants.MATCH] = {
+                RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {RouteMapConstants.ACCESS_LIST: self.access_list}}}
         if self.ip_precedence:
             if RouteMapConstants.SET not in seq:
                 seq[RouteMapConstants.SET] = {}
@@ -168,12 +199,10 @@ class MapSequence(NyBase):
 
         return seq
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         seq = OrderedDict()
         seq[RouteMapConstants.ORDERING_SEQ] = self.seq_no
-
         seq[RouteMapConstants.OPERATION] = self.operation
-
         seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
 
         return seq

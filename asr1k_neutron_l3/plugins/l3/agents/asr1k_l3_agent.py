@@ -64,7 +64,7 @@ from neutron import manager
 from neutron.agent.common import resource_processing_queue as queue
 
 from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
-
+from asr1k_neutron_l3.common.exc_helper import exc_info_full
 from asr1k_neutron_l3.common import prometheus_monitor
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
@@ -288,8 +288,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         if not cfg.CONF.asr1k.init_mode:
             LOG.debug("Preparing connection pool  yang : {} max age : {}"
                       "".format(self.yang_connection_pool_size, cfg.CONF.asr1k.connection_max_age))
-            connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size,
-                                                    max_age=cfg.CONF.asr1k.connection_max_age)
+            connection.ConnectionPool().initialise(yang_connection_pool_size=self.yang_connection_pool_size,
+                                                   max_age=cfg.CONF.asr1k.connection_max_age)
             LOG.debug("Connection pool initialized")
 
         self.router_info = {}
@@ -473,7 +473,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
             self._last_full_sync = timeutils.now()
             self.fetch_and_sync_routers_partial(self.context)
         except Exception as e:
-            LOG.error("Error in periodic sync : {}".format(e))
+            LOG.error("Error in periodic sync: %s", e, exc_info=exc_info_full())
             self.fullsync = cfg.CONF.asr1k_l3.sync_active
 
     def _save_config(self, force_save=False):
@@ -534,7 +534,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                         self._queue.get_size() >= self.sync_until_queue_size:
                     break
 
-            if self._router_sync_marker == router_ids[-1]:
+            if not router_ids or self._router_sync_marker == router_ids[-1]:
                 LOG.debug("Finished a complete round of queueing router updates with last router %s",
                           self._router_sync_marker)
                 self._router_sync_marker = None
@@ -683,8 +683,6 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                                 raise e
                         except BaseException as e:
                             LOG.exception(e)
-                        except:
-                            LOG.error("An exception occured om the router update loop")
                     else:
                         if len(utils.get_router_ports(router)) > 0:
                             LOG.debug("Requeuing update for router {}".format(update.id))
@@ -780,9 +778,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 LOG.debug("Requesting delete for port extra atts router %s ports %s", router['id'], deleted_ports)
                 self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
 
-            if self._clean(router):
-                LOG.debug("Router %s clean, requesting delete for router extra atts", router['id'])
-                self.plugin_rpc.delete_router_atts(self.context, [router.get('id')])
+            self._clean(router)
             registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router.get('id'))
         else:
             LOG.warning("Failed to clean up router %s on device, its been left to the scanvenger", router['id'])

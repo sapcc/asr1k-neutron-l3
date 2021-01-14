@@ -28,6 +28,7 @@ class PrefixConstants(object):
     DESCRIPTION = 'description'
     SEQ = 'seq'
     NUMBER = 'no'
+    ACTION = 'action'
     DENY = 'deny'
     PERMIT = 'permit'
     GE = 'ge'
@@ -44,8 +45,20 @@ class Prefix(NyBase):
             </prefixes>
           </prefix-list>
         </ip>
-      </native>        
-             """
+      </native>
+    """
+
+    GET_ALL_STUB = """
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+        <ip>
+          <prefix-list>
+            <prefixes>
+              <name/>
+            </prefixes>
+          </prefix-list>
+        </ip>
+      </native>
+    """
 
     LIST_KEY = PrefixConstants.PREFIX_LIST
     ITEM_KEY = PrefixConstants.PREFIXES
@@ -59,8 +72,8 @@ class Prefix(NyBase):
         ]
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(Prefix, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(Prefix, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(PrefixConstants.IP, dict)
@@ -68,7 +81,7 @@ class Prefix(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {PrefixConstants.IP: result}
@@ -91,26 +104,26 @@ class Prefix(NyBase):
             seq.no = (len(self.seq) + 1) * 10
         self.seq.append(seq)
 
-    def update(self, context=None):
+    def update(self):
         if len(self.seq) > 0:
             return super(Prefix, self).update()
         else:
             return super(Prefix, self).delete()
 
-    def to_dict(self):
+    def to_dict(self, context):
         prefix = OrderedDict()
         prefix[PrefixConstants.NAME] = self.name
         prefix[PrefixConstants.SEQ] = []
 
         for seq in self.seq:
-            prefix[PrefixConstants.SEQ].append(seq.to_dict())
+            prefix[PrefixConstants.SEQ].append(seq.to_dict(context))
 
         result = OrderedDict()
         result[PrefixConstants.PREFIXES] = prefix
 
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         prefix = OrderedDict()
         prefix[PrefixConstants.NAME] = self.name
         result = OrderedDict()
@@ -129,7 +142,13 @@ class PrefixSeq(NyBase):
             {'key': 'deny_le', 'yang-key': 'le', 'yang-path': 'deny'},
             {'key': 'permit_ip', 'yang-key': 'ip', 'yang-path': 'permit'},
             {'key': 'permit_ge', 'yang-key': 'ge', 'yang-path': 'permit'},
-            {'key': 'permit_le', 'yang-key': 'le', 'yang-path': 'permit'}
+            {'key': 'permit_le', 'yang-key': 'le', 'yang-path': 'permit'},
+
+            # new seq format for 17.3+
+            {'key': 'action'},
+            {'key': 'action_ip', 'yang-key': 'ip'},
+            {'key': 'le'},
+            {'key': 'ge'},
         ]
 
     def __init__(self, **kwargs):
@@ -138,22 +157,49 @@ class PrefixSeq(NyBase):
         if self.deny_ip is not None and self.permit_ip is not None:
             raise Exception("Permit and Deny statements canot coexist on the same sequence")
 
-    def to_dict(self):
+    def to_dict(self, context):
         seq = OrderedDict()
 
         seq[PrefixConstants.NUMBER] = self.no
-        if self.deny_ip is not None:
-            seq[PrefixConstants.DENY] = {PrefixConstants.IP: self.deny_ip}
-            if self.deny_ge is not None:
-                seq[PrefixConstants.DENY][PrefixConstants.GE] = self.deny_ge
-            if self.deny_le is not None:
-                seq[PrefixConstants.DENY][PrefixConstants.LE] = self.deny_le
+        if context.version_min_17_3:
+            if self.action is not None:
+                # parameters passed in 17.3 format
+                seq[PrefixConstants.ACTION] = self.action
+                seq[PrefixConstants.IP] = self.action_ip
+                if self.ge:
+                    seq[PrefixConstants.GE] = self.ge
+                if self.le:
+                    seq[PrefixConstants.GE] = self.le
+            else:
+                # parameters passed in old format by the driver
+                if self.deny_ip is not None:
+                    seq[PrefixConstants.ACTION] = PrefixConstants.DENY
+                    seq[PrefixConstants.IP] = self.deny_ip
+                    if self.deny_ge is not None:
+                        seq[PrefixConstants.GE] = self.deny_ge
+                    if self.deny_le is not None:
+                        seq[PrefixConstants.LE] = self.deny_le
 
-        if self.permit_ip is not None:
-            seq[PrefixConstants.PERMIT] = {PrefixConstants.IP: self.permit_ip}
-            if self.permit_ge is not None:
-                seq[PrefixConstants.PERMIT][PrefixConstants.GE] = self.permit_ge
-            if self.permit_le is not None:
-                seq[PrefixConstants.PERMIT][PrefixConstants.LE] = self.permit_le
+                if self.permit_ip is not None:
+                    seq[PrefixConstants.ACTION] = PrefixConstants.PERMIT
+                    seq[PrefixConstants.IP] = self.permit_ip
+                    if self.permit_ge is not None:
+                        seq[PrefixConstants.GE] = self.permit_ge
+                    if self.permit_le is not None:
+                        seq[PrefixConstants.LE] = self.permit_le
+        else:
+            if self.deny_ip is not None:
+                seq[PrefixConstants.DENY] = {PrefixConstants.IP: self.deny_ip}
+                if self.deny_ge is not None:
+                    seq[PrefixConstants.DENY][PrefixConstants.GE] = self.deny_ge
+                if self.deny_le is not None:
+                    seq[PrefixConstants.DENY][PrefixConstants.LE] = self.deny_le
+
+            if self.permit_ip is not None:
+                seq[PrefixConstants.PERMIT] = {PrefixConstants.IP: self.permit_ip}
+                if self.permit_ge is not None:
+                    seq[PrefixConstants.PERMIT][PrefixConstants.GE] = self.permit_ge
+                if self.permit_le is not None:
+                    seq[PrefixConstants.PERMIT][PrefixConstants.LE] = self.permit_le
 
         return seq

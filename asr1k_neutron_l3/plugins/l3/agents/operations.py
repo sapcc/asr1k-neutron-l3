@@ -1,11 +1,17 @@
+import itertools
+from operator import itemgetter
+
 from oslo_log import helpers as log_helpers
+from oslo_log import log
 
 from asr1k_neutron_l3.models.neutron.l3.router import Router
-from asr1k_neutron_l3.models.neutron.l2.port import Port
+from asr1k_neutron_l3.models.neutron.l2.bridgedomain import BridgeDomain
 from asr1k_neutron_l3.common import utils, asr1k_constants
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k.rpc_api import ASR1KPluginApi
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
+
+LOG = log.getLogger(__name__)
 
 
 class OperationsMixin(object):
@@ -29,10 +35,12 @@ class OperationsMixin(object):
                 port_ids.append(interface.id)
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
-
-        for port in ports:
-            l2_port = Port(port)
-            l2_port.update()
+        ports.sort(key=itemgetter('segmentation_id'))
+        for segmentation_id, ports in itertools.groupby(ports, itemgetter('segmentation_id')):
+            ports = list(ports)
+            network_id = ports[0]['network_id']
+            bd = BridgeDomain(segmentation_id, network_id, ports, has_complete_portset=False)
+            bd.update()
 
         return "Sync"
 
@@ -53,10 +61,12 @@ class OperationsMixin(object):
             router.delete()
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
-
-        for port in ports:
-            l2_port = Port(port)
-            l2_port.delete()
+        ports.sort(key=itemgetter('segmentation_id'))
+        for segmentation_id, ports in itertools.groupby(ports, itemgetter('segmentation_id')):
+            ports = list(ports)
+            network_id = ports[0]['network_id']
+            bd = BridgeDomain(segmentation_id, network_id, ports, has_complete_portset=False)
+            bd.delete_internal_ifaces()
 
         return "Teardown"
 
@@ -78,12 +88,45 @@ class OperationsMixin(object):
             result = router.diff()
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
-
-        for port in ports:
-            l2_port = Port(port)
-            result = self._merge_dicts(result, l2_port.diff())
+        ports.sort(key=itemgetter('segmentation_id'))
+        for segmentation_id, ports in itertools.groupby(ports, itemgetter('segmentation_id')):
+            ports = list(ports)
+            network_id = ports[0]['network_id']
+            bd = BridgeDomain(segmentation_id, network_id, ports, has_complete_portset=False)
+            result.update(bd.diff())
 
         return result
+
+    @log_helpers.log_method_call
+    def network_validate(self, context, network_id):
+        result = {}
+        network = self._l2_plugin_rpc(context).get_networks_with_asr1k_ports(context, networks=[network_id],
+                                                                             host=self.host)
+        if network:
+            if len(network) > 0:
+                LOG.error("Network diff for network %s returned more than one result - using first: %s",
+                          network_id, network)
+            network = network[0]
+            bd = BridgeDomain(network['segmentation_id'], network['network_id'], network['ports'],
+                              has_complete_portset=True)
+            result.update(bd.diff())
+
+        return result
+
+    @log_helpers.log_method_call
+    def network_sync(self, context, network_id):
+        network = self._l2_plugin_rpc(context).get_networks_with_asr1k_ports(context, networks=[network_id],
+                                                                             host=self.host)
+        if network:
+            if len(network) > 0:
+                LOG.error("Network diff for network %s returned more than one result - using first: %s",
+                          network_id, network)
+            network = network[0]
+            bd = BridgeDomain(network['segmentation_id'], network['network_id'], network['ports'],
+                              has_complete_portset=True)
+            bd.update()
+
+        return "Sync"
 
     @log_helpers.log_method_call
     def list_devices(self, context):
@@ -126,31 +169,6 @@ class OperationsMixin(object):
         z.update(y)
         return z
 
-    # @log_helpers.log_method_call
-    # def interface_statistics(self,context,router_id):
-    #     result = {}
-    #     ri = self._get_router_info(context, router_id)
-    #     router = Router(ri)
-    #     port_ids = []
-    #     gateway_interface = router.interfaces.gateway_interface
-    #     if gateway_interface:
-    #         port_ids.append(gateway_interface.id)
-    #         result[gateway_interface.id] = {"type":"gateway","stats":[]}
-    #
-    #     for interface in router.interfaces.internal_interfaces:
-    #         result[interface.id] = {"type": "internal", "stats": []}
-    #         port_ids.append(interface.id)
-    #
-    #
-    #     ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context,port_ids)
-    #
-    #     for port in ports:
-    #         l2_port = Port(port)
-    #
-    #         result[port['id']]["stats"] = l2_port.get_stats()
-    #
-    #     return result
-
     @log_helpers.log_method_call
     def interface_statistics(self, context, router_id):
         result = {}
@@ -173,6 +191,12 @@ class OperationsMixin(object):
             routers[0][constants.ADDRESS_SCOPE_CONFIG] = address_scopes
 
             return routers[0]
+
+    def _get_network_info(self, context, network_id):
+        networks = self.plugin_rpc.get_networks(context, [network_id])
+
+        if networks:
+            return networks[0]
 
     def _l2_plugin_rpc(self, context):
         if self.__l2_plugin_rpc is None:

@@ -53,10 +53,10 @@ class Router(Base):
         self.interfaces = self._build_interfaces()
         self.routes = self._build_routes()
         self.enable_snat = False
-        self.routeable_interface = False
+        self.routable_interface = False
         if router_info.get('external_gateway_info') is not None:
             self.enable_snat = router_info.get('external_gateway_info', {}).get('enable_snat', False)
-            self.routeable_interface = len(self.address_scope_matches()) > 0
+            self.routable_interface = len(self.address_scope_matches()) > 0
 
         description = self.router_info.get('description')
 
@@ -67,24 +67,33 @@ class Router(Base):
         address_scope_config = router_info.get(constants.ADDRESS_SCOPE_CONFIG, {})
 
         rt = None
+        global_vrf_id = None
         if self.gateway_interface is not None:
-            rt = address_scope_config.get(self.gateway_interface.address_scope)
+            if self.gateway_interface.address_scope in address_scope_config:
+                rt = address_scope_config[self.gateway_interface.address_scope]
+                global_vrf_id = self._to_global_vrf_id(rt)
+            else:
+                LOG.error("Router %s has a gateway interface, but no address scope was found in config"
+                          "(address scope of router: %s, available scopes: %s",
+                          self.router_id, self.gateway_interface.address_scope, list(address_scope_config.keys()))
+
+        if not self.router_atts.get('rd'):
+            LOG.error("Router %s has no rd attached, configuration is likely to fail!",
+                      self.router_info.get('id'))
 
         self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn,
-                           rd=self.router_atts.get('rd'), routeable_interface=self.routeable_interface,
-                           rt_import=self.rt_import, rt_export=self.rt_export)
+                           rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
+                           rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=global_vrf_id)
 
         self.nat_acl = self._build_nat_acl()
         self.pbr_acl = self._build_pbr_acl()
 
         self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,
-                                            routeable_interface=self.routeable_interface)
+                                            routable_interface=self.routable_interface)
 
         self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'), gateway_interface=self.gateway_interface)
 
-        self.bgp_address_family = bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
-                                                    routeable_interface=self.routeable_interface,
-                                                    rt_export=self.rt_export)
+        self.bgp_address_family = self._build_bgp_address_family()
 
         self.dynamic_nat = self._build_dynamic_nat()
         self.nat_pool = self._build_nat_pool()
@@ -93,6 +102,14 @@ class Router(Base):
         self.arp_entries = self._build_arp_entries()
 
         self.prefix_lists = self._build_prefix_lists()
+
+    def _to_global_vrf_id(self, rt):
+        # 65126:106 --> 6
+        global_vrf_id = int(rt.split(":")[1]) - 100
+        if global_vrf_id < 0:
+            LOG.error("Global vrf id for rt %s was %s, needs to be >= 0! Continuing, but unlikely to succeed",
+                      rt, global_vrf_id)
+        return global_vrf_id
 
     def address_scope_matches(self):
         result = []
@@ -103,6 +120,9 @@ class Router(Base):
                         result.append(interface)
         result = sorted(result, key=lambda _iface: _iface.id)
         return result
+
+    def get_routable_networks(self):
+        return [iface.primary_subnet['cidr'] for iface in self.address_scope_matches()]
 
     def _build_interfaces(self):
         interfaces = l3_interface.InterfaceList()
@@ -124,6 +144,9 @@ class Router(Base):
             interfaces.append(l3_interface.OrphanedInterface(self.router_id, port, self._port_extra_atts(port)))
 
         return interfaces
+
+    def get_internal_cidrs(self):
+        return [iface.primary_subnet['cidr'] for iface in self.interfaces.internal_interfaces]
 
     def _build_routes(self):
         routes = route.RouteCollection(self.router_id)
@@ -160,7 +183,7 @@ class Router(Base):
         return acl
 
     def _build_pbr_acl(self):
-        acl = access_list.AccessList("PBR-{}".format(utils.uuid_to_vrf_id(self.router_id)))
+        acl = access_list.AccessList("PBR-{}".format(utils.uuid_to_vrf_id(self.router_id)), drop_on_17_3=True)
 
         if self.gateway_interface:
             subnet = self.gateway_interface.primary_subnet
@@ -189,6 +212,17 @@ class Router(Base):
                     return True
 
         return False
+
+    def _build_bgp_address_family(self):
+        networks_v4 = self.get_internal_cidrs()
+        for router_route in self.routes.routes:
+            if router_route.cidr != "0.0.0.0/0":
+                networks_v4.append(router_route.cidr)
+
+        return bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
+                                 routable_interface=self.routable_interface,
+                                 rt_export=self.rt_export, networks_v4=networks_v4,
+                                 routable_networks=self.get_routable_networks())
 
     def _build_dynamic_nat(self):
         pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
@@ -284,7 +318,7 @@ class Router(Base):
 
         # results.append(self.bgp_address_family.update())
 
-        if self.routeable_interface or len(self.rt_export) > 0:
+        if self.routable_interface or len(self.rt_export) > 0:
             results.append(self.bgp_address_family.update())
         else:
             results.append(self.bgp_address_family.delete())
@@ -371,7 +405,7 @@ class Router(Base):
         if not vrf_diff.valid:
             diff_results['vrf'] = vrf_diff.to_dict()
 
-        if self.routeable_interface:
+        if self.routable_interface:
             bgp_diff = self.bgp_address_family.diff()
 
             if not bgp_diff.valid:

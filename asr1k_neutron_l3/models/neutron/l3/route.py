@@ -53,3 +53,7 @@ class Route(base.Base):
 
         self._rest_definition = l3_route.IpRoute(vrf=self.router_id, prefix=self.destination, mask=self.mask,
                                                  fwd_list={"fwd": self.nexthop})
+
+    @property
+    def cidr(self):
+        return utils.to_cidr(self.destination, self.mask)

@@ -41,16 +41,29 @@ class RouteConstants(object):
 
 class VrfRoute(NyBase):
     ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
-                    <ip>
-                      <route>
-                       <vrf>
-                        <name>{id}</name>
-                       </vrf>
-                      </route>
-                    </ip>
-                  </native>
-                """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                <ip>
+                  <route>
+                   <vrf>
+                    <name>{id}</name>
+                   </vrf>
+                  </route>
+                </ip>
+              </native>
+    """
+
+    GET_ALL_STUB = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+                <ip>
+                  <route>
+                   <vrf>
+                    <name/>
+                   </vrf>
+                  </route>
+                </ip>
+              </native>
+    """
 
     VRF_XPATH_FILTER = "/native/ip/route/vrf[name='{vrf}']"
 
@@ -58,8 +71,8 @@ class VrfRoute(NyBase):
     ITEM_KEY = RouteConstants.DEFINITION
 
     @classmethod
-    def get_for_vrf(cls, context=None, vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
+    def get_for_vrf(cls, context, vrf=None):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
 
     @classmethod
     def __parameters__(cls):
@@ -70,11 +83,11 @@ class VrfRoute(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id')})
+        return cls.ID_FILTER.format(id=kwargs.get('id'))
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(VrfRoute, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(VrfRoute, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
 
@@ -83,7 +96,7 @@ class VrfRoute(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {RouteConstants.IP: result}
@@ -98,51 +111,35 @@ class VrfRoute(NyBase):
             return utils.vrf_id_to_uuid(self.name)
 
     @execute_on_pair()
-    def update(self, context=None):
-
+    def update(self, context):
         if len(self.routes) > 0:
             return super(VrfRoute, self)._update(context=context, method=NC_OPERATION.PUT)
         else:
             return self._delete(context=context)
 
-    def to_dict(self):
-
+    def to_dict(self, context):
         vrf_route = OrderedDict()
         vrf_route[RouteConstants.NAME] = self.name
-
         vrf_route[RouteConstants.FOWARDING] = []
 
         if isinstance(self.routes, list):
             for route in sorted(self.routes, key=lambda route: route.prefix):
-
-                vrf_route[RouteConstants.FOWARDING].append(route.to_single_dict())
+                vrf_route[RouteConstants.FOWARDING].append(route.to_single_dict(context))
 
         result = OrderedDict()
         result[RouteConstants.DEFINITION] = vrf_route
 
         return dict(result)
 
-    def to_delete_dict(self):
-
+    def to_delete_dict(self, context):
         vrf_route = OrderedDict()
         vrf_route[RouteConstants.NAME] = self.name
-
         vrf_route[RouteConstants.FOWARDING] = []
 
         result = OrderedDict()
         result[RouteConstants.DEFINITION] = vrf_route
 
         return dict(result)
-
-    # def preflight(self, context):
-    #
-    #     LOG.debug("Running preflight check for route {}".format(self.id))
-    #
-    #     vrf = Ayang_vrf.VrfDefinition.get(self.name,context=context)
-    #
-    #     if vrf is None and self._ncc_connection:
-    #         raise exc.MissingParentException(device=context.host,entity=self,action="create")
-    #     LOG.dAbug("Preflight check completed for route {}".format(self.id))
 
 
 class IpRoute(NyBase):
@@ -167,7 +164,7 @@ class IpRoute(NyBase):
     def __id_function__(self, id_field, **kwargs):
         self.id = "{},{}".format(self.prefix, self.mask)
 
-    def to_single_dict(self):
+    def to_single_dict(self, context):
         ip_route = OrderedDict()
         ip_route[RouteConstants.PREFIX] = self.prefix
         ip_route[RouteConstants.MASK] = self.mask
@@ -175,8 +172,8 @@ class IpRoute(NyBase):
 
         return ip_route
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
-        result[RouteConstants.FOWARDING] = self.to_single_dict()
+        result[RouteConstants.FOWARDING] = self.to_single_dict(context)
 
         return dict(result)

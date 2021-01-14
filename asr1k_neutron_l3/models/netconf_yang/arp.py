@@ -22,14 +22,26 @@ class ARPConstants(object):
 
 class VrfArpList(NyBase):
     ID_FILTER = """
-      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-arp="http://cisco.com/ns/yang/Cisco-IOS-XE-arp">
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+              xmlns:ios-arp="http://cisco.com/ns/yang/Cisco-IOS-XE-arp">
         <ios-arp:arp>
           <ios-arp:vrf>
             <ios-arp:vrf-name>{vrf}</ios-arp:vrf-name>
           </ios-arp:vrf>
         </ios-arp:arp>
       </native>
-                """
+    """
+
+    GET_ALL_STUB = """
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+              xmlns:ios-arp="http://cisco.com/ns/yang/Cisco-IOS-XE-arp">
+        <ios-arp:arp>
+          <ios-arp:vrf>
+            <ios-arp:vrf-name/>
+          </ios-arp:vrf>
+        </ios-arp:arp>
+      </native>
+    """
 
     LIST_KEY = ARPConstants.ARP
     ITEM_KEY = ARPConstants.VRF
@@ -44,15 +56,15 @@ class VrfArpList(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf')})
+        return cls.ID_FILTER.format(vrf=kwargs.get('vrf'))
 
     def __init__(self, **kwargs):
         super(VrfArpList, self).__init__(**kwargs)
 
     @classmethod
-    def remove_wrapper(cls, dict):
+    def remove_wrapper(cls, dict, context):
 
-        dict = super(VrfArpList, cls)._remove_base_wrapper(dict)
+        dict = super(VrfArpList, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
 
@@ -72,24 +84,24 @@ class VrfArpList(NyBase):
 
         return {ARPConstants.VRF: arp_list}
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
 
         result[self.LIST_KEY][xml_utils.NS] = xml_utils.NS_CISCO_ARP
         return result
 
-    def to_dict(self):
+    def to_dict(self, context):
         arp_list = OrderedDict()
         arp_list[ARPConstants.VRF_NAME] = self.vrf
         arp_list[ARPConstants.ARP_ENTRY] = []
         for arp_entry in sorted(self.arp_entry, key=lambda arp_entry: arp_entry.ip):
-            arp_list[ARPConstants.ARP_ENTRY].append(arp_entry.to_single_dict())
+            arp_list[ARPConstants.ARP_ENTRY].append(arp_entry.to_single_dict(context))
 
         return {ARPConstants.VRF: arp_list}
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         if len(self.arp_entry) > 0:
             return super(VrfArpList, self)._update(context=context, method=NC_OPERATION.PUT)
 
@@ -97,8 +109,7 @@ class VrfArpList(NyBase):
             return self._delete(context=context)
 
     @execute_on_pair()
-    def delete(self, context=None):
-
+    def delete(self, context):
         return super(VrfArpList, self)._delete(context=context)
 
 
@@ -131,22 +142,21 @@ class ArpEntry(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf'), 'ip': kwargs.get('ip')})
+        return cls.ID_FILTER.format(vrf=kwargs.get('vrf'), ip=kwargs.get('ip'))
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, vrf, ip, context=None):
+    def get(cls, vrf, ip, context):
         return super(ArpEntry, cls)._get(vrf=vrf, ip=ip, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, vrf, ip, context=None):
+    def exists(cls, vrf, ip, context):
         return super(ArpEntry, cls)._exists(ip=ip, vrf=vrf, context=context)
 
     @classmethod
-    def remove_wrapper(cls, dict):
-
-        dict = super(ArpEntry, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(ArpEntry, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
 
@@ -158,7 +168,7 @@ class ArpEntry(NyBase):
     def orphan_info(self):
         return {self.__class__.__name__: {'ip': self.ip, 'hardware_address': self.hardware_address, 'vrf': self.vrf}}
 
-    def _wrapper_preamble(self, single_dict):
+    def _wrapper_preamble(self, single_dict, context):
         result = OrderedDict()
         result[self.LIST_KEY] = single_dict
 
@@ -179,15 +189,15 @@ class ArpEntry(NyBase):
         if self.vrf is not None:
             return utils.vrf_id_to_uuid(self.vrf)
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
         result[ARPConstants.VRF_NAME] = self.vrf
         result[ARPConstants.ARP_ENTRY] = []
-        result[ARPConstants.ARP_ENTRY].append(self.to_single_dict())
+        result[ARPConstants.ARP_ENTRY].append(self.to_single_dict(context))
 
         return result
 
-    def to_single_dict(self):
+    def to_single_dict(self, context):
         entry = OrderedDict()
         entry[ARPConstants.IP] = self.ip
         entry[ARPConstants.HARDWARE_ADDRESS] = self.hardware_address
@@ -198,7 +208,7 @@ class ArpEntry(NyBase):
 
         return entry
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         entry = OrderedDict()
         entry[ARPConstants.IP] = self.ip
 

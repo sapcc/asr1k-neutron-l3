@@ -33,6 +33,7 @@ NS_CISCO_BGP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-bgp'
 NS_CISCO_ROUTE_MAP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-route-map'
 NS_CISCO_EFP_OPER = 'http://cisco.com/ns/yang/Cisco-IOS-XE-efp-oper'
 NS_CISCO_ARP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-arp'
+NS_CISCO_BRIDGE_DOMAIN = 'http://cisco.com/ns/yang/Cisco-IOS-XE-bridge-domain'
 NS_IETF_INTERFACE = "urn:ietf:params:xml:ns:yang:ietf-interfaces"
 
 
@@ -61,7 +62,8 @@ class XMLUtils(object):
         NS_CISCO_ROUTE_MAP: None,
         NS_CISCO_EFP_OPER: None,
         NS_CISCO_ARP: None,
-        NS_IETF_INTERFACE: None
+        NS_IETF_INTERFACE: None,
+        NS_CISCO_BRIDGE_DOMAIN: None,
     }
 
     @classmethod
@@ -69,9 +71,9 @@ class XMLUtils(object):
         return xmltodict.parse(xml, process_namespaces=True, namespaces=cls.namespaces)
 
     @classmethod
-    def to_json(cls, xml):
+    def to_json(cls, xml, context):
         result = cls.to_raw_json(xml)
-        result = cls.remove_wrapper(result)
+        result = cls.remove_wrapper(result, context)
 
         return cls._to_plain_json(result)
 
@@ -80,15 +82,16 @@ class XMLUtils(object):
         return json.loads(json.dumps(dict))
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = cls._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = cls._remove_base_wrapper(dict, context)
         if dict is None:
             return
-        dict = dict.get(cls.LIST_KEY, dict)
+        if cls.LIST_KEY is not None:
+            dict = dict.get(cls.LIST_KEY, dict)
         return dict
 
     @classmethod
-    def _remove_base_wrapper(cls, dict):
+    def _remove_base_wrapper(cls, dict, context):
         if dict is None:
             return
 
@@ -100,41 +103,43 @@ class XMLUtils(object):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         if self.LIST_KEY is not None:
             dict = {self.LIST_KEY: dict}
 
         return dict
 
-    def add_wrapper(self, dict, operation):
+    def add_wrapper(self, dict, operation, context):
         if operation and operation != 'override':
             if isinstance(dict, list):
                 for item in dict:
-                    item[self.ITEM_KEY][OPERATION] = operation
+                    item[self.get_item_key(context)][OPERATION] = operation
 
-            elif isinstance(dict[self.ITEM_KEY], list):
-                for item in dict[self.ITEM_KEY]:
+            elif isinstance(dict[self.get_item_key(context)], list):
+                for item in dict[self.get_item_key(context)]:
                     item[OPERATION] = operation
             else:
-                dict[self.ITEM_KEY][OPERATION] = operation
+                dict[self.get_item_key(context)][OPERATION] = operation
 
-        dict = self._wrapper_preamble(dict)
+        dict = self._wrapper_preamble(dict, context)
         dict[NS] = NS_CISCO_NATIVE
 
         result = OrderedDict()
         result[IOS_NATIVE] = dict
+        result[NS] = NS_NETCONF_BASE
 
         dict = {CONFIG: result}
+
         return dict
 
-    def to_delete_dict(self):
-        return self.to_dict()
+    def to_delete_dict(self, context):
+        return self.to_dict(context)
 
-    def to_xml(self, json=None, operation=None):
+    def to_xml(self, context, json=None, operation=None):
         if json is None:
-            json = self.to_dict()
+            json = self.to_dict(context)
 
-        j = self.add_wrapper(json, operation)
+        j = self.add_wrapper(json, operation, context)
 
         xml = xmltodict.unparse(j)
         xml = xml.replace(ENCODING, "")

@@ -54,6 +54,7 @@ class NATConstants(object):
     GLOBAL_IP = "global-ip"
     FORCED = "forced"
     MATCH_IN_VRF = "match-in-vrf"
+    STATELESS = "stateless"
 
 
 class NatPool(NyBase):
@@ -61,16 +62,30 @@ class NatPool(NyBase):
     ITEM_KEY = NATConstants.POOL
 
     ID_FILTER = """
-                    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                        <ip>
-                          <ios-nat:nat>
-                            <ios-nat:pool>
-                               <id>{id}</id>
-                            </ios-nat:pool>   
-                          </ios-nat:nat>
-                        </ip>
-                    </native>
-                """
+            <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                    xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                    <ios-nat:nat>
+                        <ios-nat:pool>
+                            <id>{id}</id>
+                        </ios-nat:pool>
+                    </ios-nat:nat>
+                </ip>
+            </native>
+    """
+
+    GET_ALL_STUB = """
+            <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                    xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                    <ios-nat:nat>
+                        <ios-nat:pool>
+                            <ios-nat:id/>
+                        </ios-nat:pool>
+                    </ios-nat:nat>
+                </ip>
+            </native>
+    """
 
     @classmethod
     def __parameters__(cls):
@@ -82,8 +97,8 @@ class NatPool(NyBase):
         ]
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(NatPool, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(NatPool, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(NATConstants.IP, dict)
@@ -96,7 +111,7 @@ class NatPool(NyBase):
         if self.vrf is not None:
             return utils.vrf_id_to_uuid(self.id)
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         dict[xml_utils.NS] = xml_utils.NS_CISCO_NAT
         result[self.LIST_KEY] = dict
@@ -107,7 +122,7 @@ class NatPool(NyBase):
         super(NatPool, self).__init__(**kwargs)
         self.vrf = self.id
 
-    def to_dict(self):
+    def to_dict(self, context):
         pool = OrderedDict()
         pool[NATConstants.ID] = self.id
 
@@ -120,7 +135,7 @@ class NatPool(NyBase):
 
         return dict(result)
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         pool = OrderedDict()
         pool[NATConstants.ID] = self.id
 
@@ -139,8 +154,8 @@ class DynamicNat(NyBase):
     #     return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'vrf':kwargs.get('vrf')})
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(DynamicNat, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(DynamicNat, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(NATConstants.IP, dict)
@@ -151,7 +166,7 @@ class DynamicNat(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {NATConstants.INSIDE: result}
@@ -171,33 +186,51 @@ class DynamicNat(NyBase):
             return utils.vrf_id_to_uuid(self.vrf)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         return super(DynamicNat, self)._update(context=context, method=NC_OPERATION.PUT)
 
 
 class InterfaceDynamicNat(DynamicNat):
     ID_FILTER = """
-                      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
-                        <ip>
-                          <ios-nat:nat>
-                            <ios-nat:inside>
-                              <ios-nat:source>
-                                <ios-nat:list>
-                                  <ios-nat:id>{id}</ios-nat:id>
-                                </ios-nat:list>
-                              </ios-nat:source>
-                            </ios-nat:inside>
-                          </ios-nat:nat>
-                        </ip>
-                      </native>
+                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                          xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat"
+                          xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                    <ip>
+                      <ios-nat:nat>
+                        <ios-nat:inside>
+                          <ios-nat:source>
+                            <ios-nat:list>
+                              <ios-nat:id>{id}</ios-nat:id>
+                            </ios-nat:list>
+                          </ios-nat:source>
+                        </ios-nat:inside>
+                      </ios-nat:nat>
+                    </ip>
+                  </native>
+    """
 
-                    """
+    GET_ALL_STUB = """
+                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                          xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                    <ip>
+                      <ios-nat:nat>
+                        <ios-nat:inside>
+                          <ios-nat:source>
+                            <ios-nat:list>
+                              <ios-nat:id/>
+                            </ios-nat:list>
+                          </ios-nat:source>
+                        </ios-nat:inside>
+                      </ios-nat:nat>
+                    </ip>
+                  </native>
+    """
 
     VRF_XPATH_FILTER = "/native/ip/nat/inside/source/list[id='NAT-{vrf}']"
 
     @classmethod
-    def get_for_vrf(cls, context=None, vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
+    def get_for_vrf(cls, context, vrf=None):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
 
     @classmethod
     def __parameters__(cls):
@@ -227,24 +260,31 @@ class InterfaceDynamicNat(DynamicNat):
     def __init__(self, **kwargs):
         super(InterfaceDynamicNat, self).__init__(**kwargs)
 
-        self.interface = kwargs.get("interface", None)
-
-        if self.interface is None:
-            self.bd = kwargs.get("bridge_domain", None)
-            if self.bd is not None:
-                self.interface = "BDI{}".format(self.bd)
+        if kwargs.get("interface") is not None:
+            if self.interface.startswith("BDI"):
+                self.bd = int(self.interface[3:])
+            elif self.interface.startswith("BD-VIF"):
+                self.bd = int(self.interface[6:])
+            else:
+                raise ValueError("Could not determine bd id from interface '{}'".format(self.interface))
         else:
-            self.bd = int(self.interface[3:])
+            self.bd = kwargs.get("bridge_domain")
 
-    def to_dict(self):
+    def to_dict(self, context):
+        ifname = "{}{}".format(context.bd_iftype, self.bd)
+
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
 
-        entry[NATConstants.INTERFACE_WITH_VRF] = {}
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE] = {}
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.NAME] = self.interface
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF] = {}
-        entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.VRF_NAME] = self.vrf
+        entry[NATConstants.INTERFACE_WITH_VRF] = {
+            NATConstants.INTERFACE: {
+                NATConstants.NAME: ifname,
+                NATConstants.VRF: {
+                    NATConstants.VRF_NAME: self.vrf
+                },
+            },
+        }
+
         if self.overload:
             entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.OVERLOAD] = ""
 
@@ -261,21 +301,39 @@ class InterfaceDynamicNat(DynamicNat):
 
 class PoolDynamicNat(DynamicNat):
     ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat" xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:list>
-                              <ios-nat:id>{id}</ios-nat:id>
-                            </ios-nat:list>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat"
+                      xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:list>
+                          <ios-nat:id>{id}</ios-nat:id>
+                        </ios-nat:list>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
+    """
 
-                """
+    GET_ALL_STUB = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:list>
+                          <ios-nat:id/>
+                        </ios-nat:list>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
+    """
 
     @classmethod
     def __parameters__(cls):
@@ -301,7 +359,7 @@ class PoolDynamicNat(DynamicNat):
 
         return False
 
-    def to_dict(self):
+    def to_dict(self, context):
         entry = OrderedDict()
         entry[NATConstants.ID] = self.id
 
@@ -323,52 +381,26 @@ class PoolDynamicNat(DynamicNat):
 
         return dict(result)
 
-    # def to_delete_dict(self):
-    #     entry = OrderedDict()
-    #     entry[NATConstants.ID] = self.id
-    #
-    #     entry[NATConstants.POOL_WITH_VRF]   ={}
-    #     entry[NATConstants.POOL_WITH_VRF][xml_utils.OPERATION] = "delete"
-    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL] = {}
-    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.NAME] = self.pool
-    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF] = {}
-    #     entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF][NATConstants.NAME] = self.vrf
-    #     result = OrderedDict()
-    #     result[NATConstants.LIST] = []
-    #     result[NATConstants.LIST].append(entry)
-    #
-    #     return dict(result)
-    #
-    # @execute_on_pair()
-    # def delete(self,context=None):
-    #
-    #     return super(PoolDynamicNat, self)._delete(context=context,method=NC_OPERATION.OVERRIDE)
-
-    # @execute_on_pair()
-    # def delete(self, context=None):
-    #     device = self._internal_get(context=context)
-    #     if (device is not None and device.pool is not None) or self.force_delete:
-    #         self.ncc.delete_pool(context)
-
 
 class StaticNatList(NyBase):
     ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                                <ios-nat:vrf>{vrf}</ios-nat:vrf>
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
-                """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                            <ios-nat:vrf>{vrf}</ios-nat:vrf>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
+    """
 
     LIST_KEY = NATConstants.STATIC
     ITEM_KEY = NATConstants.TRANSPORT_LIST
@@ -384,11 +416,11 @@ class StaticNatList(NyBase):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'vrf': kwargs.get('vrf')})
+        return cls.ID_FILTER.format(vrf=kwargs.get('vrf'))
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(StaticNatList, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(StaticNatList, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
 
@@ -400,7 +432,7 @@ class StaticNatList(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {NATConstants.SOURCE: result}
@@ -413,16 +445,16 @@ class StaticNatList(NyBase):
     def __init__(self, **kwargs):
         super(StaticNatList, self).__init__(**kwargs)
 
-    def to_dict(self):
+    def to_dict(self, context):
         nat_list = []
 
         for static_nat in sorted(self.static_nats, key=lambda static_nat: static_nat.local_ip):
-            nat_list.append(dict({self.ITEM_KEY: static_nat.to_single_dict()}))
+            nat_list.append(dict({self.ITEM_KEY: static_nat.to_single_dict(context)}))
 
         return nat_list
 
-    def clean_nat(self, context=None):
-        nat_list = self._internal_get(context)
+    def clean_nat(self, context):
+        nat_list = self._internal_get(context=context)
 
         neutron_ids = []
         neutron_local_ips = {}
@@ -434,21 +466,21 @@ class StaticNatList(NyBase):
                 if nat_entry.id not in neutron_ids:
                     LOG.debug('Removing unknown mapping local {} > {} from vrf {}'
                               ''.format(nat_entry.local_ip, nat_entry.global_ip, self.vrf))
-                    nat_entry.delete()
+                    nat_entry._delete(context=context)
                 global_ip = neutron_local_ips.get(nat_entry.local_ip)
                 if global_ip is not None and global_ip != nat_entry.global_ip:
                     LOG.debug('Removing invalid local mapping local {} > {} from vrf {}'
                               ''.format(nat_entry.local_ip, nat_entry.global_ip, self.vrf))
-                    nat_entry.delete()
+                    nat_entry._delete(context=context)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         self.clean_nat(context)
         result = super(StaticNatList, self)._update(context=context, method=NC_OPERATION.PUT)
         return result
 
     @execute_on_pair()
-    def delete(self, context=None):
+    def delete(self, context):
         self.clean_nat(context)
         result = super(StaticNatList, self)._delete(context=context)
         return result
@@ -456,78 +488,103 @@ class StaticNatList(NyBase):
 
 class StaticNat(NyBase):
     ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                                <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
-                                <ios-nat:global-ip>{global_ip}</ios-nat:global-ip>
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
-                """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                            <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
+                            <ios-nat:global-ip>{global_ip}</ios-nat:global-ip>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
+    """
 
     MAPPING_ID_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                                <ios-nat:mapping-id>{mapping_id}</ios-nat:mapping-id>
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                            <ios-nat:mapping-id>{mapping_id}</ios-nat:mapping-id>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
                 """
 
     LOCAL_IP_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                                <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
-                                <ios-nat:vrf>{vrf}</ios-nat:vrf> 
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                            <ios-nat:local-ip>{local_ip}</ios-nat:local-ip>
+                            <ios-nat:vrf>{vrf}</ios-nat:vrf>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
                 """
 
     ALL_FILTER = """
-                  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
-                    <ip>
-                      <ios-nat:nat>
-                        <ios-nat:inside>
-                          <ios-nat:source>
-                            <ios-nat:static>
-                              <ios-nat:nat-static-transport-list-with-vrf>
-                               <ios-nat:vrf>{vrf}</ios-nat:vrf> 
-                              </ios-nat:nat-static-transport-list-with-vrf>
-                            </ios-nat:static>
-                          </ios-nat:source>
-                        </ios-nat:inside>
-                      </ios-nat:nat>
-                    </ip>
-                  </native>
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                           <ios-nat:vrf>{vrf}</ios-nat:vrf>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
                 """
+
+    GET_ALL_STUB = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                <ip>
+                  <ios-nat:nat>
+                    <ios-nat:inside>
+                      <ios-nat:source>
+                        <ios-nat:static>
+                          <ios-nat:nat-static-transport-list-with-vrf>
+                            <ios-nat:vrf/>
+                            <ios-nat:local-ip/>
+                            <ios-nat:global-ip/>
+                          </ios-nat:nat-static-transport-list-with-vrf>
+                        </ios-nat:static>
+                      </ios-nat:source>
+                    </ios-nat:inside>
+                  </ios-nat:nat>
+                </ip>
+              </native>
+    """
 
     LIST_KEY = NATConstants.STATIC
     ITEM_KEY = NATConstants.TRANSPORT_LIST
@@ -540,20 +597,21 @@ class StaticNat(NyBase):
             {'key': 'vrf'},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
-            {'key': 'match_in_vrf', 'yang-key': 'match-in-vrf', 'default': False}
+            {'key': 'match_in_vrf', 'yang-key': 'match-in-vrf', 'default': False},
+            {'key': 'stateless', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
         ]
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'local_ip': kwargs.get('local_ip'), 'global_ip': kwargs.get('global_ip')})
+        return cls.ID_FILTER.format(local_ip=kwargs.get('local_ip'), global_ip=kwargs.get('global_ip'))
 
     @classmethod
     def get_global_ip_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'global_ip': kwargs.get('global_ip')})
+        return cls.ID_FILTER.format(global_ip=kwargs.get('global_ip'))
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, local_ip, global_ip, context=None):
+    def get(cls, local_ip, global_ip, context):
         return super(StaticNat, cls)._get(local_ip=local_ip, global_ip=global_ip, context=context)
 
     @classmethod
@@ -563,12 +621,12 @@ class StaticNat(NyBase):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, local_ip, global_ip, context=None):
+    def exists(cls, local_ip, global_ip, context):
         return super(StaticNat, cls)._exists(local_ip=local_ip, global_ip=global_ip, context=context)
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(StaticNat, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(StaticNat, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(NATConstants.IP, dict)
@@ -582,7 +640,7 @@ class StaticNat(NyBase):
     def orphan_info(self):
         return {self.__class__.__name__: {'local_ip': self.local_ip, 'global_ip': self.global_ip, 'vrf': self.vrf}}
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         result = {NATConstants.SOURCE: result}
@@ -605,30 +663,41 @@ class StaticNat(NyBase):
     def __id_function__(self, id_field, **kwargs):
         self.id = "{},{}".format(self.local_ip, self.global_ip)
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
         result[NATConstants.TRANSPORT_LIST] = []
-        result[NATConstants.TRANSPORT_LIST].append(self.to_single_dict())
+        result[NATConstants.TRANSPORT_LIST].append(self.to_single_dict(context))
 
         return dict(result)
 
-    def to_single_dict(self):
+    def to_single_dict(self, context):
         entry = OrderedDict()
         entry[NATConstants.LOCAL_IP] = self.local_ip
         entry[NATConstants.GLOBAL_IP] = self.global_ip
         entry[NATConstants.VRF] = self.vrf
 
-        if self.redundancy is not None:
-            entry[NATConstants.REDUNDANCY] = self.redundancy
-            entry[NATConstants.MAPPING_ID] = self.mapping_id
-
         if self.match_in_vrf:
             entry[NATConstants.MATCH_IN_VRF] = ""
         entry[NATConstants.MATCH_IN_VRF] = ""
 
+        if not self.from_device:
+            if self.stateless and context.has_stateless_nat:
+                entry[NATConstants.STATELESS] = ""
+            elif self.redundancy is not None:
+                # only set redundancy if we should not or cannot enable stateless
+                entry[NATConstants.REDUNDANCY] = self.redundancy
+                entry[NATConstants.MAPPING_ID] = self.mapping_id
+        else:
+            if self.stateless:
+                entry[NATConstants.STATELESS] = ""
+            if self.redundancy:
+                entry[NATConstants.REDUNDANCY] = self.redundancy
+            if self.mapping_id:
+                entry[NATConstants.MAPPING_ID] = self.mapping_id
+
         return entry
 
-    def to_delete_dict(self):
+    def to_delete_dict(self, context):
         entry = OrderedDict()
         entry[NATConstants.LOCAL_IP] = self.local_ip
         entry[NATConstants.GLOBAL_IP] = self.global_ip
@@ -642,7 +711,7 @@ class StaticNat(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
         self._check_and_clean_mapping_id(context=context)
         self._check_and_clean_local_ip(context=context)
         result = super(StaticNat, self)._update(context=context)
@@ -650,7 +719,7 @@ class StaticNat(NyBase):
 
     def _check_and_clean_mapping_id(self, context):
         # check if mapping ID is already in use in another VRF: if so its orphaned and should be removed
-        filter = self.MAPPING_ID_FILTER.format(**{'mapping_id': self.mapping_id})
+        filter = self.MAPPING_ID_FILTER.format(mapping_id=self.mapping_id)
 
         nats = self._get_all(nc_filter=filter, context=context)
 
@@ -662,7 +731,7 @@ class StaticNat(NyBase):
 
     def _check_and_clean_local_ip(self, context):
         # check if local IP is already mapped in VRF: if so its orphaned and should be removed
-        filter = self.LOCAL_IP_FILTER.format(**{'local_ip': self.local_ip, 'vrf': self.vrf})
+        filter = self.LOCAL_IP_FILTER.format(local_ip=self.local_ip, vrf=self.vrf)
 
         nats = self._get_all(nc_filter=filter, context=context)
 
@@ -671,9 +740,3 @@ class StaticNat(NyBase):
                 LOG.info('Removing invalid local mapping {} > {} in VRF {}'
                          ''.format(nat.local_ip, nat.global_ip, nat.vrf))
                 nat._delete(context)
-
-    @execute_on_pair()
-    def delete(self, context=None):
-        result = super(StaticNat, self)._delete(context=context)
-
-        return result

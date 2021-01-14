@@ -51,7 +51,7 @@ from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import connection
 from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api
-from asr1k_neutron_l3.models.neutron.l2 import port as l2_port
+from asr1k_neutron_l3.models.neutron.l2 import bridgedomain
 
 import urllib3
 
@@ -88,8 +88,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
         self.yang_connection_pool_size = cfg.CONF.asr1k_l2.yang_connection_pool_size
 
-        connection.ConnectionPool().initialiase(yang_connection_pool_size=self.yang_connection_pool_size,
-                                                max_age=cfg.CONF.asr1k.connection_max_age)
+        connection.ConnectionPool().initialise(yang_connection_pool_size=self.yang_connection_pool_size,
+                                               max_age=cfg.CONF.asr1k.connection_max_age)
 
         self.catch_sigterm = False
         self.catch_sighup = False
@@ -98,7 +98,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.iter_num = 0
 
         self.updated_ports = {}
-        self.known_ports = {}
         self.unbound_ports = {}
         self.deleted_ports = {}
         self.added_ports = set()
@@ -107,6 +106,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.sync_offset = 0
         self.sync_interval = self.conf.asr1k_l2.sync_interval
         self.sync_active = self.conf.asr1k_l2.sync_active
+        self._last_synced_network = None
 
         self.pool = eventlet.greenpool.GreenPool(size=10)  # Start small, so we identify possible bottlenecks
         self.loop_pool = eventlet.greenpool.GreenPool(size=5)  # Start small, so we identify possible bottlenecks
@@ -158,8 +158,6 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
     def port_update(self, context, **kwargs):
         port = kwargs.get('port')
         port_id = port['id']
-        # Avoid updating a port, which has not been created yet
-        # if port_id in self.known_ports and not port_id in self.deleted_ports:
         self.updated_ports[port_id] = port
         LOG.debug("port_update message processed for port {}".format(port_id))
 
@@ -258,7 +256,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                 router_ports = self.agent_rpc.get_ports_with_extra_atts(self.context, ports_to_bind, self.agent_id,
                                                                         self.conf.host)
 
-                l2_port.create_ports(router_ports, callback=self._bound_ports)
+                bridgedomain.update_ports(router_ports, callback=self._bound_ports)
                 self.updated_ports = {}
             except BaseException as err:
                 LOG.exception(err)
@@ -270,33 +268,36 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
             try:
                 extra_atts = self.agent_rpc.get_extra_atts(self.context, ports_to_delete, agent_id=self.agent_id,
                                                            host=self.conf.host)
-                l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
+                bridgedomain.delete_ports(extra_atts, callback=self._deleted_ports)
                 self.deleted_ports = {}
             except BaseException as err:
                 LOG.exception(err)
 
     @instrument()
-    def sync_known_ports(self):
-
+    def sync_networks_with_ports(self):
         connection.check_devices(self.agent_rpc.get_device_info(self.context, self.conf.host))
-
         if self.sync_active:
+            networks = self.agent_rpc.get_networks_with_asr1k_ports(self.context, limit=self.sync_chunk_size,
+                                                                    offset=self._last_synced_network,
+                                                                    host=self.conf.host)
+            if not networks:
+                LOG.debug("ml2 network sync cycle complete, starting from the beginning")
+                self._last_synced_network = None
+                networks = self.agent_rpc.get_networks_with_asr1k_ports(self.context, limit=self.sync_chunk_size,
+                                                                        offset=self._last_synced_network,
+                                                                        host=self.conf.host)
 
-            interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size,
-                                                                 offset=self.sync_offset, host=self.conf.host)
+            portcount = sum(len(_n['ports']) for _n in networks)
+            LOG.debug("Starting to sync %d networks with %d ports", len(networks), portcount)
 
-            LOG.debug("Syncing {} ports ".format(len(interface_ports)))
-
-            if len(interface_ports) == 0:
-                self.sync_offset = 0
-                interface_ports = self.agent_rpc.get_interface_ports(self.context, limit=self.sync_chunk_size,
-                                                                     offset=self.sync_offset, host=self.conf.host)
+            with timeutils.StopWatch() as stopwatch:
+                bridgedomain.sync_networks(networks, callback=self._bound_ports)
+            if networks:
+                self._last_synced_network = networks[-1]['network_id']
             else:
-                self.sync_offset = self.sync_offset + self.sync_chunk_size
-
-            l2_port.update_ports(interface_ports, callback=self._bound_ports)
-
-            LOG.debug("Syncing {} ports completed".format(len(interface_ports)))
+                self._last_synced_network = None
+            LOG.debug("Syncing %d networks with %d ports completed in %.2f, last synced network is %s",
+                      len(networks), portcount, stopwatch.elapsed(), self._last_synced_network)
         else:
             LOG.info("Skipping sync, disabled in config")
 
@@ -309,7 +310,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                                                                     host=self.conf.host)
                 LOG.info(self.conf.host)
                 LOG.info("***** {}".format(extra_atts))
-                l2_port.delete_ports(extra_atts, callback=self._deleted_ports)
+                bridgedomain.delete_ports(extra_atts, callback=self._deleted_ports)
                 self.deleted_ports = {}
             except BaseException as err:
                 LOG.exception(err)
@@ -342,11 +343,11 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
 
     def sync_loop(self):
         while self._check_and_handle_signal():
-            LOG.debug("**** SYNC Loop : known ports")
+            LOG.debug("**** SYNC Loop: sync networks")
             with timeutils.StopWatch() as w:
                 try:
-                    self.sync_known_ports()
-                except Exception as e:
+                    self.sync_networks_with_ports()
+                except BaseException as e:
                     LOG.exception(e)
 
             self.loop_count_and_wait(w.elapsed(), self.sync_interval)

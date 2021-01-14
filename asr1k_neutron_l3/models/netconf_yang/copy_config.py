@@ -8,13 +8,13 @@ from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 class CopyConfig(NyBase):
     COPY = """
-    <copy xmlns='http://cisco.com/ns/yang/Cisco-IOS-XE-rpc'>
+    <copy xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-rpc">
         <_source>{source}</_source>
         <_destination>{destination}</_destination>
     </copy>"""
 
-    COPY_1612 = """
-    <copy xmlns='http://cisco.com/ns/yang/Cisco-IOS-XE-rpc'>
+    COPY_17_3 = """
+    <copy xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-rpc">
         <source-drop-node-name>{source}</source-drop-node-name>
         <destination-drop-node-name>{destination}</destination-drop-node-name>
     </copy>"""
@@ -24,14 +24,14 @@ class CopyConfig(NyBase):
         return []
 
     @execute_on_pair()
-    def copy_config(self, context=None, source='running-config', destination='startup-config'):
+    def copy_config(self, context, source='running-config', destination='startup-config'):
         try:
             with PrometheusMonitor().config_copy_duration.labels(device=context.host,
                                                                  entity=self.__class__.__name__,
                                                                  action='copy').time():
                 with ConnectionManager(context=context) as connection:
-                    if connection.is_min_version_1612:
-                        COPY_CMD = self.COPY_1612
+                    if context.version_min_17_3:
+                        COPY_CMD = self.COPY_17_3
                     else:
                         COPY_CMD = self.COPY
                     result = connection.rpc(COPY_CMD.format(source=source, destination=destination),
@@ -50,5 +50,5 @@ class CopyConfig(NyBase):
                                                           action='copy').inc()
             raise e
 
-    def to_dict(self):
+    def to_dict(self, context):
         return None

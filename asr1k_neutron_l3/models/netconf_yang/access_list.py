@@ -43,16 +43,30 @@ class ACLConstants(object):
 
 class AccessList(NyBase):
     ID_FILTER = """
-                    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-acl="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
-                        <ip>
-                          <access-list>
-                            <ios-acl:extended>
-                                <ios-acl:name>{name}</ios-acl:name>
-                            </ios-acl:extended>
-                          </access-list>
-                        </ip>
-                    </native>
-                """
+        <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                xmlns:ios-acl="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
+            <ip>
+              <access-list>
+                <ios-acl:extended>
+                    <ios-acl:name>{name}</ios-acl:name>
+                </ios-acl:extended>
+              </access-list>
+            </ip>
+        </native>
+    """
+
+    GET_ALL_STUB = """
+        <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                xmlns:ios-acl="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
+            <ip>
+              <access-list>
+                <ios-acl:extended>
+                    <ios-acl:name/>
+                </ios-acl:extended>
+              </access-list>
+            </ip>
+        </native>
+        """
 
     LIST_KEY = ACLConstants.ACCESS_LIST
     ITEM_KEY = ACLConstants.EXTENDED
@@ -61,16 +75,17 @@ class AccessList(NyBase):
     def __parameters__(cls):
         return [
             {"key": "name", "id": True},
-            {'key': 'rules', 'yang-key': "access-list-seq-rule", 'type': [ACLRule], 'default': []}
+            {'key': 'rules', 'yang-key': "access-list-seq-rule", 'type': [ACLRule], 'default': []},
+            {'key': 'drop_on_17_3', 'default': False},
         ]
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'name': kwargs.get('name')})
+        return cls.ID_FILTER.format(name=kwargs.get('name'))
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(AccessList, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(AccessList, cls)._remove_base_wrapper(dict, context)
 
         if dict is not None:
             dict = dict.get(ACLConstants.IP, dict)
@@ -78,7 +93,7 @@ class AccessList(NyBase):
 
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         dict[self.ITEM_KEY][xml_utils.NS] = xml_utils.NS_CISCO_ACL
         result[self.LIST_KEY] = dict
@@ -96,14 +111,17 @@ class AccessList(NyBase):
     def add_rule(self, rule):
         self.rules.append(rule)
 
-    def to_dict(self):
+    def to_dict(self, context):
+        if context.version_min_17_3 and self.drop_on_17_3:
+            return {ACLConstants.EXTENDED: {}}
+
         entry = OrderedDict()
         entry[ACLConstants.NAME] = self.name
         # entry[ACLConstants.ACL_RULE]=self.rules
         entry[ACLConstants.ACL_RULE] = []
         for rule in self.rules:
             if rule is not None:
-                entry[ACLConstants.ACL_RULE].append(rule.to_child_dict())
+                entry[ACLConstants.ACL_RULE].append(rule.to_child_dict(context))
 
         result = OrderedDict()
         result[ACLConstants.EXTENDED] = entry
@@ -111,13 +129,21 @@ class AccessList(NyBase):
         return dict(result)
 
     @execute_on_pair()
-    def update(self, context=None):
+    def update(self, context):
+        if context.version_min_17_3 and self.drop_on_17_3:
+            return None
+
         # we need to check if the ACL needs to be updated, if it does selectively delete,
         # because we can't easily update individual rules
         if len(self._internal_validate(context=context)) > 0:
             super(AccessList, self)._delete(context=context)
 
         return super(AccessList, self)._update(context=context)
+
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+        return context.version_min_17_3 and \
+            (self.drop_on_17_3 or self.name.startswith("PBR-") and self.neutron_router_id is not None) or \
+            super(AccessList, self).is_orphan(all_router_ids, all_segmentation_ids, all_bd_ids, context)
 
 
 class ACLRule(NyBase):
@@ -135,21 +161,21 @@ class ACLRule(NyBase):
     def __init__(self, **kwargs):
         super(ACLRule, self).__init__(**kwargs)
 
-    def to_child_dict(self):
+    def to_child_dict(self, context):
         entry = OrderedDict()
         entry[ACLConstants.SEQUENCE] = self.id
 
         entry[ACLConstants.ACE_RULE] = []
 
         for ace_rule in self.ace_rule:
-            entry[ACLConstants.ACE_RULE].append(ace_rule.to_child_dict())
+            entry[ACLConstants.ACE_RULE].append(ace_rule.to_child_dict(context))
 
         return entry
 
-    def to_dict(self):
+    def to_dict(self, context):
 
         result = OrderedDict()
-        result[ACLConstants.ACL_RULE] = self.to_child_dict()
+        result[ACLConstants.ACL_RULE] = self.to_child_dict(context)
 
         return dict(result)
 
@@ -176,7 +202,7 @@ class ACERule(NyBase):
     def __init__(self, **kwargs):
         super(ACERule, self).__init__(**kwargs)
 
-    def to_child_dict(self):
+    def to_child_dict(self, context):
         ace_rule = OrderedDict()
         ace_rule[ACLConstants.ACTION] = self.action
         ace_rule[ACLConstants.PROTOCOL] = self.protocol
@@ -195,8 +221,8 @@ class ACERule(NyBase):
 
         return ace_rule
 
-    def to_dict(self):
+    def to_dict(self, context):
         result = OrderedDict()
-        result[ACLConstants.ACE_RULE] = self.to_child_dict()
+        result[ACLConstants.ACE_RULE] = self.to_child_dict(context)
 
         return dict(result)

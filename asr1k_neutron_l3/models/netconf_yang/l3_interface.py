@@ -14,13 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from collections import OrderedDict
+import copy
 
+from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE, NC_OPERATION
 import asr1k_neutron_l3.models.netconf_yang.nat
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 from asr1k_neutron_l3.common import cli_snippets, utils
-from asr1k_neutron_l3.common import asr1k_exceptions as exc
 
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from oslo_log import log as logging
@@ -30,6 +31,7 @@ LOG = logging.getLogger(__name__)
 class L3Constants(object):
     INTERFACE = "interface"
     BDI_INTERFACE = "BDI"
+    BDVIF_INTERFACE = "BD-VIF"
 
     ID = "id"
     NAME = "name"
@@ -47,6 +49,7 @@ class L3Constants(object):
     NAT = "nat"
     NAT_MODE_INSIDE = "inside"
     NAT_MODE_OUTSIDE = "outside"
+    NAT_MODE_STICK = "stick"
     POLICY = "policy"
     ROUTE_MAP = "route-map"
     ACCESS_GROUP = "access-group"
@@ -56,40 +59,64 @@ class L3Constants(object):
     DIRECTION_OUT = "out"
 
 
-class BDIInterface(NyBase):
-
+class VBInterface(NyBase):
     ID_FILTER = """
                 <native>
                     <interface>
-                        <BDI>
+                        <{iftype}>
                             <name>{id}</name>
-                        </BDI>
+                        </{iftype}>
                     </interface>
-                </native>            
+                </native>
+             """
+
+    GET_ALL_STUB = """
+                <native>
+                    <interface>
+                        <{iftype}>
+                            <name/>
+                            <vrf>
+                                <forwarding/>
+                            </vrf>
+                        </{iftype}>
+                    </interface>
+                </native>
              """
 
     VRF_FILTER = """
                 <native>
                     <interface>
-                        <BDI>
+                        <{iftype}>
                             <vrf>
                                 <forwarding>{vrf}</forwarding>
                             </vrf>
-                        </BDI>
+                        </{iftype}>
                     </interface>
-                </native>            
+                </native>
              """
 
-    VRF_XPATH_FILTER = "/native/interface/BDI/vrf[forwarding='{vrf}']"
+    VRF_XPATH_FILTER = "/native/interface/{iftype}/vrf[forwarding='{vrf}']"
 
     LIST_KEY = L3Constants.INTERFACE
-    ITEM_KEY = L3Constants.BDI_INTERFACE
     MIN_MTU = 1500
     MAX_MTU = 9216
 
     @classmethod
-    def get_for_vrf(cls, context=None, vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(**{"vrf": vrf}))
+    def get_item_key(cls, context):
+        return context.bd_iftype
+
+    @classmethod
+    def get_primary_filter(cls, id, context, **kwargs):
+        return cls.ID_FILTER.format(id=id, iftype=context.bd_iftype)
+
+    @classmethod
+    def get_all_stub_filter(cls, context):
+        return cls.GET_ALL_STUB.format(iftype=context.bd_iftype)
+
+    @classmethod
+    def get_for_vrf(cls, context, vrf=None):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf,
+                                                                                      iftype=context.bd_iftype))
 
     @classmethod
     def __parameters__(cls):
@@ -99,24 +126,25 @@ class BDIInterface(NyBase):
             {"key": "name", "id": True},
             {'key': 'description'},
             {'key': 'mac_address'},
-            {'key': 'mtu', 'default': BDIInterface.MIN_MTU},
+            {'key': 'mtu', 'default': VBInterface.MIN_MTU},
             {'key': 'vrf', 'yang-path': 'vrf', 'yang-key': "forwarding"},
-            {'key': 'ip_address', 'yang-path': 'ip/address', 'yang-key': "primary", 'type': BDIPrimaryIpAddress},
+            {'key': 'ip_address', 'yang-path': 'ip/address', 'yang-key': "primary", 'type': VBIPrimaryIpAddress},
             {'key': 'secondary_ip_addresses', 'yang-path': 'ip/address', 'yang-key': "secondary",
-             'type': [BDISecondaryIpAddress], 'default': [], 'validate':False},
+             'type': [VBISecondaryIpAddress], 'default': [], 'validate':False},
             {'key': 'nat_inside', 'yang-key': 'inside', 'yang-path': 'ip/nat', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'nat_stick', 'yang-key': 'stick', 'yang-path': 'ip/nat', 'default': False,
+             'yang-type': YANG_TYPE.EMPTY},
             {'key': 'route_map', 'yang-key': 'route-map', 'yang-path': 'ip/policy'},
             {'key': 'access_group_out', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/out/acl'},
             {'key': 'redundancy_group'},
-            {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY}
-
+            {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
         ]
 
     def __init__(self, **kwargs):
-        super(BDIInterface, self).__init__(**kwargs)
+        super(VBInterface, self).__init__(**kwargs)
         if int(self.mtu) < self.MIN_MTU:
             self.mtu = str(self.MIN_MTU)
         if int(self.mtu) > self.MAX_MTU:
@@ -127,14 +155,31 @@ class BDIInterface(NyBase):
         if self.vrf:
             return utils.vrf_id_to_uuid(self.vrf)
 
-    def to_dict(self):
-        bdi = OrderedDict()
-        bdi[L3Constants.NAME] = self.name
-        bdi[L3Constants.DESCRIPTION] = self.description
-        bdi[L3Constants.MAC_ADDRESS] = self.mac_address
-        bdi[L3Constants.MTU] = self.mtu
+    def preflight(self, context):
+        """Remove BDI with same name when BD-VIF is in use (migration code)"""
+        if not context.use_bdvif:
+            return
+
+        # XXX: to get the BDI we need to act like this context does
+        # this should be removed after we're done with the migration
+        nobdvif_context = copy.copy(context)
+        nobdvif_context.force_bdi = True
+
+        bdi = self._internal_get(context=nobdvif_context)
+        if bdi:
+            LOG.debug("Removing BDI%s from %s before adding new BD-VIF%s", bdi.name, context.host, self.name)
+            bdi._delete(context=nobdvif_context, postflight=False)  # disable postflight checks
+
+    def to_dict(self, context):
+        vbi = OrderedDict()
+        vbi[L3Constants.NAME] = self.name
+        vbi[L3Constants.DESCRIPTION] = self.description
+        vbi[L3Constants.MAC_ADDRESS] = self.mac_address
+        vbi[L3Constants.MTU] = self.mtu
         if self.shutdown:
-            bdi[L3Constants.SHUTDOWN] = ''
+            vbi[L3Constants.SHUTDOWN] = ''
+        else:
+            vbi[L3Constants.SHUTDOWN] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
 
         ip = OrderedDict()
         ip[xml_utils.OPERATION] = NC_OPERATION.PUT
@@ -145,9 +190,10 @@ class BDIInterface(NyBase):
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.ADDRESS] = self.ip_address.address
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.MASK] = self.ip_address.mask
 
-        if self.nat_inside:
+        if self.nat_stick or (self.nat_inside and context.version_min_17_3):
+            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_STICK: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
+        elif self.nat_inside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
-
         elif self.nat_outside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
 
@@ -155,31 +201,38 @@ class BDIInterface(NyBase):
             ip[L3Constants.POLICY] = {L3Constants.ROUTE_MAP: self.route_map}
 
         if self.access_group_out:
-            ip[L3Constants.ACCESS_GROUP] = {L3Constants.OUT: {L3Constants.ACL: {L3Constants.ACL_NAME: self.access_group_out, L3Constants.DIRECTION_OUT: None}}}
+            ip[L3Constants.ACCESS_GROUP] = {
+                L3Constants.OUT: {
+                    L3Constants.ACL: {
+                        L3Constants.ACL_NAME: self.access_group_out,
+                        L3Constants.DIRECTION_OUT: None
+                    }
+                }
+            }
 
         vrf = OrderedDict()
         vrf[L3Constants.FORWARDING] = self.vrf
 
-        bdi[L3Constants.IP] = ip
-        bdi[L3Constants.VRF] = vrf
+        vbi[L3Constants.IP] = ip
+        vbi[L3Constants.VRF] = vrf
 
         result = OrderedDict()
-        result[L3Constants.BDI_INTERFACE] = bdi
+        result[context.bd_iftype] = vbi
 
         return dict(result)
 
-    def to_delete_dict(self, existing=None):
-        bdi = OrderedDict()
-        bdi[L3Constants.NAME] = self.name
-        bdi[L3Constants.DESCRIPTION] = self.description
+    def to_delete_dict(self, context, existing=None):
+        vbi = OrderedDict()
+        vbi[L3Constants.NAME] = self.name
+        vbi[L3Constants.DESCRIPTION] = self.description
 
         if existing is not None and existing.nat_outside:
             ip = OrderedDict()
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
-            bdi[L3Constants.IP] = ip
+            vbi[L3Constants.IP] = ip
 
         result = OrderedDict()
-        result[L3Constants.BDI_INTERFACE] = bdi
+        result[context.bd_iftype] = vbi
 
         return dict(result)
 
@@ -190,16 +243,25 @@ class BDIInterface(NyBase):
 
         return min <= int(self.id) <= max
 
-    def postflight(self, context):
-        dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
-        if self.nat_outside and dyn_nat is not None:
-            if dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
-                LOG.warning("Postflight failed for interface {} due to configured interface presence of dynamic NAT {}"
-                            "".format(self.id, dyn_nat))
-                raise exc.EntityNotEmptyException(device=context.host, entity=self, action="delete")
+    def postflight(self, context, method):
+        if self.nat_outside:
+            dyn_nat = asr1k_neutron_l3.models.netconf_yang.nat.InterfaceDynamicNat.get("NAT-{}".format(self.vrf))
+            if dyn_nat is not None and dyn_nat.vrf is not None and dyn_nat.vrf == self.vrf:
+                LOG.warning("Postflight found instance of dynamic NAT for interface {}, deleting it (instance is {})"
+                            "".format(self.id, dyn_nat.id))
+                dyn_nat.delete()
+
+        # remove bridge domain membership, as this stops us from deleting the interface
+        if context.version_min_17_3:
+            bd = BridgeDomain.get_for_bdvif(self.name, context, partial=True)
+            if bd is not None:
+                # in theory there should be only one member, as we're only getting a partial config, but who knows
+                for member in bd.bdvif_members:
+                    if member.name == self.name:
+                        member.mark_deleted = True
+                bd.update(context=context)
 
     def init_config(self):
-
         if self.nat_inside:
             nat = L3Constants.NAT_MODE_INSIDE
 
@@ -207,26 +269,38 @@ class BDIInterface(NyBase):
             nat = L3Constants.NAT_MODE_OUTSIDE
 
         if self.route_map is not None:
-            return cli_snippets.BDI_POLICY_CLI_INIT.format(**{'id': self.id, 'description': self.description,
-                                                              'mac': self.mac_address, 'mtu': self.mtu,
-                                                              'vrf': self.vrf, 'ip': self.ip_address.address,
-                                                              'netmask': self.ip_address.mask, 'nat': nat,
-                                                              'route_map': self.route_map})
+            return cli_snippets.BDI_POLICY_CLI_INIT.format(id=self.id, description=self.description,
+                                                           mac=self.mac_address, mtu=self.mtu,
+                                                           vrf=self.vrf, ip=self.ip_address.address,
+                                                           netmask=self.ip_address.mask, nat=nat,
+                                                           route_map=self.route_map)
         else:
-            return cli_snippets.BDI_NO_POLICY_CLI_INIT.format(**{'id': self.id, 'description': self.description,
-                                                                 'mac': self.mac_address, 'mtu': self.mtu,
-                                                                 'vrf': self.vrf, 'ip': self.ip_address.address,
-                                                                 'netmask': self.ip_address.mask, 'nat': nat})
+            return cli_snippets.BDI_NO_POLICY_CLI_INIT.format(id=self.id, description=self.description,
+                                                              mac=self.mac_address, mtu=self.mtu,
+                                                              vrf=self.vrf, ip=self.ip_address.address,
+                                                              netmask=self.ip_address.mask, nat=nat)
+
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+        # An interface is an orphan if ALL of these conditions are met
+        #   * it does not belong to any VRF or the router does not exist anymore
+        #   * ID is in neutron namespace
+        #   * its ID is not referenced in the extra atts table
+        # We don't delete vrf-less interfaces that are in the extra atts table as they could be reused
+        # while we're deleting them
+        return ((self.neutron_router_id and self.neutron_router_id not in all_router_ids) or
+                not self.neutron_router_id) and \
+            self.in_neutron_namespace and \
+            int(self.name) not in all_bd_ids
 
 
-class BDISecondaryIpAddress(NyBase):
+class VBISecondaryIpAddress(NyBase):
     ITEM_KEY = L3Constants.SECONDARY
     LIST_KEY = L3Constants.ADDRESS
 
     ID_FILTER = """
                   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
                     <interface>
-                      <BDI>
+                      <{iftype}>
                         <name>{bridge_domain}</name>
                         <ip>
                           <address>
@@ -235,9 +309,9 @@ class BDISecondaryIpAddress(NyBase):
                             </secondary>
                           </address>
                         </ip>
-                      </BDI>
+                      </{iftype}>
                     </interface>
-                  </native>    
+                  </native>
                 """
 
     @classmethod
@@ -251,45 +325,45 @@ class BDISecondaryIpAddress(NyBase):
         ]
 
     @classmethod
-    def remove_wrapper(cls, dict):
-        dict = super(BDISecondaryIpAddress, cls)._remove_base_wrapper(dict)
+    def remove_wrapper(cls, dict, context):
+        dict = super(VBISecondaryIpAddress, cls)._remove_base_wrapper(dict, context)
         if dict is None:
             return
         dict = dict.get(L3Constants.INTERFACE, dict)
-        dict = dict.get(L3Constants.BDI_INTERFACE, dict)
+        dict = dict.get(context.bd_iftype, dict)
         dict = dict.get(L3Constants.IP, dict)
         dict = dict.get(cls.LIST_KEY, None)
         return dict
 
-    def _wrapper_preamble(self, dict):
+    def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
         a = OrderedDict()
         a[L3Constants.NAME] = self.bridge_domain
         a[L3Constants.IP] = result
-        result = OrderedDict({L3Constants.BDI_INTERFACE: a})
+        result = OrderedDict({context.bd_iftype: a})
         result = OrderedDict({L3Constants.INTERFACE: result})
         return result
 
     @classmethod
-    def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id'), 'bridge_domain': kwargs.get('bridge_domain')})
+    def get_primary_filter(cls, id, bridge_domain, context, **kwargs):
+        return cls.ID_FILTER.format(id=id, iftype=context.bd_iftype, bridge_domain=bridge_domain)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, bridge_domain, id, context=None):
-        return super(BDISecondaryIpAddress, cls)._get(id=id, bridge_domain=bridge_domain, context=context)
+    def get(cls, bridge_domain, id, context):
+        return super(VBISecondaryIpAddress, cls)._get(id=id, bridge_domain=bridge_domain, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, bridge_domain, id, context=None):
-        return super(BDISecondaryIpAddress, cls)._exists(id=id, bridge_domain=bridge_domain, context=context)
+    def exists(cls, bridge_domain, id, context):
+        return super(VBISecondaryIpAddress, cls)._exists(id=id, bridge_domain=bridge_domain, context=context)
 
     def __init__(self, **kwargs):
-        super(BDISecondaryIpAddress, self).__init__(**kwargs)
+        super(VBISecondaryIpAddress, self).__init__(**kwargs)
         self.bridge_domain = kwargs.get('bridge_domain')
 
-    def to_dict(self):
+    def to_dict(self, context):
         ip = OrderedDict()
         secondary = OrderedDict()
         secondary[L3Constants.ADDRESS] = self.address
@@ -300,7 +374,7 @@ class BDISecondaryIpAddress(NyBase):
         return ip
 
 
-class BDIPrimaryIpAddress(NyBase):
+class VBIPrimaryIpAddress(NyBase):
     ITEM_KEY = L3Constants.PRIMARY
     LIST_KEY = L3Constants.ADDRESS
 
@@ -312,10 +386,10 @@ class BDIPrimaryIpAddress(NyBase):
         ]
 
     def __init__(self, **kwargs):
-        super(BDIPrimaryIpAddress, self).__init__(**kwargs)
+        super(VBIPrimaryIpAddress, self).__init__(**kwargs)
         self.bridge_domain = kwargs.get('bridge_domain')
 
-    def to_dict(self):
+    def to_dict(self, context):
         ip = OrderedDict()
         primary = OrderedDict()
         primary[L3Constants.ADDRESS] = self.address

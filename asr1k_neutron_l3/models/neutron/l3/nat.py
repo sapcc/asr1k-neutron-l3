@@ -15,6 +15,7 @@
 #    under the License.
 
 from oslo_log import log as logging
+from oslo_config import cfg
 
 from asr1k_neutron_l3.common import asr1k_constants, utils
 from asr1k_neutron_l3.models.netconf_yang import arp as l3_arp
@@ -158,7 +159,8 @@ class FloatingIp(BaseNAT):
         self._rest_definition = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
                                                  mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
                                                  redundancy=self.redundancy, mapping_id=self.mapping_id,
-                                                 mac_address=self.mac_address, match_in_vrf=True)
+                                                 mac_address=self.mac_address, match_in_vrf=True,
+                                                 stateless=cfg.CONF.asr1k_l3.stateless_nat)
 
     def get(self):
         static_nat = l3_nat.StaticNat.get(self.local_ip, self.global_ip)

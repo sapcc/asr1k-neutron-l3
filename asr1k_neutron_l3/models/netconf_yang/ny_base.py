@@ -27,9 +27,10 @@ from oslo_utils import uuidutils
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.connection import ConnectionManager
-from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict
+from asr1k_neutron_l3.models.netconf_yang.xml_utils import JsonDict, OPERATION
 from asr1k_neutron_l3.models.netconf_yang.bulk_operations import BulkOperations
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
+from asr1k_neutron_l3.common.exc_helper import exc_info_full
 
 from ncclient.operations.rpc import RPCError
 from ncclient.transport.errors import SessionCloseError
@@ -65,6 +66,12 @@ class Requeable(object):
         return []
 
 
+class IgnorePartialKeys(set):
+    def __contains__(self, key):
+        return super(IgnorePartialKeys, self).__contains__(key) or \
+            isinstance(key, tuple) and super(IgnorePartialKeys, self).__contains__(key[-1])
+
+
 class execute_on_pair(object):
     def __init__(self, return_raw=False, result_type=None):
         self.return_raw = return_raw
@@ -76,7 +83,7 @@ class execute_on_pair(object):
     def _execute_method(self, *args, **kwargs):
         method = kwargs.pop('_method')
         result = kwargs.pop('_result')
-        context = kwargs.get('context')
+        context = kwargs['context']
         try:
             response = method(*args, **kwargs)
 
@@ -85,10 +92,10 @@ class execute_on_pair(object):
             if isinstance(response, self.result_type):
                 result = response
             else:
-                result.append(kwargs.get('context'), response)
+                result.append(context, response)
         except BaseException as e:
-            LOG.exception(e)
-            result.append(kwargs.get('context'), e)
+            LOG.error(e, exc_info=exc_info_full())
+            result.append(context, e)
 
     def __call__(self, method):
         @six.wraps(method)
@@ -174,6 +181,9 @@ class retry_on_failure(object):
                         return result
                 except exc.DeviceUnreachable as e:
                     if context is not None:
+                        if context.alive:
+                            LOG.error("Device {} not reachable anymore, setting alive to false".format(host),
+                                      exc_info=exc_info_full())
                         LOG.debug("** [{}] request {}: Device is not reachable anymore: {}".format(host, uuid, e))
                         context.alive = False
                     break
@@ -193,7 +203,7 @@ class retry_on_failure(object):
                     exception = e
                 except (RPCError, SessionCloseError, SSHError, TimeoutExpiredError, exc.EntityNotEmptyException) as e:
                     if isinstance(e, RPCError):
-                        LOG.exception(e)
+                        LOG.error(e, exc_info=exc_info_full())
                         operation = f.__name__
 
                         if e.tag in ['data-missing']:
@@ -212,7 +222,7 @@ class retry_on_failure(object):
                                                                             action=operation).inc()
 
                             raise exc.InconsistentModelException(device=context.host, host=host,
-                                                                 entity=entity, operation=operation)
+                                                                 entity=entity, operation=operation, info=e.info)
                         elif e.message == 'internal error':
                             # something can't be configured maybe due to transient state
                             # e.g. BGP session active these should be requeued
@@ -228,7 +238,8 @@ class retry_on_failure(object):
                                 PrometheusMonitor().internal_errors.labels(device=context.host,
                                                                            entity=entity.__class__.__name__,
                                                                            action=f.__name__).inc()
-                                raise exc.InternalErrorException(host=host, entity=entity, operation=operation)
+                                raise exc.InternalErrorException(host=host, entity=entity, operation=operation,
+                                                                 info=e.info)
                         elif e.tag in ['in-use']:  # Lock
                             PrometheusMonitor().config_locks.labels(device=context.host,
                                                                     entity=entity.__class__.__name__,
@@ -261,7 +272,7 @@ class retry_on_failure(object):
                     exception = e
 
             if exception is not None:
-                LOG.error(entity)
+                LOG.error(entity, exc_info=exc_info_full())
                 raise exception
 
         return wrapper
@@ -321,7 +332,7 @@ class PairResult(object):
             for host in self.errors:
                 error = self.errors.get(host, None)
                 if hasattr(self.entity, 'to_xml'):
-                    result += "{}\n".format(self.entity.to_xml())
+                    result += "{}\n".format(self.entity.to_xml(context=None))
                 result += "{} : {} : {}\n".format(host, error.__class__.__name__, error)
 
         return result
@@ -381,7 +392,6 @@ class DiffResult(PairResult):
 
 
 class NyBase(BulkOperations):
-
     _ncc_connection = {}
 
     PARENT = 'parent'
@@ -397,6 +407,7 @@ class NyBase(BulkOperations):
         # Should we delete even if object reports not existing
         #
         self.force_delete = False
+        self.from_device = kwargs.get("from_device", False)
 
         # Should fatal exceptions be raised
 
@@ -465,7 +476,7 @@ class NyBase(BulkOperations):
             raise Exception("ID field {} is None".format(id_field))
 
     def __str__(self):
-        json = self.to_dict()
+        json = self.to_dict(context=asr1k_pair.FakeASR1KContext())
         if isinstance(json, dict):
             value = JsonDict(json).__str__()
         else:
@@ -478,32 +489,32 @@ class NyBase(BulkOperations):
     def __repr__(self):
         return "{} at {} ({})".format(self.__class__.__name__, id(self), str(self))
 
-    def __eq__(self, other):
-        diff = self._diff(other)
-        return diff.valid
-
     # Define what constitutes an empty diff
     # defaults to the empty type for the class
     def empty_diff(self):
         return self.EMPTY_TYPE
 
-    def _diff(self, other):
-        self_json = self._to_plain_json(self.to_dict())
+    @classmethod
+    def get_item_key(cls, context):
+        return cls.ITEM_KEY
+
+    def _diff(self, context, other):
+        self_json = self._to_plain_json(self.to_dict(context=context))
 
         other_json = {}
         if other is not None:
-            other_json = self._to_plain_json(other.to_dict())
+            other_json = self._to_plain_json(other.to_dict(context=context))
         else:
             other_json = self.empty_diff()
 
         return self.__json_diff(self_json, other_json)
 
     def __json_diff(self, self_json, other_json):
-        ignore = []
+        ignore = [OPERATION]
         for param in self.__parameters__():
             if not param.get('validate', True):
                 ignore.append(param.get('key', param.get('yang-key')))
-        diff = self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=ignore))
+        diff = self.__diffs_to_dicts(dictdiffer.diff(self_json, other_json, ignore=IgnorePartialKeys(ignore)))
 
         return diff
 
@@ -518,7 +529,10 @@ class NyBase(BulkOperations):
                     device = None
 
                     if len(diff[2]) == 1:
-                        neutron = diff[2][0]
+                        if diff[0] == 'add':
+                            device = diff[2][0]
+                        else:
+                            neutron = diff[2][0]
 
                     elif len(diff[2]) == 2:
                         neutron = diff[2][0]
@@ -533,11 +547,13 @@ class NyBase(BulkOperations):
         return result
 
     @classmethod
-    def from_json(cls, json, parent=None):
+    def from_json(cls, json, context, parent=None):
         try:
             if not bool(json):
                 return None
-            params = {}
+            params = {
+                'from_device': True,
+            }
 
             for param in cls.__parameters__():
                 if param.get('deserialise', True):
@@ -554,11 +570,11 @@ class NyBase(BulkOperations):
                             if bool(values):
                                 values = values.get(path_item)
                                 if isinstance(values, list):
-                                    LOG.debug("Unexpected list found for {} path {} values {}"
-                                              "".format(cls.__name__, yang_path, values))
+                                    LOG.error("Unexpected list found for %s path %s values %s",
+                                              cls.__name__, yang_path, values)
                                 if bool(values) is None:
-                                    LOG.warning("Invalid yang segment {} in {} please check against yang model. "
-                                                "Values: {}".format(path_item, yang_path, values))
+                                    LOG.error("Invalid yang segment %s in %s please check against yang model. "
+                                              "Values: %s", path_item, yang_path, values)
 
                     if bool(values):
                         if param.get('yang-type') == YANG_TYPE.EMPTY:
@@ -582,18 +598,18 @@ class NyBase(BulkOperations):
                                     for v in value:
                                         if isinstance(v, dict) and not type == str:
                                             v[cls.PARENT] = params
-                                            result.append(type.from_json(v))
+                                            result.append(type.from_json(v, context))
                                         else:
                                             result.append(v)
                                 else:
                                     if value is not None and not isinstance(value, unicode) and not type == str:
                                         value[cls.PARENT] = params
-                                        result.append(type.from_json(value))
-                                    else:
+                                        result.append(type.from_json(value, context))
+                                    elif value is not None:
                                         result.append(value)
                                 value = result
                             else:
-                                value = type.from_json(value)
+                                value = type.from_json(value, context)
 
                         if isinstance(value, dict) and value == {}:
                             value = True
@@ -606,7 +622,7 @@ class NyBase(BulkOperations):
 
     @classmethod
     def get_primary_filter(cls, **kwargs):
-        return cls.ID_FILTER.format(**{'id': kwargs.get('id')})
+        return cls.ID_FILTER.format(id=kwargs.get('id'))
 
     @classmethod
     def get_all_filter(cls, **kwargs):
@@ -614,39 +630,45 @@ class NyBase(BulkOperations):
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def get(cls, id, context=None):
+    def get(cls, id, context):
         return cls._get(id=id, context=context)
 
     @classmethod
     @execute_on_pair(return_raw=True)
-    def exists(cls, id, context=None):
+    def exists(cls, id, context):
         return cls._exists(id=id, context=context)
 
     @classmethod
     def _get(cls, **kwargs):
         try:
-            nc_filter = kwargs.get('nc_filter')
-            if nc_filter is None:
-                nc_filter = cls.get_primary_filter(**kwargs)
+            xpath_filter = kwargs.get('xpath_filter')
+            if not xpath_filter:
+                nc_filter = kwargs.get('nc_filter')
+                if nc_filter is None:
+                    nc_filter = cls.get_primary_filter(**kwargs)
 
             context = kwargs.get('context')
             with ConnectionManager(context=context) as connection:
-                result = connection.get(filter=nc_filter, entity=cls.__name__, action="get")
-                json = cls.to_json(result.xml)
-                if json is not None:
-                    json = json.get(cls.ITEM_KEY, None)
-
-                    if json is None:
-                        return None
-
-                    result = cls.from_json(json)
-
+                if xpath_filter:
+                    result = connection.xpath_get(filter=xpath_filter, entity=cls.__name__, action="get")
+                else:
+                    result = connection.get(filter=nc_filter, entity=cls.__name__, action="get")
+                result = cls.from_xml(result.xml, context)
+                if result is not None:
                     # Add missing primary keys from get
                     cls.__ensure_primary_keys(result, **kwargs)
 
                     return result
         except exc.DeviceUnreachable:
             pass
+
+    @classmethod
+    def from_xml(cls, xml_str, context):
+        data = cls.to_json(xml_str, context)
+        if data is not None:
+            data = data.get(cls.get_item_key(context))
+            if data is not None:
+                return cls.from_json(data, context)
 
     @classmethod
     def _get_all(cls, **kwargs):
@@ -665,15 +687,15 @@ class NyBase(BulkOperations):
                 else:
                     rpc_result = connection.get(filter=nc_filter, entity=cls.__name__, action="get_all")
 
-                json = cls.to_json(rpc_result.xml)
+                json = cls.to_json(rpc_result.xml, context)
                 if json is not None:
-                    json = json.get(cls.ITEM_KEY, json)
+                    json = json.get(cls.get_item_key(context), json)
 
                     if isinstance(json, list):
                         for item in json:
-                            result.append(cls.from_json(item))
+                            result.append(cls.from_json(item, context))
                     else:
-                        result.append(cls.from_json(json))
+                        result.append(cls.from_json(json, context))
 
                     # Add missing primary keys from get
                     for item in result:
@@ -715,12 +737,12 @@ class NyBase(BulkOperations):
 
         return False
 
-    def _internal_exists(self, context=None):
+    def _internal_exists(self, context):
         kwargs = self.__dict__
         kwargs['context'] = context
         return self.__class__._exists(**kwargs)
 
-    def _internal_get(self, context=None):
+    def _internal_get(self, context):
         kwargs = self.__dict__
         kwargs['context'] = context
         return self.__class__._get(**kwargs)
@@ -731,68 +753,69 @@ class NyBase(BulkOperations):
         return cls._get_all_mass(context=context)
 
     @execute_on_pair()
-    def create(self, context=None):
+    def create(self, context):
         return self._create(context=context)
 
     @retry_on_failure()
-    def _create(self, context=None):
+    def _create(self, context):
         with ConnectionManager(context=context) as connection:
 
-            result = connection.edit_config(config=self.to_xml(operation=NC_OPERATION.PUT),
+            result = connection.edit_config(config=self.to_xml(context, operation=NC_OPERATION.PUT),
                                             entity=self.__class__.__name__,
                                             action="create")
             return result
 
     @execute_on_pair()
-    def update(self, context=None, method=NC_OPERATION.PATCH):
+    def update(self, context, method=NC_OPERATION.PATCH):
         return self._update(context=context, method=method)
 
     @retry_on_failure()
-    def _update(self, context=None, method=NC_OPERATION.PATCH, json=None, postflight=False):
+    def _update(self, context, method=NC_OPERATION.PATCH, json=None, postflight=False):
         if len(self._internal_validate(context=context)) > 0:
             self.preflight(context)
             if postflight:
-                self.postflight(context)
+                self.postflight(context, method)
 
             with ConnectionManager(context=context) as connection:
                 if json is None:
-                    json = self.to_dict()
+                    json = self.to_dict(context=context)
 
                 if method not in [NC_OPERATION.PATCH, NC_OPERATION.PUT]:
                     raise Exception('Update should be called with method = NC_OPERATION.PATCH | NC_OPERATION.PUT')
 
-                result = connection.edit_config(config=self.to_xml(operation=method, json=json),
+                result = connection.edit_config(config=self.to_xml(context, operation=method, json=json),
                                                 entity=self.__class__.__name__,
                                                 action="update")
                 return result
 
     @execute_on_pair()
-    def delete(self, context=None, method=NC_OPERATION.DELETE):
-        return self._delete(context=context, method=method)
+    def delete(self, context, method=NC_OPERATION.DELETE, postflight=True):
+        return self._delete(context=context, method=method, postflight=postflight)
 
     @retry_on_failure()
-    def _delete(self, context=None, method=NC_OPERATION.DELETE):
-        self._delete_no_retry(context, method)
+    def _delete(self, context, method=NC_OPERATION.DELETE, postflight=True):
+        self._delete_no_retry(context, method, postflight=postflight)
 
-    def _delete_no_retry(self, context=None, method=NC_OPERATION.DELETE):
-        self.postflight(context)
+    def _delete_no_retry(self, context, method=NC_OPERATION.DELETE, postflight=True):
+        if postflight:
+            self.postflight(context, method)
 
         with ConnectionManager(context=context) as connection:
             if self._internal_exists(context) or self.force_delete:
-                json = self.to_delete_dict()
-                result = connection.edit_config(config=self.to_xml(json=json, operation=method),
+                json = self.to_delete_dict(context)
+                result = connection.edit_config(config=self.to_xml(context, json=json, operation=method),
                                                 entity=self.__class__.__name__,
                                                 action="delete")
                 return result
 
-    def _internal_validate(self, should_be_none=False, context=None):
+    def _internal_validate(self, context, should_be_none=False):
         device_config = self._internal_get(context=context)
 
         if should_be_none:
             if device_config is None:
                 return []
 
-        diff = self._diff(device_config)
+        diff = self._diff(context, device_config)
         if len(diff) > 0:
             LOG.info("Internal validate of {} for {} produced {} diff(s)  {}"
                      "".format(self.__class__.__name__, context.host, len(diff), diff))
@@ -800,15 +823,15 @@ class NyBase(BulkOperations):
         return diff
 
     @execute_on_pair(result_type=DiffResult)
-    def _validate(self, context=None, should_be_none=False):
-        return self._internal_validate(should_be_none=False, context=context)
+    def _validate(self, context, should_be_none=False):
+        return self._internal_validate(context=context, should_be_none=False)
 
     def diff(self, should_be_none=False):
         result = self._validate(should_be_none=should_be_none)
         return result
 
-    def is_valid(self, should_be_none=False):
-        result = self.diff(should_be_none=should_be_none)
+    def is_valid(self, context, should_be_none=False):
+        result = self.diff(context, should_be_none=should_be_none)
 
         return result.valid
 
@@ -818,7 +841,7 @@ class NyBase(BulkOperations):
     def preflight(self, context):
         pass
 
-    def postflight(self, context):
+    def postflight(self, context, method):
         pass
 
     def init_config(self):
