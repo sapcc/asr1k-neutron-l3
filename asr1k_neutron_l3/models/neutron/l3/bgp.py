@@ -30,7 +30,7 @@ class AddressFamily(base.Base):
         self.enable_bgp = False
         self.rt_export = rt_export
         self.routable_networks = routable_networks
-        self.networks_v4 = []
+        self.networks_v4 = set()
 
         for net in networks_v4:
             # rm is applied to all routable networks and their subnets
@@ -39,7 +39,8 @@ class AddressFamily(base.Base):
                 rm = cfg.CONF.asr1k_l3.dapnet_network_rm
 
             net = bgp.Network.from_cidr(net, rm)
-            self.networks_v4.append(net)
+            self.networks_v4.add(net)
+        self.networks_v4 = list(self.networks_v4)
 
         if self.routable_interface or len(self.rt_export) > 0:
             self.enable_bgp = True
