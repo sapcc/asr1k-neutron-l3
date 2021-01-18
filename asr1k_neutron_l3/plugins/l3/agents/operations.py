@@ -103,7 +103,7 @@ class OperationsMixin(object):
         network = self._l2_plugin_rpc(context).get_networks_with_asr1k_ports(context, networks=[network_id],
                                                                              host=self.host)
         if network:
-            if len(network) > 0:
+            if len(network) > 1:
                 LOG.error("Network diff for network %s returned more than one result - using first: %s",
                           network_id, network)
             network = network[0]
@@ -118,7 +118,7 @@ class OperationsMixin(object):
         network = self._l2_plugin_rpc(context).get_networks_with_asr1k_ports(context, networks=[network_id],
                                                                              host=self.host)
         if network:
-            if len(network) > 0:
+            if len(network) > 1:
                 LOG.error("Network diff for network %s returned more than one result - using first: %s",
                           network_id, network)
             network = network[0]
