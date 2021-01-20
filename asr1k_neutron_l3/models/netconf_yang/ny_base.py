@@ -185,7 +185,7 @@ class retry_on_failure(object):
                             LOG.error("Device {} not reachable anymore, setting alive to false".format(host),
                                       exc_info=exc_info_full())
                         LOG.debug("** [{}] request {}: Device is not reachable anymore: {}".format(host, uuid, e))
-                        context.alive = False
+                        context.mark_alive(False)
                     break
                 except exc.EntityNotEmptyException as e:
                     if total_retry < self.max_retry_interval:

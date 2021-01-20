@@ -78,7 +78,7 @@ def check_devices(device_info):
 
         alive = device_reachable and admin_up
 
-        context.alive = alive
+        context.mark_alive(alive)
         LOG.debug("Device {} reachable {} and agent enabled {}, marked as {}"
                   "".format(context.host, device_reachable, admin_up, "alive" if alive else "dead"))
 
@@ -244,7 +244,7 @@ class YangConnection(object):
                 LOG.warning(
                     "Failed to connect due to '{}', connection will be attempted again in subsequent iterations".format(
                         e))
-                self.context.alive = False
+                self.context.mark_alive(False)
             else:
                 LOG.exception(e)
 

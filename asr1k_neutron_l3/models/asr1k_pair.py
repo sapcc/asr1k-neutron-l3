@@ -97,6 +97,12 @@ class ASR1KContext(ASR1KContextBase):
     def use_bdvif(self):
         return self.version_min_17_3 and not self.force_bdi
 
+    def mark_alive(self, alive):
+        if not alive:
+            LOG.debug("Device %s marked as dead, resetting version info", self.host)
+            self._got_version_info = False
+        self.alive = alive
+
 
 class ASR1KPair(object):
     __instance = None
