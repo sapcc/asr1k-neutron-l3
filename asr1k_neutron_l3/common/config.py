@@ -28,6 +28,7 @@ DEVICE_OPTS = [
     cfg.IntOpt('nc_timeout', default=(5), help=('')),
     cfg.StrOpt('user_name', default=('admin'), help=('')),
     cfg.StrOpt('password', default=('secret'), help=('')),
+    cfg.StrOpt('use_bdvif', default=True, help='Use BD-VIF when supported by device firmware'),
 ]
 
 ASR1K_OPTS = [
@@ -130,7 +131,10 @@ def create_device_pair_dictionary():
     for device_name in conf:
         device_dict[device_name] = {}
         for key, value in conf[device_name]:
-            device_dict[device_name][key] = value[0]
+            val = value[0]
+            if key == 'use_bdvif':
+                val = val.lower() == 'true'
+            device_dict[device_name][key] = val
 
     if len(device_dict.keys()) > 2:
         LOG.warning("More than 2 devices were configured, only the first two will be used ")

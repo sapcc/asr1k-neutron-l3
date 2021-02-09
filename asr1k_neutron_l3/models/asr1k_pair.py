@@ -53,7 +53,7 @@ class ASR1KContext(ASR1KContextBase):
     version_min_17_3 = property(lambda self: self._get_version_attr('_version_min_17_3'))
     has_stateless_nat = property(lambda self: self._get_version_attr('_has_stateless_nat'))
 
-    def __init__(self, name, host, yang_port, nc_timeout, username, password, insecure=True,
+    def __init__(self, name, host, yang_port, nc_timeout, username, password, use_bdvif, insecure=True,
                  force_bdi=False, headers={}):
         self.name = name
         self.host = host
@@ -61,6 +61,7 @@ class ASR1KContext(ASR1KContextBase):
         self.nc_timeout = nc_timeout
         self.username = username
         self.password = password
+        self._use_bdvif = use_bdvif
         self.insecure = insecure
         self.force_bdi = force_bdi
         self.headers = headers
@@ -95,7 +96,7 @@ class ASR1KContext(ASR1KContextBase):
 
     @property
     def use_bdvif(self):
-        return self.version_min_17_3 and not self.force_bdi
+        return self.version_min_17_3 and self._use_bdvif and not self.force_bdi
 
     def mark_alive(self, alive):
         if not alive:
@@ -126,7 +127,7 @@ class ASR1KPair(object):
             asr1kctx = ASR1KContext(device_name, config.get('host'),
                                     config.get('yang_port', self.config.asr1k_devices.yang_port),
                                     int(config.get('nc_timeout', self.config.asr1k_devices.nc_timeout)),
-                                    config.get('user_name'), config.get('password'),
+                                    config.get('user_name'), config.get('password'), config.get('use_bdvif', True),
                                     insecure=True)
 
             self.contexts.append(asr1kctx)
