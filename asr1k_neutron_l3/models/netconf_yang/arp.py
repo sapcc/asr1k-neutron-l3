@@ -115,7 +115,8 @@ class VrfArpList(NyBase):
 
 class ArpEntry(NyBase):
     ID_FILTER = """
-      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native" xmlns:ios-arp="http://cisco.com/ns/yang/Cisco-IOS-XE-arp">
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+              xmlns:ios-arp="http://cisco.com/ns/yang/Cisco-IOS-XE-arp">
         <ios-arp:arp>
           <ios-arp:vrf>
             <ios-arp:vrf-name>{vrf}</ios-arp:vrf-name>

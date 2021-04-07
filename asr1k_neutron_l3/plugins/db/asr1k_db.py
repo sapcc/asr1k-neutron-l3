@@ -27,13 +27,11 @@ from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import asr1k_exceptions
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
 from neutron.db import address_scope_db
-from neutron.db import api as db_api
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
 from neutron.db import l3_agentschedulers_db
 from neutron.db import l3_db
 from neutron.db import models_v2
-from neutron.db import portbindings_db
 from neutron.db import segments_db
 from neutron.db.models import agent as agent_model
 from neutron.db.models import l3 as l3_models
@@ -82,7 +80,10 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         super(DBPlugin, self).__init__()
 
     def get_bgpvpns_by_router_id(self, context, router_id, filters=None, fields=None):
-        query = context.session.query(bgpvpn_db.BGPVPN).join(bgpvpn_db.BGPVPN.router_associations).filter(bgpvpn_db.BGPVPNRouterAssociation.router_id == router_id).distinct()
+        query = context.session.query(bgpvpn_db.BGPVPN)
+        query = query.join(bgpvpn_db.BGPVPN.router_associations)
+        query = query.filter(bgpvpn_db.BGPVPNRouterAssociation.router_id == router_id)
+        query = query.distinct()
         return query.all()
 
     def ensure_snat_mode(self, context, port_id, mode):
@@ -158,8 +159,10 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(
                 sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers)).all()
         else:
-            return context.session.query(asr1k_models.ASR1KExtraAttsModel).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(
-                sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers)).all()
+            query = context.session.query(asr1k_models.ASR1KExtraAttsModel)
+            query = query.filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host)
+            query = query.filter(sa.cast(asr1k_models.ASR1KExtraAttsModel.router_id, sa.Text()).in_(routers))
+            return query.all()
 
     def get_extra_atts_for_ports(self, context, ports):
         if ports is None:
@@ -180,8 +183,9 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_orphaned_extra_atts_router_ids(self, context, host):
         subquery = context.session.query(l3_models.Router.id)
 
-        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(
-            asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
+        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id)
+        query = query.filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host)
+        query = query.filter(asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
         result = []
         for row in query.all():
             if row.router_id not in result:
@@ -193,7 +197,9 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         # subquery = context.session.query(models_v2.Port.device_id)
         #
-        # query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id).filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host).filter(asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
+        # query = context.session.query(asr1k_models.ASR1KExtraAttsModel.router_id)
+        # query = query.filter(asr1k_models.ASR1KExtraAttsModel.agent_host == host)
+        # query = query.filter(asr1k_models.ASR1KExtraAttsModel.router_id.notin_(subquery))
         # for row in query.all():
         #     result.append(row.router_id)
 
@@ -408,11 +414,13 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         if host is None:
             routers = context.session.query(l3_models.Router.id).all()
         else:
-            routers = context.session.query(l3_models.Router.id).join(
-                l3agent_models.RouterL3AgentBinding,
-                l3_models.Router.id == l3agent_models.RouterL3AgentBinding.router_id)\
-                .join(agent_model.Agent, l3agent_models.RouterL3AgentBinding.l3_agent_id == agent_model.Agent.id).filter(
-                agent_model.Agent.host == host).all()
+            query = context.session.query(l3_models.Router.id)
+            query = query.join(l3agent_models.RouterL3AgentBinding,
+                               l3_models.Router.id == l3agent_models.RouterL3AgentBinding.router_id)
+            query = query.join(agent_model.Agent,
+                               l3agent_models.RouterL3AgentBinding.l3_agent_id == agent_model.Agent.id)
+            query = query.filter(agent_model.Agent.host == host)
+            routers = query.all()
 
         result = []
         for entry in routers:
@@ -611,7 +619,7 @@ class ExtraAttsDb(object):
 class RouterAttsDb(object):
     @classmethod
     def ensure(cls, context, id):
-        router_atts_db = RouterAttsDb(context, id)._ensure()
+        RouterAttsDb(context, id)._ensure()
 
     def __init__(self, context, router_id):
         self.session = db_api.get_writer_session()

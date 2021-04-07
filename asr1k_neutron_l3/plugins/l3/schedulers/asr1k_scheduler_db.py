@@ -49,13 +49,10 @@ class ASR1KAgentSchedulerDbMixin(l3_agentschedulers_db.L3AgentSchedulerDbMixin):
         if agent['agent_type'] != constants.AGENT_TYPE_ASR1K_L3:
             raise l3agentscheduler.InvalidL3Agent(id=agent['id'])
 
-        agent_mode = self._get_agent_mode(agent)
-
         is_suitable_agent = (
-                agentschedulers_db.services_available(agent['admin_state_up']) and
-                self.get_l3_agent_candidates(context, router,
-                                             [agent],
-                                             ignore_admin_state=True))
+            agentschedulers_db.services_available(agent['admin_state_up']) and
+            self.get_l3_agent_candidates(context, router, [agent], ignore_admin_state=True))
+
         if not is_suitable_agent:
             raise l3agentscheduler.InvalidL3Agent(id=agent['id'])
 

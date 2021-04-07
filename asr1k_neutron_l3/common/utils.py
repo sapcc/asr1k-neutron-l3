@@ -145,9 +145,9 @@ def to_netmask(prefix_len):
 
 
 def to_rd(asn, rd):
-        if asn is None or rd is None:
-            return
-        return "{}:{}".format(asn, rd)
+    if asn is None or rd is None:
+        return
+    return "{}:{}".format(asn, rd)
 
 
 def get_address_scope_config(plugin_rpc, context):

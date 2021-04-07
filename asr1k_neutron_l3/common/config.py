@@ -56,9 +56,12 @@ ASR1K_L3_OPTS = [
                help=_("Maximum size of RouterProcessingQueue for syncing routers. The driver will queue router updates "
                       "until sync_chunk_size is hit AND there are more than sync_until_queue_size entires in the "
                       "processing queue.")),
-    cfg.IntOpt('queue_timeout', default=60, help=_("Timeout for blocking of get on queue, waiting for item to puched onto queue")),
+    cfg.IntOpt('queue_timeout', default=60,
+               help=_("Timeout for blocking of get on queue, waiting for item to puched onto queue")),
     cfg.IntOpt('update_timeout', default=120, help=_("Timeout for for one process routers update iteration")),
-    cfg.IntOpt('threadpool_maxsize', default=5, help=_("Size of thread pool used in router updates, needs to be balanced against ASR SSH connection limits")),
+    cfg.IntOpt('threadpool_maxsize', default=5,
+               help=_("Size of thread pool used in router updates, needs to be "
+                      "balanced against ASR SSH connection limits")),
     cfg.StrOpt('snat_mode', default=('pool'), help=('Use pool or interface on dynamic NAT statement')),
     cfg.IntOpt('clean_delta', default=(30), help=('')),
     cfg.IntOpt('max_config_save_interval', default=900,

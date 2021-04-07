@@ -61,4 +61,3 @@ class SimpleASR1KScheduler(l3_agent_scheduler.AZLeastRoutersScheduler):
     def _choose_router_agents_for_ha(self, plugin, context, candidates):
         """Choose agents from candidates based on a specific policy."""
         pass
-

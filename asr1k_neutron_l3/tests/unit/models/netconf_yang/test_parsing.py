@@ -210,7 +210,8 @@ class ParsingTest(base.BaseTestCase):
 
     def test_bgp_parsing(self):
         bgp_xml = """
-<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="urn:uuid:9caf3918-3eb9-4d0e-a8a5-5ec268e3bf97">
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:9caf3918-3eb9-4d0e-a8a5-5ec268e3bf97">
   <data>
     <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
       <router>

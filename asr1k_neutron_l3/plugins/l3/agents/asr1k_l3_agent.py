@@ -105,9 +105,9 @@ def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWi
         manager=manager)
     service.launch(cfg.CONF, server).wait()
 
+
 # Number of routers to fetch from server at a time on resync.
 # Needed to reduce load on server side and to speed up resync on agent side.
-
 SYNC_ROUTERS_MIN_CHUNK_SIZE = 1
 
 

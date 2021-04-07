@@ -26,7 +26,7 @@ BDI_POLICY_CLI_INIT = """interface BDI{id}
     no shutdown"""
 
 
-PBR_ROUTE_MAP = """route-map pbr-{vrf} permit 10 
+PBR_ROUTE_MAP = """route-map pbr-{vrf} permit 10
     match ip address PBR-{vrf}
     set ip next-hop {gateway} force"""
 

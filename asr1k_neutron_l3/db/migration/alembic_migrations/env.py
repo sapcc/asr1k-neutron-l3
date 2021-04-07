@@ -70,8 +70,6 @@ def run_migrations_offline():
     script output.
 
     """
-
-
     set_mysql_engine()
 
     kwargs = dict()
@@ -100,8 +98,6 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
-
-
     set_mysql_engine()
     engine = session.create_engine(neutron_config.database.connection)
 
