@@ -102,18 +102,6 @@ AVAILABILITY_ZONE_OPTS = [
 ]
 
 
-def _get_specific_config(name):
-    """retrieve config in the format [<label>]."""
-    conf_dict = {}
-    multi_parser = cfg.MultiConfigParser()
-    multi_parser.read(cfg.CONF.config_file)
-    for parsed_file in multi_parser.parsed:
-        for parsed_item in parsed_file.keys():
-            if parsed_item == name:
-                conf_dict = list(parsed_file[parsed_item].items())
-    return conf_dict
-
-
 def create_device_pair_dictionary():
     device_dict = {}
     for section in cfg.CONF.list_all_sections():
@@ -131,10 +119,20 @@ def create_device_pair_dictionary():
     return device_dict
 
 
+def _get_specific_config(name):
+    for conf_file in cfg.CONF.config_file:
+        parser = cfg.ConfigParser(conf_file, {})
+        parser.parse()
+        if parser.sections.get(name):
+            return parser.sections[name]
+
+    return {}
+
+
 def create_address_scope_dict():
     address_scope_dict = {}
     conf = _get_specific_config('asr1k-address-scopes')
-    for key, value in conf:
+    for key, value in conf.items():
         address_scope_dict[key] = value[0]
 
     return address_scope_dict
