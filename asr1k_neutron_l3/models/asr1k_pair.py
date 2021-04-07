@@ -121,13 +121,9 @@ class ASR1KPair(object):
 
         device_config = asr1k_config.create_device_pair_dictionary()
 
-        for device_name in device_config.keys():
-            config = device_config.get(device_name)
-
-            asr1kctx = ASR1KContext(device_name, config.get('host'),
-                                    config.get('yang_port', self.config.asr1k_devices.yang_port),
-                                    int(config.get('nc_timeout', self.config.asr1k_devices.nc_timeout)),
-                                    config.get('user_name'), config.get('password'), config.get('use_bdvif', True),
+        for device_name, config in device_config.items():
+            asr1kctx = ASR1KContext(device_name, config.host, config.yang_port, config.nc_timeout,
+                                    config.user_name, config.password, config.use_bdvif,
                                     insecure=True)
 
             self.contexts.append(asr1kctx)

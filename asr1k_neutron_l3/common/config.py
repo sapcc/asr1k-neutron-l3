@@ -23,12 +23,12 @@ LOG = logging.getLogger(__name__)
 
 
 DEVICE_OPTS = [
-    cfg.ListOpt('host', default=('10.0.0.1'), help=('')),
-    cfg.IntOpt('yang_port', default=(830), help=('')),
-    cfg.IntOpt('nc_timeout', default=(5), help=('')),
-    cfg.StrOpt('user_name', default=('admin'), help=('')),
-    cfg.StrOpt('password', default=('secret'), help=('')),
-    cfg.StrOpt('use_bdvif', default=True, help='Use BD-VIF when supported by device firmware'),
+    cfg.StrOpt('host', default='10.0.0.1', help='Host for netconf-YANG'),
+    cfg.IntOpt('yang_port', default=830, help='Port for netconf-YANG, default 830'),
+    cfg.IntOpt('nc_timeout', default=5, help='Netconf-YANG timeout, default 5s'),
+    cfg.StrOpt('user_name', default='admin', help='Netconf-YANG User'),
+    cfg.StrOpt('password', default='secret', help='Netconf-YANG Password'),
+    cfg.BoolOpt('use_bdvif', default=True, help='Use BD-VIF when supported by device firmware'),
 ]
 
 ASR1K_OPTS = [
@@ -114,30 +114,13 @@ def _get_specific_config(name):
     return conf_dict
 
 
-def _get_group_config(prefix):
-    """retrieve config in the format [<label>:<key>]."""
-    conf_dict = {}
-    multi_parser = cfg.MultiConfigParser()
-    multi_parser.read(cfg.CONF.config_file)
-    for parsed_file in multi_parser.parsed:
-        for parsed_item in parsed_file.keys():
-            if parsed_item.startswith(prefix):
-                label, key = parsed_item.split(':')
-                if label.lower() == prefix:
-                    conf_dict[key] = list(parsed_file[parsed_item].items())
-    return conf_dict
-
-
 def create_device_pair_dictionary():
     device_dict = {}
-    conf = _get_group_config('asr1k_device')
-    for device_name in conf:
-        device_dict[device_name] = {}
-        for key, value in conf[device_name]:
-            val = value[0]
-            if key == 'use_bdvif':
-                val = val.lower() == 'true'
-            device_dict[device_name][key] = val
+    for section in cfg.CONF.list_all_sections():
+        if section.startswith("asr1k_device:"):
+            _, device_name = section.split(":", 2)
+            cfg.CONF.register_opts(DEVICE_OPTS, section)
+            device_dict[device_name] = getattr(cfg.CONF, section)
 
     if len(device_dict.keys()) > 2:
         LOG.warning("More than 2 devices were configured, only the first two will be used ")
@@ -158,7 +141,6 @@ def create_address_scope_dict():
 
 
 def register_l3_opts():
-    cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
     cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
     cfg.CONF.register_opts(ASR1K_L3_OPTS, "asr1k_l3")
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
@@ -171,7 +153,6 @@ def register_l3_opts():
 
 def register_l2_opts():
     cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
-    cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
     cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
 
