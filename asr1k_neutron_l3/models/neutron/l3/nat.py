@@ -110,7 +110,7 @@ class NatList(BaseNAT):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         self.count += 1
         if self.count >= len(self.items):
             raise StopIteration

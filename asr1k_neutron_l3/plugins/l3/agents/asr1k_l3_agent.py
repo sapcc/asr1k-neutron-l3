@@ -718,8 +718,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
         complete = False
 
-        if extra_atts is not None and extra_atts.keys() is not None:
-            complete = set(utils.get_router_ports(router)).issubset(extra_atts.keys())
+        if extra_atts is not None and list(extra_atts.keys()) is not None:
+            complete = set(utils.get_router_ports(router)).issubset(list(extra_atts.keys()))
 
         return complete
 
@@ -838,7 +838,7 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
         num_ex_gw_ports = 0
         num_interfaces = 0
         num_floating_ips = 0
-        router_infos = self.router_info.values()
+        router_infos = list(self.router_info.values())
         num_routers = len(router_infos)
         for ri in router_infos:
             ex_gw_port = ri.get_ex_gw_port()

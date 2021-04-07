@@ -465,7 +465,7 @@ class NyBase(BulkOperations):
             type = type[0]
 
         if type is not None and item is not None and not isinstance(item, type) and \
-                not isinstance(item, unicode) and not type == str:
+                not isinstance(item, str) and not type == str:
             return type(**item)
 
         return item
@@ -602,7 +602,7 @@ class NyBase(BulkOperations):
                                         else:
                                             result.append(v)
                                 else:
-                                    if value is not None and not isinstance(value, unicode) and not type == str:
+                                    if value is not None and not isinstance(value, str) and not type == str:
                                         value[cls.PARENT] = params
                                         result.append(type.from_json(value, context))
                                     elif value is not None:

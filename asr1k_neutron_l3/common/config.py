@@ -107,7 +107,7 @@ def _get_specific_config(name):
     for parsed_file in multi_parser.parsed:
         for parsed_item in parsed_file.keys():
             if parsed_item == name:
-                conf_dict = parsed_file[parsed_item].items()
+                conf_dict = list(parsed_file[parsed_item].items())
     return conf_dict
 
 
@@ -121,7 +121,7 @@ def _get_group_config(prefix):
             if parsed_item.startswith(prefix):
                 label, key = parsed_item.split(':')
                 if label.lower() == prefix:
-                    conf_dict[key] = parsed_file[parsed_item].items()
+                    conf_dict[key] = list(parsed_file[parsed_item].items())
     return conf_dict
 
 
