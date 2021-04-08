@@ -145,7 +145,6 @@ def register_l3_opts():
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
     cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
     cfg.CONF.register_opts(AVAILABILITY_ZONE_OPTS, 'AGENT')
-    cfg.CONF.register_opts(common.EXT_NET_BRIDGE_OPTS)
     common.register_interface_opts()
     common.register_interface_driver_opts_helper(cfg.CONF)
 

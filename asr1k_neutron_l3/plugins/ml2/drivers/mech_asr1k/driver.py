@@ -14,12 +14,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
-from neutron_lib import context as n_context
-from neutron.common import rpc as n_rpc
 from neutron_lib.api.definitions import portbindings
 from neutron_lib import constants as p_constants
+from neutron_lib import context as n_context
 from neutron_lib.plugins.ml2 import api
+from neutron_lib import rpc as n_rpc
 from neutron.plugins.ml2.drivers import mech_agent
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
@@ -68,7 +67,7 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         """Start the RPC loop to let the plugin communicate with agents."""
         self._setup_rpc()
         self.topic = asr1k_constants.ASR1K_TOPIC
-        self.conn = n_rpc.create_connection()
+        self.conn = n_rpc.Connection()
         self.conn.create_consumer(self.topic, self.endpoints, fanout=False)
 
         return self.conn.consume_in_threads()

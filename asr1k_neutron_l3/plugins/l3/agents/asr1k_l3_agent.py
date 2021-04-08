@@ -20,50 +20,44 @@ if not os.environ.get('DISABLE_EVENTLET_PATCHING'):
     eventlet.monkey_patch()
 
 import datetime
-import time
 import eventlet
-import requests
-import urllib3
-import re
-
 import gc
-import traceback
-from greenlet import greenlet
-
-import sys
+import re
+import requests
 import signal
+import sys
+import time
+import traceback
+import urllib3
 
-from oslo_service import service
-from oslo_utils import timeutils
-
-from neutron import service as neutron_service
-
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_log import helpers as log_helpers
-from asr1k_neutron_l3.common import asr1k_constants as constants, utils
-
-import oslo_messaging
-from oslo_service import loopingcall
-from oslo_service import periodic_task
+from greenlet import greenlet
+from neutron.agent.common import resource_processing_queue as queue
+from neutron.agent.l3 import agent as l3_agent
 from neutron.agent.linux import external_process
+from neutron.agent import rpc as agent_rpc
+from neutron.common import config as common_config
+from neutron import service as neutron_service
+from neutron_lib.agent import constants as agent_consts
+from neutron_lib.agent import topics
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
-
-from neutron.agent import rpc as agent_rpc
-from neutron.common import exceptions as n_exc
-from neutron.common import rpc as n_rpc
-from neutron.common import topics
-from neutron.common import config as common_config
 from neutron_lib import context as n_context
 from neutron_lib import constants as lib_constants
-from neutron_lib.agent import constants as agent_consts
+from neutron_lib.exceptions import l3 as l3_exc
+from neutron_lib import rpc as n_rpc
 from neutron import manager
-
-from neutron.agent.common import resource_processing_queue as queue
+from oslo_config import cfg
+from oslo_log import helpers as log_helpers
+from oslo_log import log as logging
+import oslo_messaging
+from oslo_service import loopingcall
+from oslo_service import periodic_task
+from oslo_service import service
+from oslo_utils import timeutils
 
 from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
+from asr1k_neutron_l3.common import asr1k_constants as constants, utils
 from asr1k_neutron_l3.common.exc_helper import exc_info_full
 from asr1k_neutron_l3.common import prometheus_monitor
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
@@ -410,8 +404,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         self._deleted_routers[router_id] = datetime.datetime.now()
         LOG.debug('************** Got router deleted notification for %s', router_id)
         update = queue.ResourceUpdate(router_id,
-                                      queue.PRIORITY_RPC,
-                                      action=queue.DELETE_ROUTER)
+                                      l3_agent.PRIORITY_RPC,
+                                      action=l3_agent.DELETE_ROUTER)
         self._queue.add(update)
 
     def routers_updated(self, context, routers=[], operation=None):
@@ -421,15 +415,15 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 # make sure router is not marked as deleted if it was previously already scheduled on this device
                 self._deleted_routers.pop(id, None)
 
-                update = queue.ResourceUpdate(id, queue.PRIORITY_RPC)
+                update = queue.ResourceUpdate(id, l3_agent.PRIORITY_RPC)
                 self._queue.add(update)
 
     def router_removed_from_agent(self, context, payload):
         LOG.debug('Got router removed from agent :%r', payload)
         router_id = payload['router_id']
         update = queue.ResourceUpdate(router_id,
-                                      queue.PRIORITY_RPC,
-                                      action=queue.DELETE_ROUTER)
+                                      l3_agent.PRIORITY_RPC,
+                                      action=l3_agent.DELETE_ROUTER)
         self._queue.add(update)
 
     def router_added_to_agent(self, context, payload):
@@ -520,8 +514,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 for r in routers:
                     update = queue.ResourceUpdate(
                         r['id'],
-                        queue.PRIORITY_SYNC_ROUTERS_TASK,
-                        action=queue.ADD_UPDATE_ROUTER,
+                        l3_agent.PRIORITY_SYNC_ROUTERS_TASK,
+                        action=l3_agent.ADD_UPDATE_ROUTER,
                         resource=r,
                         timestamp=sync_start_ts)
                     self._queue.add(update)
@@ -555,7 +549,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
             raise
         except oslo_messaging.MessagingException:
             LOG.exception("Failed synchronizing routers due to RPC error")
-            raise n_exc.AbortSyncRouters()
+            raise l3_exc.AbortSyncRouters()
 
         # adjust chunk size after successful sync
         if self.sync_routers_chunk_size < cfg.CONF.asr1k_l3.sync_chunk_size:
@@ -568,9 +562,9 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         for atts in deleted_atts:
             router_id = atts.get("router_id")
             update = queue.ResourceUpdate(router_id,
-                                          queue.PRIORITY_SYNC_ROUTERS_TASK,
+                                          l3_agent.PRIORITY_SYNC_ROUTERS_TASK,
                                           timestamp=sync_start_ts,
-                                          action=queue.DELETE_ROUTER)
+                                          action=l3_agent.DELETE_ROUTER)
             self._queue.add(update)
             router_deletes += 1
 
@@ -599,7 +593,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
     def _ensure_snat_mode_config(self, update):
         router = update.resource
 
-        if update.action != queue.DELETE_ROUTER and not router:
+        if update.action != l3_agent.DELETE_ROUTER and not router:
             update.timestamp = timeutils.utcnow()
 
             routers = self.plugin_rpc.get_routers(self.context, [update.id])
@@ -633,7 +627,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         try:
             if not self.pause_process:
                 for rp, update in self._queue.each_update_to_next_router():
-                    if update.action != queue.DELETE_ROUTER and update.id in self._deleted_routers:
+                    if update.action != l3_agent.DELETE_ROUTER and update.id in self._deleted_routers:
                         LOG.debug("Ignoring update request for already deleted router %s", update.id)
                         continue
 
@@ -735,7 +729,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
             pool.spawn_n(self._process_router_update)
 
     def _requeue_router(self, router_update,
-                        priority=queue.PRIORITY_SYNC_ROUTERS_TASK):
+                        priority=l3_agent.PRIORITY_SYNC_ROUTERS_TASK):
         router_update.timestamp = timeutils.utcnow()
         router_update.priority = priority
         router_update.resource = None  # Force the agent to resync the router
@@ -745,7 +739,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         self._requeue[router_update.id] = router_update
 
     def _resync_router(self, router_update,
-                       priority=queue.PRIORITY_SYNC_ROUTERS_TASK):
+                       priority=l3_agent.PRIORITY_SYNC_ROUTERS_TASK):
         router_update.timestamp = timeutils.utcnow()
         router_update.priority = priority
         router_update.resource = None  # Force the agent to resync the router

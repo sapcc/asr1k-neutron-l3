@@ -14,8 +14,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from collections import OrderedDict
-
 import time
+
+from neutron.db import dns_db
+from neutron.db import extraroute_db
+from neutron.db import l3_gwmode_db as l3_db
+from neutron_lib.db import api as db_api
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 
@@ -29,11 +33,6 @@ from asr1k_neutron_l3.plugins.db import models as asr1k_models
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
 from asr1k_neutron_l3.plugins.l3.schedulers import asr1k_scheduler_db
 from asr1k_neutron_l3.plugins.l3.service_plugins.initializer import Initializer
-from neutron.db import api as db_api
-from neutron.db import common_db_mixin
-from neutron.db import dns_db
-from neutron.db import extraroute_db
-from neutron.db import l3_gwmode_db as l3_db
 
 LOG = log.getLogger(__name__)
 
@@ -135,7 +134,7 @@ class L3RpcNotifierMixin(object):
         return notifier.agent_init_config(context, host, router_infos)
 
 
-class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,
+class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
                       dns_db.DNSDbMixin, L3RpcNotifierMixin, asr1k_ext.DevicePluginBase):
     def __init__(self):

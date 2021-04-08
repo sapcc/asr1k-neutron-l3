@@ -22,38 +22,37 @@ if not os.environ.get('DISABLE_EVENTLET_PATCHING'):
 
 import gc
 import re
-import traceback
-from greenlet import greenlet
-
-import oslo_messaging
 import requests
 import signal
 import six
-import time
 import sys
+import time
+import traceback
+import urllib3
 
+from greenlet import greenlet
+from neutron_lib import context as n_context
+from neutron.agent import rpc as agent_rpc
+from neutron.api.rpc.handlers import securitygroups_rpc as sg_rpc
+from neutron.common import config as common_config
+from neutron_lib.agent import topics
+from neutron_lib import constants as n_const
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_log import helpers as log_helpers
-from oslo_config import cfg
-from oslo_utils import timeutils
+import oslo_messaging
 from oslo_service import eventlet_backdoor, loopingcall
+from oslo_utils import timeutils
 
-from neutron_lib import context as n_context
-from neutron.agent import rpc as agent_rpc, securitygroups_rpc as sg_rpc
-from neutron.common import config as common_config, topics
-from neutron_lib import constants as n_const
-
-from asr1k_neutron_l3.common import prometheus_monitor, asr1k_constants
-from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
-from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import config as asr1k_config
+from asr1k_neutron_l3.common.instrument import instrument
+from asr1k_neutron_l3.common import prometheus_monitor, asr1k_constants
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models import connection
-from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api
 from asr1k_neutron_l3.models.neutron.l2 import bridgedomain
-
-import urllib3
+from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k import rpc_api
 
 LOG = logging.getLogger(__name__)
 CONF = cfg.CONF

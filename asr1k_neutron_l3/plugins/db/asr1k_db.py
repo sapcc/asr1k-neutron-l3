@@ -16,16 +16,6 @@
 
 import random
 
-import sqlalchemy as sa
-from oslo_log import helpers as log_helpers
-from oslo_log import log
-from oslo_utils import timeutils
-from sqlalchemy import and_
-from sqlalchemy import func
-
-from asr1k_neutron_l3.common import asr1k_constants as constants
-from asr1k_neutron_l3.common import asr1k_exceptions
-from asr1k_neutron_l3.plugins.db import models as asr1k_models
 from neutron.db import address_scope_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
@@ -45,6 +35,16 @@ from neutron_lib.api.definitions import portbindings
 from neutron_lib.exceptions import l3 as l3_exc
 from networking_bgpvpn.neutron.db import bgpvpn_db
 from neutron_lib.db import api as db_api
+from oslo_log import helpers as log_helpers
+from oslo_log import log
+from oslo_utils import timeutils
+import sqlalchemy as sa
+from sqlalchemy import and_
+from sqlalchemy import func
+
+from asr1k_neutron_l3.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import asr1k_exceptions
+from asr1k_neutron_l3.plugins.db import models as asr1k_models
 
 MIN_DOT1Q = 1000
 MAX_DOT1Q = 4096

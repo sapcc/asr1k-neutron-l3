@@ -7,7 +7,7 @@ from networking_bgpvpn.neutron.db import bgpvpn_db
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
 
 from neutron.api.rpc.agentnotifiers import l3_rpc_agent_api
-from neutron_lib import constants as svc_constants
+from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
 from neutron_lib.agent import topics
 
@@ -86,7 +86,7 @@ class ASR1KBGPVPNNotifier(l3_rpc_agent_api.L3AgentNotifyAPI):
     def _bgpvpn_agent_rpc(self, context, method, router_assoc=None, host=None, device_id=None, router_info=None):
         """Notify changed routers to hosting l3 agents."""
         adminContext = context if context.is_admin else context.elevated()
-        plugin = directory.get_plugin(svc_constants.L3)
+        plugin = directory.get_plugin(plugin_constants.L3)
 
         LOG.debug("*************** router  {}".format(router_assoc.get('router_id')))
 

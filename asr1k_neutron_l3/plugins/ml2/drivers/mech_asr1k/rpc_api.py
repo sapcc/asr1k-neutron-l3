@@ -14,11 +14,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import oslo_messaging
 from neutron_lib import context
-from neutron.common import rpc as n_rpc
+from neutron_lib import rpc as n_rpc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
+import oslo_messaging
 
 from asr1k_neutron_l3.common import asr1k_constants, instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
