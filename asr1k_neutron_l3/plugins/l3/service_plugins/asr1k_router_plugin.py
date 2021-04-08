@@ -18,6 +18,7 @@ from neutron_lib.agent import topics
 from neutron_lib import constants as n_const
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib import rpc as n_rpc
+from neutron_lib.services import base
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -32,7 +33,7 @@ from asr1k_neutron_l3.plugins.l3.service_plugins import l3_extension_adapter
 LOG = logging.getLogger(__name__)
 
 
-class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
+class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePluginBase):
     supported_extension_aliases = ["router",
                                    "extraroute",
                                    "l3_agent_scheduler",
@@ -73,10 +74,12 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase):
                                   fanout=False)
         return self.conn.consume_in_threads()
 
-    def get_plugin_type(self):
+    @classmethod
+    def get_plugin_type(cls):
         return plugin_constants.L3
 
-    def get_plugin_description(self):
+    @classmethod
+    def get_plugin_description(cls):
         return ("ASR1K Router Service Plugin for basic L3 forwarding"
                 " between (L2) Neutron networks and access to external"
                 " networks via a NAT gateway.")
