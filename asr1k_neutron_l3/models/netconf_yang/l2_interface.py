@@ -309,8 +309,8 @@ class ServiceInstance(NyBase):
     def _wrapper_preamble(self, dict, context):
         result = {}
         dict[xml_utils.NS] = xml_utils.NS_CISCO_ETHERNET
-        result[self.LIST_KEY] = dict
         result[L2Constants.NAME] = self.PORT_CHANNEL
+        result[self.LIST_KEY] = dict
         result = {L2Constants.PORT_CHANNEL: result}
         result = {L2Constants.INTERFACE: result}
         return result
