@@ -114,6 +114,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.agent_state = {
             'binary': 'asr1k-ml2-agent',
             'host': self.conf.host,
+            'availability_zone': CONF.AGENT.availability_zone,
             'topic': n_const.L2_AGENT_TOPIC,
             'configurations': {
 

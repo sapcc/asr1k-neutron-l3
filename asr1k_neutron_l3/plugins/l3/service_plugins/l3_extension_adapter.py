@@ -34,10 +34,17 @@ from neutron.db import common_db_mixin
 from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db as l3_db
+from neutron_lib.api.definitions import availability_zone as az_def
+from neutron_lib.callbacks import events
+from neutron_lib.callbacks import registry
+from neutron_lib.callbacks import resources
+from asr1k_neutron_l3.common import asr1k_exceptions as asr1k_exc
+from neutron_lib.plugins import directory
 
 LOG = log.getLogger(__name__)
 
 
+@registry.has_registry_receivers
 class L3RpcNotifierMixin(object):
     """Mixin class to add rpc notifier attribute to db_base_plugin_v2."""
 
@@ -133,6 +140,44 @@ class L3RpcNotifierMixin(object):
         LOG.debug('agent_initial_config')
         notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
         return notifier.agent_init_config(context, host, router_infos)
+
+    @registry.receives(resources.ROUTER_INTERFACE, [events.BEFORE_CREATE])
+    @log_helpers.log_method_call
+    def _check_internal_net_az_hints(self, resource, event, trigger, context, router_id, network_id, **kwargs):
+        LOG.debug("(AZ check) router interface before_create hook for router %s network %s",
+                  router_id, network_id)
+        self._check_net_router_compability(context, router_id, network_id)
+
+    @registry.receives(resources.ROUTER_GATEWAY, [events.BEFORE_CREATE])
+    @log_helpers.log_method_call
+    def _check_external_net_az_hints(self, resource, event, trigger, context, router_id, network_id, **kwargs):
+        LOG.debug("(AZ check) router gateway before_create hook for router %s network %s",
+                  router_id, network_id)
+        self._check_net_router_compability(context, router_id, network_id)
+
+    def _check_net_router_compability(self, context, router_id, network_id):
+        plugin = directory.get_plugin()
+        router = self.get_router(context, router_id)
+        router_az_hint = router.get(az_def.AZ_HINTS)
+        if router_az_hint:
+            router_az_hint = router_az_hint[0]
+            if router_az_hint in constants.NO_AZ_LIST:
+                router_az_hint = None
+
+        network = plugin.get_network(context, network_id)
+        net_az_hint = network.get(az_def.AZ_HINTS)
+        if net_az_hint:
+            net_az_hint = net_az_hint[0]
+            if net_az_hint in constants.NO_AZ_LIST:
+                net_az_hint = None
+        LOG.debug("(AZ check) compat check: router %s in %s - network %s in %s",
+                  router['id'], router_az_hint, network_id, net_az_hint)
+
+        if net_az_hint and not router_az_hint:
+            raise asr1k_exc.RouterWithoutAZInNetworkWithAZ(az_network=net_az_hint)
+
+        if net_az_hint and router_az_hint and net_az_hint != router_az_hint:
+            raise asr1k_exc.RouterNetworkAZMismatch(az_network=net_az_hint, az_router=router_az_hint)
 
 
 class ASR1KPluginBase(common_db_mixin.CommonDbMixin, l3_db.L3_NAT_db_mixin,

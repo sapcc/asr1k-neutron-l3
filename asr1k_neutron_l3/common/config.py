@@ -42,7 +42,6 @@ ASR1K_OPTS = [
     cfg.BoolOpt('trace_all_yang_calls', default=False, help=_("Log all YANG xml calls, including how long they took")),
     cfg.BoolOpt('trace_yang_call_failures', default=False,
                 help=_("Log all failed YANG xml calls, including how long they took")),
-
 ]
 
 ASR1K_L3_OPTS = [
@@ -89,13 +88,6 @@ AGENT_STATE_OPTS = [
                         'is half or less than agent_down_time.')),
     cfg.BoolOpt('log_agent_heartbeats', default=False,
                 help=_('Log agent heartbeats')),
-]
-
-AVAILABILITY_ZONE_OPTS = [
-    # The default AZ name "nova" is selected to match the default
-    # AZ name in Nova and Cinder.
-    cfg.StrOpt('availability_zone', max_length=255, default='nova',
-               help=_("Availability zone of this node")),
 ]
 
 
@@ -154,22 +146,24 @@ def create_address_scope_dict():
     return address_scope_dict
 
 
-def register_l3_opts():
+def register_common_agent_opts():
     cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
     cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
+    cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
+    common.register_availability_zone_opts_helper(cfg.CONF)
+
+
+def register_l3_opts():
     cfg.CONF.register_opts(ASR1K_L3_OPTS, "asr1k_l3")
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
-    cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
-    cfg.CONF.register_opts(AVAILABILITY_ZONE_OPTS, 'AGENT')
     cfg.CONF.register_opts(common.EXT_NET_BRIDGE_OPTS)
     common.register_interface_opts()
     common.register_interface_driver_opts_helper(cfg.CONF)
+    register_common_agent_opts()
 
 
 def register_l2_opts():
-    cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
-    cfg.CONF.register_opts(DEVICE_OPTS, "asr1k_devices")
-    cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
+    register_common_agent_opts()
 
     cfg.CONF.asr1k.yang_connection_pool_size = cfg.CONF.asr1k_l2.yang_connection_pool_size
