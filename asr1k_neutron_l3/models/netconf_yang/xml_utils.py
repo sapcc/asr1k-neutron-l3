@@ -34,6 +34,7 @@ NS_CISCO_ROUTE_MAP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-route-map'
 NS_CISCO_EFP_OPER = 'http://cisco.com/ns/yang/Cisco-IOS-XE-efp-oper'
 NS_CISCO_ARP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-arp'
 NS_CISCO_BRIDGE_DOMAIN = 'http://cisco.com/ns/yang/Cisco-IOS-XE-bridge-domain'
+NS_CISCO_NTP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-ntp'
 NS_IETF_INTERFACE = "urn:ietf:params:xml:ns:yang:ietf-interfaces"
 
 
@@ -64,6 +65,7 @@ class XMLUtils(object):
         NS_CISCO_ARP: None,
         NS_IETF_INTERFACE: None,
         NS_CISCO_BRIDGE_DOMAIN: None,
+        NS_CISCO_NTP: None,
     }
 
     @classmethod
