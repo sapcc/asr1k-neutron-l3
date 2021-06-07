@@ -535,7 +535,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         except oslo_messaging.MessagingTimeout:
             if self.sync_routers_chunk_size > SYNC_ROUTERS_MIN_CHUNK_SIZE:
                 self.sync_routers_chunk_size = max(
-                    self.sync_routers_chunk_size / 2,
+                    self.sync_routers_chunk_size // 2,
                     SYNC_ROUTERS_MIN_CHUNK_SIZE)
                 LOG.error('Server failed to return info for routers in '
                           'required time, decreasing chunk size to: %s',
