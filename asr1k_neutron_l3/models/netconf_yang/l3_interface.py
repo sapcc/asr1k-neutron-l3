@@ -57,6 +57,8 @@ class L3Constants(object):
     ACL = "acl"
     ACL_NAME = "acl-name"
     DIRECTION_OUT = "out"
+    NTP = "ntp"
+    NTP_DISABLE = "disable"
 
 
 class VBInterface(NyBase):
@@ -141,6 +143,8 @@ class VBInterface(NyBase):
             {'key': 'access_group_out', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/out/acl'},
             {'key': 'redundancy_group'},
             {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'ntp_disable', 'yang-key': 'disable', 'yang-path': 'ntp',  'default': False,
+             'yang-type': YANG_TYPE.EMPTY}
         ]
 
     def __init__(self, **kwargs):
@@ -215,6 +219,12 @@ class VBInterface(NyBase):
 
         vbi[L3Constants.IP] = ip
         vbi[L3Constants.VRF] = vrf
+
+        vbi[L3Constants.NTP] = {xml_utils.NS: xml_utils.NS_CISCO_NTP}
+        if self.ntp_disable:
+           vbi[L3Constants.NTP][L3Constants.NTP_DISABLE] = ''
+        else:
+            vbi[L3Constants.NTP][xml_utils.OPERATION] = NC_OPERATION.REMOVE
 
         result = OrderedDict()
         result[context.bd_iftype] = vbi
