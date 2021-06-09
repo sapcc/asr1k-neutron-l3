@@ -221,10 +221,11 @@ class VBInterface(NyBase):
         vbi[L3Constants.VRF] = vrf
 
         vbi[L3Constants.NTP] = {xml_utils.NS: xml_utils.NS_CISCO_NTP}
-        if self.ntp_disable:
-           vbi[L3Constants.NTP][L3Constants.NTP_DISABLE] = ''
-        else:
-            vbi[L3Constants.NTP][xml_utils.OPERATION] = NC_OPERATION.REMOVE
+        if context.version_min_17_3:
+            if self.ntp_disable :
+                vbi[L3Constants.NTP][L3Constants.NTP_DISABLE] = ''
+            else:
+                vbi[L3Constants.NTP][xml_utils.OPERATION] = NC_OPERATION.REMOVE
 
         result = OrderedDict()
         result[context.bd_iftype] = vbi
