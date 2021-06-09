@@ -770,9 +770,11 @@ class NyBase(BulkOperations):
         return self._update(context=context, method=method)
 
     @retry_on_failure()
-    def _update(self, context, method=NC_OPERATION.PATCH, json=None, postflight=False):
-        if len(self._internal_validate(context=context)) > 0:
-            self.preflight(context)
+    def _update(self, context, method=NC_OPERATION.PATCH, json=None, preflight=True, postflight=False,
+                internal_validate=True):
+        if not internal_validate or len(self._internal_validate(context=context)) > 0:
+            if preflight:
+                self.preflight(context)
             if postflight:
                 self.postflight(context, method)
 
