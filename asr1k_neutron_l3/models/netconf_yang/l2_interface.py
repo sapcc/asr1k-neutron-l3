@@ -16,10 +16,14 @@
 from operator import attrgetter
 
 from collections import OrderedDict
+from oslo_log import log as logging
+
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NC_OPERATION, NyBase, execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.plugins.db import asr1k_db
+
+LOG = logging.getLogger(__name__)
 
 
 class L2Constants(object):
@@ -109,6 +113,39 @@ class BridgeDomain(NyBase):
             self.if_members = []
         if self.bdvif_members == [None]:
             self.bdvif_members = []
+
+    def preflight(self, context):
+        """Remove wrong interface membership for all BD-VIF members"""
+        if not context.version_min_17_3:
+            return
+
+        # go through all non-deleted member interfaces
+        for bdvif in self.bdvif_members:
+            if bdvif.mark_deleted:
+                continue
+            LOG.debug("Host %s: preflight check for interface %s on in bridge %s",
+                      context.host, bdvif.name, self.id)
+            bridge = self.get_for_bdvif(bdvif.name, context, partial=True)
+
+            # check if interface is in correct bridge
+            if bridge is not None and bridge.id != self.id:
+                LOG.warning("Host %s: found BD-VIF%s in wrong BD %s, should be in BD %s, "
+                            "removing membership from BD %s",
+                            context.host, bdvif.name, bridge.id, self.id, bridge.id)
+                # should have only one result, but who knows what cisco will return
+                for fb_bdvif in bridge.bdvif_members:
+                    if fb_bdvif.name == bdvif.name:
+                        # remove interface from wrong bridge
+                        #  - don't call preflight, we don't need this check to run for the other bridge
+                        #  - don't call internal validate (which will only execute if "something changed")
+                        LOG.debug("Host %s: Deleting BD-VIF%s from BD %s", context.host, bdvif.name, bridge.id)
+                        fb_bdvif.mark_deleted = True
+                        bridge._update(context=context, method=NC_OPERATION.PATCH, preflight=False,
+                                       internal_validate=False)
+                        break
+                else:
+                    LOG.warning("Host %s: could not find BD_VIF%s as member of (wrong) bridge %s, skipping",
+                                context.host, bdvif.name, bridge.id)
 
     def to_dict(self, context):
         bddef = OrderedDict()
