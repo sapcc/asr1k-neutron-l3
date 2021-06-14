@@ -88,6 +88,9 @@ class BulkOperations(xml_utils.XMLUtils):
 
         return False
 
+    def is_reassigned(self, queried):
+        return False
+    
     @property
     def neutron_router_id(self):
         return None

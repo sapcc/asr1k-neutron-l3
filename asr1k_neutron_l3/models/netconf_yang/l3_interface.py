@@ -293,15 +293,15 @@ class VBInterface(NyBase):
 
     def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
         # An interface is an orphan if ALL of these conditions are met
-        #   * it does not belong to any VRF or the router does not exist anymore
         #   * ID is in neutron namespace
         #   * its ID is not referenced in the extra atts table
-        # We don't delete vrf-less interfaces that are in the extra atts table as they could be reused
-        # while we're deleting them
-        return ((self.neutron_router_id and self.neutron_router_id not in all_router_ids) or
-                not self.neutron_router_id) and \
-            self.in_neutron_namespace and \
+        # We can now delete vrf-less interfaces that are in the extra atts table as we
+        # key the delete in the with help of _is_reassigned to the VRF
+        return self.in_neutron_namespace and \
             int(self.name) not in all_bd_ids
+
+    def is_reassigned(self, queried):
+        return self.vrf != queried.vrf
 
 
 class VBISecondaryIpAddress(NyBase):
