@@ -220,8 +220,8 @@ class VBInterface(NyBase):
         vbi[L3Constants.IP] = ip
         vbi[L3Constants.VRF] = vrf
 
-        vbi[L3Constants.NTP] = {xml_utils.NS: xml_utils.NS_CISCO_NTP}
         if context.version_min_17_3:
+            vbi[L3Constants.NTP] = {xml_utils.NS: xml_utils.NS_CISCO_NTP}
             if self.ntp_disable :
                 vbi[L3Constants.NTP][L3Constants.NTP_DISABLE] = ''
             else:
