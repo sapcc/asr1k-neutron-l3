@@ -122,20 +122,6 @@ class ConnectionPool(object):
     def __init__(self):
         pass
 
-    def _ensure_connections_aged(self):
-        try:
-            for context in self.pair_config.contexts:
-                yang = self.devices[context.host]
-
-                for connection in yang:
-                    if connection.age > self.max_age:
-                        LOG.debug("***** closing aged connection with session id {} aged {:10.2f}s"
-                                  "".format(connection.session_id, connection.age))
-                        with connection.lock:
-                            connection.close()
-        except Exception as e:
-            LOG.exception(e)
-
     def __check_initialized(self):
         if not hasattr(self, 'initialized'):
             msg = ("Please ensure pool is before first use initilized with "
@@ -151,7 +137,6 @@ class ConnectionPool(object):
                             "".format(yang_pool_size))
 
             self.yang_pool_size = yang_pool_size
-            self.max_age = max_age
             self.pair_config = ASR1KPair()
             self.devices = {}
 
@@ -161,15 +146,10 @@ class ConnectionPool(object):
                 yang = []
 
                 for i in range(self.yang_pool_size):
-                    yang.append(YangConnection(context, id=i))
+                    yang.append(YangConnection(
+                        context, id=i, max_age=max_age))
 
                 self.devices[context.host] = yang
-
-            if self.max_age > 0:
-                LOG.debug("Setting up looping call to close connections older than {} seconds".format(self.max_age))
-                self.monitor = loopingcall.FixedIntervalLoopingCall(
-                    self._ensure_connections_aged)
-                self.monitor.start(interval=self.max_age, stop_on_exception=False)
 
             self.initialized = True
         except Exception as e:
@@ -207,11 +187,12 @@ class ConnectionPool(object):
 
 
 class YangConnection(object):
-    def __init__(self, context, id=0):
+    def __init__(self, context, id=0, max_age=0):
         self.lock = Lock()
         self.context = context
         self._ncc_connection = None
         self.start = time.time()
+        self.max_age = max_age
         self.id = "{}-{}".format(context.host, id)
 
     def __repr__(self):
@@ -233,13 +214,17 @@ class YangConnection(object):
                 not self._ncc_connection._session._transport.is_active())
 
     @property
+    def is_aged(self):
+        return self.max_age > 0 and self.age > self.max_age
+
+    @property
     def connection(self):
         try:
-            if self.is_inactive:
-                if self.session_id:
-                    LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.session_id))
+            if self.is_inactive or self.is_aged:
+                LOG.debug("Existing session id {} is not active or aged ({:10.2f}s), closing and reconnecting".format(self.session_id, self.age))
                 try:
-                    self.close()
+                    with self.lock():
+                        self.close()
                 except TransportError:
                     pass
                 finally:
