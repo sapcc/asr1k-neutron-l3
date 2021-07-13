@@ -191,7 +191,7 @@ class YangConnection(object):
         self.lock = Lock()
         self.context = context
         self._ncc_connection = None
-        self.start = time.time()
+        self.start = 0
         self.max_age = max_age
         self.id = "{}-{}".format(context.host, id)
 
@@ -220,15 +220,13 @@ class YangConnection(object):
     @property
     def connection(self):
         try:
-            if self.is_inactive or self.is_aged:
-                LOG.debug("Existing session id {} is not active or aged ({:10.2f}s), closing and reconnecting".format(self.session_id, self.age))
-                try:
-                    with self.lock():
-                        self.close()
-                except TransportError:
-                    pass
-                finally:
-                    self._ncc_connection = self._connect(self.context)
+            if self.is_inactive:
+                LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.session_id))
+                self._reconnect()
+            if self.is_aged:
+                LOG.debug("Existing session id {} is aged (max lifetime: {}, session aged: {:10.2f}s), closing and "
+                          "reconnecting".format(self.session_id, self.max_age, self.age))
+                self._reconnect()
         except Exception as e:
             if isinstance(e, TimeoutExpiredError) or isinstance(e, SSHError) or isinstance(e, SessionCloseError):
                 LOG.warning(
@@ -240,21 +238,30 @@ class YangConnection(object):
 
         return self._ncc_connection
 
+    def _reconnect(self):
+        try:
+            with self.lock():
+                self.close()
+        except TransportError:
+            pass
+        finally:
+            self._ncc_connection = self._connect(self.context)
+
     def _connect(self, context):
         port = context.yang_port
-
-        return manager.connect(
+        conn = manager.connect(
             host=context.host, port=port,
             username=context.username, password=context.password,
             hostkey_verify=False,
             device_params={'name': "iosxe"}, timeout=context.nc_timeout,
             allow_agent=False, look_for_keys=False)
+        self.start = time.time()
+        return conn
 
     def close(self):
         if self._ncc_connection is not None:
             self._ncc_connection.close_session()
             self._ncc_connection = None
-        self.start = time.time()
 
     def xpath_get(self, filter='', entity=None, action=None):
         return self._run_yang_cmd(filter=('xpath', filter), source="running", method='get_config',
