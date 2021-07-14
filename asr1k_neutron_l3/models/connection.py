@@ -245,7 +245,12 @@ class YangConnection(object):
         except TransportError:
             pass
         finally:
-            self._ncc_connection = self._connect(self.context)
+            try:
+                self._ncc_connection = self._connect(self.context)
+            except RuntimeError as e:
+                # Catch the error "Second simultaneous read" when ncclient transport was not closed properly.
+                LOG.warning(
+                    "Failed to re-connect due to '{}', connection will be attempted again in the next call".format(e))
 
     def _connect(self, context):
         port = context.yang_port
