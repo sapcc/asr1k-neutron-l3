@@ -194,7 +194,8 @@ class YangConnection(object):
 
     @property
     def is_aged(self):
-        return self.max_age > 0 and self.age > self.max_age
+        # return self.max_age > 0 and self.age > self.max_age
+        return self.max_age > 0 and self.age > 360
 
     @property
     def connection(self):
@@ -202,7 +203,7 @@ class YangConnection(object):
             if self.is_inactive:
                 LOG.debug("Existing session id {} is not active, closing and reconnecting".format(self.session_id))
                 self._reconnect()
-            if self.is_aged:
+            if self.is_aged and self.lock.locked():
                 LOG.debug("Existing session id {} is aged (max lifetime: {}, session aged: {:10.2f}s), closing and "
                           "reconnecting".format(self.session_id, self.max_age, self.age))
                 self._reconnect()
