@@ -39,6 +39,7 @@ from oslo_log import log as logging
 from oslo_service import loopingcall
 
 import paramiko
+from eventlet.pools import Pool
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.operations import util
 from ncclient.transport.errors import SSHError
@@ -143,11 +144,7 @@ class ConnectionPool(object):
             LOG.info("Initializing connection pool with yang pool size {}".format(self.yang_pool_size))
 
             for context in self.pair_config.contexts:
-                yang = []
-
-                for i in range(self.yang_pool_size):
-                    yang.append(YangConnection(
-                        context, id=i, max_age=max_age))
+                yang = Pool(create=lambda: YangConnection(context, max_age=max_age), max_size=self.yang_pool_size)
 
                 self.devices[context.host] = yang
 
@@ -155,35 +152,17 @@ class ConnectionPool(object):
         except Exception as e:
             LOG.exception(e)
 
-    @retry(stop_max_attempt_number=25, wait_fixed=100, retry_on_exception=_retry_if_exhausted)
     def pop_connection(self, context=None):
         pool = self.devices.get(context.host)
-        connection = None
-        if len(pool) > 0:
-            connection = pool.pop(0)
 
-        if connection is None:
+        if pool.free() == 0:
             PrometheusMonitor().connection_pool_exhausted.labels(device=context.host).inc()
-            raise ConnectionPoolExhausted()
 
-        connection.lock.acquire()
-
-        return connection
+        return pool.get()
 
     def push_connection(self, connection, context=None):
-        connection.lock.release()
-
         pool = self.devices.get(context.host)
-        pool.append(connection)
-
-    def get_connection(self, context):
-        connection = self.devices.get(context.host).pop(0)
-        self.devices.get(context.host).append(connection)
-
-        if connection is None:
-            raise Exception('No connection can be found for {}'.format(context.host))
-
-        return connection
+        pool.put(connection)
 
 
 class YangConnection(object):
