@@ -39,7 +39,6 @@ from oslo_log import log as logging
 from oslo_service import loopingcall
 
 import paramiko
-import eventlet
 from ncclient.operations.errors import TimeoutExpiredError
 from ncclient.operations import util
 from ncclient.transport.errors import SSHError
@@ -229,11 +228,6 @@ class YangConnection(object):
                 LOG.debug("Existing session id {} is aged (max lifetime: {}, session aged: {:10.2f}s), closing and "
                           "reconnecting".format(self.session_id, self.max_age, self.age))
                 self._reconnect()
-        except RuntimeError as e:
-            LOG.warning("Catch second simultaneous read")
-            eventlet.debug.hub_listener_stacks(state=True)
-            print(eventlet.debug.format_hub_listeners())
-            LOG.exception(e)
         except Exception as e:
             if isinstance(e, TimeoutExpiredError) or isinstance(e, SSHError) or isinstance(e, SessionCloseError):
                 LOG.warning(
