@@ -219,7 +219,8 @@ class YangConnection(object):
 
     def _reconnect(self):
         try:
-            self.close()
+            with self.lock:
+                self.close()
         except TransportError:
             pass
         finally:
