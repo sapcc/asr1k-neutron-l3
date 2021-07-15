@@ -12,4 +12,4 @@ provide the following Openstack extensions:
 Documentation is split into two sections one mapping [Openstack Neutron entities to device configuration](DEVICE_README.md), the other 
 describing the [design principles of the software components](DRIVER_README.md).  
 
-**The current state in beta, there are currently issues with performance degradation over time being investigated**
+**The current state is beta. There are currently issues with performance degradation over time being investigated.**
