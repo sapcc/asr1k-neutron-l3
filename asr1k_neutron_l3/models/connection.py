@@ -215,8 +215,7 @@ class YangConnection(object):
 
     @property
     def is_aged(self):
-        # return self.max_age > 0 and self.age > self.max_age
-        return self.max_age > 0 and self.age > 360
+        return self.max_age > 0 and self.age > self.max_age
 
     @property
     def connection(self):
