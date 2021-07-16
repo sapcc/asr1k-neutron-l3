@@ -1,13 +1,13 @@
 # asr1k-neutron-l3
 Cisco ASR 1000 Neutron L3 driver
 ## ML2 Implementation
-The ML2 part of the driver implementation is responsible for creating and managing l2 adjacencies between multiple L3 router interfaces and external L2 networks.
+The ML2 part of the driver implementation is responsible for creating and managing L2 adjacencies between multiple L3 router interfaces and external L2 networks.
 
 ### Requirements
 
   * A 1:n relationship is required for router interfaces to external networks.
   * A 1:1 relationship between ASR interface and neutron virtual router must be maintained, sharing of interfaces is not allowed.
-  * L2 interface creation and operation should be managed in an independent process from l3 configuration to allow for asynchronous operations.
+  * L2 interface creation and operation should be managed in an independent process from L3 configuration to allow for asynchronous operations.
 
 
 ### Traffic Flow Overview
@@ -202,9 +202,9 @@ interface Port-channel3
 ###### Conventions:
 
   * **Bridge Domain**: <br />ID's 1-4096 are reserved for usage on the external interface, bridge-domain ID matches VLAN id of neutron segment ID<br /> Allocaton on internal side ID > 4097 mapping TBD<br /> Port-channel1.BD-ID == Port-channel2.BD-ID != Port-channel3.BD-ID.
-  * **dot1q**: First VLAN Tag on loopback interfaces match the associated neutron network segment VLAN ID.
+  * **dot1q**: First VLAN tag on loopback interfaces matches the associated neutron network segment VLAN ID.
   * **second-dot1q**: Secondary tag on loopbacks need to be unique per Port per primary dot1q, allocation TBD.
-  * **Service instance ID**:<br /> External Portchannel: instanceID == dot1q <br /> Loopback Portchannel: TBD
+  * **Service instance ID**:<br /> External Port-channel: instanceID == dot1q <br /> Loopback Port-channel: TBD
 
 ###### Resulting Scale Limitations
   * **Neutron Networks**: 4096 Neutron Networks per device
@@ -216,13 +216,13 @@ interface Port-channel3
 ### Requirements
 
   * The implementation must support multiple routers per external network
-  * The implementation must support multiple routers per internal Network
-  * Multiple Subnets must be supported on external and internal networks
-  * The implementation must not use additional resources in neutron for bookkeeping efforts (hiden Routers / hidden Ports)
-  * Neutron provided information must match on device configuration (Port mac must match BVI mac etc.)
+  * The implementation must support multiple routers per internal network
+  * Multiple subnets must be supported on external and internal networks
+  * The implementation must not use additional resources in neutron for bookkeeping efforts (hidden Routers / hidden Ports)
+  * Neutron provided information must match on device configuration (Port MAC must match BVI MAC etc.)
   * HA for box to box failover must be available 
   * HA failover of individual neutron routers is desirable but not mandatory, group based or global failover is sufficient
-  * HA must not use additional network resources not assigned to the customer neutron router instance (IP's mac's etc.)
+  * HA must not use additional network resources not assigned to the customer neutron router instance (IP's MAC's etc.)
 
 ### Neutron Example Router
 Router
@@ -585,10 +585,10 @@ ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 10 permit 172.24.5.0/24
 
 ###### Open Architecture Topics:
 
- * Can we assign interfacce routes inside a vrf? NO
- * Does arp alias work for off-subnet ip's? Yes
- * Do we need rii on interfaces or is mapping-id sufficient on nat statements ?
- * should/must all mapping-id's be the same or different for a given neutron router ? Different
+ * Can we assign interface routes inside a VRF? NO
+ * Does ARP alias work for off-subnet IPs? Yes
+ * Do we need rii on interfaces or is mapping-id sufficient on NAT statements?
+ * Should/must all mapping-id's be the same or different for a given neutron router? Different
 
 ###### Configuration Limits for resources:
 
@@ -604,7 +604,7 @@ ip prefix-list ext-f8a44de0fc8e45df93c7f79bf3b01c95 seq 10 permit 172.24.5.0/24
 | dynamic NAT | string | global | ??? | ??? |  one per Neutron virtual router |
 | rii | 1-65.000 | global | ??? | ??? |  one per Neutron Port |
 | mapping-id | 1-2.147.483.647 | ??? | ??? | ??? |  one per TBD |
-| arp alias| - | - | ??? | ??? |  one per Neutron Floating IP |
+| ARP alias| - | - | ??? | ??? |  one per Neutron Floating IP |
 | static route | - | - | ??? | ??? |  one per Neutron virtual router + Extra Routes|
 | access-lists | string | global | 4.000 | ??? |  one per Neutron virtual router |
 | access-list entries | - | - | 400.000 | ??? |  one per Neutron virtual router + One Per Subnet in the same scope |
@@ -850,9 +850,9 @@ interface BDI4501
 
 ###### Conventions:
  * Implementation must support type L3, type L2 is out of scope
- * Implementation must support route_destinguisher auto generation
- * Implementation should support local_pref extension
- * Implementation must implement advertise_extra_routes
+ * Implementation must support auto generation of `route_distinguishers`
+ * Implementation should support `local_pref` extension
+ * Implementation must implement `advertise_extra_routes`
  * Implementation must choose one RD on association and stick with that
 
 ```json
@@ -934,7 +934,7 @@ router bgp 65117
 | Resource | ID Space | ID Sope | Specific Limit | Global Limit | Requirements |
 | ------------- |:-------------:|:----:| -----:|-----:|:-----|
 | route-map | string | global | ??? | ??? |  maybe one per bgpvpn association |
-| route-target | ASN:ID | global | ??? | ??? |  How Many RT's per Prefix / VRF? |
+| route-target | ASN:ID | global | ??? | ??? |  How many RT's per prefix / VRF? |
 
 ## HA and BoxToBox Failover
 Resources need to be scheduled among multiple routers (2 at least) to allow for High Availability.
@@ -942,8 +942,8 @@ Resources need to be scheduled among multiple routers (2 at least) to allow for 
 ### Requirements
 
   * Failover of individual Neutron Routers on localized failures is considered ideal
-  * Failover of Groups of routers (one active on each device with mutual failover of the entire group) is preferd
-  * Global failover from an active Box to an standby box is acceptable initially
+  * Failover of groups of routers (one active on each device with mutual failover of the entire group) is preferd
+  * Global failover from an active box to an standby box is acceptable initially
   * NAT entries should be transfered on failover
   * Firewall states should be transfered on failover
   * Failover implementation must not require additional resources (MAC / IP Adresses)
@@ -951,9 +951,9 @@ Resources need to be scheduled among multiple routers (2 at least) to allow for 
 ### Global Failover
 
 ###### Conventions:
- * Redundancy State (Active/Passive) is determined by out of band protocol (Redundancy Group)
- * Passive Router keeps port-channel3 interface in *shutdown* mode to disconnect all neutron ports
- * When the router transitions to active state a EEM script is triggered putting port-channel3 in *no shutdown*
+ * Redundancy state (active/passive) is determined by out of band protocol (Redundancy Group)
+ * Passive router keeps `Port-channel3` interface in *shutdown* mode to disconnect all neutron ports
+ * When the router transitions to active state a EEM script is triggered putting `Port-channel3` in *no shutdown*
 
 Resulting ASR Config
 
