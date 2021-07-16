@@ -125,12 +125,12 @@ Horizontal scale will be achieved by deploying additional L3 agent hosts and dev
     
 ## Device API 
 
-The agents primarily communicate with devices via the Netconf/Yang API. Due to current   limitations
+The agents primarily communicate with devices via the Netconf/Yang API. Due to current limitations
  in the Netconf API (e.g. ARP alias is  missing from the Yang model). Until these are 
  addressed in firmware updates the Yang configuration is augmented with SSH or WSMA. The desired end goal
  is that all required configuration can be applied via Netconf-YANG.
  
-In general the following sequence of calls a made for an configuration update :
+In general the following sequence of calls is made for an configuration update:
 
 1. get-config for entity id
 2. edit-config with merge operation for create/update
@@ -140,66 +140,66 @@ The replace operation is used in some cased to replace entire entites, for examp
  VRF's route list can be updated in a single API call. Further optimisation by 'batching' list updates via replace needs 
  investigation. 
 
-The agent device API access is designed to act as a psuedo ORM implementation providing basic CRUD operations and 
+The agent device API access is designed to act as a pseudo ORM implementation providing basic CRUD operations and 
  querying. Yang models are encapsulated in Python classes which can serialise/de-serialise the device configuration. The 
- Neutron entities are also abtracted into 'DTO' models which encapsulate the data and Yang models/actions required to
+ Neutron entities are also abstracted into 'DTO' models which encapsulate the data and Yang models/actions required to
  transform the Neutron models to device configuration. It is intended in the final implementation that the Yang models
  will be able evaluate diffs between the Neutron and device state, both to report on inconsistencies and to minimise
  the number of API operations. 
    
 Optimisation of API operations is somewhat complicated due to the nature of L3 Agent RPC notifications. It appears that
- for all L3 router changes (router: create, delete, update  interface: add, remove gateway: add, remove floating ip: 
- associate, disassociate, route: add, delete) the agent only receives a router updated or deleted notification. This
+ for all L3 router changes (router: create, delete, update;  interface: add, remove; gateway: add, remove; floating ip: 
+ associate, disassociate; route: add, delete) the agent only receives a router updated or deleted notification. This
  means that for even the simplest change (e.g. router description) the entire router configuration across both devices
  in the pair has to be updated. Even with models capable of 'diffing' Neutron and the device it may be necessary to make
  multiple API requests to evaluate the diff. Further investigation is required to evaluate options to improve this. 
  
 ## Operational Considerations
 
-Failure is inevitable, so we expect that at some point one or both devices with end up with configuration that differs
+Failure is inevitable, so we expect that at some point one or both devices will end up with a configuration that differs
  from the Neutron DB. Neutron should be considered the source of truth regarding the configuration and the devices should
  be considered the source of truth regarding operational state. The following has been implemented to support operational
  and support/troubleshooting work.
 
  1. API tools to create, update, delete and validate the device configuration for a Neutron router based on the
-  current Neutron state of entities. API can also be used to get expected config for L2/L3 interfaces, l3 interface statistics 
+  current Neutron state of entities. API can also be used to get expected config for L2/L3 interfaces, L3 interface statistics
   and any orphaned device configuration.   
  2. The entity status in Neutron should reflect as closely as possible the status of the device configuration as described
-  above
+  above.
   
 Further work should implement the following broad requirements:
   
- 1. The agent and driver should be instrumented to provide metric for performance (e.g. API operation execution time)
-  , scale (e.g. number of routers, floating IPs etc) and errors (e.g. API failures). Key metrics should be exposed via Promethesus   
- 2. A seperate agent should be developed to gather metrics the operation state of the entities configured on the device. 
+ 1. The agent and driver should be instrumented to provide metrics for performance (e.g. API operation execution time),
+  scale (e.g. number of routers, floating IPs etc.) and errors (e.g. API failures). Key metrics should be exposed via Prometheus.
+ 2. A seperate agent should be developed to gather metrics the operational state of the entities configured on the device. 
   For example gather SNMP data, subscribing to Netconf events (when available) or querying via API. Key metrics should again be
-  exposed via Prometheus     
+  exposed via Prometheus.
    
      
 ### ASR1K APIs
 
-The following APIs have been integrated into the Neutron API. The PUT and DELETE operations should be used with caution. 
-There is currently no CLI implementation so the APIs can only be used via a rest client, they were tested with 
+The following APIs have been integrated into the Neutron API. The `PUT` and `DELETE` operations should be used with caution. 
+There is currently no CLI implementation so the APIs can only be used via a REST client, they were tested with 
 [Postman](https://www.getpostman.com/apps). Use `openstack token issue` to generate an auth token (scoped to project that 
 gives `cloud_network_admin` role) and set the `X-Auth-Token` request header. The following APIs should then be accessible
 via the neutron V2.0  API endpoint  `http(s)://[neutron server FQDN/IP]:[port]/v2.0`  
  
 |        |                                             |                                                                   |
 |--------|---------------------------------------------|-------------------------------------------------------------------|
-| GET    | `/asr1k/routers/[router-id]`                | Returns a json string showing any diffs between device configuration and that expected by Neutron.           |                       
-| PUT    | `/asr1k/routers/[router-id]`                | Attempts to sync the neutron config to the devices                |
-| DELETE | `/asr1k/routers/[router-id]`                | Removes the router config from the devices. **Use with caution**  |
-| GET    | `/asr1k/config/[router-id]`                 | Returns a json string showing ASR1K specific configuration stored in Neutron, important when debugging L2 specific issues |                       
-| PUT    | `/asr1k/config/[router-id]`                 | Creates ASR1K specific Neutron configuration. **Use with caution**|
-| GET    | `/asr1k/orphans/[agent-host]`               | Returns a json string showing configuration regarded as redundant based on a check against Neutron. It uses pattern matching to identify potential candidates and cannot be guarenteed 100% accurate. |                      
-| DELETE | `/asr1k/orphans/[agent-host]`               | Removes any orphaned configuration from the devices. ** Please check** all configuration returned by the GET method is indeed managed by the ASR1K driver before executing this method|
-| GET    | `/asr1k/interface-statistics/[router-id]`   | Show L3 interface information and packet statistics for the  the Neutron router's interfaces on the devices.     |                       
-| GET    | `/asr1k/devices/[agent-host]`               | Returns a json string showing device configuration on the agent. |                      
-| PUT    | `/asr1k/device/[agent-host]`                | Use with a JSON body in format `{[device1_id]}:[enable][disable],[device2_id]}:[enable][disable]`  to enable or disable a specific device. Disabled means config will not be applied to the device  |
+| GET    | `/asr1k/routers/[router-id]`                | Returns a JSON string showing any diffs between device configuration and that expected by Neutron.           |
+| PUT    | `/asr1k/routers/[router-id]`                | Attempts to sync the neutron config to the devices.                |
+| DELETE | `/asr1k/routers/[router-id]`                | Removes the router config from the devices. **Use with caution.**  |
+| GET    | `/asr1k/config/[router-id]`                 | Returns a JSON string showing ASR1K specific configuration stored in Neutron, important when debugging L2 specific issues. |
+| PUT    | `/asr1k/config/[router-id]`                 | Creates ASR1K specific Neutron configuration. **Use with caution.** |
+| GET    | `/asr1k/orphans/[agent-host]`               | Returns a JSON string showing configuration regarded as redundant based on a check against Neutron. It uses pattern matching to identify potential candidates and cannot be guarenteed 100% accurate. |
+| DELETE | `/asr1k/orphans/[agent-host]`               | Removes any orphaned configuration from the devices. **Please check** all configuration returned by the GET method is indeed managed by the ASR1K driver before executing this method. |
+| GET    | `/asr1k/interface-statistics/[router-id]`   | Show L3 interface information and packet statistics for the Neutron router's interfaces on the devices.     |
+| GET    | `/asr1k/devices/[agent-host]`               | Returns a JSON string showing device configuration on the agent. |
+| PUT    | `/asr1k/device/[agent-host]`                | Use with a JSON body in format `{[device1_id]}:[enable][disable],[device2_id]}:[enable][disable]`  to enable or disable a specific device. Disabled means config will not be applied to the device. | 
  
 
 ### Migration from Cisco ASR driver
-This driver is intended to act as a improved replacement for the ASR driver provided by Cisco, hereafter the 'legacy' driver. In order to support migration from the legacy driver there are a number of steps that need to be executed to remove legacy artifacts and prepare remaining entities to work with the new driver. There are several REST APIs/endpoint to support this process:
+This driver is intended to act as an improved replacement for the ASR driver provided by Cisco, hereafter the 'legacy' driver. In order to support migration from the legacy driver there are a number of steps that need to be executed to remove legacy artifacts and prepare remaining entities to work with the new driver. There are several REST APIs/endpoint to support this process:
 
 |        |                                             |                                                                   |
 |--------|---------------------------------------------|-------------------------------------------------------------------|
@@ -210,20 +210,16 @@ This driver is intended to act as a improved replacement for the ASR driver prov
 | GET    | `/asr1k/init_atts`               | Creates ASR1K specific DB content for additional L2 and L3 config|
 | GET    | `/asr1k/init_config/[agent-host]`| Generates a device config 'script' to preload the ASR devices with VRF and BDI configuration, this is required to prevent extended sync locks in the current device firmware|
 
-If you use two or more devices, its possible to migrate without dataplane downtime. The description below assumes 2 ASR devices A and B in an active/passive HA state with A active and B in cold standby. 
+If you use two or more devices, it's possible to migrate without data plane downtime. The description below assumes 2 ASR devices A and B in an active/passive HA state with A active and B in cold standby. 
 
 1. Stop the Cisco config agent. This will 'freeze' the device configuration. 
-2. Ensure uplink from B device is shutdown. 
-2. Deploy and start the ASR1K driver and agents. The L3 and L2 agents should be started in init mode. The ASR1K configuration file for neutron server and the l3 and l2 agents should target the standby, B device. 
-3. Execute a `DELETE` request against `/asr1k/cisco_teardown`. You will need to include an authentication token as described abive. Depending on the scale of your deployment this request may time out.  You can check the remaining Cisco HA entities via GET request. When the GET request yields no results, you can proceed to the next step.
-4. Issue a GET request to `/asr1k/init_scheduler` , this will schedule all routers to available agents. Again, this request may timeout but will run to completion. You can verify completion by comparing the number of entries in tables `routerl3agentbindings` they should be equal. 
-5. Issue a GET request to `/asr1k/init_bindings` this will update all router ports with a binding host corresponding to the scheduled agent. A port binding will be attempted but will no complete until the ML2 agent is no longer in init mode. 
+2. Ensure uplink from device B is shutdown. 
+2. Deploy and start the ASR1K driver and agents. The L3 and L2 agents should be started in init mode. The ASR1K configuration file for neutron server and the L3 and L2 agents should target the standby, device B..
+3. Execute a `DELETE` request against `/asr1k/cisco_teardown`. You will need to include an authentication token as described above. Depending on the scale of your deployment this request may time out.  You can check the remaining Cisco HA entities via GET request. When the GET request yields no results, you can proceed to the next step.
+4. Issue a GET request to `/asr1k/init_scheduler`, this will schedule all routers to available agents. Again, this request may time out but will run to completion. You can verify completion by comparing the number of entries in table `routerl3agentbindings` they should be equal. 
+5. Issue a GET request to `/asr1k/init_bindings`, this will update all router ports with a binding host corresponding to the scheduled agent. A port binding will be attempted but will no complete until the ML2 agent is no longer in init mode. 
 6. Issue a GET request to `/asr1k/init_atts` to create ASR1K specific DB content. 
 7. For each agent perform a GET to `/asr1k/init_config/[agent-host]`. This will return a text file containing configuration to be applied to the device(s) for each agent. 
 
 After this is completed the agents can be redeployed without init mode active and the agents should begin to prepare the device configuration. 
 
-
-
-  
-  
