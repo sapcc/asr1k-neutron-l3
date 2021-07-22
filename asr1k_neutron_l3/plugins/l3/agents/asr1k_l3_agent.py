@@ -15,11 +15,13 @@
 #    under the License.
 
 import datetime
+import os
 import threading
 import signal
 import sys
 import time
 
+import manhole
 from futurist import periodics, ThreadPoolExecutor
 from neutron.agent.common import resource_processing_queue as queue
 from neutron.agent.l3 import agent as l3_agent
@@ -261,6 +263,17 @@ class L3ASRAgent(operations.OperationsMixin, DeviceCleanerMixin):
             connection.ConnectionPool().initialise(yang_connection_pool_size=self.yang_connection_pool_size,
                                                    max_age=cfg.CONF.asr1k.connection_max_age)
             LOG.debug("Connection pool initialized")
+
+        if CONF.backdoor_socket:
+            try:
+                backdoor_socket_path = CONF.backdoor_socket.format(pid=os.getpid())
+            except (KeyError, IndexError, ValueError) as e:
+                backdoor_socket_path = conf.backdoor_socket
+                LOG.warning("Could not apply format string to manhole "
+                            "backdoor socket path ({}) - continuing with "
+                            "unformatted path"
+                            "".format(e))
+            manhole.install(socket_path=backdoor_socket_path)
 
         self.router_info = {}
         self.host = host
