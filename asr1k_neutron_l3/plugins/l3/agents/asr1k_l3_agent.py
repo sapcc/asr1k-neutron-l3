@@ -268,7 +268,7 @@ class L3ASRAgent(operations.OperationsMixin, DeviceCleanerMixin):
             try:
                 backdoor_socket_path = CONF.backdoor_socket.format(pid=os.getpid())
             except (KeyError, IndexError, ValueError) as e:
-                backdoor_socket_path = conf.backdoor_socket
+                backdoor_socket_path = CONF.backdoor_socket
                 LOG.warning("Could not apply format string to manhole "
                             "backdoor socket path ({}) - continuing with "
                             "unformatted path"
@@ -280,6 +280,7 @@ class L3ASRAgent(operations.OperationsMixin, DeviceCleanerMixin):
 
         self.context = n_context.get_admin_context_without_session()
         self.plugin_rpc = L3PluginApi(topics.L3PLUGIN, host)
+        self.l3_agent_rpc = None
         self.fullsync = cfg.CONF.asr1k_l3.sync_active
         self.pause_process = False
         self.sync_routers_chunk_size = cfg.CONF.asr1k_l3.sync_chunk_size
@@ -287,9 +288,8 @@ class L3ASRAgent(operations.OperationsMixin, DeviceCleanerMixin):
 
         self.asr1k_pair = asr1k_pair.ASR1KPair()
 
-        self._router_loop = None
-        self._stop = False
-        self.connection = None
+        self._router_loop_thread = None
+        self._router_loop_stop = False
         self._queue = asr1k_queue.RouterProcessingQueue()
         self._requeue = {}
         self._last_full_sync = timeutils.now()
@@ -358,20 +358,20 @@ class L3ASRAgent(operations.OperationsMixin, DeviceCleanerMixin):
                 LOG.info("Orphan clean is active, starting cleaning loop")
                 self.worker.add(self._clean_device)
 
-            self._router_loop = threading.Thread(target=self._process_routers_loop, daemon=True)
-            self._router_loop.start()
+            self._router_loop_thread = threading.Thread(target=self._process_routers_loop, daemon=True)
+            self._router_loop_thread.start()
 
             LOG.info("L3 agent started")
 
     def exit_gracefully(self, *args):
-        self._stop = True
+        self._router_loop_stop = True
         self.worker.stop()
-        if self._router_loop:
-            self._router_loop.join()
-        if self.connection:
-            self.connection.stop()
+        if self._router_loop_thread:
+            self._router_loop_thread.join()
+        if self.l3_agent_rpc:
+            self.l3_agent_rpc.stop()
             # proccess all remaining messages
-            self.connection.wait()
+            self.l3_agent_rpc.wait()
 
     @periodics.periodic(CONF.asr1k.clean_orphan_interval)
     def _clean_device(self):
@@ -381,11 +381,11 @@ class L3ASRAgent(operations.OperationsMixin, DeviceCleanerMixin):
         self.topic = topics.L3_AGENT
         self.endpoints = [self]
         target = oslo_messaging.Target(topic=self.topic, server=CONF.host)
-        self.connection = oslo_messaging.get_rpc_server(
+        self.l3_agent_rpc = oslo_messaging.get_rpc_server(
             n_rpc.TRANSPORT, target, self.endpoints,
             'threading', n_rpc.RequestContextSerializer(),
             access_policy=oslo_messaging.DefaultRPCAccessPolicy)
-        self.connection.start()
+        self.l3_agent_rpc.start()
 
     def trigger_sync(self, signum, frame):
         LOG.info("Setup full sync based on external signal")
@@ -734,7 +734,7 @@ class L3ASRAgent(operations.OperationsMixin, DeviceCleanerMixin):
                         "its now {}".format(poolsize))
 
         with ThreadPoolExecutor(max_workers=poolsize) as executer:
-            while not self._stop:
+            while not self._router_loop_stop:
                 # the executer worker queue is infinite and doesn't block
                 if self._queue.get_size():
                     executer.submit(self._process_router_update)
