@@ -42,12 +42,14 @@ from oslo_log import helpers as log_helpers
 from oslo_log import log
 from oslo_utils import timeutils
 import sqlalchemy as sa
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy import func
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import asr1k_exceptions
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
+
+from neutron_fwaas.db.firewall.v2 import firewall_db_v2 as fwaas
 
 MIN_DOT1Q = 1000
 MAX_DOT1Q = 4096
@@ -77,10 +79,29 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                external_net_db.External_net_db_mixin,
                l3_db.L3_NAT_dbonly_mixin,
                l3_agentschedulers_db.L3AgentSchedulerDbMixin,
-               bgpvpn_db.BGPVPNPluginDb
+               bgpvpn_db.BGPVPNPluginDb,
+               fwaas.FirewallPluginDb
                ):
     def __init__(self):
         super(DBPlugin, self).__init__()
+
+    def get_router_ids_by_ports(self, context, ports):
+        query = context.session.query(l3_models.RouterPort.router_id) \
+            .filter(l3_models.RouterPort.port_id.in_(ports))
+        return [x.router_id for x in query.all()]
+
+    def get_policies_by_router_id(self, context, router_id):
+        query = context.session.query(fwaas.FirewallPolicy) \
+            .join(fwaas.FirewallGroup, or_(
+                        fwaas.FirewallGroup.egress_firewall_policy_id == fwaas.FirewallPolicy.id,
+                        fwaas.FirewallGroup.ingress_firewall_policy_id == fwaas.FirewallPolicy.id)) \
+            .join(fwaas.FirewallGroupPortAssociation,
+                  fwaas.FirewallGroupPortAssociation.firewall_group_id == fwaas.FirewallGroup.id) \
+            .join(l3_models.RouterPort, fwaas.FirewallGroupPortAssociation.port_id == l3_models.RouterPort.port_id) \
+            .filter(fwaas.FirewallGroup.admin_state_up == True) \
+            .filter(l3_models.RouterPort.router_id == router_id) \
+            .distinct()
+        return query.all()
 
     def get_bgpvpns_by_router_id(self, context, router_id, filters=None, fields=None):
         query = context.session.query(bgpvpn_db.BGPVPN)
