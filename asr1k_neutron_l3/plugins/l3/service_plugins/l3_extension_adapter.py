@@ -317,7 +317,41 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             router["rt_export"] = list(set(rt_export))
             router["rt_import"] = list(set(rt_import))
 
+            all_ports = [x["id"] for x in router.get("_interfaces", [])]
+            if gw_port:
+                all_ports.append(gw_port["id"])
+
+            router["fwaas_policies"] = self._get_fwaas_policies(context, all_ports)
+
         return routers
+
+    def _get_fwaas_policies(self, context, port_ids):
+        policies = {}
+        fwgs = {}
+        with db_api.CONTEXT_READER.using(context):
+            for port_id in port_ids:
+                fwg_id = self.db.get_fwg_attached_to_port(context, port_id)
+                if not fwg_id:
+                    continue
+                if fwg_id not in fwgs:
+                    fwgs[fwg_id] = self.db.get_firewall_group(
+                        context, fwg_id,
+                        fields=["egress_firewall_policy_id", "ingress_firewall_policy_id", "name", "id"])
+                fwg = fwgs[fwg_id]
+                for fwp_id, direction in ((fwg["egress_firewall_policy_id"], "egress"),
+                                          (fwg["ingress_firewall_policy_id"], "ingress")):
+                    if fwp_id is None:
+                        continue
+                    if fwp_id not in policies:
+                        name = self.db.get_firewall_policy(context, fwp_id, fields=["name"])["name"]
+                        policies[fwp_id] = {
+                            "name": name,
+                            "ingress_ports": [],
+                            "egress_ports": [],
+                            "rules": self.db._get_policy_ordered_rules(context, fwp_id)
+                        }
+                    policies[fwp_id][f"{direction}_ports"].append(port_id)
+        return policies
 
     def get_deleted_router_atts(self, context):
         return self.db.get_deleted_router_atts(context)
