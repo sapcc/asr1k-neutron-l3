@@ -45,15 +45,32 @@ class ASR1KFWaaSDriver(driver_api.FirewallDriverDB):
         return []
 
     def _notify_asr1k_agent(self, entity, id, context, router_ids=None, fwg_policy_ids=None):
-        if isinstance(router_ids, list):    
-            for router_id in router_ids:
-                self.notifier.router_sync(context, router_id)
-                LOG.debug("{} {} has port associated that belongs to router {}."
-                        " Notifying asr1k agent.".format(entity, id, router_id))
         if isinstance(fwg_policy_ids, list):
+            # Policies (or ACLs in Cisco lingo) are shared between routers. To update them there are 2 options:
+            #   1. to introduce a second sync queue exclusively for policy objects
+            #   2. include them in the router sync, whenever a policy was updated exclusively make sure on each
+            #      agent where the policy is configured, a router sync of at least one router using the policy
+            #      was done.
+            #  We decide for (2) as we can use the existing queues and programming means. Also adding a second
+            #  processing queue adds dangers of race conditions.
+            notification_directory = dict()
             for policy_id in fwg_policy_ids:
-                self.notifier.fwg_policy_sync(context, router_id)
-                LOG.debug("{} {} has policy {} associated. Triggering sync".format(entity, id, policy_id, router_id))
+                # build a unique list of policies and agents with an router that contains the ACL
+                # notification_directory = {(policy, agent) = router_id }
+                notification_directory = {(policy_id, x.host): x.device_id
+                                          for x in self.asr1k_db.get_routers_with_policy(context, policy_id=policy_id)}
+            for (policy_id, agent), router_id in notification_directory.items():
+                LOG.debug("%s %s has changed, policy %s associated. Notifying agent to call update on"
+                          " router_id %s on agent %s", entity, id, policy_id, router_id, agent)
+                if isinstance(router_ids, list):
+                    if router_id not in router_ids:
+                        router_ids.append(router_id)
+                else:
+                    router_ids = [router_id]
+        if isinstance(router_ids, list):
+            self.notifier.routers_updated(context, router_ids)
+            LOG.debug("%s %s has port/policy associated that belongs to routers %s."
+                      " Notifying asr1k agent.", entity, id, router_ids)
 
     # Firewal Group
     @log_helpers.log_method_call
@@ -122,11 +139,10 @@ class ASR1KFWaaSDriver(driver_api.FirewallDriverDB):
     def update_firewall_rule_postcommit(self, context, old_firewall_rule, new_firewall_rule):
         action_attributes = ['protocol', 'ip_version', 'source_ip_address', 'destination_ip_address',
                              'source_port', 'destination_port', 'action', 'enabled']
-        for attr in action_attributes:
-            if old_firewall_rule[attr] != new_firewall_rule['attr']:
-                policy_ids = set(self.asr1k_db.get_policies_with_rule(context, new_firewall_rule['id']))
-                self.notify_asr1k_agent('firewall_rule', new_firewall_rule['id'], context, fwg_policy_ids=policy_ids)
-                return
+
+        if any(old_firewall_rule[attr] != new_firewall_rule[attr] for attr in action_attributes):
+            policy_ids = set(self.asr1k_db.get_policies_with_rule(context, new_firewall_rule['id']))
+            self._notify_asr1k_agent('firewall_rule', new_firewall_rule['id'], context, fwg_policy_ids=policy_ids)
 
     @log_helpers.log_method_call
     def insert_rule_postcommit(self, context, policy_id, rule_info):
