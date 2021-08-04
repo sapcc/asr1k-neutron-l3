@@ -54,9 +54,11 @@ class L3Constants(object):
     ROUTE_MAP = "route-map"
     ACCESS_GROUP = "access-group"
     OUT = "out"
+    IN = "in"
     ACL = "acl"
     ACL_NAME = "acl-name"
     DIRECTION_OUT = "out"
+    DIRECTION_IN = "in"
     NTP = "ntp"
     NTP_DISABLE = "disable"
     ARP = "arp"
@@ -143,6 +145,7 @@ class VBInterface(NyBase):
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'route_map', 'yang-key': 'route-map', 'yang-path': 'ip/policy'},
             {'key': 'access_group_out', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/out/acl'},
+            {'key': 'access_group_in', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/in/acl'},
             {'key': 'redundancy_group'},
             {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
             {'key': 'ntp_disable', 'yang-key': 'disable', 'yang-path': 'ntp', 'default': False,
@@ -214,6 +217,28 @@ class VBInterface(NyBase):
                         L3Constants.ACL_NAME: self.access_group_out,
                         L3Constants.DIRECTION_OUT: None
                     }
+                }
+            }
+        else:
+            ip[L3Constants.ACCESS_GROUP] = {
+                L3Constants.OUT: {
+                    xml_utils.OPERATION: NC_OPERATION.REMOVE
+                }
+            }
+
+        if self.access_group_in:
+            ip[L3Constants.ACCESS_GROUP] = {
+                L3Constants.IN: {
+                    L3Constants.ACL: {
+                        L3Constants.ACL_NAME: self.access_group_in,
+                        L3Constants.DIRECTION_IN: None
+                    }
+                }
+            }
+        else:
+            ip[L3Constants.ACCESS_GROUP] = {
+                L3Constants.IN: {
+                    xml_utils.OPERATION: NC_OPERATION.REMOVE
                 }
             }
 

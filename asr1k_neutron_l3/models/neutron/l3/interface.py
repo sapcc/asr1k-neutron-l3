@@ -173,7 +173,7 @@ class GatewayInterface(Interface):
 
 
 class InternalInterface(Interface):
-    def __init__(self, router_id, router_port, extra_atts):
+    def __init__(self, router_id, router_port, extra_atts, ingress_acl=None, egress_acl=None):
         super(InternalInterface, self).__init__(router_id, router_port, extra_atts)
 
         # annotate details about the router to the interface description so this can be picked up by SNMP
@@ -185,7 +185,10 @@ class InternalInterface(Interface):
                                             ip_address=self.ip_address,
                                             secondary_ip_addresses=self.secondary_ip_addresses,
                                             nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf),
-                                            ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.internal_iface_arp_timeout)
+                                            ntp_disable=True,
+                                            arp_timeout=cfg.CONF.asr1k_l3.internal_iface_arp_timeout,
+                                            access_group_out=egress_acl,
+                                            access_group_in=ingress_acl)
 
 
 class OrphanedInterface(Interface):
