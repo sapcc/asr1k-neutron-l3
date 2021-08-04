@@ -35,11 +35,19 @@ class ACLConstants(object):
     DENY = 'deny'
     ANY = 'any'
     DST_ANY = 'dst-any'
+    SOURCE_HOST = 'host'
     SOURCE_IP = 'ipv4-address'
     SOURCE_MASK = 'mask'
+    SOURCE_EQ = 'src-eq'
+    SOURCE_RANGE_START = 'src-range1'
+    SOURCE_RANGE_END = 'src-range2'
+    DEST_HOST = 'dst-host'
     DEST_IP = 'dest-ipv4-address'
     DEST_MASK = 'dest-mask'
-
+    DEST_EQ = 'dst-eq'
+    DEST_RANGE_START = 'dst-range1'
+    DEST_RANGE_END = 'dst-range2'
+    
 
 class AccessList(NyBase):
     ID_FILTER = """
@@ -190,13 +198,20 @@ class ACERule(NyBase):
             {'key': 'acl_rule', 'validate': False, 'default': ""},
             {'key': 'action', 'id': True},
             {'key': 'protocol'},
-            {'key': 'any', 'default': None},
+            {'key': 'any', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'host'},
             {'key': 'ipv4_address'},
             {'key': 'mask'},
-            {'key': 'dst_any', 'default': None},
+            {'key': 'src_eq'},
+            {'key': 'src_range1'},
+            {'key': 'src_range2'},
+            {'key': 'dst_any', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'dst_host'},
             {'key': 'dest_ipv4_address'},
-            {'key': 'dest_mask'}
-
+            {'key': 'dest_mask'},
+            {'key': 'dst_eq'},
+            {'key': 'dst_range1'},
+            {'key': 'dst_range2'}
         ]
 
     def __init__(self, **kwargs):
@@ -207,17 +222,36 @@ class ACERule(NyBase):
         ace_rule[ACLConstants.ACTION] = self.action
         ace_rule[ACLConstants.PROTOCOL] = self.protocol
 
-        if self.ipv4_address is None:
+        if self.ipv4_address is None and self.host is None:
             ace_rule[ACLConstants.ANY] = ""
+        elif self.host:
+            ace_rule[ACLConstants.SOURCE_HOST] = self.host
         else:
             ace_rule[ACLConstants.SOURCE_IP] = self.ipv4_address
             ace_rule[ACLConstants.SOURCE_MASK] = self.mask
 
-        if self.dest_ipv4_address is None:
+        if self.src_eq:
+            ace_rule[ACLConstants.SOURCE_EQ] = self.src_eq
+        
+        if self.src_range1 and self.src_range2:
+            ace_rule[ACLConstants.SOURCE_RANGE_START] = self.src_range1
+            ace_rule[ACLConstants.SOURCE_RANGE_END] = self.src_range2
+
+        if self.dest_ipv4_address is None and self.dst_host is None:
             ace_rule[ACLConstants.DST_ANY] = ""
+        elif self.dst_host:
+            ace_rule[ACLConstants.DEST_HOST] = self.dst_host
         else:
             ace_rule[ACLConstants.DEST_IP] = self.dest_ipv4_address
             ace_rule[ACLConstants.DEST_MASK] = self.dest_mask
+        
+        if self.dst_eq:
+            ace_rule[ACLConstants.DEST_EQ] = self.dst_eq
+        
+        if self.dst_range1 and self.dst_range2:
+            ace_rule[ACLConstants.DEST_RANGE_START] = self.dst_range1
+            ace_rule[ACLConstants.DEST_RANGE_END] = self.dst_range2
+
 
         return ace_rule
 

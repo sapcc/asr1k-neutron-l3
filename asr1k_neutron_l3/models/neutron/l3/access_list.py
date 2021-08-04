@@ -30,9 +30,37 @@ class AccessList(base.Base):
         acl = access_list.AccessList(name=self.id, drop_on_17_3=self._drop_on_17_3)
         for i, rule in enumerate(self.rules):
             sequence = (i + 1) * 10
-            ace_rule = access_list.ACERule(access_list=self.id, acl_rule=sequence, action=rule.action,
-                                           protocol=rule.protocol, ipv4_address=rule.source, mask=rule.source_mask,
-                                           dest_ipv4_address=rule.destination, dest_mask=rule.destination_mask)
+
+            ip_args = {}
+            if rule.source_mask:
+                ip_args['ipv4_address'] = rule.source
+                ip_args['mask'] = rule.source_mask
+            else:
+                ip_args['host'] = rule.source
+
+            if rule.destination_mask:
+                ip_args['dest_ipv4_address'] = rule.destination
+                ip_args['dest_mask'] = rule.destination_mask
+            else:
+                ip_args['dst_host'] = rule.destination
+
+            port_args = dict()
+            for direction, yang_direction in (('source', 'src'), ('destination', 'dst')):
+                ports = getattr(rule, direction + '_port_range')
+                if ports:
+                    if len(ports) == 1:
+                        # Not a range
+                        port_args[f'{yang_direction}_eq'] = ports[0]
+                    else:
+                        port_args[f'{yang_direction}_range1'] = ports[0]
+                        port_args[f'{yang_direction}_range2'] = ports[1]
+
+            ace_rule = access_list.ACERule(
+                access_list=self.id, acl_rule=sequence, action=rule.action,
+                protocol=rule.protocol,
+                **ip_args,
+                **port_args
+            )
             acl_rule = access_list.ACLRule(access_list=self.id, sequence=sequence, ace_rule=[ace_rule])
             acl.add_rule(acl_rule)
 
@@ -49,12 +77,15 @@ class AccessList(base.Base):
         self.rules.append(rule)
 
 
-class Rule(object):
-    def __init__(self, action='permit', protocol='ip', source=None, source_mask=None,
-                 destination=None, destination_mask=None):
+class Rule():
+    def __init__(self, action='permit', protocol='ip',
+                source=None, source_mask=None, source_port_range=None,
+                destination=None, destination_mask=None, destination_port_range=None):
         self.action = action
         self.protocol = protocol
         self.source = source
         self.source_mask = source_mask
+        self.source_port_range = source_port_range
         self.destination = destination
         self.destination_mask = destination_mask
+        self.destination_port_range = destination_port_range
