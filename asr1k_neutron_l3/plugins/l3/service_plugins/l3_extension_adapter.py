@@ -24,10 +24,12 @@ from neutron.db import l3_gwmode_db as l3_db
 from neutron.extensions.tagging import TAG_PLUGIN_TYPE
 from neutron.ipam import driver as neutron_ipam_driver
 from neutron_lib.api.definitions import availability_zone as az_def
+from neutron_lib.api.definitions import l3 as l3_def
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib.db import api as db_api
+from neutron_lib.db import resource_extend
 from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
@@ -179,6 +181,7 @@ class L3RpcNotifierMixin(object):
                 raise exc
 
 
+@resource_extend.has_resource_extenders
 class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
                       dns_db.DNSDbMixin, L3RpcNotifierMixin, asr1k_ext.DevicePluginBase):
@@ -513,6 +516,12 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         result = super(ASR1KPluginBase, self).update_router(context, id, router)
         self.ensure_default_route_skip_monitoring(context, id, result)
         return result
+
+    @resource_extend.extends([l3_def.ROUTERS])
+    def _extend_router_dict(result_dict, db):
+        if result_dict.get('external_gateway_info'):
+            result_dict['external_gateway_info']['external_port_id'] = db.gw_port.id
+        return result_dict
 
     @log_helpers.log_method_call
     def get_router(self, context, id, fields=None):
