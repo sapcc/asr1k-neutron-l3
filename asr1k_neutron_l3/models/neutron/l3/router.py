@@ -90,6 +90,16 @@ class Router(Base):
         self.fwaas_conf = list()
         self.fwaas_external_policies = {'ingress': None, 'egress': None}
         for name, policy in router_info.get('fwaas_policies', {}).items():
+            if self.gateway_interface.id in policy['ingress_ports'] \
+                    or self.gateway_interface.id in policy['egress_ports']:
+                # This policy will be bound on a external interface, so we need to create
+                # class-map, service-policy and a Zone
+                if self.gateway_interface.id in policy['ingress_ports']:
+                    self.fwaas_external_policies['ingress'] = name
+                if self.gateway_interface.id in policy['egress_ports']:
+                    self.fwaas_external_policies['egress'] = name
+                self.fwaas_conf.append(firewall.ClassMap(name))
+                self.fwaas_conf.append(firewall.ServicePolicy(name))
             self.fwaas_conf.append(firewall.AccessList(name, policy['rules']))
         
 

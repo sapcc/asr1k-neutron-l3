@@ -37,7 +37,7 @@ NS_CISCO_BRIDGE_DOMAIN = 'http://cisco.com/ns/yang/Cisco-IOS-XE-bridge-domain'
 NS_CISCO_NTP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-ntp'
 NS_CISCO_ARP_OPER = 'http://cisco.com/ns/yang/Cisco-IOS-XE-arp-oper'
 NS_IETF_INTERFACE = "urn:ietf:params:xml:ns:yang:ietf-interfaces"
-
+NS_CISCO_POLICY = "http://cisco.com/ns/yang/Cisco-IOS-XE-policy"
 
 RPC_REPLY = 'rpc-reply'
 CONFIG = 'config'
