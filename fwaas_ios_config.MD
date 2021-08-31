@@ -126,6 +126,16 @@ In below diff we show the change to a virtual router that is made after an ingre
 +class-map type inspect match-all CM-FWAAS-d2f5d6a4-e48b-4426-8cdd-2654d2767721
 + match access-group name ACL-FWAAS-d2f5d6a4-e48b-4426-8cdd-2654d2767721
 +!
++ip access-list extended ACL-FWAAS-ALL
++ 10 permit ip any any
++!
++class-map type inspect match-all CM-FWAAS-ALL
++ match access-group name ACL-FWAAS-ALL
++!
++policy-map type inspect SP-FWAAS-ALLOW-INSPECT
++ class type inspect CM-FWAAS-ALL
++  inspect
++!
 +policy-map type inspect PM-FWAAS-def33d0c-8831-46fa-b54c-f293b626a143
 + class type inspect CM-D072002-def33d0c-8831-46fa-b54c-f293b626a143
 +  inspect
