@@ -21,6 +21,7 @@ from oslo_log import log as logging
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.neutron.l3 import access_list
+from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap as ncClassMap
 
 
 LOG = logging.getLogger(__name__)
@@ -80,3 +81,27 @@ class AccessList(access_list.AccessList, FirewallPolicyObject):
                     # unpack the port ranges
                     rule_args[direction + '_port_range'] = tuple(rule[direction + '_port'].split(':'))
             self.rules.append(access_list.Rule(**rule_args))
+
+
+class ClassMap(FirewallPolicyObject):
+    PREFIX = "CM-FWAAS-"
+
+    @property
+    def _rest_definition(self):
+        return ncClassMap(id=self.id, acl_id=AccessList.get_id_by_policy_id(self.policy_id),
+                          type='inspect', prematch='match-all')
+
+
+class ServicePolicy(FirewallPolicyObject):
+    PREFIX = "SP-FWAAS-"
+
+    @property
+    def _rest_definition(self):
+        classes = [
+            ncServicePolicyClass(id=ClassMap.get_id_by_policy_id(self.policy_id),
+                                 type='inspect', policy_action='inspect'),
+            ncServicePolicyClass(id='class-default', policy_action='drop', log=True)
+        ]
+        return ncServicePolicy(id=self.id, type='inspect', classes=classes)
+
+
