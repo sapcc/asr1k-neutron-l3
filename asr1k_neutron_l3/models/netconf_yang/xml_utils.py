@@ -38,6 +38,7 @@ NS_CISCO_NTP = 'http://cisco.com/ns/yang/Cisco-IOS-XE-ntp'
 NS_CISCO_ARP_OPER = 'http://cisco.com/ns/yang/Cisco-IOS-XE-arp-oper'
 NS_IETF_INTERFACE = "urn:ietf:params:xml:ns:yang:ietf-interfaces"
 NS_CISCO_POLICY = "http://cisco.com/ns/yang/Cisco-IOS-XE-policy"
+NS_CISCO_ZONE = "http://cisco.com/ns/yang/Cisco-IOS-XE-zone"
 
 RPC_REPLY = 'rpc-reply'
 CONFIG = 'config'
@@ -68,6 +69,8 @@ class XMLUtils(object):
         NS_CISCO_BRIDGE_DOMAIN: None,
         NS_CISCO_NTP: None,
         NS_CISCO_ARP_OPER: None,
+        NS_CISCO_POLICY: None,
+        NS_CISCO_ZONE: None,
     }
 
     @classmethod
