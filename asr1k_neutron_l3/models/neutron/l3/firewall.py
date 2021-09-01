@@ -22,7 +22,10 @@ from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.neutron.l3 import access_list
 from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap as ncClassMap
-
+from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy as ncServicePolicy
+from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicyClass as ncServicePolicyClass
+from asr1k_neutron_l3.models.netconf_yang.zone import Zone as ncZone
+from asr1k_neutron_l3.models.netconf_yang.zone_pair import ZonePair as ncZonePair
 
 LOG = logging.getLogger(__name__)
 
@@ -105,3 +108,73 @@ class ServicePolicy(FirewallPolicyObject):
         return ncServicePolicy(id=self.id, type='inspect', classes=classes)
 
 
+class FirewallZoneObject(base.Base):
+
+    PREFIX = None
+
+    @classmethod
+    def get_id_by_router_id(cls, router_id: str) -> str:
+        if not cls.PREFIX:
+            raise NotImplementedError("Class derived from 'FirewallZoneObject' must define static var 'PREFIX'")
+        return "{}{}".format(cls.PREFIX, utils.uuid_to_vrf_id(router_id))
+
+    @classmethod
+    def get_id_by_vrf(cls, vrf: str) -> str:
+        return cls.get_id_by_router_id(utils.vrf_id_to_uuid(vrf))
+
+    def __init__(self, router_id: str):
+        self.router_id = router_id
+        self.id = self.get_id_by_router_id(self.router_id)
+        super().__init__()
+
+
+class Zone(FirewallZoneObject):
+
+    PREFIX = 'ZN-FWAAS-'
+
+    @property
+    def _rest_definition(self):
+        return ncZone(id=self.id)
+
+
+class ZonePair(FirewallZoneObject):
+
+    PREFIX = 'ZP-FWAAS-'
+    DEFAULT_ALLOW_INSPECT_POLICY = ServicePolicy.PREFIX + "ALLOW-INSPECT"
+
+    def __init__(self, router_id: str, source: str, destination: str, policy_id: str):
+        super().__init__(router_id)
+        self.source = source
+        self.destination = destination
+        self.policy_id = policy_id
+
+    @property
+    def service_policy(self):
+        if self.policy_id:
+            return ServicePolicy.get_id_by_policy_id(self.policy_id)
+        return self.DEFAULT_ALLOW_INSPECT_POLICY
+
+    @property
+    def _rest_definition(self):
+        return ncZonePair(id=self.id, source=self.source, destination=self.destination,
+                        service_policy=self.service_policy)
+
+
+class ZonePairExtEgress(ZonePair):
+
+    PREFIX = ZonePair.PREFIX + 'EXT-EGRESS-'
+
+    def __init__(self, router_id: str, policy_id: str):
+        self.source = 'default'
+        self.destination = Zone.get_id_by_router_id(router_id)
+        super().__init__(router_id, self.source, self.destination, policy_id)
+
+
+class ZonePairExtIngress(ZonePair):
+
+    PREFIX = ZonePair.PREFIX + 'EXT-INGRESS-'
+
+    def __init__(self, router_id: str, policy_id: str):
+        self.source = Zone.get_id_by_router_id(router_id)
+        self.destination = 'default'
+        super().__init__(router_id, self.source, self.destination, policy_id)
