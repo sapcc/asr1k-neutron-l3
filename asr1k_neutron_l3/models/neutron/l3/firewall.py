@@ -22,6 +22,8 @@ from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.neutron.l3 import access_list
 from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap as ncClassMap
+from asr1k_neutron_l3.models.netconf_yang.parameter_map \
+        import ParameterMapInspectGlobalVrf as ncParameterMapInspectGlobalVrf
 from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy as ncServicePolicy
 from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicyClass as ncServicePolicyClass
 from asr1k_neutron_l3.models.netconf_yang.zone import Zone as ncZone
@@ -178,3 +180,22 @@ class ZonePairExtIngress(ZonePair):
         self.source = Zone.get_id_by_router_id(router_id)
         self.destination = 'default'
         super().__init__(router_id, self.source, self.destination, policy_id)
+
+
+class FirewallVrfPolicer(base.Base):
+
+    DEFAULT_PARAMETER_MAP = "PAM-FWAAS-POLICE-VRF"
+
+    def __init__(self, router_id: str, parameter_map=None) -> None:
+        if parameter_map is None:
+            parameter_map = self.DEFAULT_PARAMETER_MAP
+        self.parameter_map = parameter_map
+        self.router_id = router_id
+
+    @property
+    def vrf(self) -> str:
+        return utils.uuid_to_vrf_id(self.router_id)
+
+    @property
+    def _rest_definition(self) -> ncParameterMapInspectGlobalVrf:
+        return ncParameterMapInspectGlobalVrf(vrf=self.vrf, parameter_map=self.parameter_map)
