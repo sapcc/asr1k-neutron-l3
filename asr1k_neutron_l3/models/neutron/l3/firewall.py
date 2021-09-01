@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from copy import copy
 from typing import List
 
 from oslo_log import log as logging
@@ -57,9 +58,18 @@ class AccessList(access_list.AccessList, FirewallPolicyObject):
             'reject': 'deny'
     }
 
+    MIMIC_STATEFUL_RULES = [
+        access_list.Rule(action='permit', protocol='tcp', established=True),
+        access_list.Rule(action='permit', protocol='icmp', named_message_type='echo-reply'),
+        access_list.Rule(action='permit', protocol='icmp', named_message_type='unreachable'),
+        access_list.Rule(action='permit', protocol='icmp', named_message_type='time-exceeded'),
+        access_list.Rule(action='permit', protocol='icmp', named_message_type='timestamp-reply'),
+    ]
+
     def __init__(self, policy_id: str, rules: List[dict]):
         self.policy_id = policy_id
         super().__init__(self.get_id_by_policy_id(policy_id))
+        self.rules = copy(self.MIMIC_STATEFUL_RULES)
         for rule in rules:
             if not rule['enabled']:
                 # Disabled rules are not programmed
