@@ -109,6 +109,9 @@ class Router(Base):
                 firewall.ZonePairExtEgress(self.router_id, self.fwaas_external_policies['egress']))
             self.fwaas_conf.append(
                 firewall.ZonePairExtIngress(self.router_id, self.fwaas_external_policies['ingress']))
+            # Mark all interfaces for stateful firewalling
+            for interface in self.interfaces.all_interfaces:
+                interface.has_stateful_firewall = True
 
         self.nat_acl = self._build_nat_acl()
         self.pbr_acl = self._build_pbr_acl()

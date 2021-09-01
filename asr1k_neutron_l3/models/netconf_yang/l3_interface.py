@@ -37,6 +37,12 @@ class L3Constants(object):
     NAME = "name"
     DESCRIPTION = "description"
     MAC_ADDRESS = "mac-address"
+    ZONE_MEMBER = "zone-member"
+    SECURITY = "security"
+    REDUNDANCY = "redundancy"
+    GROUP = "group"
+    DECREMENT = "decrement"
+    RII = "rii"
     MTU = "mtu"
     IP = "ip"
     ADDRESS = "address"
@@ -146,7 +152,10 @@ class VBInterface(NyBase):
             {'key': 'route_map', 'yang-key': 'route-map', 'yang-path': 'ip/policy'},
             {'key': 'access_group_out', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/out/acl'},
             {'key': 'access_group_in', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/in/acl'},
-            {'key': 'redundancy_group'},
+            {'key': 'redundancy_group', 'yang-key': 'id', 'yang-path': 'redundancy/group'},
+            {'key': 'redundancy_group_decrement', 'yang-key': 'decrement', 'yang-path': 'redundancy/group'},
+            {'key': 'rii', 'yang-key': 'id', 'yang-path': 'redundancy/rii'},
+            {'key': 'zone', 'yang-key': 'security', 'yang-path': 'zone-member'},
             {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
             {'key': 'ntp_disable', 'yang-key': 'disable', 'yang-path': 'ntp', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
@@ -186,10 +195,33 @@ class VBInterface(NyBase):
         vbi[L3Constants.DESCRIPTION] = self.description
         vbi[L3Constants.MAC_ADDRESS] = self.mac_address
         vbi[L3Constants.MTU] = self.mtu
+
         if self.shutdown:
             vbi[L3Constants.SHUTDOWN] = ''
         else:
             vbi[L3Constants.SHUTDOWN] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
+
+        if self.zone:
+            vbi[L3Constants.ZONE_MEMBER] = {
+                xml_utils.NS: xml_utils.NS_CISCO_ZONE,
+                L3Constants.SECURITY: self.zone
+            }
+        else:
+            vbi[L3Constants.ZONE_MEMBER] = {
+                xml_utils.NS: xml_utils.NS_CISCO_ZONE,
+                xml_utils.OPERATION: NC_OPERATION.REMOVE
+            }
+
+        redundancy = OrderedDict()
+        if self.rii and self.redundancy_group and self.redundancy_group_decrement:
+            redundancy[L3Constants.RII] = {L3Constants.ID: self.rii}
+            redundancy[L3Constants.GROUP] = {
+                L3Constants.ID: self.redundancy_group,
+                L3Constants.DECREMENT: self.redundancy_group_decrement
+            }
+        else:
+            redundancy[xml_utils.OPERATION] = NC_OPERATION.REMOVE
+        vbi[L3Constants.REDUNDANCY] = redundancy
 
         ip = OrderedDict()
         ip[xml_utils.OPERATION] = NC_OPERATION.PUT
