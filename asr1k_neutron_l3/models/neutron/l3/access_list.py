@@ -58,6 +58,12 @@ class AccessList(base.Base):
                         port_args[f'{yang_direction}_range1'] = ports[0]
                         port_args[f'{yang_direction}_range2'] = ports[1]
 
+            if rule.protocol == 'tcp' and rule.established:
+                port_args['established'] = True
+
+            if rule.protocol not in ('tcp', 'udp') and rule.named_message_type:
+                port_args['named_message_type'] = rule.named_message_type
+
             ace_rule = access_list.ACERule(
                 access_list=self.id, acl_rule=sequence, action=rule.action,
                 protocol=rule.protocol,
@@ -83,7 +89,8 @@ class AccessList(base.Base):
 class Rule():
     def __init__(self, action='permit', protocol='ip',
                 source=None, source_mask=None, source_port_range=None,
-                destination=None, destination_mask=None, destination_port_range=None):
+                destination=None, destination_mask=None, destination_port_range=None,
+                named_message_type=None, established=False):
         self.action = action
         self.protocol = protocol
         self.source = source
@@ -92,3 +99,5 @@ class Rule():
         self.destination = destination
         self.destination_mask = destination_mask
         self.destination_port_range = destination_port_range
+        self.named_message_type = named_message_type
+        self.established = established

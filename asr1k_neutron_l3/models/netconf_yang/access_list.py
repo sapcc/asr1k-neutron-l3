@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import execute_on_pair, NyBase
+from asr1k_neutron_l3.models.netconf_yang.ny_base import YANG_TYPE, execute_on_pair, NyBase
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.common import utils
 
@@ -47,7 +47,9 @@ class ACLConstants(object):
     DEST_EQ = 'dst-eq'
     DEST_RANGE_START = 'dst-range1'
     DEST_RANGE_END = 'dst-range2'
-    
+    NAMED_MESSAGE_TYPE = 'named-msg-type'
+    ESTABLISHED = 'established'
+
 
 class AccessList(NyBase):
     ID_FILTER = """
@@ -211,7 +213,9 @@ class ACERule(NyBase):
             {'key': 'dest_mask'},
             {'key': 'dst_eq'},
             {'key': 'dst_range1'},
-            {'key': 'dst_range2'}
+            {'key': 'dst_range2'},
+            {'key': 'named_message_type', 'yang-key': 'named-msg-type'},
+            {'key': 'established', 'yang-type': YANG_TYPE.EMPTY, 'default': False}
         ]
 
     def __init__(self, **kwargs):
@@ -232,7 +236,7 @@ class ACERule(NyBase):
 
         if self.src_eq:
             ace_rule[ACLConstants.SOURCE_EQ] = self.src_eq
-        
+
         if self.src_range1 and self.src_range2:
             ace_rule[ACLConstants.SOURCE_RANGE_START] = self.src_range1
             ace_rule[ACLConstants.SOURCE_RANGE_END] = self.src_range2
@@ -244,14 +248,19 @@ class ACERule(NyBase):
         else:
             ace_rule[ACLConstants.DEST_IP] = self.dest_ipv4_address
             ace_rule[ACLConstants.DEST_MASK] = self.dest_mask
-        
+
         if self.dst_eq:
             ace_rule[ACLConstants.DEST_EQ] = self.dst_eq
-        
+
         if self.dst_range1 and self.dst_range2:
             ace_rule[ACLConstants.DEST_RANGE_START] = self.dst_range1
             ace_rule[ACLConstants.DEST_RANGE_END] = self.dst_range2
 
+        if self.established:
+            ace_rule[ACLConstants.ESTABLISHED] = ''
+
+        if self.named_message_type:
+            ace_rule[ACLConstants.NAMED_MESSAGE_TYPE] = self.named_message_type
 
         return ace_rule
 
