@@ -23,16 +23,17 @@ from oslo_log import log as logging
 from asr1k_neutron_l3.common import asr1k_constants as constants, utils
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.models import asr1k_pair
-from asr1k_neutron_l3.models.neutron.l3 import access_list, firewall
+from asr1k_neutron_l3.models.neutron.l3 import access_list
 from asr1k_neutron_l3.models.neutron.l3.base import Base
 from asr1k_neutron_l3.models.neutron.l3 import bgp
+from asr1k_neutron_l3.models.neutron.l3 import firewall
 from asr1k_neutron_l3.models.neutron.l3 import interface as l3_interface
 from asr1k_neutron_l3.models.neutron.l3 import nat
 from asr1k_neutron_l3.models.neutron.l3 import prefix
 from asr1k_neutron_l3.models.neutron.l3 import route
 from asr1k_neutron_l3.models.neutron.l3 import route_map
 from asr1k_neutron_l3.models.neutron.l3 import vrf
-from asr1k_neutron_l3.models.neutron.l3 import firewall
+
 LOG = logging.getLogger(__name__)
 
 
@@ -86,7 +87,7 @@ class Router(Base):
         self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn,
                            rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
                            rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=global_vrf_id)
-        
+
         self.fwaas_conf = list()
         self.fwaas_external_policies = {'ingress': None, 'egress': None}
         for name, policy in router_info.get('fwaas_policies', {}).items():
@@ -101,7 +102,7 @@ class Router(Base):
                 self.fwaas_conf.append(firewall.ClassMap(name))
                 self.fwaas_conf.append(firewall.ServicePolicy(name))
             self.fwaas_conf.append(firewall.AccessList(name, policy['rules']))
-        
+
         if self.fwaas_external_policies['ingress'] or self.fwaas_external_policies['egress']:
             # As there are external interfaces policies, we create zones and zone-pairs
             self.fwaas_conf.append(firewall.Zone(self.router_id))
@@ -109,6 +110,8 @@ class Router(Base):
                 firewall.ZonePairExtEgress(self.router_id, self.fwaas_external_policies['egress']))
             self.fwaas_conf.append(
                 firewall.ZonePairExtIngress(self.router_id, self.fwaas_external_policies['ingress']))
+            # We also want to link the VRF to a policer so we limit VRFs (by boilerplate)
+            self.fwaas_conf.append(firewall.FirewallVrfPolicer(self.router_id))
             # Mark all interfaces for stateful firewalling
             for interface in self.interfaces.all_interfaces:
                 interface.has_stateful_firewall = True
@@ -164,7 +167,6 @@ class Router(Base):
             interfaces.append(self.gateway_interface)
 
         inf_ports = self.router_info.get('_interfaces', [])
-        
 
         # turn that dict around, we now want to know which policy should be bound on which interface in
         # which direction
@@ -174,7 +176,7 @@ class Router(Base):
                 port_policy_map[egress_port]['egress'] = policy_id
             for ingress_port in policy['ingress_ports']:
                 port_policy_map[ingress_port]['ingress'] = policy_id
-    
+
         if inf_ports is not None:
             for inf_port in inf_ports:
                 firewall_acls = dict()
