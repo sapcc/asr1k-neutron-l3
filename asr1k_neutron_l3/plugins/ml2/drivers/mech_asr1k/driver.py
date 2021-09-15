@@ -19,6 +19,7 @@ from neutron_lib import constants as p_constants
 from neutron_lib import context as n_context
 from neutron_lib.plugins.ml2 import api
 from neutron_lib import rpc as n_rpc
+from neutron import service
 from neutron.plugins.ml2.drivers import mech_agent
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
@@ -52,8 +53,6 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         super(ASR1KMechanismDriver, self).__init__(self.agent_type, self.vif_type, self.vif_details)
         self.db = asr1k_db.get_db_plugin()
 
-        self.start_rpc_listeners()
-
         LOG.info("ASR mechanism driver initialized.")
 
     def _setup_rpc(self):
@@ -61,6 +60,9 @@ class ASR1KMechanismDriver(mech_agent.SimpleAgentMechanismDriverBase):
         self.endpoints = [
             rpc_api.ASR1KPluginCallback()
         ]
+
+    def get_workers(self):
+        return [service.RpcWorker([self], worker_process_count=0)]
 
     @log_helpers.log_method_call
     def start_rpc_listeners(self):
