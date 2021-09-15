@@ -60,7 +60,6 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePlugin
         asr1k_config.register_l3_opts()
 
         self.add_periodic_l3_agent_status_check()
-        self.start_rpc_listeners()
 
     @log_helpers.log_method_call
     def start_rpc_listeners(self):
