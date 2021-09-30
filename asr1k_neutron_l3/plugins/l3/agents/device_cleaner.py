@@ -137,6 +137,17 @@ class DeviceCleanerMixin(object):
                                     if item is None:
                                         raise ValueError("Entity {} {} not present on device {}"
                                                          .format(entity_cls.__name__, stub.id, context.name))
+                                    # This check is done in order to make sure the object fetched from the device in (1)
+                                    # has not been reassigned after (2) to another entity with the same primary key.
+                                    # Assume we find a BD-VIF ID in (1) on the device, (2) finds out it has been removed
+                                    # from extra_atts. While (3) is in progress we reassign it in another thread. We would
+                                    # then later delete it. Hence we check if the item from _interal_get was found with a
+                                    # different attribute, i.e. VRF.
+                                    if stub.is_reassigned(item):
+                                        LOG.info("Entity {} {} on device {}"
+                                            " has been reassigned to another router, skipping cleanup"
+                                            .format(entity_cls.__name__, stub.id, context.name))
+                                        continue
                                     item._delete_no_retry(context=context)
                                     orphan_deleted_count += 1
                                 except RPCError as e:

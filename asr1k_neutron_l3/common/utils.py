@@ -56,10 +56,8 @@ def uuid_to_vrf_id(uuid):
 
 
 def vrf_id_to_uuid(id):
-    if id is None or isinstance(id, str):
-        return False
-
-    if re.match("[0-9a-f]{32}", id):
+    if isinstance(id, str) and \
+        re.match("[0-9a-f]{32}", id):
         return "{}-{}-{}-{}-{}".format(id[0:8], id[8:12], id[12:16], id[16:20], id[20:32])
     return False
 
