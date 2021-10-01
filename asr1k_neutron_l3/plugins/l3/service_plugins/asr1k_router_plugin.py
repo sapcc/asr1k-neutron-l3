@@ -60,14 +60,14 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePlugin
         asr1k_config.register_l3_opts()
 
         self.add_periodic_l3_agent_status_check()
+        self.agent_notifiers.update(
+            {n_const.AGENT_TYPE_L3: ask1k_l3_notifier.ASR1KAgentNotifyAPI()})
 
     @log_helpers.log_method_call
     def start_rpc_listeners(self):
         # RPC support
         self.topic = topics.L3PLUGIN
         self.conn = n_rpc.Connection()
-        self.agent_notifiers.update(
-            {n_const.AGENT_TYPE_L3: ask1k_l3_notifier.ASR1KAgentNotifyAPI()})
         self.endpoints = [rpc_api.ASR1KRpcAPI()]
         self.conn.create_consumer(self.topic, self.endpoints,
                                   fanout=False)
