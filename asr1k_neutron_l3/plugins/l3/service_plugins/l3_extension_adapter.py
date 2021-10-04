@@ -255,6 +255,10 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             rt_import = []
             rt_export = []
             bgpvpns = self.db.get_bgpvpns_by_router_id(context, router['id'])
+            router["bgpvpn_advertise_extra_routes"] = True
+            if bgpvpns:
+                adv_mode = self.db.get_bgpvpn_advertise_extra_routes_by_router_id(context, router['id'])
+                router["bgpvpn_advertise_extra_routes"] = adv_mode
 
             for bgpvpn in bgpvpns:
                 if bgpvpn.route_targets:
