@@ -86,6 +86,15 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         query = query.distinct()
         return query.all()
 
+    def get_bgpvpn_advertise_extra_routes_by_router_id(self, context, router_id):
+        """Advertise route mode for bgpvpn - only False if all router associations have this turned off"""
+        query = context.session.query(bgpvpn_db.BGPVPNRouterAssociation.advertise_extra_routes)
+        query = query.filter(bgpvpn_db.BGPVPNRouterAssociation.router_id == router_id)
+        for entry in query.all():
+            if entry.advertise_extra_routes:
+                return True
+        return False
+
     def ensure_snat_mode(self, context, port_id, mode):
         if port_id is None:
             LOG.warning("Asked to ensure SNAT mode for port==None, can't do anything.")

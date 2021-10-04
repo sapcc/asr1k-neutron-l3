@@ -215,9 +215,10 @@ class Router(Base):
 
     def _build_bgp_address_family(self):
         networks_v4 = self.get_internal_cidrs()
-        for router_route in self.routes.routes:
-            if router_route.cidr != "0.0.0.0/0":
-                networks_v4.append(router_route.cidr)
+        if self.router_info["bgpvpn_advertise_extra_routes"]:
+            for router_route in self.routes.routes:
+                if router_route.cidr != "0.0.0.0/0":
+                    networks_v4.append(router_route.cidr)
 
         return bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
                                  routable_interface=self.routable_interface,
