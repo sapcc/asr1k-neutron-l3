@@ -16,16 +16,24 @@
 
 
 import six
-from oslo_log import helpers as log_helpers
-from oslo_log import log as logging
 
-from asr1k_neutron_l3.common import asr1k_constants as constants
 from neutron.db import agentschedulers_db
+from neutron.db import agents_db as n_agents_db
+from neutron.db.availability_zone import router as router_az_db
 from neutron.db import l3_agentschedulers_db
 from neutron.db.models import agent as agent_model
 from neutron.extensions import l3agentscheduler
 from neutron.extensions import router_availability_zone as router_az
+from neutron_lib.db import api as db_api
 from neutron_lib.exceptions import agent as n_agent
+from neutron_lib.exceptions import availability_zone as az_exc
+from oslo_config import cfg
+from oslo_log import helpers as log_helpers
+from oslo_log import log as logging
+
+from asr1k_neutron_l3.common import asr1k_constants as constants
+from asr1k_neutron_l3.common import asr1k_exceptions as asr1k_exc
+
 
 LOG = logging.getLogger(__name__)
 
@@ -116,8 +124,31 @@ class ASR1KAgentSchedulerDbMixin(l3_agentschedulers_db.L3AgentSchedulerDbMixin):
 
         return [l3_agent for l3_agent in query]
 
+    @db_api.retry_if_session_inactive()
+    def validate_availability_zones(self, context, resource_type,
+                                    availability_zones):
+        """Verify that the availability zones exist."""
+        if not availability_zones:
+            return
+        if len(availability_zones) > 1:
+            raise asr1k_exc.OnlyOneAZHintAllowed()
+        if resource_type == 'router':
+            agent_type = constants.AGENT_TYPE_ASR1K_L3
+        else:
+            return
+        azs = n_agents_db.get_availability_zones_by_agent_type(
+            context, agent_type, availability_zones)
+        diff = set(availability_zones) - set(azs)
+        if diff:
+            exc = az_exc.AvailabilityZoneNotFound(availability_zone=diff.pop())
+            if resource_type == 'router' and cfg.CONF.asr1k.ignore_invalid_az_hint_for_router:
+                LOG.warning("Skipping (otherwise fatal) AZ hint validation for router (orig error: %s)", exc)
+            else:
+                raise exc
+
 
 class AZASR1KL3AgentSchedulerDbMixin(ASR1KAgentSchedulerDbMixin,
+                                     router_az_db.RouterAvailabilityZoneMixin,
                                      router_az.RouterAvailabilityZonePluginBase):
     """Mixin class to add availability_zone supported l3 agent scheduler."""
 

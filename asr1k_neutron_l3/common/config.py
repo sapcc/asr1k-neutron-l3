@@ -44,6 +44,13 @@ ASR1K_OPTS = [
     cfg.BoolOpt('trace_yang_call_failures', default=False,
                 help=_("Log all failed YANG xml calls, including how long they took")),
 
+    cfg.BoolOpt('ignore_invalid_az_hint_for_router', default=False,
+                help="Router AZ hints will not be validated. This means that an AZ hint is accepted even if no asr1k "
+                     "agent is present with this AZ. This will also disable proper scheduling. ALL routers will "
+                     "be scheduled to any router of the driver's liking if no candidate with a matching AZ hint "
+                     "is present."),
+    cfg.BoolOpt('ignore_router_network_az_hint_mismatch', default=False,
+                help="Do not abort operation if router and network AZ hint do not match."),
 ]
 
 ASR1K_L3_OPTS = [
@@ -95,13 +102,6 @@ AGENT_STATE_OPTS = [
                 help=_('Log agent heartbeats')),
 ]
 
-AVAILABILITY_ZONE_OPTS = [
-    # The default AZ name "nova" is selected to match the default
-    # AZ name in Nova and Cinder.
-    cfg.StrOpt('availability_zone', max_length=255, default='nova',
-               help=_("Availability zone of this node")),
-]
-
 
 def create_device_pair_dictionary():
     device_dict = {}
@@ -139,19 +139,20 @@ def create_address_scope_dict():
     return address_scope_dict
 
 
-def register_l3_opts():
+def register_common_opts():
     cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
+    cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
+    common.register_availability_zone_opts_helper(cfg.CONF)
+
+
+def register_l3_opts():
     cfg.CONF.register_opts(ASR1K_L3_OPTS, "asr1k_l3")
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
-    cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
-    cfg.CONF.register_opts(AVAILABILITY_ZONE_OPTS, 'AGENT')
     common.register_interface_opts()
     common.register_interface_driver_opts_helper(cfg.CONF)
 
 
 def register_l2_opts():
-    cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
-    cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
     cfg.CONF.register_opts(ASR1K_L2_OPTS, "asr1k_l2")
     cfg.CONF.register_opts(service.RPC_EXTRA_OPTS)
 

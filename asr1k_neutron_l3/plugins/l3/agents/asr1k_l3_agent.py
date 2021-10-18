@@ -85,6 +85,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def main(manager='asr1k_neutron_l3.plugins.l3.agents.asr1k_l3_agent.L3ASRAgentWithStateReport'):
+    asr1k_config.register_common_opts()
     asr1k_config.register_l3_opts()
     common_config.init(sys.argv[1:])
     common_config.setup_logging()

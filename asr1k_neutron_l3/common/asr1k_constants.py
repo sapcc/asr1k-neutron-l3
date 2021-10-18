@@ -32,3 +32,5 @@ ROUTER_STATE_ERROR = 'ERROR'
 
 SNAT_MODE_POOL = 'pool'
 SNAT_MODE_INTERFACE = 'interface'
+
+NO_AZ_LIST = (None, 'nova')
