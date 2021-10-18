@@ -103,3 +103,11 @@ class CapabilityNotFoundException(DeviceOperationException):
 
 class VersionInfoNotAvailable(DeviceOperationException):
     message = "Could not get version info for attribute %(entity)s from host %(host)s"
+
+
+class OnlyOneAZHintAllowed(nexception.BadRequest):
+    message = "Only one availability zone hint allowed per object"
+
+
+class RouterNetworkAZMismatch(nexception.NeutronException):
+    message = "AZ hint of router and network do not match (router is in %(router_az)s, network in %(network_az)s)"

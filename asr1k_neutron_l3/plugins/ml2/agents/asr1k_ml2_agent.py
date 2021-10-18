@@ -66,6 +66,7 @@ SYNC_ROUTERS_MIN_CHUNK_SIZE = 32
 
 def main():
     common_config.init(sys.argv[1:])
+    asr1k_config.register_common_opts()
     asr1k_config.register_l2_opts()
     common_config.setup_logging()
     eventlet_backdoor.initialize_if_enabled(cfg.CONF)
@@ -113,6 +114,7 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
         self.agent_state = {
             'binary': 'asr1k-ml2-agent',
             'host': self.conf.host,
+            'availability_zone': CONF.AGENT.availability_zone,
             'topic': n_const.L2_AGENT_TOPIC,
             'configurations': {
 
