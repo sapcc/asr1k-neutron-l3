@@ -61,7 +61,7 @@ class DeviceCleanerMixin(object):
             all_router_ids = self.plugin_rpc.get_all_router_ids(self.context)
         except BaseException as e:
             LOG.warning("Cleaner could not get active routers due to a server error `{}`. "
-                        "Check server logs for more details. Skipping cleaning operation ".format(e.message))
+                        "Check server logs for more details. Skipping cleaning operation ".format(e))
             return
 
         if len(all_router_ids) == 0:

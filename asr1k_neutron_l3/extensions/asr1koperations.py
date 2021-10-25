@@ -110,21 +110,21 @@ class RoutersController(wsgi.Controller):
         try:
             return self.plugin.validate(request.context, id)
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
     def update(self, request, id, **kwargs):
         check_access(request)
         try:
             return self.plugin.sync(request.context, id)
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
     def delete(self, request, id, **kwargs):
         check_access(request)
         try:
             return self.plugin.teardown(request.context, id)
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
 
 class NetworksController(wsgi.Controller):
@@ -138,14 +138,14 @@ class NetworksController(wsgi.Controller):
             return self.plugin.validate_network(request.context, id)
         except BaseException as e:
             LOG.error("Error diffing network", exc_info=exc_info_full())
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
     def update(self, request, id, **kwargs):
         check_access(request)
         try:
             return self.plugin.sync_network(request.context, id)
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
     def delete(self, request, id, **kwargs):
         check_access(request)
@@ -162,14 +162,14 @@ class OrphansController(wsgi.Controller):
         try:
             return self.plugin.show_orphans(request.context, id)
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
     def delete(self, request, id, **kwargs):
         check_access(request)
         try:
             return self.plugin.delete_orphans(request.context, id)
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
 
 class ConfigController(wsgi.Controller):
@@ -182,14 +182,14 @@ class ConfigController(wsgi.Controller):
         try:
             return self.plugin.get_config(request.context, id)
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
     def update(self, request, id, **kwargs):
         check_access(request)
         try:
             return self.plugin.ensure_config(request.context, id)
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
 
 class DevicesController(wsgi.Controller):
@@ -208,7 +208,7 @@ class DevicesController(wsgi.Controller):
             else:
                 return self.plugin.show_device(request.context, host, device_id)
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
     def update(self, request, id, body, **kwargs):
         check_access(request)
@@ -228,7 +228,7 @@ class DevicesController(wsgi.Controller):
 
             return result
         except BaseException as e:
-            raise exceptions.HTTPInternalServerError(detail=e.message)
+            raise exceptions.HTTPInternalServerError(detail=str(e))
 
 
 class InterfaceStatisticsController(wsgi.Controller):
