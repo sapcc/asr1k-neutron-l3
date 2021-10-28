@@ -19,6 +19,7 @@ import time
 from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db as l3_db
+from neutron.extensions.tagging import TAG_PLUGIN_TYPE
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
@@ -354,10 +355,29 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         asr1k_db.RouterAttsDb.ensure(context, result.get('id'))
         return result
 
+    def ensure_default_route_skip_monitoring(self, context, router_id, router):
+        tag_plugin = directory.get_plugin(TAG_PLUGIN_TYPE)
+        custom_default_route_tags = {constants.TAG_SKIP_MONITORING, constants.TAG_DEFAULT_ROUTE_OVERWRITE}
+
+        has_custom_default_route = any(r['destination'].endswith('/0') for r in router['routes'])
+        with context.session.begin(subtransactions=True):
+            router_tags = set(tag_plugin.get_tags(context, 'routers', router_id)['tags'])
+
+            has_default_route_tags = custom_default_route_tags.issubset(router_tags)
+
+            if has_default_route_tags != has_custom_default_route:
+                if has_default_route_tags:
+                    router_tags = router_tags - custom_default_route_tags
+                else:
+                    router_tags = router_tags.union(custom_default_route_tags)
+
+                tag_plugin.update_tags(context, 'routers', router_id, dict(tags=router_tags))
+
     @log_helpers.log_method_call
     def update_router(self, context, id, router):
         result = super(ASR1KPluginBase, self).update_router(context, id, router)
         asr1k_db.RouterAttsDb.ensure(context, result.get('id'))
+        self.ensure_default_route_skip_monitoring(context, id, result)
         return result
 
     @log_helpers.log_method_call

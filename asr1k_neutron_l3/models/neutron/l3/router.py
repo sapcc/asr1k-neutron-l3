@@ -150,16 +150,21 @@ class Router(Base):
 
     def _build_routes(self):
         routes = route.RouteCollection(self.router_id)
-        primary_route = self._primary_route()
-        if primary_route is not None and self._route_has_connected_interface(primary_route):
-            routes.append(primary_route)
 
+        # In case the customer sets a default route, we will restrain from programming the openstack primary route
+        primary_overridden = False
         for l3_route in self.router_info.get('routes', []):
             ip, netmask = utils.from_cidr(l3_route.get('destination'))
+            if netmask == '0.0.0.0':
+                primary_overridden = True
 
             r = route.Route(self.router_id, ip, netmask, l3_route.get('nexthop'))
             if self._route_has_connected_interface(r):
                 routes.append(r)
+
+        primary_route = self._primary_route()
+        if not primary_overridden and primary_route is not None and self._route_has_connected_interface(primary_route):
+            routes.append(primary_route)
 
         return routes
 

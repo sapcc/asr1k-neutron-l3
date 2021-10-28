@@ -34,3 +34,6 @@ SNAT_MODE_POOL = 'pool'
 SNAT_MODE_INTERFACE = 'interface'
 
 NO_AZ_LIST = (None, 'nova')
+
+TAG_DEFAULT_ROUTE_OVERWRITE = 'custom-default-route'
+TAG_SKIP_MONITORING = 'skip-monitoring'
