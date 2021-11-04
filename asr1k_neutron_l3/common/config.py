@@ -74,6 +74,8 @@ ASR1K_L3_OPTS = [
                help="Route-Map prefix for Directly Accessible Private Networks (DAPNets)"),
     cfg.StrOpt('dapnet_network_rm', default='RM-DAP',
                help="Route-Map to apply to all DAPNet BGP network statements"),
+    cfg.StrOpt('dapnet_extra_routes_rm', default='RM-DAP-EXTRA-ROUTES',
+               help="Route-Map to apply to all BGP network statements for extra routes that are contained in a DAPNet"),
 ]
 
 ASR1K_L2_OPTS = [
