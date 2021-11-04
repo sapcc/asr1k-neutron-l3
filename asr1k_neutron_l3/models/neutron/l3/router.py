@@ -219,16 +219,16 @@ class Router(Base):
         return False
 
     def _build_bgp_address_family(self):
-        networks_v4 = self.get_internal_cidrs()
+        connected_cidrs = self.get_internal_cidrs()
+        extra_routes = list()
         if self.router_info["bgpvpn_advertise_extra_routes"]:
-            for router_route in self.routes.routes:
-                if router_route.cidr != "0.0.0.0/0":
-                    networks_v4.append(router_route.cidr)
+            extra_routes = [x.cidr for x in self.routes.routes if x.cidr != "0.0.0.0/0"]
 
         return bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
                                  routable_interface=self.routable_interface,
-                                 rt_export=self.rt_export, networks_v4=networks_v4,
-                                 routable_networks=self.get_routable_networks())
+                                 rt_export=self.rt_export, connected_cidrs=connected_cidrs,
+                                 routable_networks=self.get_routable_networks(),
+                                 extra_routes=extra_routes)
 
     def _build_dynamic_nat(self):
         pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
