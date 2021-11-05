@@ -35,7 +35,7 @@ class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
         router_assocs = self.db_plugin().get_router_assocs(context, bgpvpn.get("id"))
         notifier = self._notifier()
         for router_assoc in router_assocs:
-            notifier.router_sync(context, router_assoc.get('router_id'))
+            notifier.routers_updated(context, [router_assoc.get('router_id')])
 
     def update_bgpvpn_precommit(self, context, old_bgpvpn, new_bgpvpn):
         LOG.debug("****************************** update_bgpvpn_precommit")
@@ -45,7 +45,7 @@ class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
         router_assocs = self.db_plugin().get_router_assocs(context, new_bgpvpn.get("id"))
         notifier = self._notifier()
         for router_assoc in router_assocs:
-            notifier.router_sync(context, router_assoc.get('router_id'))
+            notifier.routers_updated(context, [router_assoc.get('router_id')])
 
     def delete_bgpvpn_precommit(self, context, bgpvpn):
         LOG.debug("****************************** delete_bgpvpn_precommit")
@@ -55,7 +55,7 @@ class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
         router_assocs = self.db_plugin().get_router_assocs(context, bgpvpn.get("id"))
         notifier = self._notifier()
         for router_assoc in router_assocs:
-            notifier.router_sync(context, router_assoc.get('router_id'))
+            notifier.routers_updated(context, [router_assoc.get('router_id')])
 
     def update_router_assoc_precommit(self, context,
                                       old_router_assoc, router_assoc):
@@ -64,21 +64,21 @@ class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
     def update_router_assoc_postcommit(self, context,
                                        old_router_assoc, router_assoc):
         LOG.debug("****************************** update_router_assoc_postcommit")
-        return self._notifier().router_sync(context, router_assoc.get('router_id'))
+        return self._notifier().routers_updated(context, [router_assoc.get('router_id')])
 
     def create_router_assoc_precommit(self, context, router_assoc):
         LOG.debug("****************************** create_router_assoc_precommit")
 
     def create_router_assoc_postcommit(self, context, router_assoc):
         LOG.debug("****************************** create_router_assoc_postcommit")
-        return self._notifier().router_sync(context, router_assoc.get('router_id'))
+        return self._notifier().routers_updated(context, [router_assoc.get('router_id')])
 
     def delete_router_assoc_precommit(self, context, router_assoc):
         LOG.debug("****************************** delete_router_assoc_precommit")
 
     def delete_router_assoc_postcommit(self, context, router_assoc):
         LOG.debug("***************************** delete_router_assoc_postcommit")
-        return self._notifier().router_sync(context, router_assoc.get('router_id'))
+        return self._notifier().routers_updated(context, [router_assoc.get('router_id')])
 
 
 class ASR1KBGPVPNNotifier(l3_rpc_agent_api.L3AgentNotifyAPI):
