@@ -13,3 +13,6 @@ prometheus_client>=0.0.19
 bs4>=0.0.1
 ncclient
 networking_bgpvpn>=11.0.0
+prettytable
+manhole
+futurist>=1.2.0 # Apache-2.0
