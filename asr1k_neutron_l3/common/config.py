@@ -92,7 +92,8 @@ ASR1K_L2_OPTS = [
     cfg.IntOpt('sync_chunk_size', default=10, help=_("Number of ports to process in on poll")),
     cfg.StrOpt('external_interface', default=('1'), help=('')),
     cfg.StrOpt('loopback_external_interface', default=('2'), help=('')),
-    cfg.StrOpt('loopback_internal_interface', default=('3'), help=(''))
+    cfg.StrOpt('loopback_internal_interface', default=('3'), help=('')),
+    cfg.IntOpt('bdvif_bd_limit', default=100, help='Hardware limit of BD-VIF per Bridge Domain'),
 ]
 
 AGENT_STATE_OPTS = [

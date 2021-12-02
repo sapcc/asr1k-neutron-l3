@@ -470,6 +470,32 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
         return dict(result)
 
+    @registry.receives(resources.ROUTER_GATEWAY, [events.BEFORE_CREATE])
+    @log_helpers.log_method_call
+    def ensure_bdvif_limit(self, resource: str, event: str, trigger, payload: events.DBEventPayload):
+        """
+        There is a hardware limit on ASR1K/C8500 that allows us to not bind more than X BD-VIFs in a BD.
+        As configuration would just silently fail, we try to catch the situation on API level.
+        """
+        context = payload.context
+        network_id = payload.metadata['network_id']
+        router_id = payload.resource_id
+
+        host = self.get_l3_agents_hosting_routers(context, [router_id])
+        if len(host) == 0:
+            host = None
+        else:
+            host = host[0].host
+
+        port_count = self.db.get_network_port_count_per_agent(context, network_id)
+
+        # Either the router is scheduled and the agent has no room for BD-VIFs in that BD
+        # or it is not scheduled and all existing agents are above the limit
+        limit = cfg.CONF.asr1k_l2.bdvif_bd_limit
+        if (host and port_count[host] >= limit) \
+            or (not host and all(x >= limit for x in port_count.values())):
+            raise asr1k_exc.BdVifInBdExhausted(network_id=network_id, router_id=router_id)
+
     def ensure_config(self, context, id):
         asr1k_db.RouterAttsDb.ensure(context, id)
 

@@ -15,6 +15,7 @@
 #    under the License.
 
 import random
+from typing import Dict
 
 from neutron.db import address_scope_db
 from neutron.db import db_base_plugin_v2
@@ -94,6 +95,15 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             if entry.advertise_extra_routes:
                 return True
         return False
+
+    def get_network_port_count_per_agent(self, context: n_context.Context, network_id: str) -> Dict[str, int]:
+        query = context.session.query(asr1k_models.ASR1KExtraAttsModel.agent_host,
+                                      func.count(asr1k_models.ASR1KExtraAttsModel.port_id).label('port_count')) \
+            .join(segment_models.NetworkSegment,
+                  segment_models.NetworkSegment.id == asr1k_models.ASR1KExtraAttsModel.segment_id) \
+            .filter(segment_models.NetworkSegment.network_id == network_id) \
+            .group_by(asr1k_models.ASR1KExtraAttsModel.agent_host)
+        return {x.agent_host: x.port_count for x in query.all()}
 
     def ensure_snat_mode(self, context, port_id, mode):
         if port_id is None:
