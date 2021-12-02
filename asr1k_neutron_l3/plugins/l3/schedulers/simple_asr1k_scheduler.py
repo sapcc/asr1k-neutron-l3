@@ -64,6 +64,15 @@ class SimpleASR1KScheduler(l3_agent_scheduler.AZLeastRoutersScheduler):
                             sync_router['id'], orig_az_hints)
                 return []
 
+            # Make sure the candidates do not reach the platforms hardware limit of BD-VIFs per BD
+            external_network_id = sync_router['external_gateway_info']['network_id']
+            agents_port_count = plugin.db.get_network_port_count_per_agent(context, external_network_id)
+            candidates = [c for c in candidates if agents_port_count.get(c.host, 0) < cfg.CONF.asr1k_l2.bdvif_bd_limit]
+            if not candidates:
+                LOG.warning(f'No L3 agents available that satisfy the BD-VIF '
+                            f'hardware limit for network {external_network_id}')
+                return []
+
             LOG.info("Found following candidates for router %s: %s",
                      sync_router['id'], ", ".join(c.host for c in candidates))
 

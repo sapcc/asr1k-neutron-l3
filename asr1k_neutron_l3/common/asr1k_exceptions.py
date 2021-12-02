@@ -29,6 +29,11 @@ class SecondDot1QPoolExhausted(nexception.NotFound):
     message = "No free second dot1q id could be allocated for agent host %(agent_host)s."
 
 
+class BdVifInBdExhausted(nexception.Conflict):
+    message = ("Network %(network_id)s cannot be bound to router %(router_id)s due to BD-VIF hardware limit exceeded. "
+               "Please chose another network.")
+
+
 class DeviceUnreachable(BaseException):
     message = "Device %(host)s is not reachable"
 
