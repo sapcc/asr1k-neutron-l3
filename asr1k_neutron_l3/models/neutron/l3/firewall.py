@@ -15,7 +15,7 @@
 #    under the License.
 
 from copy import copy
-from typing import List
+from typing import List, Optional
 
 from oslo_log import log as logging
 
@@ -132,7 +132,10 @@ class FirewallZoneObject(base.Base):
 
     @classmethod
     def get_id_by_vrf(cls, vrf: str) -> str:
-        return cls.get_id_by_router_id(utils.vrf_id_to_uuid(vrf))
+        rid = utils.vrf_id_to_uuid(vrf)
+        if not isinstance(rid, str):
+            raise ValueError(f"VRF {vrf} could not be converted to router id.")
+        return cls.get_id_by_router_id(rid)
 
     def __init__(self, router_id: str):
         self.router_id = router_id
@@ -154,7 +157,7 @@ class ZonePair(FirewallZoneObject):
     PREFIX = 'ZP-FWAAS-'
     DEFAULT_ALLOW_INSPECT_POLICY = ServicePolicy.PREFIX + "ALLOW-INSPECT"
 
-    def __init__(self, router_id: str, source: str, destination: str, policy_id: str):
+    def __init__(self, router_id: str, source: str, destination: str, policy_id: Optional[str]):
         super().__init__(router_id)
         self.source = source
         self.destination = destination
@@ -174,7 +177,7 @@ class ZonePairExtEgress(ZonePair):
 
     PREFIX = ZonePair.PREFIX + 'EXT-EGRESS-'
 
-    def __init__(self, router_id: str, policy_id: str):
+    def __init__(self, router_id: str, policy_id: Optional[str]):
         self.source = 'default'
         self.destination = Zone.get_id_by_router_id(router_id)
         super().__init__(router_id, self.source, self.destination, policy_id)
@@ -184,7 +187,7 @@ class ZonePairExtIngress(ZonePair):
 
     PREFIX = ZonePair.PREFIX + 'EXT-INGRESS-'
 
-    def __init__(self, router_id: str, policy_id: str):
+    def __init__(self, router_id: str, policy_id: Optional[str]):
         self.source = Zone.get_id_by_router_id(router_id)
         self.destination = 'default'
         super().__init__(router_id, self.source, self.destination, policy_id)
