@@ -65,8 +65,9 @@ class SimpleASR1KScheduler(l3_agent_scheduler.AZLeastRoutersScheduler):
                 return []
 
             # Make sure the candidates do not reach the platforms hardware limit of BD-VIFs per BD
-            external_network_id = sync_router['external_gateway_info'].get('network_id')
-            if external_network_id:  # Internal interface is added before an external interface
+            # Internal interface could be added before an external interface so check for presence
+            if sync_router['external_gateway_info'] and sync_router['external_gateway_info']['network_id']:
+                external_network_id = sync_router['external_gateway_info']['network_id']
                 agents_port_count = plugin.db.get_network_port_count_per_agent(context, external_network_id)
                 candidates = [c for c in candidates
                               if agents_port_count.get(c.host, 0) < cfg.CONF.asr1k_l2.bdvif_bd_limit]
