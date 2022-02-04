@@ -34,6 +34,8 @@ from neutron_lib import constants as n_constants
 from neutron_lib import context as n_context
 from neutron_lib.api.definitions import portbindings
 from neutron_lib.exceptions import l3 as l3_exc
+from neutron_lib.plugins import constants as plugin_constants
+from neutron_lib.plugins import directory
 from networking_bgpvpn.neutron.db import bgpvpn_db
 from neutron_lib.db import api as db_api
 from oslo_log import helpers as log_helpers
@@ -103,7 +105,12 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                   segment_models.NetworkSegment.id == asr1k_models.ASR1KExtraAttsModel.segment_id) \
             .filter(segment_models.NetworkSegment.network_id == network_id) \
             .group_by(asr1k_models.ASR1KExtraAttsModel.agent_host)
-        return {x.agent_host: x.port_count for x in query.all()}
+        port_counts = {x.agent_host: x.port_count for x in query.all()}
+        # Make sure every agent shows up, even if there is no bound segment for that network
+        plugin = directory.get_plugin(plugin_constants.L3)
+        for agent in plugin.get_l3_agents(context, active=True):
+            port_counts.setdefault(agent.host, 0)
+        return port_counts
 
     def ensure_snat_mode(self, context, port_id, mode):
         if port_id is None:
