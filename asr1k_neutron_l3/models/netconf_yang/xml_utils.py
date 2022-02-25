@@ -70,7 +70,7 @@ class XMLUtils(object):
 
     @classmethod
     def to_raw_json(cls, xml):
-        return xmltodict.parse(xml, process_namespaces=True, namespaces=cls.namespaces)
+        return xmltodict.parse(xml, process_namespaces=True, namespaces=cls.namespaces, namespace_separator=' ')
 
     @classmethod
     def to_json(cls, xml, context):
