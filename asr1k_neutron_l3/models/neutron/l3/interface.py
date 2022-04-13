@@ -125,8 +125,12 @@ class GatewayInterface(Interface):
         super(GatewayInterface, self).__init__(router_id, router_port, extra_atts)
 
         self.nat_address = self._nat_address()
+        
+        # annotate details about the router to the interface description so this can be picked up by SNMP
+        description = (f'type:gw;router:{self.router_id};network:{self.router_port["network_id"]};'
+                       f'subnet:{self._primary_subnet_id}')
 
-        self._rest_definition = VBInterface(name=self.bridge_domain, description=self.router_id,
+        self._rest_definition = VBInterface(name=self.bridge_domain, description=description,
                                             mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                             ip_address=self.ip_address,
                                             secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
@@ -146,7 +150,12 @@ class GatewayInterface(Interface):
 class InternalInterface(Interface):
     def __init__(self, router_id, router_port, extra_atts):
         super(InternalInterface, self).__init__(router_id, router_port, extra_atts)
-        self._rest_definition = VBInterface(name=self.bridge_domain, description=self.router_id,
+
+        # annotate details about the router to the interface description so this can be picked up by SNMP
+        description = (f'type:internal;project:{self.router_port["project_id"]};router:{self.router_id};'
+                      f'network:{self.router_port["network_id"]};subnet:{self._primary_subnet_id}')
+
+        self._rest_definition = VBInterface(name=self.bridge_domain, description=description,
                                             mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                                             ip_address=self.ip_address,
                                             secondary_ip_addresses=self.secondary_ip_addresses,
