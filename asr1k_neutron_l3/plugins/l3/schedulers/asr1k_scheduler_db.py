@@ -152,6 +152,5 @@ class AZASR1KL3AgentSchedulerDbMixin(ASR1KAgentSchedulerDbMixin,
                                      router_az.RouterAvailabilityZonePluginBase):
     """Mixin class to add availability_zone supported l3 agent scheduler."""
 
-    @log_helpers.log_method_call
     def get_router_availability_zones(self, router):
         return list({agent.availability_zone for agent in router.l3_agents})
