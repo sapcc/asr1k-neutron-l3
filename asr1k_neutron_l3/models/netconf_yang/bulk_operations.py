@@ -73,7 +73,7 @@ class BulkOperations(xml_utils.XMLUtils):
                 result = cls.to_raw_json(rpc_result.xml)
                 result = cls._to_plain_json(result)
                 return cls.get_all_from_device_config(result, context)
-        except Exception as e:
+        except Exception:
             LOG.exception("Could not fetch entity {} for cleaning".format(cls.__name__))
             return []
 
@@ -90,7 +90,7 @@ class BulkOperations(xml_utils.XMLUtils):
 
     def is_reassigned(self, queried):
         return False
-    
+
     @property
     def neutron_router_id(self):
         return None

@@ -198,7 +198,7 @@ class VrfDefinition(NyBase, Requeable):
                 # try deleting the VRF, but don't fail if we cannot do so
                 try:
                     rd_vrf._delete(context)
-                except Exception as e:
+                except Exception:
                     LOG.warning("Deleting VRF %s failed, but deleting its RD succeeded - continuing with creating %s",
                                 rd_vrf.id, self.id)
                 LOG.warning("Preflight on {} deleted existing VRF {} with RD {}".format(self.id, rd_vrf.id, self.rd))
