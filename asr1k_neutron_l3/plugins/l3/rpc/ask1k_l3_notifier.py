@@ -17,12 +17,12 @@
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 
-LOG = logging.getLogger(__name__)
-
 from neutron.api.rpc.agentnotifiers import l3_rpc_agent_api
 from neutron_lib.agent import topics
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
+
+LOG = logging.getLogger(__name__)
 
 
 class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):

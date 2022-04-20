@@ -18,7 +18,7 @@ class Initializer(object):
     def init_scheduler(self):
         result = {}
 
-        ml2 = Ml2Plugin()
+        ml2 = Ml2Plugin()  # noqa: F841
         router_ids = self.db.get_all_router_ids(self.context)
         scheduled = 0
         for router_id in router_ids:
@@ -61,8 +61,8 @@ class Initializer(object):
                     port_count += 1
                     port_id = port.get('id')
                     if port.get(portbindings.HOST_ID) != agent_host:
-                        update_result = ml2.update_port(self.context, port_id,
-                                                        {'port': {'id': port_id, portbindings.HOST_ID: agent_host}})
+                        ml2.update_port(self.context, port_id,
+                                        {'port': {'id': port_id, portbindings.HOST_ID: agent_host}})
                     result[router_id]["port host"].append({'port': port_id, 'host': agent_host})
             else:
                 result[router_id]['error'] = "Router is not scheduled to a host"
