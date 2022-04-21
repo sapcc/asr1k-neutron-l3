@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase
+from asr1k_neutron_l3.models.netconf_yang.ny_base import execute_on_pair, NC_OPERATION, NyBase
 from asr1k_neutron_l3.common import utils
 
 
@@ -104,11 +104,12 @@ class Prefix(NyBase):
             seq.no = (len(self.seq) + 1) * 10
         self.seq.append(seq)
 
-    def update(self):
+    @execute_on_pair()
+    def update(self, context):
         if len(self.seq) > 0:
-            return super(Prefix, self).update()
+            return super(Prefix, self)._update(context=context, method=NC_OPERATION.PUT)
         else:
-            return super(Prefix, self).delete()
+            return super(Prefix, self)._delete(context=context)
 
     def to_dict(self, context):
         prefix = OrderedDict()
