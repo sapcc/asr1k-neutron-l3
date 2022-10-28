@@ -681,7 +681,7 @@ class StaticNat(NyBase):
         entry[NATConstants.MATCH_IN_VRF] = ""
 
         if not self.from_device:
-            if self.stateless and context.has_stateless_nat:
+            if context.version_min_17_6 or (self.stateless and context.has_stateless_nat):
                 entry[NATConstants.STATELESS] = ""
             elif self.redundancy is not None:
                 # only set redundancy if we should not or cannot enable stateless
