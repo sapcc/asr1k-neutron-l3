@@ -55,6 +55,7 @@ class NATConstants(object):
     FORCED = "forced"
     MATCH_IN_VRF = "match-in-vrf"
     STATELESS = "stateless"
+    NO_ALIAS = "no-alias"
 
 
 class NatPool(NyBase):
@@ -599,6 +600,7 @@ class StaticNat(NyBase):
             {'key': 'mapping_id'},
             {'key': 'match_in_vrf', 'yang-key': 'match-in-vrf', 'default': False},
             {'key': 'stateless', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
+            {'key': 'no_alias', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
         ]
 
     @classmethod
@@ -687,9 +689,13 @@ class StaticNat(NyBase):
                 # only set redundancy if we should not or cannot enable stateless
                 entry[NATConstants.REDUNDANCY] = self.redundancy
                 entry[NATConstants.MAPPING_ID] = self.mapping_id
+            if context.version_min_17_6:
+                entry[NATConstants.NO_ALIAS] = ""
         else:
             if self.stateless:
                 entry[NATConstants.STATELESS] = ""
+            if self.no_alias:
+                entry[NATConstants.NO_ALIAS] = ""
             if self.redundancy:
                 entry[NATConstants.REDUNDANCY] = self.redundancy
             if self.mapping_id:
