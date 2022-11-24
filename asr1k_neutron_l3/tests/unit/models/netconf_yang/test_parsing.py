@@ -18,6 +18,7 @@ from asr1k_neutron_l3.common.utils import from_cidr, to_cidr
 from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
+from asr1k_neutron_l3.models.netconf_yang.nat import StaticNatList
 
 
 class ParsingTest(base.BaseTestCase):
@@ -283,3 +284,45 @@ class ParsingTest(base.BaseTestCase):
             self.assertEqual(network.get("route-map"), expected_rm)
             parsed_netmasks.add((network['number'], network['mask']))
         self.assertEqual(orig_netmasks, parsed_netmasks)
+
+    def test_static_nat_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+    message-id="urn:uuid:9caf3918-3eb9-4d0e-a8a5-5ec268e3bf97">
+    <data>
+        <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+            <ip>
+                <nat xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+                    <inside>
+                        <source>
+                            <static>
+                                <nat-static-transport-list-with-vrf>
+                                    <local-ip>10.20.30.40</local-ip>
+                                    <global-ip>10.10.10.10</global-ip>
+                                    <vrf>route-it-like-they-do-on-discovery-channel</vrf>
+                                    <match-in-vrf />
+                                    <stateless />
+                                    <no-alias />
+                                </nat-static-transport-list-with-vrf>
+                            </static>
+                        </source>
+                    </inside>
+                </nat>
+            </ip>
+        </native>
+    </data>
+</rpc-reply>
+"""
+
+        context = FakeASR1KContext()
+        snl = StaticNatList.from_xml(xml, context)
+        self.assertEqual(1, len(snl.static_nats))
+        nat = snl.static_nats[0]
+        self.assertEqual('10.20.30.40', nat.local_ip)
+        self.assertEqual('10.10.10.10', nat.global_ip)
+        self.assertEqual('route-it-like-they-do-on-discovery-channel', nat.vrf)
+        self.assertIsNone(nat.redundancy)
+        self.assertIsNone(nat.mapping_id)
+        self.assertTrue(nat.match_in_vrf)
+        self.assertTrue(nat.stateless)
+        self.assertTrue(nat.no_alias)
