@@ -598,7 +598,7 @@ class StaticNat(NyBase):
             {'key': 'vrf'},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
-            {'key': 'match_in_vrf', 'yang-key': 'match-in-vrf', 'default': False},
+            {'key': 'match_in_vrf', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
             {'key': 'stateless', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
             {'key': 'no_alias', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
         ]
