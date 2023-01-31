@@ -144,7 +144,12 @@ class L3RpcNotifierMixin(object):
 
     @registry.receives(resources.ROUTER_INTERFACE, [events.BEFORE_CREATE])
     @log_helpers.log_method_call
-    def _check_internal_net_az_hints(self, resource, event, trigger, context, router_id, network_id, **kwargs):
+    def _check_internal_net_az_hints(self, resource, event, trigger, payload, **kwargs):
+
+        router_id = payload.resource_id
+        network_id = payload.metadata.get("network_id")
+        context = payload.context
+
         LOG.debug("(AZ check) router interface before_create hook for router %s network %s",
                   router_id, network_id)
         plugin = directory.get_plugin()
