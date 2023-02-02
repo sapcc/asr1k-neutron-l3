@@ -144,7 +144,10 @@ class L3RpcNotifierMixin(object):
 
     @registry.receives(resources.ROUTER_INTERFACE, [events.BEFORE_CREATE])
     @log_helpers.log_method_call
-    def _check_internal_net_az_hints(self, resource, event, trigger, context, router_id, network_id, **kwargs):
+    def _check_internal_net_az_hints(self, resource, event, trigger, payload, **kwargs):
+        router_id = payload.resource_id
+        network_id = payload.metadata.get("network_id")
+        context = payload.context
         LOG.debug("(AZ check) router interface before_create hook for router %s network %s",
                   router_id, network_id)
         plugin = directory.get_plugin()
@@ -493,7 +496,7 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         # or it is not scheduled and all existing agents are above the limit
         limit = cfg.CONF.asr1k_l2.bdvif_bd_limit
         if (host and port_count[host] >= limit) \
-            or (not host and all(x >= limit for x in port_count.values())):
+                or (not host and all(x >= limit for x in port_count.values())):
             raise asr1k_exc.BdVifInBdExhausted(network_id=network_id, router_id=router_id)
 
     def ensure_config(self, context, id):
