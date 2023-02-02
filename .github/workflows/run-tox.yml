@@ -2,7 +2,7 @@ name: run-tox
 on:
   push:
     branches:
-      - stable/ussuri-m3
+      - stable/yoga-m3
   pull_request:
 jobs:
   build:
