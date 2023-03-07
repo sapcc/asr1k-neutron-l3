@@ -36,6 +36,7 @@ LOG = logging.getLogger(__name__)
 class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePluginBase):
     supported_extension_aliases = ["router",
                                    "extraroute",
+                                   "extraroute-atomic",
                                    "l3_agent_scheduler",
                                    "router_availability_zone",
                                    "asr1k_operations"]
