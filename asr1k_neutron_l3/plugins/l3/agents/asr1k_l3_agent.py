@@ -749,8 +749,11 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
     def _safe_router_deleted(self, router_id):
         """Try to delete a router and return True if successful."""
 
-        registry.notify(resources.ROUTER, events.BEFORE_DELETE,
-                        self, router=router_id)
+        ri = self.router_info.get(router_id)
+        registry.publish(resources.ROUTER, events.BEFORE_DELETE, self,
+                         payload=events.DBEventPayload(
+                             self.context, states=(ri,),
+                             resource_id=router_id))
 
         LOG.debug('Got router deleted notification for %s', router_id)
         router = self.plugin_rpc.get_deleted_router(self.context, router_id)
@@ -761,9 +764,9 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
 
         result = l3_router.Router(router).delete()
 
-        return self._check_delete_result(router, result)
+        return self._check_delete_result(ri, router, result)
 
-    def _check_delete_result(self, router, result):
+    def _check_delete_result(self, ri, router, result):
 
         success = self.check_success(result)
         if success:
@@ -774,7 +777,10 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 self.plugin_rpc.delete_extra_atts_l3(self.context, deleted_ports)
 
             self._clean(router)
-            registry.notify(resources.ROUTER, events.AFTER_DELETE, self, router=router.get('id'))
+            registry.publish(resources.ROUTER, events.AFTER_DELETE, self,
+                             payload=events.DBEventPayload(
+                                 self.context, states=(ri,),
+                                 resource_id=router['id']))
         else:
             LOG.warning("Failed to clean up router %s on device, its been left to the scanvenger", router['id'])
 
