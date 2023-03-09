@@ -15,6 +15,7 @@
 #    under the License.
 
 from neutron_lib.agent import topics
+from neutron_lib.api.definitions import l3_ext_gw_mode
 from neutron_lib import constants as n_const
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib import rpc as n_rpc
@@ -38,6 +39,7 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePlugin
                                    "extraroute",
                                    "l3_agent_scheduler",
                                    "router_availability_zone",
+                                   l3_ext_gw_mode.ALIAS,
                                    "asr1k_operations"]
 
     def __init__(self):
