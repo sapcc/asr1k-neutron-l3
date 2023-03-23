@@ -72,7 +72,7 @@ class Router(Base):
             if self.gateway_interface.address_scope in address_scope_config:
                 rt = address_scope_config[self.gateway_interface.address_scope]
                 global_vrf_id = self._to_global_vrf_id(rt)
-            else:
+            elif self.gateway_interface.address_scope is not None:
                 LOG.error("Router %s has a gateway interface, but no address scope was found in config"
                           "(address scope of router: %s, available scopes: %s",
                           self.router_id, self.gateway_interface.address_scope, list(address_scope_config.keys()))
