@@ -103,6 +103,8 @@ AGENT_STATE_OPTS = [
                         'is half or less than agent_down_time.')),
     cfg.BoolOpt('log_agent_heartbeats', default=False,
                 help=_('Log agent heartbeats')),
+    cfg.BoolOpt('scheduling_disabled', default=False,
+                help="No new routers will be scheduled on this L3 agent."),
 ]
 
 

@@ -825,9 +825,12 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
             'availability_zone': self.conf.AGENT.availability_zone,
             'topic': topics.L3_AGENT,
             'configurations': {
-                'log_agent_heartbeats': self.conf.AGENT.log_agent_heartbeats},
+                'log_agent_heartbeats': self.conf.AGENT.log_agent_heartbeats,
+                'scheduling_disabled': self.conf.AGENT.scheduling_disabled,
+            },
             'start_flag': True,
-            'agent_type': constants.AGENT_TYPE_ASR1K_L3}
+            'agent_type': constants.AGENT_TYPE_ASR1K_L3,
+        }
         report_interval = self.conf.AGENT.report_interval
 
         if report_interval:
