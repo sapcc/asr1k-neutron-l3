@@ -336,7 +336,6 @@ class Router(Base):
             results.append(self.pbr_acl.update())
         # Working assumption is that any NAT mode migration is completed
 
-        results.append(self.routes.update())
         results.append(self.floating_ips.update())
         results.append(self.arp_entries.update())
 
@@ -344,6 +343,8 @@ class Router(Base):
         for interface in self.interfaces.all_interfaces:
             if not isinstance(interface, l3_interface.OrphanedInterface):
                 results.append(interface.update())
+
+        results.append(self.routes.update())
 
         # We don't remove NAT statement or pool if enabling/disabling snat - instead update ACL
         if self.gateway_interface is not None:
