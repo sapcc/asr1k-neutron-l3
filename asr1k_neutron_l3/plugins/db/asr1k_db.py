@@ -565,6 +565,23 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         else:
             error_port_list.append(port_id)
 
+    def get_floating_ips_with_router_macs(self, context, fips=None, router_id=None):
+        # SELECT f.floating_ip_address, p.mac_address FROM floatingips f
+        #    JOIN routers r ON f.router_id = r.id
+        #    JOIN ports p ON p.device_id = r.id AND p.device_owner = 'network:router_gateway';
+        query = context.session.query(l3_models.FloatingIP.floating_ip_address, models_v2.Port.mac_address)
+        query = query.join(l3_models.Router, l3_models.FloatingIP.router_id == l3_models.Router.id)
+        query = query.join(models_v2.Port,
+                           sa.and_(models_v2.Port.device_id == l3_models.Router.id,
+                                   models_v2.Port.device_owner == n_constants.DEVICE_OWNER_ROUTER_GW))
+
+        if fips:
+            query = query.filter(l3_models.FloatingIP.floating_ip_address.in_(fips))
+        if router_id:
+            query = query.filter(l3_models.Router.id == router_id)
+
+        return {e.floating_ip_address: e.mac_address for e in query}
+
 
 class ExtraAttsDb(object):
 

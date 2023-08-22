@@ -39,6 +39,7 @@ DETAIL_LABELS = ['host', 'device', 'entity', 'action']
 BASIC_LABELS = ['host']
 STATS_LABELS = ['host', 'status']
 DEVICE_ENTITY_COUNT_LABELS = ['host', 'device', 'entity']
+FIP_ON_WRONG_MAC_COUNT_LABELS = ['host', 'device', 'vrf']
 
 L2 = "l2"
 L3 = "l3"
@@ -87,6 +88,9 @@ class PrometheusMonitor(object):
 
         self._device_entity_count = Gauge('device_entity_count', 'Number of instances of an entity present on device',
                                           DEVICE_ENTITY_COUNT_LABELS, namespace=self.namespace)
+        self._fip_on_wrong_mac_count = Counter('fip_on_wrong_mac_count',
+                                               'Number of times a FIP was found on the wrong mac',
+                                               FIP_ON_WRONG_MAC_COUNT_LABELS, namespace=self.namespace)
 
         if self.type == L3:
             self._router_create_duration = Histogram("router_create_duration", "Router create duration in seconds",

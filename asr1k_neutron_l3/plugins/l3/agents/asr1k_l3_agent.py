@@ -64,6 +64,7 @@ from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import config as asr1k_config
+from asr1k_neutron_l3.models.netconf_yang.arp_cache import ArpCache
 from asr1k_neutron_l3.models.netconf_yang.copy_config import CopyConfig
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
 from asr1k_neutron_l3.models import asr1k_pair
@@ -263,6 +264,10 @@ class L3PluginApi(object):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_all_router_ids', host=self.host)
 
+    def get_floating_ips_with_router_macs(self, context, fips=None, router_id=None):
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_floating_ips_with_router_macs', fips=fips, router_id=router_id)
+
 
 class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin):
     """Manager for L3 ASR Agent
@@ -360,6 +365,10 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 self.scavenge_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_scavenge_task)
                 self.scavenge_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval, stop_on_exception=False)
 
+                if cfg.CONF.asr1k_l3.enable_arp_cleaning:
+                    self.arp_clean_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_arp_clean)
+                    self.arp_clean_loop.start(interval=cfg.CONF.asr1k_l3.arp_cleaning_interval, stop_on_exception=False)
+
             self.device_check_loop = loopingcall.FixedIntervalLoopingCall(self._check_devices_alive, self.context)
             self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval / 2, stop_on_exception=False)
 
@@ -443,6 +452,18 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
             self.plugin_rpc.delete_router_atts_orphans(self.context)
         except Exception as e:
             LOG.exception(e)
+
+    def _periodic_arp_clean(self):
+        ctx = n_context.get_admin_context_without_session()
+        LOG.info("Starting ARP cleaning syncloop")
+        self.clean_arp_cache(ctx)
+
+    def clean_arp_cache(self, context, fips=None, router_id=None):
+        LOG.debug("Fetching data from neutron for arp cleaning")
+        fip_data = self.plugin_rpc.get_floating_ips_with_router_macs(context, fips=fips, router_id=router_id)
+        LOG.debug("Starting per-device clean")
+        ArpCache.clean_device_arp(fip_data=fip_data)
+        LOG.debug("ARP cleaning done")
 
     def _clean_deleted_routers_dict(self):
         for router_id, created_at in list(self._deleted_routers.items()):

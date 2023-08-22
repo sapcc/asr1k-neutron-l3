@@ -87,6 +87,8 @@ ASR1K_L3_OPTS = [
                help="Set ARP timeout for the external interface of a router. Set to 0 to not set this attribute"),
     cfg.IntOpt('internal_iface_arp_timeout', default=0,
                help="Set ARP timeout for the external interface of a router. Disabled by default"),
+    cfg.BoolOpt('enable_arp_cleaning', default=True, help="Run ARP cleaning sync to remove stale macs of floating ips"),
+    cfg.IntOpt('arp_cleaning_interval', default=120, help="Interval for ARP cleaning"),
 ]
 
 ASR1K_L2_OPTS = [
