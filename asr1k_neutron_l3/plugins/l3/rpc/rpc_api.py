@@ -121,3 +121,7 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
     def get_usage_stats(self, context, **kwargs):
         host = kwargs.get('host')
         return self.db.get_usage_stats(context, host)
+
+    @instrument()
+    def get_floating_ips_with_router_macs(self, context, fips=None, router_id=None):
+        return self.db.get_floating_ips_with_router_macs(context, fips=fips, router_id=router_id)

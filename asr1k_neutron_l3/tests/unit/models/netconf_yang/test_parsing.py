@@ -15,6 +15,7 @@ from neutron.tests import base
 
 from asr1k_neutron_l3.models.asr1k_pair import FakeASR1KContext
 from asr1k_neutron_l3.common.utils import from_cidr, to_cidr
+from asr1k_neutron_l3.models.netconf_yang.arp_cache import ArpCache
 from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
@@ -326,3 +327,49 @@ class ParsingTest(base.BaseTestCase):
         self.assertTrue(nat.match_in_vrf)
         self.assertTrue(nat.stateless)
         self.assertTrue(nat.no_alias)
+
+    def test_arp_cache_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <arp-data xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-arp-oper">
+      <arp-vrf>
+        <vrf>07c1791106244933b693282c5447adfe</vrf>
+        <arp-entry>
+          <address>10.180.0.1</address>
+          <hardware>fa:16:3e:45:81:b2</hardware>
+        </arp-entry>
+        <arp-entry>
+          <address>10.180.0.3</address>
+          <hardware>fa:16:3e:ff:aa:bb</hardware>
+        </arp-entry>
+      </arp-vrf>
+      <arp-vrf>
+        <vrf>2742f0347af546878c600d608cf38382</vrf>
+        <arp-entry>
+          <address>1.2.3.4</address>
+          <hardware>fa:16:3e:11:22:33</hardware>
+        </arp-entry>
+      </arp-vrf>
+    </arp-data>
+  </data>
+</rpc-reply>"""
+
+        context = FakeASR1KContext()
+        cache = ArpCache.from_xml(xml, context)
+        self.assertEqual(2, len(cache.vrfs))
+
+        vrf0 = cache.vrfs[0]
+        self.assertEqual(2, len(vrf0.entries))
+        self.assertEqual("07c1791106244933b693282c5447adfe", vrf0.vrf)
+        self.assertEqual("10.180.0.1", vrf0.entries[0].address)
+        self.assertEqual("fa:16:3e:45:81:b2", vrf0.entries[0].mac)
+        self.assertEqual("10.180.0.3", vrf0.entries[1].address)
+        self.assertEqual("fa:16:3e:ff:aa:bb", vrf0.entries[1].mac)
+
+        vrf1 = cache.vrfs[1]
+        self.assertEqual(1, len(vrf1.entries))
+        self.assertEqual("2742f0347af546878c600d608cf38382", vrf1.vrf)
+        self.assertEqual("1.2.3.4", vrf1.entries[0].address)
+        self.assertEqual("fa:16:3e:11:22:33", vrf1.entries[0].mac)
