@@ -13,6 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.common import utils
@@ -135,7 +136,7 @@ class GatewayInterface(Interface):
                                             ip_address=self.ip_address,
                                             secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
                                             redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS',
-                                            ntp_disable=True)
+                                            ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout)
 
     def _nat_address(self):
         ips = self.router_port.get('fixed_ips')
@@ -160,7 +161,7 @@ class InternalInterface(Interface):
                                             ip_address=self.ip_address,
                                             secondary_ip_addresses=self.secondary_ip_addresses,
                                             nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf),
-                                            ntp_disable=True)
+                                            ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.internal_iface_arp_timeout)
 
 
 class OrphanedInterface(Interface):
