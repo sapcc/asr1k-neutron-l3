@@ -59,6 +59,8 @@ class L3Constants(object):
     DIRECTION_OUT = "out"
     NTP = "ntp"
     NTP_DISABLE = "disable"
+    ARP = "arp"
+    TIMEOUT = "timeout"
 
 
 class VBInterface(NyBase):
@@ -144,7 +146,8 @@ class VBInterface(NyBase):
             {'key': 'redundancy_group'},
             {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
             {'key': 'ntp_disable', 'yang-key': 'disable', 'yang-path': 'ntp', 'default': False,
-             'yang-type': YANG_TYPE.EMPTY}
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'arp_timeout', 'yang-key': 'timeout', 'yang-path': 'arp'},
         ]
 
     def __init__(self, **kwargs):
@@ -226,6 +229,11 @@ class VBInterface(NyBase):
                 vbi[L3Constants.NTP][L3Constants.NTP_DISABLE] = ''
             else:
                 vbi[L3Constants.NTP][xml_utils.OPERATION] = NC_OPERATION.REMOVE
+
+        if self.arp_timeout and int(self.arp_timeout) > 0:
+            vbi[L3Constants.ARP] = {L3Constants.TIMEOUT: int(self.arp_timeout)}
+        else:
+            vbi[L3Constants.ARP] = {L3Constants.TIMEOUT: {xml_utils.OPERATION: NC_OPERATION.DELETE}}
 
         result = OrderedDict()
         result[context.bd_iftype] = vbi
