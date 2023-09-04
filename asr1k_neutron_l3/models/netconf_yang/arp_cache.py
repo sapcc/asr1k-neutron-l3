@@ -95,6 +95,11 @@ class ArpCache(NyBase):
 
         stale_entries = []
         arp_data = cls._get(context=context)
+        if arp_data is None:
+            LOG.warning("ARP cleanup could not fetch ARP cache from device for host %s, cleaning not possible",
+                        context.host)
+            return
+
         for vrf in arp_data.vrfs:
             if not cls.VRF_RE.match(vrf.vrf):
                 continue
