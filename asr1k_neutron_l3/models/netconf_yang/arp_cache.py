@@ -107,7 +107,7 @@ class ArpCache(NyBase):
             for entry in vrf.entries:
                 if fip_data.get(entry.address) not in (None, entry.mac):
                     stale_entries.append((vrf.vrf, entry.address, entry.mac, fip_data[entry.address]))
-                    PrometheusMonitor().fip_on_wrong_mac_count.label(device=context.host, vrf=vrf.vrf).inc()
+                    PrometheusMonitor().fip_on_wrong_mac_count.labels(device=context.host, vrf=vrf.vrf).inc()
         LOG.debug("ARP cleanup on host %s for %s fips and %s ARP entries with %s stale entries",
                   context.host, len(fip_data), sum(len(vrf.entries) for vrf in arp_data.vrfs), len(stale_entries))
 
