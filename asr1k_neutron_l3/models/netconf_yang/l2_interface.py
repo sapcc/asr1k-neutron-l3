@@ -210,7 +210,7 @@ class BDIfMember(NyBase):
             result[L2Constants.BD_SERVICE_INSTANCE_LIST] = service_instances
 
         if self.mark_deleted:
-            result[xml_utils.OPERATION] = NC_OPERATION.DELETE
+            result[xml_utils.OPERATION] = NC_OPERATION.REMOVE
         return result
 
 
@@ -243,7 +243,7 @@ class BDVIFMember(NyBase):
             L2Constants.NAME: self.name,
         }
         if self.mark_deleted:
-            result[xml_utils.OPERATION] = NC_OPERATION.DELETE
+            result[xml_utils.OPERATION] = NC_OPERATION.REMOVE
 
         return result
 
