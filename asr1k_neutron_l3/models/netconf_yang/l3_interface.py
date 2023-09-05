@@ -233,7 +233,7 @@ class VBInterface(NyBase):
         if self.arp_timeout and int(self.arp_timeout) > 0:
             vbi[L3Constants.ARP] = {L3Constants.TIMEOUT: int(self.arp_timeout)}
         else:
-            vbi[L3Constants.ARP] = {L3Constants.TIMEOUT: {xml_utils.OPERATION: NC_OPERATION.DELETE}}
+            vbi[L3Constants.ARP] = {L3Constants.TIMEOUT: {xml_utils.OPERATION: NC_OPERATION.REMOVE}}
 
         result = OrderedDict()
         result[context.bd_iftype] = vbi
