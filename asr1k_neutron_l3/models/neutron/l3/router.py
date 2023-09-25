@@ -193,7 +193,7 @@ class Router(Base):
         if self.gateway_interface:
             subnet = self.gateway_interface.primary_subnet
 
-            if subnet.get('cidr') is not None:
+            if subnet is not None and subnet.get('cidr') is not None:
                 ip, netmask = utils.from_cidr(subnet.get('cidr'))
                 wildcard = utils.to_wildcard_mask(netmask)
                 rule = access_list.Rule(destination=ip, destination_mask=wildcard)
