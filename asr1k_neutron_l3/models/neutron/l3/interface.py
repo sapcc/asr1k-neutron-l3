@@ -90,6 +90,7 @@ class Interface(base.Base):
         for subnet in self.router_port.get('subnets', []):
             if subnet.get('id') == self._primary_subnet_id:
                 return subnet
+        return None
 
     @property
     def subnets(self):
