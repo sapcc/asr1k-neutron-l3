@@ -122,7 +122,8 @@ class Router(Base):
         return result
 
     def get_routable_networks(self):
-        return [iface.primary_subnet['cidr'] for iface in self.address_scope_matches()]
+        return [iface.primary_subnet['cidr'] for iface in self.address_scope_matches()
+                if iface.primary_subnet and 'cidr' in iface.primary_subnet]
 
     def _build_interfaces(self):
         interfaces = l3_interface.InterfaceList()
@@ -146,7 +147,8 @@ class Router(Base):
         return interfaces
 
     def get_internal_cidrs(self):
-        return [iface.primary_subnet['cidr'] for iface in self.interfaces.internal_interfaces]
+        return [iface.primary_subnet['cidr'] for iface in self.interfaces.internal_interfaces
+                if iface.primary_subnet and 'cidr' in iface.primary_subnet]
 
     def _build_routes(self):
         routes = route.RouteCollection(self.router_id)
@@ -206,14 +208,14 @@ class Router(Base):
         if gw_port is not None:
 
             for subnet in gw_port.get('subnets'):
-                if utils.ip_in_network(l3_route.nexthop, subnet.get('cidr')):
+                if subnet and subnet.get('cidr') and utils.ip_in_network(l3_route.nexthop, subnet['cidr']):
                     return True
 
         int_ports = self.router_info.get('_interfaces', [])
 
         for int_port in int_ports:
             for subnet in int_port.get('subnets', []):
-                if utils.ip_in_network(l3_route.nexthop, subnet.get('cidr')):
+                if subnet and subnet.get('cidr') and utils.ip_in_network(l3_route.nexthop, subnet['cidr']):
                     return True
 
         return False
