@@ -358,4 +358,4 @@ class YangConnection(object):
 
                 return schema_rev_date >= min_rev_date
 
-        raise CapabilityNotFoundException(host=self.context.host, entity_name=baseurl)
+        raise CapabilityNotFoundException(host=self.context.host, entity=baseurl)
