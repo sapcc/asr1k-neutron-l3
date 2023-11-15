@@ -19,6 +19,7 @@ from oslo_config import cfg
 
 from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.common.asr1k_exceptions import VersionInfoNotAvailable
+from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -82,14 +83,27 @@ class ASR1KContext(ASR1KContextBase):
         from asr1k_neutron_l3.models.connection import ConnectionManager
 
         with ConnectionManager(context=self) as connection:
-            # ASR 17.3 has at least this version for the YANG native model
-            self._version_min_17_3 = connection.check_capability(module="Cisco-IOS-XE-native",
-                                                                 min_revision="2020-07-01")
-            # IOS XE 17.6 has at least this version for the YANG native model
-            self._version_min_17_6 = connection.check_capability(module="Cisco-IOS-XE-native",
-                                                                 min_revision="2021-07-20")
-            self._has_stateless_nat = connection.check_capability(module="Cisco-IOS-XE-nat",
-                                                                  min_revision="2020-11-01")
+            # newer images don't advertise all their capabilities, so we need to check the version
+            ver_xml_data = connection.xpath_get("native/version")
+            ver_data = xml_utils.XMLUtils.to_raw_json(ver_xml_data.xml)
+            try:
+                ver = ver_data['rpc-reply']['data']['native']['version'].split(".")
+            except KeyError as e:
+                LOG.error("Tried to fetch version for host %s, but couldn't parse the response: %s", self.host, e)
+                raise VersionInfoNotAvailable(host=self.host, entity="native/version")
+
+            # "parse" version
+            def _to_int_if_possible(d):
+                try:
+                    return int(d)
+                except ValueError:
+                    return d
+
+            ver = tuple(_to_int_if_possible(d) for d in ver)
+
+            self._version_min_17_3 = ver >= (17, 3)
+            self._version_min_17_6 = ver >= (17, 6)
+            self._has_stateless_nat = ver >= (17, 4)
 
         self._got_version_info = True
 
