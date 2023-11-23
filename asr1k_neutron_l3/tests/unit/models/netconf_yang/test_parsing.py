@@ -373,3 +373,38 @@ class ParsingTest(base.BaseTestCase):
         self.assertEqual("2742f0347af546878c600d608cf38382", vrf1.vrf)
         self.assertEqual("1.2.3.4", vrf1.entries[0].address)
         self.assertEqual("fa:16:3e:11:22:33", vrf1.entries[0].mac)
+
+    def test_parse_nat_garp_flag(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+    message-id="urn:uuid:9caf3918-3eb9-4d0e-a8a5-5ec268e3bf97">
+    <data>
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+        <ip>
+          <nat xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+            <inside>
+              <source>
+                <static>
+                  <nat-static-transport-list-with-vrf>
+                    <local-ip>10.180.250.161</local-ip>
+                    <global-ip>10.216.24.4</global-ip>
+                    <vrf>76433b4941974003a881847fda8af23b</vrf>
+                    <no-alias/>
+                    <match-in-vrf/>
+                    <stateless/>
+                    <garp-interface>
+                      <BD-VIF>6657</BD-VIF>
+                    </garp-interface>
+                  </nat-static-transport-list-with-vrf>
+                </static>
+              </source>
+            </inside>
+          </nat>
+        </ip>
+      </native>
+  </data>
+</rpc-reply>"""
+        context = FakeASR1KContext()
+        snl = StaticNatList.from_xml(xml, context)
+        nat = snl.static_nats[0]
+        self.assertEqual('6657', nat.garp_bdvif_iface)
