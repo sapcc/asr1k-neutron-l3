@@ -32,8 +32,8 @@ class SerializationTest(base.BaseTestCase):
         sn_stateless = StaticNat(**sn_args, stateless=True)
         sn = StaticNat(**sn_args, stateless=False)
 
-        context_17_3 = FakeASR1KContext(version_min_17_3=True, version_min_17_6=False)
-        context_17_6 = FakeASR1KContext(version_min_17_3=True, version_min_17_6=True)
+        context_17_3 = FakeASR1KContext(version_min_17_3=True, version_min_17_6=False, version_min_17_13=False)
+        context_17_6 = FakeASR1KContext(version_min_17_3=True, version_min_17_6=True, version_min_17_13=False)
 
         expected_17_3 = xmltodict.parse("""
                             <nat-static-transport-list-with-vrf>
@@ -60,3 +60,28 @@ class SerializationTest(base.BaseTestCase):
         self.assertEqual(expected_17_6, sn.to_single_dict(context_17_6))
         self.assertEqual(expected_17_6,
                          sn_stateless.to_single_dict(context_17_6))
+
+    def test_static_nat_garp_flag(self):
+        sn_args = dict(
+            vrf='the-seagull-is-a-majestic-bird',
+            local_ip='10.10.23.12', global_ip='192.168.23.12',
+            match_in_vrf=True, garp_bdvif_iface=1234
+        )
+        sn = StaticNat(**sn_args)
+
+        context_17_13 = FakeASR1KContext()
+        self.assertEqual({'BD-VIF': '1234'}, sn.to_single_dict(context_17_13).get('garp-interface'))
+
+        context_17_6 = FakeASR1KContext(version_min_17_13=False)
+        self.assertNotIn('garp-interface', sn.to_single_dict(context_17_6))
+
+    def test_static_nat_garp_flag_remove(self):
+        sn_args = dict(
+            vrf='the-seagull-is-a-majestic-bird',
+            local_ip='10.10.23.12', global_ip='192.168.23.12',
+            match_in_vrf=True
+        )
+        sn = StaticNat(**sn_args)
+
+        context_17_13 = FakeASR1KContext()
+        self.assertEqual({'@operation': 'remove'}, sn.to_single_dict(context_17_13).get('garp-interface'))

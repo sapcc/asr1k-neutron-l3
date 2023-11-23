@@ -34,6 +34,7 @@ class NATConstants(object):
     INTERFACE = "interface"
     INTERFACE_WITH_VRF = 'interface-with-vrf'
     BDI = "BDI"
+    BDVIF = "BD-VIF"
     ID = "id"
     START_ADDRESS = "start-address"
     END_ADDRESS = "end-address"
@@ -56,6 +57,7 @@ class NATConstants(object):
     MATCH_IN_VRF = "match-in-vrf"
     STATELESS = "stateless"
     NO_ALIAS = "no-alias"
+    GARP_IFACE = 'garp-interface'
 
 
 class NatPool(NyBase):
@@ -601,6 +603,7 @@ class StaticNat(NyBase):
             {'key': 'match_in_vrf', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
             {'key': 'stateless', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
             {'key': 'no_alias', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
+            {'key': 'garp_bdvif_iface', 'yang-path': 'garp-interface/BD-VIF'},
         ]
 
     @classmethod
@@ -691,6 +694,11 @@ class StaticNat(NyBase):
                 entry[NATConstants.MAPPING_ID] = self.mapping_id
             if context.version_min_17_6:
                 entry[NATConstants.NO_ALIAS] = ""
+            if context.version_min_17_13:
+                if self.garp_bdvif_iface:
+                    entry[NATConstants.GARP_IFACE] = {NATConstants.BDVIF: str(self.garp_bdvif_iface)}
+                else:
+                    entry[NATConstants.GARP_IFACE] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
         else:
             if self.stateless:
                 entry[NATConstants.STATELESS] = ""

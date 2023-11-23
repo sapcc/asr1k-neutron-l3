@@ -154,13 +154,16 @@ class FloatingIp(BaseNAT):
         self.id = "{},{}".format(self.local_ip, self.global_ip)
         self.mapping_id = utils.uuid_to_mapping_id(self.floating_ip.get('id'))
         self.mac_address = None
+        self.garp_iface_id = None
         if self.gateway_interface:
             self.mac_address = self.gateway_interface.mac_address
+            self.garp_iface_id = self.gateway_interface.bridge_domain
         self._rest_definition = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
                                                  mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
                                                  redundancy=self.redundancy, mapping_id=self.mapping_id,
                                                  mac_address=self.mac_address, match_in_vrf=True,
-                                                 stateless=cfg.CONF.asr1k_l3.stateless_nat)
+                                                 stateless=cfg.CONF.asr1k_l3.stateless_nat,
+                                                 garp_bdvif_iface=self.garp_iface_id)
 
     def get(self):
         static_nat = l3_nat.StaticNat.get(self.local_ip, self.global_ip)
