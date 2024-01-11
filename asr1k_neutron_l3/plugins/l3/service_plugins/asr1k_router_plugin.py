@@ -41,6 +41,10 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePlugin
                                    "router_availability_zone",
                                    "asr1k_operations"]
 
+    __native_pagination_support = True
+    __native_sorting_support = True
+    __filter_validation_support = True
+
     def __init__(self):
         super(ASR1KRouterPlugin, self).__init__()
 
