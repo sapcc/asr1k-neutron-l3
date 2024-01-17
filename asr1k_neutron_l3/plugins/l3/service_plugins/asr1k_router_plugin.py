@@ -15,6 +15,10 @@
 #    under the License.
 
 from neutron_lib.agent import topics
+from neutron_lib.api.definitions import extraroute
+from neutron_lib.api.definitions import extraroute_atomic
+from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import router_availability_zone
 from neutron_lib import constants as n_const
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib import rpc as n_rpc
@@ -26,6 +30,7 @@ from oslo_utils import importutils
 
 import asr1k_neutron_l3
 from asr1k_neutron_l3.common import config as asr1k_config
+from asr1k_neutron_l3.extensions import asr1koperations as asr1k_ext
 from asr1k_neutron_l3.plugins.l3.rpc import rpc_api
 from asr1k_neutron_l3.plugins.l3.rpc import ask1k_l3_notifier
 from asr1k_neutron_l3.plugins.l3.service_plugins import l3_extension_adapter
@@ -34,12 +39,13 @@ LOG = logging.getLogger(__name__)
 
 
 class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePluginBase):
-    supported_extension_aliases = ["router",
-                                   "extraroute",
-                                   "extraroute-atomic",
-                                   "l3_agent_scheduler",
-                                   "router_availability_zone",
-                                   "asr1k_operations"]
+    supported_extension_aliases = [l3_apidef.ALIAS,
+                                   extraroute.ALIAS,
+                                   extraroute_atomic.ALIAS,
+                                   n_const.L3_AGENT_SCHEDULER_EXT_ALIAS,
+                                   router_availability_zone.ALIAS,
+                                   asr1k_ext.ASR1K_DEVICES_ALIAS,
+                                   ]
 
     __native_pagination_support = True
     __native_sorting_support = True
