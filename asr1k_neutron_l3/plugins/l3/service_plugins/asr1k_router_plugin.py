@@ -18,6 +18,7 @@ from neutron_lib.agent import topics
 from neutron_lib.api.definitions import extraroute
 from neutron_lib.api.definitions import extraroute_atomic
 from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import l3_port_ip_change_not_allowed
 from neutron_lib.api.definitions import router_availability_zone
 from neutron_lib import constants as n_const
 from neutron_lib.plugins import constants as plugin_constants
@@ -44,6 +45,7 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePlugin
                                    extraroute_atomic.ALIAS,
                                    n_const.L3_AGENT_SCHEDULER_EXT_ALIAS,
                                    router_availability_zone.ALIAS,
+                                   l3_port_ip_change_not_allowed.ALIAS,
                                    asr1k_ext.ASR1K_DEVICES_ALIAS,
                                    ]
 
