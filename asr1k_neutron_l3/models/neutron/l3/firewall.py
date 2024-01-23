@@ -241,6 +241,10 @@ class FirewallVrfPolicer(base.Base):
         return utils.uuid_to_vrf_id(self.router_id)
 
     @property
+    def id(self) -> str:
+        return self.vrf
+
+    @property
     def _rest_definition(self) -> ncParameterMapInspectGlobalVrf:
         return ncParameterMapInspectGlobalVrf(vrf=self.vrf, parameter_map=self.parameter_map)
 

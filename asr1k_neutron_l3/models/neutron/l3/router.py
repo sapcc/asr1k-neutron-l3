@@ -566,6 +566,15 @@ class Router(Base):
             if not d.valid:
                 diff_results[obj.id] = d.to_dict()
 
+        if not self.fwaas_external_policies['ingress'] and not self.fwaas_external_policies['egress']:
+            for obj in [firewall.DanglingZonePairExtIngress(self.router_id),
+                        firewall.DanglingZonePairExtEgress(self.router_id),
+                        firewall.DanglingFirewallVrfPolicer(self.router_id),
+                        firewall.DanglingZone(self.router_id)]:
+                d = obj.diff(should_be_none=True)
+                if not d.valid:
+                    diff_results[obj.id] = d.to_dict()
+
         return diff_results
 
     def init_config(self):
