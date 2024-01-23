@@ -107,6 +107,12 @@ class ClassMap(FirewallPolicyObject):
                         type='inspect', prematch='match-all')
 
 
+class DanglingClassMap(ClassMap):
+
+    def update(self):
+        return self.delete()
+
+
 class ServicePolicy(FirewallPolicyObject):
     PREFIX = "SP-FWAAS-"
 
@@ -118,6 +124,12 @@ class ServicePolicy(FirewallPolicyObject):
             ncServicePolicyClass(id='class-default', policy_action='drop', log=True)
         ]
         return ncServicePolicy(id=self.id, type='inspect', classes=classes)
+
+
+class DanglingServicePolicy(ServicePolicy):
+
+    def update(self):
+        return self.delete()
 
 
 class FirewallZoneObject(base.Base):
@@ -152,6 +164,12 @@ class Zone(FirewallZoneObject):
         return ncZone(id=self.id)
 
 
+class DanglingZone(Zone):
+
+    def update(self):
+        return self.delete()
+
+
 class ZonePair(FirewallZoneObject):
 
     PREFIX = 'ZP-FWAAS-'
@@ -177,20 +195,40 @@ class ZonePairExtEgress(ZonePair):
 
     PREFIX = ZonePair.PREFIX + 'EXT-EGRESS-'
 
-    def __init__(self, router_id: str, policy_id: Optional[str]):
+    def __init__(self, router_id: str, policy_id: Optional[str] = None):
         self.source = 'default'
         self.destination = Zone.get_id_by_router_id(router_id)
         super().__init__(router_id, self.source, self.destination, policy_id)
+
+
+class DanglingZonePairExtEgress(ZonePairExtEgress):
+
+    def __init__(self, router_id: str):
+        super().__init__(router_id)
+        self.service_policy = None
+
+    def update(self):
+        return self.delete()
 
 
 class ZonePairExtIngress(ZonePair):
 
     PREFIX = ZonePair.PREFIX + 'EXT-INGRESS-'
 
-    def __init__(self, router_id: str, policy_id: Optional[str]):
+    def __init__(self, router_id: str, policy_id: Optional[str] = None):
         self.source = Zone.get_id_by_router_id(router_id)
         self.destination = 'default'
         super().__init__(router_id, self.source, self.destination, policy_id)
+
+
+class DanglingZonePairExtIngress(ZonePairExtIngress):
+
+    def __init__(self, router_id: str):
+        super().__init__(router_id)
+        self.service_policy = None
+
+    def update(self):
+        return self.delete()
 
 
 class FirewallVrfPolicer(base.Base):
@@ -210,3 +248,12 @@ class FirewallVrfPolicer(base.Base):
     @property
     def _rest_definition(self) -> ncParameterMapInspectGlobalVrf:
         return ncParameterMapInspectGlobalVrf(vrf=self.vrf, parameter_map=self.parameter_map)
+
+
+class DanglingFirewallVrfPolicer(FirewallVrfPolicer):
+
+    def __init__(self, router_id: str, parameter_map=None) -> None:
+        super().__init__(router_id, parameter_map)
+
+    def update(self):
+        return self.delete()
