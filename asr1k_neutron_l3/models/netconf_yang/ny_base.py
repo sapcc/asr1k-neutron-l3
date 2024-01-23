@@ -826,7 +826,7 @@ class NyBase(BulkOperations):
 
     @execute_on_pair(result_type=DiffResult)
     def _validate(self, context, should_be_none=False):
-        return self._internal_validate(context=context, should_be_none=False)
+        return self._internal_validate(context=context, should_be_none=should_be_none)
 
     def diff(self, should_be_none=False):
         result = self._validate(should_be_none=should_be_none)
