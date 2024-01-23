@@ -416,6 +416,13 @@ class Router(Base):
         for obj in self.fwaas_conf:
             results.append(obj.update())
 
+        # If there are no external policies, we can create dangling objects which will trigger the deletion
+        if not self.fwaas_external_policies['ingress'] and not self.fwaas_external_policies['egress']:
+            results.append(firewall.DanglingZonePairExtIngress(self.router_id).update())
+            results.append(firewall.DanglingZonePairExtEgress(self.router_id).update())
+            results.append(firewall.DanglingFirewallVrfPolicer(self.router_id).update())
+            results.append(firewall.DanglingZone(self.router_id).update())
+
         if self.pbr_acl:
             results.append(self.pbr_acl.update())
         # Working assumption is that any NAT mode migration is completed

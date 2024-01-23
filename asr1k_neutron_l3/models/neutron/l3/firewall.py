@@ -14,7 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from typing import List
+from typing import List, Optional
 
 from oslo_log import log as logging
 
@@ -119,6 +119,12 @@ class ServicePolicy(FirewallPolicyObject):
         return ncServicePolicy(id=self.id, type='inspect', classes=classes)
 
 
+class DanglingServicePolicy(ServicePolicy):
+
+    def update(self):
+        return self.delete()
+
+
 class FirewallZoneObject(base.Base):
 
     PREFIX = None
@@ -131,7 +137,10 @@ class FirewallZoneObject(base.Base):
 
     @classmethod
     def get_id_by_vrf(cls, vrf: str) -> str:
-        return cls.get_id_by_router_id(utils.vrf_id_to_uuid(vrf))
+        rid = utils.vrf_id_to_uuid(vrf)
+        if not rid:
+            raise ValueError(f"VRF {vrf} could not be converted to router id.")
+        return cls.get_id_by_router_id(rid)
 
     def __init__(self, router_id: str):
         self.router_id = router_id
@@ -148,12 +157,18 @@ class Zone(FirewallZoneObject):
         return ncZone(id=self.id)
 
 
+class DanglingZone(Zone):
+
+    def update(self):
+        return self.delete()
+
+
 class ZonePair(FirewallZoneObject):
 
     PREFIX = 'ZP-FWAAS-'
     DEFAULT_ALLOW_INSPECT_POLICY = ServicePolicy.PREFIX + "ALLOW-INSPECT"
 
-    def __init__(self, router_id: str, source: str, destination: str, policy_id: str):
+    def __init__(self, router_id: str, source: str, destination: str, policy_id: Optional[str]):
         super().__init__(router_id)
         self.source = source
         self.destination = destination
@@ -175,20 +190,40 @@ class ZonePairExtEgress(ZonePair):
 
     PREFIX = ZonePair.PREFIX + 'EXT-EGRESS-'
 
-    def __init__(self, router_id: str, policy_id: str):
+    def __init__(self, router_id: str, policy_id: Optional[str] = None):
         self.source = 'default'
         self.destination = Zone.get_id_by_router_id(router_id)
         super().__init__(router_id, self.source, self.destination, policy_id)
+
+
+class DanglingZonePairExtEgress(ZonePairExtEgress):
+
+    def __init__(self, router_id: str):
+        super().__init__(router_id)
+        self.policy_id = None
+
+    def update(self):
+        return self.delete()
 
 
 class ZonePairExtIngress(ZonePair):
 
     PREFIX = ZonePair.PREFIX + 'EXT-INGRESS-'
 
-    def __init__(self, router_id: str, policy_id: str):
+    def __init__(self, router_id: str, policy_id: Optional[str] = None):
         self.source = Zone.get_id_by_router_id(router_id)
         self.destination = 'default'
         super().__init__(router_id, self.source, self.destination, policy_id)
+
+
+class DanglingZonePairExtIngress(ZonePairExtIngress):
+
+    def __init__(self, router_id: str):
+        super().__init__(router_id)
+        self.policy_id = None
+
+    def update(self):
+        return self.delete()
 
 
 class FirewallVrfPolicer(base.Base):
@@ -208,3 +243,12 @@ class FirewallVrfPolicer(base.Base):
     @property
     def _rest_definition(self) -> ncParameterMapInspectGlobalVrf:
         return ncParameterMapInspectGlobalVrf(vrf=self.vrf, parameter_map=self.parameter_map)
+
+
+class DanglingFirewallVrfPolicer(FirewallVrfPolicer):
+
+    def __init__(self, router_id: str, parameter_map=None) -> None:
+        super().__init__(router_id, parameter_map)
+
+    def update(self):
+        return self.delete()
