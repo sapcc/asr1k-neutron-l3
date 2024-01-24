@@ -229,6 +229,12 @@ class L3PluginApi(object):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_deleted_router_atts', host=self.host)
 
+    @instrument()
+    def get_routers_with_policy(self, context, policy_id=None, only_external=False):
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_routers_with_policy', host=self.host, policy_id=policy_id,
+                          only_external=only_external)
+
     def delete_router_atts(self, context, router_ids):
         """Delete extra atts for unused l3 ports"""
         cctxt = self.client.prepare(version='1.7')

@@ -62,6 +62,11 @@ class Zone(NyBase):
         if self.id is not None and self.id.startswith(fw.Zone.PREFIX):
             return utils.vrf_id_to_uuid(self.id.lstrip(fw.Zone.PREFIX))
 
+    def is_orphan(self, all_fwaas_router_ids, *args, **kwargs):
+        if self.neutron_router_id:
+            return self.neutron_router_id not in all_fwaas_router_ids
+        return False
+
     def to_dict(self, context):
         content = OrderedDict()
         content[xml_utils.NS] = xml_utils.NS_CISCO_ZONE

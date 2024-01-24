@@ -108,7 +108,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             .distinct()
         return query.all()
 
-    def get_routers_with_policy(self, context, host=None, policy_id=None):
+    def get_routers_with_policy(self, context, host=None, policy_id=None, only_external=False):
         query = context.session.query(agent_model.Agent.host, models_v2.Port.device_id) \
             .join(l3agent_models.RouterL3AgentBinding,
                  l3agent_models.RouterL3AgentBinding.l3_agent_id == agent_model.Agent.id) \
@@ -127,6 +127,8 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             query = query.filter(or_(
                         fwaas.FirewallGroup.egress_firewall_policy_id is not None,
                         fwaas.FirewallGroup.ingress_firewall_policy_id is not None))
+        if only_external:
+            query = query.filter(models_v2.Port.device_owner == n_constants.DEVICE_OWNER_ROUTER_GW)
         return query.distinct().all()
 
     def get_bgpvpns_by_router_id(self, context, router_id, filters=None, fields=None):
