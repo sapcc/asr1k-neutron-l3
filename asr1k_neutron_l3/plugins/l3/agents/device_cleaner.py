@@ -28,10 +28,13 @@ from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain, Loop
     LoopbackExternalInterface, ExternalInterface
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat, NatPool, InterfaceDynamicNat, PoolDynamicNat
+from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
 from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
 from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
 from asr1k_neutron_l3.models.netconf_yang.route_map import RouteMap
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
+from asr1k_neutron_l3.models.netconf_yang.zone import Zone
+from asr1k_neutron_l3.models.netconf_yang.zone_pair import ZonePair
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 LOG = logging.getLogger(__name__)
@@ -53,7 +56,9 @@ class DeviceCleanerMixin(object):
         BridgeDomain, LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface,
         StaticNat, PoolDynamicNat, InterfaceDynamicNat, NatPool,
         VBInterface,
-        RouteMap, Prefix, AccessList, VrfArpList, VrfRoute, VrfDefinition
+        RouteMap, Prefix, AccessList, VrfArpList, VrfRoute,
+        ZonePair, Zone, ParameterMapInspectGlobalVrf,
+        VrfDefinition
     ]
 
     def _get_all_router_ids(self):
@@ -118,6 +123,11 @@ class DeviceCleanerMixin(object):
                     all_bd_ids.add(utils.to_bridge_domain(attrs['second_dot1q']))
             LOG.debug("Cleaner fetched all extra atts")
 
+            all_routers_with_external_policies = [
+                x[1] for x in self.plugin_rpc.get_routers_with_policy(self.context, only_external=True)]
+            LOG.debug("Cleaner fetched all routers with external policy attached, found %s routers",
+                      len(all_routers_with_external_policies))
+
             # 3. figure out orphans and delete them
             item_count = 0
             orphan_count = 0
@@ -127,7 +137,9 @@ class DeviceCleanerMixin(object):
                     for stub in stubs:
                         item_count += 1
                         if stub.is_orphan(all_router_ids=all_router_ids, all_segmentation_ids=all_segmentation_ids,
-                                          all_bd_ids=all_bd_ids, context=context):
+                                          all_bd_ids=all_bd_ids,
+                                          all_routers_with_external_policies=all_routers_with_external_policies,
+                                          context=context):
                             orphan_count += 1
                             LOG.debug("%s %s on %s for router %s can be cleaned",
                                       entity_cls.__name__, stub.id, context.name, stub.neutron_router_id)

@@ -74,6 +74,11 @@ class ZonePair(NyBase):
                 if self.id.startswith(prefix):
                     return utils.vrf_id_to_uuid(self.id[len(prefix):])
 
+    def is_orphan(self, all_routers_with_external_policies, *args, **kwargs):
+        if self.neutron_router_id:
+            return self.neutron_router_id not in all_routers_with_external_policies
+        return False
+
     def to_dict(self, context):
         _C = ZonePairConstants
         content = OrderedDict()

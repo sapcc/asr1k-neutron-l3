@@ -490,6 +490,11 @@ class Router(Base):
         for interface in self.interfaces.all_interfaces:
             results.append(interface.delete())
 
+        results.append(firewall.DanglingZonePairExtIngress(self.router_id).delete())
+        results.append(firewall.DanglingZonePairExtEgress(self.router_id).delete())
+        results.append(firewall.DanglingFirewallVrfPolicer(self.router_id).delete())
+        results.append(firewall.DanglingZone(self.router_id).delete())
+
         results.append(self.vrf.delete())
 
         # We do not delete fwaas acls here as the acl could

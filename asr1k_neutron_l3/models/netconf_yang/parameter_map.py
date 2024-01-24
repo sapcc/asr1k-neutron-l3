@@ -33,7 +33,7 @@ class ParameterMapConstants():
 
 class ParameterMapInspectGlobalVrf(NyBase):
     ID_FILTER = """
-                <native>
+                <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
                     <parameter-map>
                         <type>
                             <inspect-global xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-policy">
@@ -49,7 +49,7 @@ class ParameterMapInspectGlobalVrf(NyBase):
                 """
 
     GET_ALL_STUB = """
-                <native>
+                <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
                     <parameter-map>
                         <type>
                             <inspect-global xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-policy">
@@ -105,9 +105,10 @@ class ParameterMapInspectGlobalVrf(NyBase):
     def neutron_router_id(self):
         return utils.vrf_id_to_uuid(self.id)
 
-    def is_orphan(self, all_router_ids, all_routers_with_external_policies, *args, **kwargs):
-        if self.neutron_router_id in all_routers_with_external_policies:
-            return False
+    def is_orphan(self, all_routers_with_external_policies, *args, **kwargs):
+        if self.neutron_router_id:
+            return self.neutron_router_id not in all_routers_with_external_policies
+        return False
 
     def to_dict(self, context) -> dict:
         _C = ParameterMapConstants
