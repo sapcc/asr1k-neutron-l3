@@ -324,11 +324,11 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             if gw_port:
                 all_ports.append(gw_port["id"])
 
-            router["fwaas_policies"] = self._get_fwaas_policies(context, all_ports)
+            router["fwaas_policies"] = self.get_fwaas_policies(context, all_ports)
 
         return routers
 
-    def _get_fwaas_policies(self, context, port_ids):
+    def get_fwaas_policies(self, context, port_ids):
         policies = {}
         fwgs = {}
         with db_api.CONTEXT_READER.using(context):
