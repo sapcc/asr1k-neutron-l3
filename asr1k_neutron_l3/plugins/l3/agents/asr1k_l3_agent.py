@@ -360,6 +360,17 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         else:
             self.periodic_refresh_address_scope_config(self.context)
 
+            self.device_check_loop = loopingcall.FixedIntervalLoopingCall(self._check_devices_alive, self.context)
+            self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval / 2, stop_on_exception=False)
+
+            # wait for connections to come alive
+            LOG.info("Waiting for connections to come alive")
+            for context in self.asr1k_pair.contexts:
+                if not context.wait_alive():
+                    LOG.error("Connection to %s not alive, still continuing startup", context.host)
+                else:
+                    LOG.debug("Connection to %s alive", context.host)
+
             if cfg.CONF.asr1k_l3.sync_active and cfg.CONF.asr1k_l3.sync_interval > 0:
                 self.sync_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_sync_routers_task)
                 self.sync_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval, stop_on_exception=False)
@@ -370,9 +381,6 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                 if cfg.CONF.asr1k_l3.enable_arp_cleaning:
                     self.arp_clean_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_arp_clean)
                     self.arp_clean_loop.start(interval=cfg.CONF.asr1k_l3.arp_cleaning_interval, stop_on_exception=False)
-
-            self.device_check_loop = loopingcall.FixedIntervalLoopingCall(self._check_devices_alive, self.context)
-            self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval / 2, stop_on_exception=False)
 
             if cfg.CONF.asr1k.clean_orphans:
                 LOG.info("Orphan clean is active, starting cleaning loop")
