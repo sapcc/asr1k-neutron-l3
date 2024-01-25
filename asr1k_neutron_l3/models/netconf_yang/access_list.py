@@ -118,6 +118,14 @@ class AccessList(NyBase):
         if self.name is not None and (self.name.startswith('NAT-') or self.name.startswith('PBR-')):
             return utils.vrf_id_to_uuid(self.name[4:])
 
+    @property
+    def policy_id(self):
+        prefix = 'ACL-FWAAS-'
+        if self.name is not None and self.name.startswith('ACL-FWAAS-'):
+            uuid = self.name.lstrip(prefix)
+            if utils.is_valid_uuid(uuid):
+                return uuid
+
     def add_rule(self, rule):
         self.rules.append(rule)
 
@@ -151,6 +159,14 @@ class AccessList(NyBase):
         return super(AccessList, self)._update(context=context)
 
     def is_orphan(self, context, *args, **kwargs):
+        if "all_fwaas_policies" in kwargs:
+            if self.policy_id:
+                return self.policy_id not in kwargs["all_fwaas_policies"]
+
+        # Back out if we were called from the clean_fwaas loop
+        if "all_router_ids" not in kwargs:
+            return False
+
         return context.version_min_17_3 and \
             (self.drop_on_17_3 or self.name.startswith("PBR-") and self.neutron_router_id is not None) or \
             super(AccessList, self).is_orphan(*args, **kwargs)

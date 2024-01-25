@@ -16,6 +16,8 @@
 
 from collections import OrderedDict
 
+from asr1k_neutron_l3.common import utils
+import asr1k_neutron_l3.models.neutron.l3.firewall as fw
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase
 
@@ -64,6 +66,18 @@ class ClassMap(NyBase):
             {'key': 'prematch'},
             {'key': 'acl_id', 'yang-key': 'name', 'yang-path': 'match/access-group'}
         ]
+
+    @property
+    def policy_id(self):
+        if self.id.startswith(fw.ClassMap.PREFIX):
+            uuid = self.id.lstrip(fw.ClassMap.PREFIX)
+            if utils.is_valid_uuid(uuid):
+                return uuid
+
+    def is_orphan(self, all_fwaas_external_policies, *args, **kwargs):
+        if self.policy_id:
+            return self.policy_id not in all_fwaas_external_policies
+        return False
 
     @classmethod
     def remove_wrapper(cls, content, context):

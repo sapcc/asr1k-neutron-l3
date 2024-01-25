@@ -27,6 +27,8 @@ from asr1k_neutron_l3.common import config as asr1k_config
 
 LOG = logging.getLogger(__name__)
 
+UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+
 
 def calculate_deleted_ports(router):
     extra_atts = router.get(constants.ASR1K_EXTRA_ATTS_KEY)
@@ -64,6 +66,10 @@ def vrf_id_to_uuid(id):
 
 def vrf_to_access_list_id(vrf_id):
     return "NAT-{}".format(vrf_id)
+
+
+def is_valid_uuid(uuid: str):
+    return bool(UUID_RE.match(uuid))
 
 
 def uuid_to_mapping_id(uuid):

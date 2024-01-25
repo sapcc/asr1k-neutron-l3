@@ -108,6 +108,21 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             .distinct()
         return query.all()
 
+    def get_policies_on_agent(self, context, host, only_external=False):
+        query = context.session.query(fwaas.FirewallPolicy.id) \
+            .join(fwaas.FirewallGroup, or_(fwaas.FirewallGroup.egress_firewall_policy_id == fwaas.FirewallPolicy.id,
+                                           fwaas.FirewallGroup.ingress_firewall_policy_id == fwaas.FirewallPolicy.id)) \
+            .join(fwaas.FirewallGroupPortAssociation, fwaas.FirewallGroupPortAssociation.firewall_group_id == fwaas.FirewallGroup.id) \
+            .join(models_v2.Port, models_v2.Port.id == fwaas.FirewallGroupPortAssociation.port_id) \
+            .join(l3agent_models.RouterL3AgentBinding,
+                  l3agent_models.RouterL3AgentBinding.router_id == models_v2.Port.device_id) \
+            .join(agent_model.Agent, agent_model.Agent.id == l3agent_models.RouterL3AgentBinding.l3_agent_id) \
+            .filter(agent_model.Agent.host == host) \
+            .filter(fwaas.FirewallGroup.admin_state_up == True)
+        if only_external:
+            query = query.filter(models_v2.Port.device_owner == n_constants.DEVICE_OWNER_ROUTER_GW)
+        return [x[0] for x in query.distinct().all()]
+
     def get_routers_with_policy(self, context, host=None, policy_id=None, only_external=False):
         query = context.session.query(agent_model.Agent.host, models_v2.Port.device_id) \
             .join(l3agent_models.RouterL3AgentBinding,
