@@ -18,6 +18,7 @@ from collections import OrderedDict
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import YANG_TYPE, execute_on_pair, NyBase
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
+from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common import utils
 
 
@@ -118,6 +119,15 @@ class AccessList(NyBase):
         if self.name is not None and (self.name.startswith('NAT-') or self.name.startswith('PBR-')):
             return utils.vrf_id_to_uuid(self.name[4:])
 
+    @property
+    def policy_id(self):
+        prefix = asr1k_constants.FWAAS_ACL_PREFIX
+        if self.name and self.name.startswith(prefix):
+            uuid = self.name[len(prefix):]
+            if utils.is_valid_uuid(uuid):
+                return uuid
+        return None
+
     def add_rule(self, rule):
         self.rules.append(rule)
 
@@ -150,7 +160,16 @@ class AccessList(NyBase):
 
         return super(AccessList, self)._update(context=context)
 
+    def is_orphan_fwaas(self, all_fwaas_policies, *args, **kwargs):
+        if self.policy_id:
+            return self.policy_id not in all_fwaas_policies
+        return False
+
     def is_orphan(self, context, *args, **kwargs):
+        # Back out if we were called from the router cleanup loop and we are a FWAAS-ACL
+        if self.policy_id:
+            return False
+
         return context.version_min_17_3 and \
             (self.drop_on_17_3 or self.name.startswith("PBR-") and self.neutron_router_id is not None) or \
             super(AccessList, self).is_orphan(*args, context=context, **kwargs)

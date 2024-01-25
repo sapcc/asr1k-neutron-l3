@@ -89,6 +89,9 @@ ASR1K_L3_OPTS = [
                help="Set ARP timeout for the external interface of a router. Disabled by default"),
     cfg.BoolOpt('enable_arp_cleaning', default=True, help="Run ARP cleaning sync to remove stale macs of floating ips"),
     cfg.IntOpt('arp_cleaning_interval', default=120, help="Interval for ARP cleaning"),
+    cfg.BoolOpt('enable_fwaas_cleaning', default=True, help="Run FWaaS cleaning sync to remove stale FWaaS ACLs, "
+                                                            "Class Maps and Service Policies"),
+    cfg.IntOpt('fwaas_cleaning_interval', default=300, help="Interval for FWaaS cleaning"),
 ]
 
 ASR1K_L2_OPTS = [

@@ -16,10 +16,10 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang import xml_utils
+from asr1k_neutron_l3.common import utils
+import asr1k_neutron_l3.models.neutron.l3.firewall as fw
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, YANG_TYPE, NC_OPERATION
-
-
+from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 
 class ServicePolicyConstants():
@@ -62,6 +62,18 @@ class ServicePolicy(NyBase):
             {'key': 'classes', 'yang-key': 'class', 'type': [ServicePolicyClass]}
         ]
 
+    @property
+    def policy_id(self):
+        if self.id.startswith(fw.ServicePolicy.PREFIX):
+            uuid = self.id.lstrip(fw.ServicePolicy.PREFIX)
+            if utils.is_valid_uuid(uuid):
+                return uuid
+
+    def is_orphan_fwaas(self, all_fwaas_external_policies, *args, **kwargs):
+        if self.policy_id:
+            return self.policy_id not in all_fwaas_external_policies
+        return False
+
     @classmethod
     def remove_wrapper(cls, content, context):
         content = cls._remove_base_wrapper(content, context)
@@ -86,6 +98,15 @@ class ServicePolicy(NyBase):
             for class_ in self.classes:
                 content[_C.CLASS].append(class_.to_dict(context))
 
+        return {self.ITEM_KEY: content}
+
+    def to_delete_dict(self, context):
+        _C = ServicePolicyConstants
+        content = OrderedDict()
+
+        content[xml_utils.NS] = xml_utils.NS_CISCO_POLICY
+        content[_C.NAME] = self.id
+        content[_C.TYPE] = self.type
         return {self.ITEM_KEY: content}
 
 

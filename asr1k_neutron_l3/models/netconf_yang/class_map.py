@@ -14,6 +14,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
+import asr1k_neutron_l3.models.neutron.l3.firewall as fw
+
+from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
@@ -62,6 +66,16 @@ class ClassMap(NyBase):
             {'key': 'prematch'},
             {'key': 'acl_id', 'yang-key': 'name', 'yang-path': 'match/access-group'}
         ]
+
+    @property
+    def policy_id(self):
+        if self.id.startswith(fw.ClassMap.PREFIX):
+            uuid = self.id.lstrip(fw.ClassMap.PREFIX)
+            if utils.is_valid_uuid(uuid):
+                return uuid
+
+    def is_orphan_fwaas(self, all_fwaas_external_policies, *args, **kwargs):
+        return self.policy_id and self.policy_id not in all_fwaas_external_policies
 
     @classmethod
     def remove_wrapper(cls, content, context):
