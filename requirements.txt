@@ -12,4 +12,4 @@ retrying >=1.3.3
 prometheus_client>=0.0.19
 bs4>=0.0.1
 ncclient
-git+https://github.com/sapcc/networking-bgpvpn@stable/yoga-m3#egg=networking-bgpvpn
+git+https://github.com/sapcc/networking-bgpvpn@stable/bobcat-m3#egg=networking-bgpvpn
