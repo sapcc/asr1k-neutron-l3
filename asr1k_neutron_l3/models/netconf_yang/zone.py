@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 
-import asr1k_neutron_l3.models.neutron.l3.firewall as fw
+from asr1k_neutron_l3.common.asr1k_constants import FWAAS_ZONE_PREFIX
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
@@ -59,8 +59,8 @@ class Zone(NyBase):
 
     @property
     def neutron_router_id(self):
-        if self.id is not None and self.id.startswith(fw.Zone.PREFIX):
-            return utils.vrf_id_to_uuid(self.id.lstrip(fw.Zone.PREFIX))
+        if self.id is not None and self.id.startswith(FWAAS_ZONE_PREFIX):
+            return utils.vrf_id_to_uuid(self.id.lstrip(FWAAS_ZONE_PREFIX))
 
     def is_orphan(self, all_fwaas_router_ids, *args, **kwargs):
         if self.neutron_router_id:
