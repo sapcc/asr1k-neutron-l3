@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 
-import asr1k_neutron_l3.models.neutron.l3.firewall as fw
+from asr1k_neutron_l3.common.asr1k_constants import FWAAS_ZONE_PREFIX
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang import xml_utils

@@ -19,6 +19,7 @@ from typing import List, Optional
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.common import utils
+from asr1k_neutron_l3.common import asr1k_constants as const
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.neutron.l3 import access_list
 from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap as ncClassMap
@@ -50,7 +51,7 @@ class FirewallPolicyObject(base.Base):
 
 class AccessList(access_list.AccessList, FirewallPolicyObject):
 
-    PREFIX = "ACL-FWAAS-"
+    PREFIX = const.FWAAS_ACL_PREFIX
     ACTIONS = {
                 'allow': 'permit',
                 'deny': 'deny',
@@ -98,7 +99,7 @@ class AccessList(access_list.AccessList, FirewallPolicyObject):
 
 
 class ClassMap(FirewallPolicyObject):
-    PREFIX = "CM-FWAAS-"
+    PREFIX = const.FWAAS_CLASS_MAP_PREFIX
 
     @property
     def _rest_definition(self):
@@ -107,7 +108,7 @@ class ClassMap(FirewallPolicyObject):
 
 
 class ServicePolicy(FirewallPolicyObject):
-    PREFIX = "SP-FWAAS-"
+    PREFIX = const.FWAAS_SERVICE_POLICY_PREFIX
 
     @property
     def _rest_definition(self):
@@ -150,7 +151,7 @@ class FirewallZoneObject(base.Base):
 
 class Zone(FirewallZoneObject):
 
-    PREFIX = 'ZN-FWAAS-'
+    PREFIX = const.FWAAS_ZONE_PREFIX
 
     @property
     def _rest_definition(self):
@@ -165,8 +166,8 @@ class DanglingZone(Zone):
 
 class ZonePair(FirewallZoneObject):
 
-    PREFIX = 'ZP-FWAAS-'
-    DEFAULT_ALLOW_INSPECT_POLICY = ServicePolicy.PREFIX + "ALLOW-INSPECT"
+    PREFIX = const.FWAAS_ZONE_PAIR_PREFIX
+    DEFAULT_ALLOW_INSPECT_POLICY = const.FWAAS_DEFAULT_ALLOW_INSPECT_POLICY
 
     def __init__(self, router_id: str, source: str, destination: str, policy_id: Optional[str]):
         super().__init__(router_id)
@@ -188,7 +189,7 @@ class ZonePair(FirewallZoneObject):
 
 class ZonePairExtEgress(ZonePair):
 
-    PREFIX = ZonePair.PREFIX + 'EXT-EGRESS-'
+    PREFIX = const.FWAAS_ZONE_PAIR_EXT_EGRESS_PREFIX
 
     def __init__(self, router_id: str, policy_id: Optional[str] = None):
         self.source = 'default'
@@ -208,7 +209,7 @@ class DanglingZonePairExtEgress(ZonePairExtEgress):
 
 class ZonePairExtIngress(ZonePair):
 
-    PREFIX = ZonePair.PREFIX + 'EXT-INGRESS-'
+    PREFIX = const.FWAAS_ZONE_PAIR_EXT_INGRESS_PREFIX
 
     def __init__(self, router_id: str, policy_id: Optional[str] = None):
         self.source = Zone.get_id_by_router_id(router_id)
@@ -228,7 +229,7 @@ class DanglingZonePairExtIngress(ZonePairExtIngress):
 
 class FirewallVrfPolicer(base.Base):
 
-    DEFAULT_PARAMETER_MAP = "PAM-FWAAS-POLICE-VRF"
+    DEFAULT_PARAMETER_MAP = const.FWAAS_DEFAULT_PARAMETER_MAP
 
     def __init__(self, router_id: str, parameter_map=None) -> None:
         if parameter_map is None:

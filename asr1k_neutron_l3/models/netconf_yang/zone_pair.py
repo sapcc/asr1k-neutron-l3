@@ -16,7 +16,8 @@
 
 from collections import OrderedDict
 
-import asr1k_neutron_l3.models.neutron.l3.firewall as fw
+from asr1k_neutron_l3.common.asr1k_constants import \
+    FWAAS_ZONE_PAIR_EXT_INGRESS_PREFIX, FWAAS_ZONE_PAIR_EXT_EGRESS_PREFIX
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
@@ -70,7 +71,7 @@ class ZonePair(NyBase):
     @property
     def neutron_router_id(self):
         if self.id is not None:
-            for prefix in (fw.ZonePairExtEgress.PREFIX, fw.ZonePairExtIngress.PREFIX):
+            for prefix in (FWAAS_ZONE_PAIR_EXT_EGRESS_PREFIX, FWAAS_ZONE_PAIR_EXT_INGRESS_PREFIX):
                 if self.id.startswith(prefix):
                     return utils.vrf_id_to_uuid(self.id[len(prefix):])
 

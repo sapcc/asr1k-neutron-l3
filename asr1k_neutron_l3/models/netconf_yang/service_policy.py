@@ -16,8 +16,8 @@
 
 from collections import OrderedDict
 
+from asr1k_neutron_l3.common.asr1k_constants import FWAAS_SERVICE_POLICY_PREFIX
 from asr1k_neutron_l3.common import utils
-import asr1k_neutron_l3.models.neutron.l3.firewall as fw
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, YANG_TYPE, NC_OPERATION
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
@@ -64,8 +64,8 @@ class ServicePolicy(NyBase):
 
     @property
     def policy_id(self):
-        if self.id.startswith(fw.ServicePolicy.PREFIX):
-            uuid = self.id.lstrip(fw.ServicePolicy.PREFIX)
+        if self.id.startswith(FWAAS_SERVICE_POLICY_PREFIX):
+            uuid = self.id[len(FWAAS_SERVICE_POLICY_PREFIX):]
             if utils.is_valid_uuid(uuid):
                 return uuid
 
