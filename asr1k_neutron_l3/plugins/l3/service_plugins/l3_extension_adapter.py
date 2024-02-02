@@ -342,20 +342,18 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
     def _get_router_atts(self, context, router_ids):
         router_atts = self.db.get_router_atts_for_routers(context, router_ids)
+        return {ra.router_id: ra for ra in router_atts}
 
-        return_dict = {}
 
-        for router_att in router_atts:
-            if return_dict.get(router_att.get('router_id')) is None:
-                return_dict[router_att.get('router_id')] = {}
 
-            return_dict[router_att.get('router_id')] = router_att
-        return return_dict
+    @registry.receives(resources.ROUTER, [events.PRECOMMIT_CREATE])
+    def allocate_router_atts_on_create(self, resource, event, trigger, payload):
+        LOG.debug("Allocating extra atts for router %s", payload.resource_id)
+        self.db.ensure_router_atts(payload.context, payload.resource_id)
 
     @log_helpers.log_method_call
     def create_router(self, context, router):
         result = super(ASR1KPluginBase, self).create_router(context, router)
-        asr1k_db.RouterAttsDb.ensure(context, result.get('id'))
         return result
 
     def ensure_default_route_skip_monitoring(self, context, router_id, router):
@@ -379,7 +377,6 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
     @log_helpers.log_method_call
     def update_router(self, context, id, router):
         result = super(ASR1KPluginBase, self).update_router(context, id, router)
-        asr1k_db.RouterAttsDb.ensure(context, result.get('id'))
         self.ensure_default_route_skip_monitoring(context, id, result)
         return result
 
@@ -405,7 +402,6 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
     @log_helpers.log_method_call
     def add_router_to_l3_agent(self, context, agent_id, router_id):
         result = super(ASR1KPluginBase, self).add_router_to_l3_agent(context, agent_id, router_id)
-        asr1k_db.RouterAttsDb.ensure(context, router_id)
         return result
 
     @log_helpers.log_method_call
@@ -500,7 +496,7 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             raise asr1k_exc.BdVifInBdExhausted(network_id=network_id, router_id=router_id)
 
     def ensure_config(self, context, id):
-        asr1k_db.RouterAttsDb.ensure(context, id)
+        self.db.ensure_router_atts(context, id)
 
         ports = self.db.get_router_ports(context, id)
         for port in ports:
