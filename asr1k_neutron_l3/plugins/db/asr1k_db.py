@@ -582,6 +582,28 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
 
         return {e.floating_ip_address: e.mac_address for e in query}
 
+    def ensure_router_atts(self, context, router_id):
+        with db_api.CONTEXT_WRITER.using(context):
+            # check if record exists
+            entry = self.get_router_att(context, router_id)
+            if entry:
+                return entry
+
+            # create new entry for router
+            rds_used = set([item.rd for item in context.session.query(asr1k_models.ASR1KRouterAttsModel)])
+            rds_available = list(set(range(MIN_RD, MAX_RD)) - rds_used)
+            if len(rds_available) == 0:
+                raise asr1k_exceptions.RdPoolExhausted()
+            rd = random.choice(rds_available)
+            router_atts = asr1k_models.ASR1KRouterAttsModel(
+                router_id=router_id,
+                rd=rd,
+                deleted_at=None,
+            )
+            context.session.add(router_atts)
+
+            return entry
+
 
 class ExtraAttsDb(object):
 
@@ -659,45 +681,6 @@ class ExtraAttsDb(object):
                     deleted_l3=self.deleted_l3
                 )
                 self.session.add(extra_atts)
-
-
-class RouterAttsDb(object):
-    @classmethod
-    def ensure(cls, context, id):
-        RouterAttsDb(context, id)._ensure()
-
-    def __init__(self, context, router_id):
-        self.session = db_api.get_writer_session()
-        self.context = context
-
-        self.router_id = router_id
-        self.rd = 0
-        self.deleted_at = None
-
-    @property
-    def _record_exists(self):
-        entry = self.session.query(asr1k_models.ASR1KRouterAttsModel).filter_by(router_id=self.router_id).first()
-        return entry is not None
-
-    def _set_next_entries(self):
-        rds_used = set([item.rd for item in self.session.query(asr1k_models.ASR1KRouterAttsModel)])
-        rds_available = list(set(range(MIN_RD, MAX_RD)) - rds_used)
-        if len(rds_available) == 0:
-            raise asr1k_exceptions.RdPoolExhausted()
-        self.rd = random.choice(rds_available)
-
-    def _ensure(self):
-        if not self._record_exists:
-            LOG.debug("Router atts not existing, attempting create")
-
-            with self.session.begin(subtransactions=True):
-                self._set_next_entries()
-                router_atts = asr1k_models.ASR1KRouterAttsModel(
-                    router_id=self.router_id,
-                    rd=self.rd,
-                    deleted_at=self.deleted_at
-                )
-                self.session.add(router_atts)
 
 
 class DeviceInfoDb(object):
