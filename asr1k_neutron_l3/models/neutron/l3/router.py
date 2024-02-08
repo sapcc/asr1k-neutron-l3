@@ -88,33 +88,7 @@ class Router(Base):
                            rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
                            rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=global_vrf_id)
 
-        self.fwaas_conf = list()
-        self.fwaas_external_policies = {'ingress': None, 'egress': None}
-        for name, policy in router_info.get('fwaas_policies', {}).items():
-            if self.gateway_interface.id in policy['ingress_ports'] \
-                    or self.gateway_interface.id in policy['egress_ports']:
-                # This policy will be bound on a external interface, so we need to create
-                # class-map and service-policy
-                if self.gateway_interface.id in policy['ingress_ports']:
-                    self.fwaas_external_policies['ingress'] = name
-                if self.gateway_interface.id in policy['egress_ports']:
-                    self.fwaas_external_policies['egress'] = name
-                self.fwaas_conf.append(firewall.ClassMap(name))
-                self.fwaas_conf.append(firewall.ServicePolicy(name))
-            self.fwaas_conf.append(firewall.AccessList(name, policy['rules']))
-
-        if self.fwaas_external_policies['ingress'] or self.fwaas_external_policies['egress']:
-            # As there are external interfaces policies, we create zones and zone-pairs
-            self.fwaas_conf.append(firewall.Zone(self.router_id))
-            self.fwaas_conf.append(
-                firewall.ZonePairExtEgress(self.router_id, self.fwaas_external_policies['egress']))
-            self.fwaas_conf.append(
-                firewall.ZonePairExtIngress(self.router_id, self.fwaas_external_policies['ingress']))
-            # We also want to link the VRF to a policer so we limit VRFs (by boilerplate)
-            self.fwaas_conf.append(firewall.FirewallVrfPolicer(self.router_id))
-            # Mark all interfaces for stateful firewalling
-            for interface in self.interfaces.all_interfaces:
-                interface.has_stateful_firewall = True
+        self.fwaas_conf, self.fwaas_external_policies = self._build_fwaas_conf()
 
         self.nat_acl = self._build_nat_acl()
         self.pbr_acl = self._build_pbr_acl()
@@ -349,6 +323,38 @@ class Router(Base):
                                          internal_interfaces=no_snat_interfaces))
 
         return result
+
+    def _build_fwaas_conf(self):
+        router_info = self.router_info
+
+        fwaas_conf = []
+        fwaas_external_policies = {'ingress': None, 'egress': None}
+        for name, policy in router_info.get('fwaas_policies', {}).items():
+            if self.gateway_interface.id in policy['ingress_ports'] \
+                    or self.gateway_interface.id in policy['egress_ports']:
+                # This policy will be bound on a external interface, so we need to create
+                # class-map and service-policy
+                if self.gateway_interface.id in policy['ingress_ports']:
+                    fwaas_external_policies['ingress'] = name
+                if self.gateway_interface.id in policy['egress_ports']:
+                    fwaas_external_policies['egress'] = name
+                fwaas_conf.append(firewall.ClassMap(name))
+                fwaas_conf.append(firewall.ServicePolicy(name))
+            fwaas_conf.append(firewall.AccessList(name, policy['rules']))
+
+        if fwaas_external_policies['ingress'] or fwaas_external_policies['egress']:
+            # As there are external interfaces policies, we create zones and zone-pairs
+            fwaas_conf.append(firewall.Zone(self.router_id))
+            fwaas_conf.append(
+                firewall.ZonePairExtEgress(self.router_id, fwaas_external_policies['egress']))
+            fwaas_conf.append(
+                firewall.ZonePairExtIngress(self.router_id, fwaas_external_policies['ingress']))
+            # We also want to link the VRF to a policer so we limit VRFs (by boilerplate)
+            fwaas_conf.append(firewall.FirewallVrfPolicer(self.router_id))
+            # Mark all interfaces for stateful firewalling
+            for interface in self.interfaces.all_interfaces:
+                interface.has_stateful_firewall = True
+        return fwaas_conf, fwaas_external_policies
 
     def _primary_route(self):
         if self.gateway_interface is not None and self.gateway_interface.primary_gateway_ip is not None:
