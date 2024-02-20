@@ -44,7 +44,11 @@ class ASR1KRouterAttsModel(model_base.BASEV2):
     router_id = sa.Column(sa.String(length=36), sa.ForeignKey('routers.id', ondelete='CASCADE'), nullable=False,
                           primary_key=True)
     rd = sa.Column(sa.Integer(), nullable=False)
+    # FIXME: write migration
+    nat_ip_count = sa.Column(sa.Integer, nullable=True)
+    ext_nat_pool = sa.Column(sa.String(length=43), nullable=True)
     deleted_at = sa.Column(sa.DateTime)
+    # FIXME: add unique constraint that is already in db?
 
 
 class ASR1KDeviceInfoModel(model_base.BASEV2):

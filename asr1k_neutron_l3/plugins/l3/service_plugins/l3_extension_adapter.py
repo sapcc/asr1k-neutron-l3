@@ -14,6 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from collections import OrderedDict
+import ipaddress
+import json
 import time
 
 from neutron.db import dns_db
@@ -21,6 +23,10 @@ from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db as l3_db
 from neutron.extensions.tagging import TAG_PLUGIN_TYPE
 from neutron_lib.api.definitions import availability_zone as az_def
+from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib import exceptions as nl_exc
+from neutron_lib.plugins import constants as plugin_constants
+from neutron_lib import constants as nl_const
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
@@ -29,6 +35,7 @@ from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log
+from oslo_serialization import jsonutils
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import asr1k_exceptions as asr1k_exc
@@ -145,6 +152,7 @@ class L3RpcNotifierMixin(object):
     @registry.receives(resources.ROUTER_INTERFACE, [events.BEFORE_CREATE])
     @log_helpers.log_method_call
     def _check_internal_net_az_hints(self, resource, event, trigger, payload, **kwargs):
+        # FIXME: why the fuck is that in this class
         router_id = payload.resource_id
         network_id = payload.metadata.get("network_id")
         context = payload.context
@@ -229,6 +237,7 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
     @instrument()
     @log_helpers.log_method_call
     def get_sync_data(self, context, router_ids=None, active=None, host=None):
+        # FIXME: isn't this more like a db function.....
         if host is not None:
             host_router_ids = self.db.get_all_router_ids(context, host)
             router_ids = [r for r in router_ids if r in host_router_ids]
@@ -344,17 +353,223 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         router_atts = self.db.get_router_atts_for_routers(context, router_ids)
         return {ra.router_id: ra for ra in router_atts}
 
+    def _allocate_and_check_ips(self, context, router, nat_ip_count):
+        gw_info = router.get(l3_apidef.EXTERNAL_GW_INFO, nl_const.ATTR_NOT_SPECIFIED)
+        if gw_info == nl_const.ATTR_NOT_SPECIFIED:
+            return
 
+        # FIXME: where do we actually write the info back into the asr1k extra atts
+        LOG.debug("Request for router %s requires %s nat ips", router.get('id', '<no id assigned yet>'), nat_ip_count)
+        # TODO: find out where to find the fixed ips in the gw info
+        # TODO: split into gw ip / nat pool ips
+        # TODO: validate requested ips
+        # TODO: find all missing ips from ipam
+        # TODO: write back into data structure
 
     @registry.receives(resources.ROUTER, [events.PRECOMMIT_CREATE])
     def allocate_router_atts_on_create(self, resource, event, trigger, payload):
         LOG.debug("Allocating extra atts for router %s", payload.resource_id)
         self.db.ensure_router_atts(payload.context, payload.resource_id)
 
+    def _get_nat_ip_count_from_flavor(self, context, flavor_id):
+        dynamic_nat_ips = None
+        flavor_plugin = directory.get_plugin(plugin_constants.FLAVORS)
+
+        # fetch service profile
+        flavor = flavor_plugin.get_flavor(context, flavor_id)
+        for profile_id in flavor['service_profiles']:
+            profile = flavor_plugin.get_service_profile(context, profile_id)
+            try:
+                metainfo = jsonutils.loads(profile['metainfo'])
+            except json.JSONDecodeError as e:
+                LOG.warning("Could not load metainfo: %s - %s", profile['metainfo'], e)
+                continue
+            if meta_nat_ips := metainfo.get('dynamic-nat-ips'):
+                dynamic_nat_ips = meta_nat_ips
+
+        return dynamic_nat_ips
+
+    @registry.receives(resources.ROUTER, [events.PRECOMMIT_CREATE])
+    def handle_flavor_extra_config(self, resource, event, trigger, payload):
+        # only state has flavor_id set properly
+        router = payload.states[0]
+
+        dynamic_nat_ips = None
+        if router.get("flavor_id", nl_const.ATTR_NOT_SPECIFIED) != nl_const.ATTR_NOT_SPECIFIED:
+            # # flavors have service profiles, which have metainfo where we might find json info
+            # flavor_plugin = directory.get_plugin(plugin_constants.FLAVORS)
+            # # fetch service profile
+            # LOG.info("i501315 - flavor test, fetching flavor for %s", router['flavor_id'])
+            # flavor = flavor_plugin.get_flavor(payload.context, router['flavor_id'])
+            # LOG.info("i501315 - flavor %s", flavor)
+            # for profile_id in flavor['service_profiles']:
+            #     LOG.info("i501315 - fetching profile %s...", profile_id)
+            #     profile = flavor_plugin.get_service_profile(payload.context, profile_id)
+            #     try:
+            #         metainfo = jsonutils.loads(profile['metainfo'])
+            #         LOG.info("i501315 - metainfo loaded: %s", metainfo)
+            #     except json.JSONDecodeError as e:
+            #         LOG.info("i501315 - could not load metainfo: %s - %s", profile['metainfo'], e)
+            #         continue
+            #     if meta_nat_ips := metainfo.get('dynamic-nat-ips'):
+            #         dynamic_nat_ips = meta_nat_ips
+
+            if dynamic_nat_ips := self._get_nat_ip_count_from_flavor(payload.context, router['flavor_id']):
+                # verify that the right amount of ips is in the gateway thing
+                LOG.debug("Router %s will have %s dynamic nat pool size %s", router['id'], dynamic_nat_ips)
+                self.db.set_router_dynamic_nat_ip_count(payload.context, router['id'], dynamic_nat_ips)
+                # self._allocate_and_check_ips(context, router['router'], dynamic_nat_ips)
+
     @log_helpers.log_method_call
     def create_router(self, context, router):
+        # dynamic_nat_ips = None
+        # if router['router'].get("flavor_id", nl_const.ATTR_NOT_SPECIFIED) != nl_const.ATTR_NOT_SPECIFIED:
+        #     # flavors have service profiles, which have metainfo where we might find json info
+        #     flavor_plugin = directory.get_plugin(plugin_constants.FLAVORS)
+        #     # fetch service profile
+        #     LOG.info("i501315 - flavor test, fetching flavor for %s", router['router']['flavor_id'])
+        #     flavor = flavor_plugin.get_flavor(context, router['router']['flavor_id'])
+        #     LOG.info("i501315 - flavor %s", flavor)
+        #     for profile_id in flavor['service_profiles']:
+        #         LOG.info("i501315 - fetching profile %s...", profile_id)
+        #         profile = flavor_plugin.get_service_profile(context, profile_id)
+        #         try:
+        #             metainfo = jsonutils.loads(profile['metainfo'])
+        #             LOG.info("i501315 - metainfo loaded: %s", metainfo)
+        #         except json.JSONDecodeError as e:
+        #             LOG.info("i501315 - could not load metainfo: %s - %s", profile['metainfo'], e)
+        #             continue
+        #         if meta_nat_ips := metainfo.get('dynamic-nat-ips'):
+        #             dynamic_nat_ips = meta_nat_ips
+
+        # if dynamic_nat_ips:
+        #     # verify that the right amount of ips is in the gateway thing
+        #     self._allocate_and_check_ips(context, router['router'], dynamic_nat_ips)
+
         result = super(ASR1KPluginBase, self).create_router(context, router)
         return result
+
+    def _create_gw_port(self, context, router_id, router, new_network_id, ext_ips):
+        super()._create_gw_port
+        # FIXME: oder doch _validate_gw_info()
+        pass
+
+    def _update_router_gw_info(self, context, router_id, info,
+                               request_body, router=None):
+        ext_ips = info.get('external_fixed_ips', []) if info else []
+        dynamic_nat_pool = None
+        if len(ext_ips) > 1:
+            # someone is trying to add a gw with a nat pool (multiple ips)
+            if len(ext_ips) == 2:
+                raise ValueError("You need to provide at least two IPs for the pool and one for the router "
+                                 "for dynamic nat pooling to be enabled")
+
+            has_ip_specified = False
+            has_no_ip_specified = False
+            alloc_subnet_id = None
+            for ip_def in ext_ips[:-1]:
+                # check if we have mixed ip/no-ip requests
+                if 'ip_address' in ip_def:
+                    has_ip_specified = True
+                else:
+                    has_no_ip_specified = True
+
+                # check if everything is the same subnet
+                if 'subnet_id' in ip_def:
+                    if alloc_subnet_id is None:
+                        alloc_subnet_id = ip_def['subnet_id']
+                    elif alloc_subnet_id != ip_def['subnet_id']:
+                        raise ValueError("Found two differend subnets in request for dynamic NAT pool, which is not "
+                                         f"allowed. ({alloc_subnet_id} vs {ip_def['subnet_id']}")
+            if has_ip_specified and has_no_ip_specified:
+                raise ValueError("IPs for the NAT pool have only been partially specified. "
+                                 "Either specify all IPs or none")
+
+            if has_no_ip_specified:
+                if not alloc_subnet_id:
+                    raise ValueError("Tried to allocate IPs for dynamic NAT pool but "
+                                     "neither IP nor subnet was provided")
+                ips = self._allocate_ips_for_dynamic_nat_pool(self, context, alloc_subnet_id, len(ext_ips) - 1)
+                if not ips:
+                    # FIXME: this will be one of the most frequent error messages for this feature
+                    #        make sure it's a good one ;)
+                    raise ValueError(f"Could not find {len(ext_ips)} consecutive IP addresses "
+                                     f"in subnet {alloc_subnet_id} - make sure there is enough undivided IP space.")
+
+                for ext_ip, ip in zip(ext_ips, ips):
+                    ext_ip['ip_address'] = ip
+
+        # router = router or self._get_router(context, router_id)
+        result = super()._update_router_gw_info(context, router_id, info, request_body, router)
+        if dynamic_nat_pool is not None:
+            # FIXME: can we somehow put this into a transaction?
+            self.db.set_router_ext_nat_pool(context, router_id, dynamic_nat_pool)
+
+        return result
+
+    def _allocate_ips(self, context, subnet_id, ip_count):
+        # FIXME: only call if NO ip is allocated. mixtures are not allowed
+        from neutron.ipam import driver
+        import netaddr
+
+        ipam_driver = driver.Pool.get_instance(None, context)
+        ipam_subnet = ipam_driver.get_subnet(subnet_id)
+        allocations = ipam_subnet.subnet_manager.list_allocations(context)
+        ip_allocations = netaddr.IPSet([netaddr.IPAddress(allocation.ip_address) for allocation in allocations])
+
+        for ip_pool in self.subnet_manager.list_pools(context):
+            ip_set = netaddr.IPSet()
+            ip_set.add(netaddr.IPRange(ip_pool.first_ip, ip_pool.last_ip))
+            av_set = ip_set.difference(ip_allocations)
+            if av_set.size < ip_count:
+                continue
+
+            # av_set.iter_cidrs() --> netaddr.IPNetwork
+            av_iter = iter(av_set)
+            result = [next(av_iter)]
+            # FIXME: validate that the ip set is always sorted? is that a thing
+            for ip in av_iter:
+                if int(ip) - 1 != int(result[-1]):
+                    # non-consecutive IP
+                    result = [ip]
+                    continue
+                result.append(ip)
+                if len(result) == ip_count:
+                    return [str(ip) for ip in result]
+
+        # FIXME: raise
+        raise ValueError("that is boooooorked")
+
+    def _validate_gw_info(self, context, info, ext_ips, router):
+        network_id = super()._validate_gw_info(context, info, ext_ips, router)
+
+        router_atts = self.db.get_router_att(context, router.id)
+        if router_atts.nat_ip_count:
+            print("Given extips", ext_ips)
+            if len(ext_ips) != router_atts.nat_ip_count + 1:
+                raise nl_exc.NeutronException(message="Can't update external gateway for router, as it has an exended "
+                                                      f"nat pool with {router_atts.nat_ip_count} ips + 1 gateway ip, "
+                                                      f" but only {len(ext_ips)} were provided")
+
+            pool_ips = ext_ips[:-1]
+            ip = ipaddress.ip_address(pool_ips[0])
+            for next_ip in pool_ips[1:]:
+                next_ip = ipaddress.ip_address(next_ip)
+                if int(next_ip) - int(ip) != 1:
+                    raise nl_exc.NeutronException(message=f"Invalid extended nat pool for router: IP {ip} and "
+                                                          "{next_ip} don't follow each other directly")
+        elif len(ext_ips) > 1:
+            # routers without an extended nat pool don't get more than one dynamic nat ip
+            raise nl_exc.NeutronException(message="Router does not have an extended nat pool, but more than one "
+                                                  f"external gateway ip was given ({len(ext_ips)} found)")
+
+        # 3. (after original validate) make sure the ips fulfill our requirements / validate
+        # make sure all given ips are subsequent for nat pool usage
+
+        # if this is a router with multiple external ips, make sure
+        print(context, info, ext_ips, router)
+
+        return network_id
 
     def ensure_default_route_skip_monitoring(self, context, router_id, router):
         tag_plugin = directory.get_plugin(TAG_PLUGIN_TYPE)
@@ -373,6 +588,15 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                     router_tags = router_tags.union(custom_default_route_tags)
 
                 tag_plugin.update_tags(context, 'routers', router_id, dict(tags=router_tags))
+
+    @registry.receives(resources.ROUTER_GATEWAY, [events.BEFORE_UPDATE])
+    def prevent_updating_ext_gw_for_nat_pool_routers(self, resource, event, trigger, payload):
+        # FIXME: do we need to allow this case?
+        router = payload.states[0]
+        router_atts = self.db.get_router_att(payload.context, router.id)
+        if router_atts and router_atts.ext_nat_ips:
+            raise nl_exc.NeutronException(message=f"Router {router.id} has a nat pool with {router_atts.ext_nat_ips} "
+                                                  "ips, changing the external gateway ips is currently not supported")
 
     @log_helpers.log_method_call
     def update_router(self, context, id, router):

@@ -583,6 +583,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return {e.floating_ip_address: e.mac_address for e in query}
 
     def ensure_router_atts(self, context, router_id):
+        # FIXME: should we retry this if the RD is already in use?
         with db_api.CONTEXT_WRITER.using(context):
             # check if record exists
             entry = self.get_router_att(context, router_id)
@@ -603,6 +604,16 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             context.session.add(router_atts)
 
             return entry
+
+    def set_router_dynamic_nat_ip_count(self, context, router_id, nat_ip_count):
+        with db_api.CONTEXT_WRITER.using(context):
+            ra = self.get_router_att(context, router_id)
+            ra.nat_ip_count = nat_ip_count
+
+    def set_router_ext_nat_pool(self, context, router_id, ext_nat_pool):
+        with db_api.CONTEXT_WRITER.using(context):
+            ra = self.get_router_att(context, router_id)
+            ra.ext_nat_pool = ext_nat_pool
 
 
 class ExtraAttsDb(object):
