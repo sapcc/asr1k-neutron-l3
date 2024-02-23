@@ -13,10 +13,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import netaddr
 import os
 
 from oslo_log import log as logging
-from oslo_config import cfg
 
 from asr1k_neutron_l3.common import asr1k_constants as constants, utils
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
@@ -131,7 +131,8 @@ class Router(Base):
         gw_port = self.router_info.get('gw_port')
         if gw_port is not None:
             self.gateway_interface = l3_interface.GatewayInterface(self.router_id, gw_port,
-                                                                   self._port_extra_atts(gw_port))
+                                                                   self._port_extra_atts(gw_port),
+                                                                   self.router_atts.get('dynamic_nat_pool'))
             interfaces.append(self.gateway_interface)
 
         inf_ports = self.router_info.get('_interfaces', [])
@@ -241,7 +242,17 @@ class Router(Base):
         return {constants.SNAT_MODE_POOL: pool_nat, constants.SNAT_MODE_INTERFACE: interface_nat}
 
     def _build_nat_pool(self):
-        return nat.NATPool(self.router_id, gateway_interface=self.gateway_interface)
+        if self.router_atts.get("dynamic_nat_pool"):
+            self.use_nat_pool = True
+
+            # format: startip-endip/poolprefixlen
+            ips, prefix = self.router_atts['dynamic_nat_pool'].split("/")
+            start_ip, end_ip = ips.split("-")
+            pool = nat.NATPool(self.router_id, start_address=start_ip, end_address=end_ip, prefix_length=prefix)
+        else:
+            self.use_nat_pool = False
+            pool = nat.NATPool(self.router_id, start_address=None, end_address=None, prefix_length=None)
+        return pool
 
     def _build_floating_ips(self):
         floating_ips = nat.FloatingIpList(self.router_id)
@@ -253,7 +264,14 @@ class Router(Base):
     def _build_arp_entries(self):
         arp_entries = nat.ArpList(self.router_id)
         for floating_ip in self.router_info.get('_floatingips', []):
-            arp_entries.append(nat.ArpEntry(self.router_id, floating_ip, self.gateway_interface))
+            arp_entries.append(nat.ArpEntry(self.router_id, floating_ip.get("floating_ip_address"),
+                               self.gateway_interface))
+
+        if self.router_atts.get("dynamic_nat_pool"):
+            ips, prefix = self.router_atts['dynamic_nat_pool'].split("/")
+            start_ip, end_ip = ips.split("-")
+            for ip in netaddr.IPSet(netaddr.IPRange(start_ip, end_ip)):
+                arp_entries.append(nat.ArpEntry(self.router_id, str(ip), self.gateway_interface))
 
         return arp_entries
 
@@ -348,13 +366,12 @@ class Router(Base):
 
         results.append(self.routes.update())
 
-        # We don't remove NAT statement or pool if enabling/disabling snat - instead update ACL
         if self.gateway_interface is not None:
-            if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
+            if self.use_nat_pool:
                 results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].delete())
                 results.append(self.nat_pool.update())
                 results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].update())
-            elif cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_INTERFACE:
+            else:
                 results.append(self.dynamic_nat[constants.SNAT_MODE_POOL].delete())
                 results.append(self.nat_pool.delete())
                 results.append(self.dynamic_nat[constants.SNAT_MODE_INTERFACE].update())
@@ -392,8 +409,7 @@ class Router(Base):
 
         for key in self.dynamic_nat.keys():
             results.append(self.dynamic_nat.get(key).delete())
-        if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
-            results.append(self.nat_pool.delete())
+        results.append(self.nat_pool.delete())
 
         results.append(self.pbr_route_map.delete())
         results.append(self.nat_acl.delete())
@@ -439,11 +455,12 @@ class Router(Base):
         if not route_diff.valid:
             diff_results['route'] = route_diff.to_dict()
 
-        dynamic_nat_diff = self.dynamic_nat.get(cfg.CONF.asr1k_l3.snat_mode).diff()
+        snat_mode = constants.SNAT_MODE_POOL if self.use_nat_pool else constants.SNAT_MODE_INTERFACE
+        dynamic_nat_diff = self.dynamic_nat.get(snat_mode).diff()
         if not dynamic_nat_diff.valid:
             diff_results['dynamic_nat'] = dynamic_nat_diff.to_dict()
 
-        if cfg.CONF.asr1k_l3.snat_mode == constants.SNAT_MODE_POOL:
+        if self.use_nat_pool:
             nat_pool_diff = self.nat_pool.diff()
             if not nat_pool_diff.valid:
                 diff_results['nat_pool'] = nat_pool_diff.to_dict()

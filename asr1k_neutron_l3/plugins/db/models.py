@@ -44,6 +44,8 @@ class ASR1KRouterAttsModel(model_base.BASEV2):
     router_id = sa.Column(sa.String(length=36), sa.ForeignKey('routers.id', ondelete='CASCADE'), nullable=False,
                           primary_key=True)
     rd = sa.Column(sa.Integer(), nullable=False)
+    # format is ip-ip/prefixlen, for ipv6 that'd be 39 chars per ip, 3 for cidr --> max length 83
+    dynamic_nat_pool = sa.Column(sa.String(length=83), nullable=True)
     deleted_at = sa.Column(sa.DateTime)
 
 

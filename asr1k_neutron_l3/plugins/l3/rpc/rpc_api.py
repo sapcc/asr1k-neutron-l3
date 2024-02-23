@@ -88,10 +88,6 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         return self.db.get_all_router_ids(context, host=host)
 
     @instrument()
-    def ensure_snat_mode(self, context, port_id=None, mode=None):
-        return self.db.ensure_snat_mode(context, port_id, mode)
-
-    @instrument()
     def get_deleted_router_atts(self, context, **kwargs):
         router_atts = self.db.get_deleted_router_atts(context)
 

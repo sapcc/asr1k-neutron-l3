@@ -13,6 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import netaddr
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -123,7 +124,8 @@ class Interface(base.Base):
 
 class GatewayInterface(Interface):
 
-    def __init__(self, router_id, router_port, extra_atts):
+    def __init__(self, router_id, router_port, extra_atts, dynamic_nat_pool):
+        self.dynamic_nat_pool = dynamic_nat_pool
         super(GatewayInterface, self).__init__(router_id, router_port, extra_atts)
 
         self.nat_address = self._nat_address()
@@ -138,6 +140,27 @@ class GatewayInterface(Interface):
                                             secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
                                             redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS',
                                             ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout)
+
+    def _ip_address(self):
+        if self.dynamic_nat_pool is None or not self.router_port.get('fixed_ips'):
+            return super()._ip_address()
+
+        ips, _ = self.dynamic_nat_pool.split("/")
+        start_ip, end_ip = ips.split("-")
+        ip_pool = netaddr.IPSet(netaddr.IPRange(start_ip, end_ip))
+        for n_fixed_ip in self.router_port['fixed_ips']:
+            if n_fixed_ip['ip_address'] not in ip_pool:
+                break
+        else:
+            LOG.error("VRF %s gateway interface has no IP that is not part of dynamic NAT pool %s, "
+                      "not configuring primary IP",
+                      self.vrf, self.dynamic_nat_pool)
+            return None
+
+        self._primary_subnet_id = n_fixed_ip.get('subnet_id')
+
+        return VBIPrimaryIpAddress(address=n_fixed_ip['ip_address'],
+                                   mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
 
     def _nat_address(self):
         ips = self.router_port.get('fixed_ips')

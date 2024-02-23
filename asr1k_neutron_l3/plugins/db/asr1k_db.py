@@ -112,27 +112,6 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             port_counts.setdefault(agent.host, 0)
         return port_counts
 
-    def ensure_snat_mode(self, context, port_id, mode):
-        if port_id is None:
-            LOG.warning("Asked to ensure SNAT mode for port==None, can't do anything.")
-            return
-        port = self.get_port(context, port_id)
-
-        LOG.debug(port)
-
-        fixed_ips = port.get('fixed_ips', [])
-        update = False
-        if mode == constants.SNAT_MODE_POOL and len(fixed_ips) == 1:
-            gw_ip = fixed_ips[0]
-            fixed_ips.append({'subnet_id': gw_ip.get('subnet_id')})
-            update = True
-        elif mode == constants.SNAT_MODE_INTERFACE and len(fixed_ips) == 2:
-            update = True
-            fixed_ips.pop()
-
-        if update:
-            self.update_port(context, port_id, {'port': port})
-
     def update_router_status(self, context, router_id, status):
         try:
             # Try using new session to for router updates
@@ -603,6 +582,11 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             context.session.add(router_atts)
 
             return entry
+
+    def set_router_dynamic_nat_pool(self, context, router_id, dynamic_nat_pool):
+        with db_api.CONTEXT_WRITER.using(context):
+            ra = self.get_router_att(context, router_id)
+            ra.dynamic_nat_pool = dynamic_nat_pool
 
 
 class ExtraAttsDb(object):
