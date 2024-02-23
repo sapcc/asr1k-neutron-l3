@@ -14,12 +14,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from collections import OrderedDict
+from operator import attrgetter
 import time
 
+import netaddr
 from neutron.db import dns_db
 from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db as l3_db
 from neutron.extensions.tagging import TAG_PLUGIN_TYPE
+from neutron.ipam import driver as neutron_ipam_driver
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
@@ -344,8 +347,6 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         router_atts = self.db.get_router_atts_for_routers(context, router_ids)
         return {ra.router_id: ra for ra in router_atts}
 
-
-
     @registry.receives(resources.ROUTER, [events.PRECOMMIT_CREATE])
     def allocate_router_atts_on_create(self, resource, event, trigger, payload):
         LOG.debug("Allocating extra atts for router %s", payload.resource_id)
@@ -355,6 +356,105 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
     def create_router(self, context, router):
         result = super(ASR1KPluginBase, self).create_router(context, router)
         return result
+
+    def _update_router_gw_info(self, context, router_id, info,
+                               request_body, router=None):
+        ext_ips = info.get('external_fixed_ips', []) if info else []
+        orig_router_atts = self.db.get_router_att(context, router_id)
+        dynamic_nat_pool = None
+        if len(ext_ips) > 1:
+            dynamic_nat_pool = self._handle_dynamic_nat_pool_allocation(context, router_id, info, ext_ips)
+
+        result = super()._update_router_gw_info(context, router_id, info, request_body, router)
+        if dynamic_nat_pool is not None or orig_router_atts.dynamic_nat_pool:
+            self.db.set_router_dynamic_nat_pool(context, router_id, dynamic_nat_pool)
+
+        return result
+
+    def _handle_dynamic_nat_pool_allocation(self, context, router_id, info, ext_ips):
+        """Handle dynamic nat pooling, augment info with ip allocation, return nat pool
+
+        The caller will have to write back the NAT pool as router_att themselves
+        """
+        # someone is trying to add a gw with a nat pool (multiple ips)
+        if len(ext_ips) == 2:
+            raise asr1k_exc.DynamicNatPoolNeedsToHaveAtLeastTwoIPs()
+
+        has_ip_specified = False
+        has_no_ip_specified = False
+        alloc_subnet_id = None
+        for ip_def in ext_ips[:-1]:
+            # check if we have mixed ip/no-ip requests
+            if 'ip_address' in ip_def:
+                has_ip_specified = True
+            else:
+                has_no_ip_specified = True
+
+            # check if everything is the same subnet
+            if 'subnet_id' in ip_def:
+                if alloc_subnet_id is None:
+                    alloc_subnet_id = ip_def['subnet_id']
+                elif alloc_subnet_id != ip_def['subnet_id']:
+                    raise asr1k_exc.DynamicNatPoolTwoSubnetsFound(subnet_a=alloc_subnet_id,
+                                                                  subnet_b=ip_def['subnet_id'])
+        if has_ip_specified and has_no_ip_specified:
+            raise asr1k_exc.DynamicNatPoolIPDefinitionMixed()
+
+        dynamic_nat_pool = None
+        if has_no_ip_specified:
+            if not alloc_subnet_id:
+                raise asr1k_db.DynamicNatPoolIPDefinitionSubnetMissing()
+            ips, dynamic_nat_pool = self._find_ips_for_dynamic_nat_pool(context, alloc_subnet_id, len(ext_ips) - 1)
+            if not ips:
+                raise asr1k_exc.DynamicNatPoolExternalNetExhausted(ip_count=len(ext_ips) - 1, subnet_id=alloc_subnet_id)
+
+            for ext_ip, ip in zip(ext_ips, ips):
+                ext_ip['ip_address'] = ip
+            return dynamic_nat_pool
+        else:
+            # all ips are specified, check that they are consecutive
+            ipset = netaddr.IPSet([ip_def['ip_address'] for ip_def in ext_ips[:-1]])
+            if not ipset.iscontiguous():
+                a, b, *_ = list(ipset.iter_ipranges())
+                raise asr1k_exc.DynamicNatPoolSpecifiedIpsNotConsecutivelyAscending(ip=a[-1], next_ip=b[0])
+
+            # determine subnet
+            plugin = directory.get_plugin()
+            pool_from = ipset.iprange()[0]
+            pool_to = ipset.iprange()[-1]
+            for subnet in plugin.get_subnets_by_network(context, info['network_id']):
+                if pool_from in netaddr.IPNetwork(subnet['cidr']):
+                    dynamic_nat_pool = f"{pool_from}-{pool_to}/{subnet['cidr'].split('/')[1]}"
+                    break
+            else:
+                raise asr1k_exc.DynamicNatPoolGivenIPsDontBelongToNetwork(ip=pool_from, network_id=info['network_id'])
+        return dynamic_nat_pool
+
+    def _find_ips_for_dynamic_nat_pool(self, context, subnet_id, ip_count):
+        """Search for a block of consecutive IPs in the given subnet, return ips and pool"""
+        ipam_driver = neutron_ipam_driver.Pool.get_instance(None, context)
+        ipam_subnet = ipam_driver.get_subnet(subnet_id)
+        allocations = ipam_subnet.subnet_manager.list_allocations(context)
+        ip_allocations = netaddr.IPSet([netaddr.IPAddress(allocation.ip_address) for allocation in allocations])
+
+        plugin = directory.get_plugin()
+        subnet = plugin.get_subnet(context, subnet_id)
+
+        for ip_pool in ipam_subnet.subnet_manager.list_pools(context):
+            ip_set = netaddr.IPSet()
+            ip_set.add(netaddr.IPRange(ip_pool.first_ip, ip_pool.last_ip))
+            av_set = ip_set.difference(ip_allocations)
+            if av_set.size < ip_count:
+                continue
+
+            av_ranges = sorted(av_set.iter_ipranges(), key=attrgetter('size'))
+            for av_range in av_ranges:
+                if av_range.size >= ip_count:
+                    result = [str(ip) for ip in av_range[:ip_count]]
+                    pool = f"{result[0]}-{result[-1]}/{subnet['cidr'].split('/')[1]}"
+                    return result, pool
+
+        return None, None
 
     def ensure_default_route_skip_monitoring(self, context, router_id, router):
         tag_plugin = directory.get_plugin(TAG_PLUGIN_TYPE)

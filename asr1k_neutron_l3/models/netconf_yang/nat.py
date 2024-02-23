@@ -39,6 +39,7 @@ class NATConstants(object):
     START_ADDRESS = "start-address"
     END_ADDRESS = "end-address"
     NETMASK = "netmask"
+    PREFIX_LENGTH = "prefix-length"
 
     LIST = "list"
     SOURCE = "source"
@@ -61,6 +62,7 @@ class NATConstants(object):
 
 
 class NatPool(NyBase):
+    DEFAULT_PREFIX = "POOL-"
     LIST_KEY = NATConstants.NAT
     ITEM_KEY = NATConstants.POOL
 
@@ -96,7 +98,7 @@ class NatPool(NyBase):
             {'key': 'id', 'mandatory': True},
             {'key': 'start_address'},
             {'key': 'end_address'},
-            {'key': 'netmask'}
+            {'key': 'prefix_length'}
         ]
 
     @classmethod
@@ -111,8 +113,9 @@ class NatPool(NyBase):
 
     @property
     def neutron_router_id(self):
-        if self.vrf is not None:
-            return utils.vrf_id_to_uuid(self.id)
+        if self.id is not None and self.id.startswith(self.DEFAULT_PREFIX):
+            return utils.vrf_id_to_uuid(self.id[len(self.DEFAULT_PREFIX):])
+        return None
 
     def _wrapper_preamble(self, dict, context):
         result = {}
@@ -126,26 +129,29 @@ class NatPool(NyBase):
         self.vrf = self.id
 
     def to_dict(self, context):
-        pool = OrderedDict()
-        pool[NATConstants.ID] = self.id
+        result = {
+            NATConstants.POOL: {
+                NATConstants.ID: self.id,
+                NATConstants.START_ADDRESS: self.start_address,
+                NATConstants.END_ADDRESS: self.end_address,
+                NATConstants.PREFIX_LENGTH: self.prefix_length,
+            },
+        }
 
-        pool[NATConstants.START_ADDRESS] = self.start_address
-        pool[NATConstants.END_ADDRESS] = self.end_address
-        pool[NATConstants.NETMASK] = self.netmask
-
-        result = OrderedDict()
-        result[NATConstants.POOL] = pool
-
-        return dict(result)
+        return result
 
     def to_delete_dict(self, context):
-        pool = OrderedDict()
-        pool[NATConstants.ID] = self.id
+        result = {
+            NATConstants.POOL: {
+                NATConstants.ID: self.id,
+            },
+        }
 
-        result = OrderedDict()
-        result[NATConstants.POOL] = pool
+        return result
 
-        return dict(result)
+    @classmethod
+    def gen_id(self, router_id):
+        return f"{self.DEFAULT_PREFIX}{router_id.replace('-', '')}"
 
 
 class DynamicNat(NyBase):

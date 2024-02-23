@@ -70,7 +70,6 @@ ASR1K_L3_OPTS = [
     cfg.IntOpt('threadpool_maxsize', default=5,
                help=_("Size of thread pool used in router updates, needs to be "
                       "balanced against ASR SSH connection limits")),
-    cfg.StrOpt('snat_mode', default=('pool'), help=('Use pool or interface on dynamic NAT statement')),
     cfg.IntOpt('clean_delta', default=(30), help=('')),
     cfg.IntOpt('max_config_save_interval', default=900,
                help=_('Maximum interval in which the device config should be saved. Only triggers if a complete '

@@ -116,3 +116,35 @@ class OnlyOneAZHintAllowed(nexception.BadRequest):
 
 class RouterNetworkAZMismatch(nexception.NeutronException):
     message = "AZ hint of router and network do not match (router is in %(router_az)s, network in %(network_az)s)"
+
+
+class DynamicNatPoolSpecifiedIpsNotConsecutivelyAscending(nexception.BadRequest):
+    message = ("Invalid extended nat pool for router: IP %(ip)s and %(next_ip)s don't follow each other directly "
+               "in ascending order")
+
+
+class DynamicNatPoolIPDefinitionMixed(nexception.BadRequest):
+    message = "IPs for the dynamic NAT pool must be all specified by subnet or all by ip address, not mixed"
+
+
+class DynamicNatPoolIPDefinitionSubnetMissing(nexception.BadRequest):
+    message = "Tried to allocate IPs for dynamic NAT pool but neither IP nor subnet was provided"
+
+
+class DynamicNatPoolTwoSubnetsFound(nexception.BadRequest):
+    message = ("Found two differend subnets in request for dynamic NAT pool, which is not allowed "
+               "(%(subnet_a)s vs %(subnet_b)s)")
+
+
+class DynamicNatPoolNeedsToHaveAtLeastTwoIPs(nexception.BadRequest):
+    message = ("At least three IPs need to be provided for the dynamic NAT pool to be enabled "
+               "(at least two for the pool and one for the router itself)")
+
+
+class DynamicNatPoolGivenIPsDontBelongToNetwork(nexception.BadRequest):
+    message = "Given IP %(ip)s does not belong to any subnet of network %(network_id)s"
+
+
+class DynamicNatPoolExternalNetExhausted(nexception.BadRequest):
+    message = ("Could not find %(ip_count)s consecutive IP addresses in subnet %(subnet_id)s - "
+               "make sure there is enough undivided IP space")
