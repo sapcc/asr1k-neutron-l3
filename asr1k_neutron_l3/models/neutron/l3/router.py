@@ -235,7 +235,8 @@ class Router(Base):
 
     def _build_dynamic_nat(self):
         pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
-                                  interfaces=self.interfaces, mode=constants.SNAT_MODE_POOL)
+                                  interfaces=self.interfaces, mode=constants.SNAT_MODE_POOL,
+                                  mapping_id=utils.uuid_to_mapping_id(self.router_id))
         interface_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
                                        interfaces=self.interfaces, mode=constants.SNAT_MODE_INTERFACE)
 
