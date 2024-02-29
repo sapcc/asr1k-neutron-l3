@@ -184,11 +184,6 @@ class DynamicNat(NyBase):
         result = {NATConstants.IP: result}
         return result
 
-    def __init__(self, **kwargs):
-        super(DynamicNat, self).__init__(**kwargs)
-        self.mapping_id = utils.uuid_to_mapping_id(self.vrf)
-        self.redundancy = None
-
     @property
     def neutron_router_id(self):
         if self.vrf is not None:
@@ -279,6 +274,9 @@ class InterfaceDynamicNat(DynamicNat):
         else:
             self.bd = kwargs.get("bridge_domain")
 
+        self.mapping_id = utils.uuid_to_mapping_id(self.vrf)
+        self.redundancy = None
+
     def to_dict(self, context):
         ifname = "{}{}".format(context.bd_iftype, self.bd)
 
@@ -349,11 +347,25 @@ class PoolDynamicNat(DynamicNat):
         return [
             {"key": "id", "mandatory": True},
             {'key': 'vrf', 'yang-key': 'name', 'yang-path': "pool-with-vrf/pool/vrf"},
-            {'key': 'redundancy'},
-            {'key': 'mapping_id'},
+            {'key': 'redundancy', 'yang-key': 'name', 'yang-path': 'pool-with-vrf/pool/redundancy'},
+            {'key': 'mapping_id', 'yang-key': 'name', 'yang-path': 'pool-with-vrf/pool/redundancy/mapping-id'},
             {'key': 'pool', 'yang-key': 'name', 'yang-path': "pool-with-vrf/pool"},
-            {'key': 'overload', 'yang-path': "pool-with-vrf/pool/vrf", 'default': False, 'yang-type': YANG_TYPE.EMPTY}
+            {'key': 'overload', 'yang-path': "pool-with-vrf/pool/vrf", 'default': False, 'yang-type': YANG_TYPE.EMPTY},
+
+            {'key': 'redundancy_vrf', 'yang-key': 'name', 'yang-path': "pool-with-vrf/pool/redundancy/mapping-id/vrf"},
+            {'key': 'redundancy_overload', 'yang-key': 'overload',
+             'yang-path': "pool-with-vrf/pool/redundancy/mapping-id/vrf", 'yang-type': YANG_TYPE.EMPTY},
         ]
+
+    def __init__(self, **kwargs):
+        # if we have vrf/overload via redundancy tag this overrides whatever we have in the pool
+        # normally they're also mutually exclusive, so we're basically just copying the values for unified handling
+        if kwargs.get('redundancy_vrf'):
+            kwargs['vrf'] = kwargs['redundancy_vrf']
+        if kwargs.get('redundancy_overload'):
+            kwargs['overload'] = kwargs['redundancy_overload']
+
+        super().__init__(**kwargs)
 
     @classmethod
     def _exists(cls, **kwargs):
@@ -369,26 +381,40 @@ class PoolDynamicNat(DynamicNat):
         return False
 
     def to_dict(self, context):
-        entry = OrderedDict()
-        entry[NATConstants.ID] = self.id
+        pool = {
+            NATConstants.NAME: self.pool,
+        }
 
-        entry[NATConstants.POOL_WITH_VRF] = {}
-        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL] = {}
-        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.NAME] = self.pool
-        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF] = {}
-        entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF][NATConstants.NAME] = self.vrf
+        vrf = {
+            NATConstants.NAME: self.vrf,
+        }
         if self.overload:
-            entry[NATConstants.POOL_WITH_VRF][NATConstants.POOL][NATConstants.VRF][NATConstants.OVERLOAD] = ""
+            vrf[NATConstants.OVERLOAD] = ""
 
+        # the whole structure changes if redundancy is enabled (vrf is now inside the redundancy tag)
         if self.redundancy is not None:
-            entry[NATConstants.REDUNDANCY] = self.redundancy
-            entry[NATConstants.MAPPING_ID] = self.mapping_id
+            pool[NATConstants.REDUNDANCY] = {
+                NATConstants.NAME: self.redundancy,
+                NATConstants.MAPPING_ID: {
+                    NATConstants.NAME: self.mapping_id,
+                    NATConstants.VRF: vrf,
+                },
+            }
+        else:
+            pool[NATConstants.VRF] = vrf
 
-        result = OrderedDict()
-        result[NATConstants.LIST] = []
-        result[NATConstants.LIST].append(entry)
+        entry = {
+            NATConstants.ID: self.id,
+            NATConstants.POOL_WITH_VRF: {
+                NATConstants.POOL: pool,
+            },
+        }
 
-        return dict(result)
+        result = {
+            NATConstants.LIST: [entry],
+        }
+
+        return result
 
 
 class StaticNatList(NyBase):
