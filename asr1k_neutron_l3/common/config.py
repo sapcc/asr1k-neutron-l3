@@ -16,6 +16,7 @@
 
 from oslo_log import log as logging
 from oslo_config import cfg
+from neutron.common import cache_utils
 from neutron.conf.agent import common
 from neutron.conf import service
 from neutron_lib._i18n import _
@@ -153,6 +154,7 @@ def register_common_opts():
     cfg.CONF.register_opts(ASR1K_OPTS, "asr1k")
     cfg.CONF.register_opts(AGENT_STATE_OPTS, 'AGENT')
     common.register_availability_zone_opts_helper(cfg.CONF)
+    cache_utils.register_oslo_configs(cfg.CONF)
 
 
 def register_l3_opts():
