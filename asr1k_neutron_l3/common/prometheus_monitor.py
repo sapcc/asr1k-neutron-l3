@@ -73,6 +73,8 @@ class PrometheusMonitor(object):
                                       DETAIL_LABELS, namespace=self.namespace)
         self._device_unreachable = Counter('device_unreachable', 'Unreachable device',
                                            DETAIL_LABELS, namespace=self.namespace)
+        self.ssh_key_successful_auth = Counter('ssh_key_successful_auth', 'Counter of successful SSH key usage',
+                                    [*BASIC_LABELS, 'md5_fingerprint'], namespace=self.namespace) 
         self._rpc_sync_errors = Counter('rpc_sync_errors', 'Sync block on RPC request',
                                         DETAIL_LABELS, namespace=self.namespace)
         self._connection_pool_exhausted = Counter('connection_pool_exhausted', 'Connnection pool  exhausted',
