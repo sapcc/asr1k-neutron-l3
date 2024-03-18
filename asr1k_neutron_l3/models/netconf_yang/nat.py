@@ -153,6 +153,28 @@ class NatPool(NyBase):
     def gen_id(self, router_id):
         return f"{self.DEFAULT_PREFIX}{router_id.replace('-', '')}"
 
+    @execute_on_pair()
+    def update(self, context):
+        self._check_and_clean_existing_nat_pool(context)
+        return super()._update(context)
+
+    def _check_and_clean_existing_nat_pool(self, context):
+        """Delete device pool if start/end/prefix address differ
+
+        We can't properly update pools that are in use (have connections on it),
+        so we need to delete it and then add it for proper reconfiguration
+        """
+        device_pool = self._internal_get(context)
+        if not device_pool:
+            return
+
+        if (device_pool.start_address != self.start_address or device_pool.end_address != self.end_address or
+                device_pool.prefix_length != self.prefix_length):
+            LOG.warning("Deleting NatPool %s on %s from device before readding it as it has changed "
+                        "(on device: %s, openstack: %s)",
+                        self.id, context, device_pool, self)
+            device_pool._delete(context)
+
 
 class DynamicNat(NyBase):
     LIST_KEY = NATConstants.SOURCE
