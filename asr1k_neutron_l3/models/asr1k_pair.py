@@ -14,10 +14,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from binascii import hexlify
+from random import sample
+
 from oslo_log import log as logging
 from oslo_config import cfg
 
+import paramiko
+from ncclient import manager
+from ncclient.transport.errors import AuthenticationError
+
+
 from asr1k_neutron_l3.common import config as asr1k_config
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 from asr1k_neutron_l3.common.asr1k_exceptions import VersionInfoNotAvailable
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
@@ -59,14 +68,15 @@ class ASR1KContext(ASR1KContextBase):
     version_min_17_13 = property(lambda self: self._get_version_attr('_version_min_17_13'))
     has_stateless_nat = property(lambda self: self._get_version_attr('_has_stateless_nat'))
 
-    def __init__(self, name, host, yang_port, nc_timeout, username, password, use_bdvif, insecure=True,
-                 force_bdi=False, headers={}):
+    def __init__(self, name, host, yang_port, nc_timeout, username, password, use_bdvif, ssh_keys,
+                 insecure=True, force_bdi=False, headers={}):
         self.name = name
         self.host = host
         self.yang_port = yang_port
         self.nc_timeout = nc_timeout
         self.username = username
         self.password = password
+        self.ssh_keys = ssh_keys
         self._use_bdvif = use_bdvif
         self.insecure = insecure
         self.force_bdi = force_bdi
@@ -127,6 +137,50 @@ class ASR1KContext(ASR1KContextBase):
             self._got_version_info = False
         self.alive = alive
 
+    def get_nnc_connection(self):
+        args = dict(host=self.host, port=self.yang_port,
+                        username=self.username,
+                        hostkey_verify=False,
+                        device_params={'name': "iosxe"}, timeout=self.nc_timeout,
+                        allow_agent=False, look_for_keys=False)
+
+        if len(self.ssh_keys) == 0:
+            LOG.debug("Connecting to %s using password", self.host)
+            return manager.connect(**args, password=self.password)
+        
+        # In order to avoid only incrementing one key in the exporter and thus being unable to identify
+        # if the other keys are working or not, we try the keys in random order.
+        # This should work well as long as len(ssh_keys) < len(connection_pool)
+        for key_filename in sample(self.ssh_keys, len(self.ssh_keys)):
+            try:
+                md5_fingerprint = self.get_key_md5_fingerprint(key_filename)
+                LOG.debug("Connecting to %s using key %s", self.host, md5_fingerprint)
+                connection = manager.connect(**args, key_filename=key_filename)
+                PrometheusMonitor().ssh_key_successful_auth.labels(host=self.host,
+                                                                   md5_fingerprint=md5_fingerprint).inc()
+                return connection
+            except AuthenticationError:
+                LOG.warning("Failed to connect to %s using key %s",  self.host, md5_fingerprint)
+                continue
+        raise AuthenticationError("Failed to connect to %s using any of the keys", self.host)
+
+    @staticmethod
+    def get_key_md5_fingerprint(key_filename):
+        # To get the MD5, I need to load it as a subclass as PKey. For that to happen I need to find
+        # the correct subclass to load it. A nice side effect is that we can rule out obsolete key types.
+        # nccclient does it this way, paramiko does to. See here
+        # https://github.com/paramiko/paramiko/blob/51eb55debf2ebfe56f38378005439a029a48225f/paramiko/client.py#L728-L732
+        supported_key_types = (paramiko.RSAKey, paramiko.ECDSAKey, paramiko.Ed25519Key)
+        for key_class in supported_key_types:
+            try:
+                key = key_class.from_private_key_file(key_filename)
+                md5_fingerprint = hexlify(key.get_fingerprint())
+                return md5_fingerprint.decode('utf-8')
+            except paramiko.SSHException:
+                continue
+        raise paramiko.SSHException("Failed to load key from file %s, none of accepted key types"
+                                    % key_filename,  ', '.join(x.__name__ for x in supported_key_types))
+
 
 class ASR1KPair(object):
     __instance = None
@@ -146,7 +200,7 @@ class ASR1KPair(object):
 
         for device_name, config in device_config.items():
             asr1kctx = ASR1KContext(device_name, config.host, config.yang_port, config.nc_timeout,
-                                    config.user_name, config.password, config.use_bdvif,
+                                    config.user_name, config.password, config.use_bdvif, config.ssh_keys,
                                     insecure=True)
 
             self.contexts.append(asr1kctx)

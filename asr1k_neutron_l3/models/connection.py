@@ -32,7 +32,6 @@ from asr1k_neutron_l3.common.asr1k_exceptions import DeviceUnreachable, Capabili
 from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
-from ncclient import manager
 from ncclient.xml_ import to_ele, new_ele, to_xml
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -243,7 +242,7 @@ class YangConnection(object):
                 except TransportError:
                     pass
                 finally:
-                    self._ncc_connection = self._connect(self.context)
+                    self._ncc_connection = self.context.get_nnc_connection()
         except Exception as e:
             if isinstance(e, TimeoutExpiredError) or isinstance(e, SSHError) or isinstance(e, SessionCloseError):
                 LOG.warning(
@@ -254,16 +253,6 @@ class YangConnection(object):
                 LOG.exception(e)
 
         return self._ncc_connection
-
-    def _connect(self, context):
-        port = context.yang_port
-
-        return manager.connect(
-            host=context.host, port=port,
-            username=context.username, password=context.password,
-            hostkey_verify=False,
-            device_params={'name': "iosxe"}, timeout=context.nc_timeout,
-            allow_agent=False, look_for_keys=False)
 
     def close(self):
         if self._ncc_connection is not None:
