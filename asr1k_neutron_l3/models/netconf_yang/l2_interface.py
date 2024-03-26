@@ -147,6 +147,20 @@ class BridgeDomain(NyBase):
                     LOG.warning("Host %s: could not find BD_VIF%s as member of (wrong) bridge %s, skipping",
                                 context.host, bdvif.name, bridge.id)
 
+    def postflight(self, context, method):
+        """Remove all members from bridge as otherwise we can't delete it"""
+        bd = self._internal_get(context=context)
+        if bd is not None:
+            has_members = False
+            for member in bd.if_members + bd.bdvif_members:
+                member.mark_deleted = True
+                has_members = True
+
+            if has_members:
+                LOG.debug("Bridge %s still has members, clearing the bridge before delete", self.id)
+                bd._update(context=context, method=NC_OPERATION.PATCH, preflight=False,
+                           internal_validate=False)
+
     def to_dict(self, context):
         bddef = OrderedDict()
         bddef[xml_utils.NS] = xml_utils.NS_CISCO_BRIDGE_DOMAIN
