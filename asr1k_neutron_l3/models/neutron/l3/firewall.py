@@ -135,7 +135,7 @@ class DanglingServicePolicy(ServicePolicy):
 
 class FirewallZoneObject(base.Base):
 
-    PREFIX = const.FWAAS_ZONE_PREFIX
+    PREFIX = 'OBJ-FWAAS-'
 
     @classmethod
     def get_id_by_router_id(cls, router_id: str) -> str:
