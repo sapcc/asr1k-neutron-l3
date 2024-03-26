@@ -16,6 +16,8 @@
 import netaddr
 import os
 
+from collections import defaultdict
+
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.common import asr1k_constants as constants, utils
@@ -24,6 +26,7 @@ from asr1k_neutron_l3.models import asr1k_pair
 from asr1k_neutron_l3.models.neutron.l3 import access_list
 from asr1k_neutron_l3.models.neutron.l3.base import Base
 from asr1k_neutron_l3.models.neutron.l3 import bgp
+from asr1k_neutron_l3.models.neutron.l3 import firewall
 from asr1k_neutron_l3.models.neutron.l3 import interface as l3_interface
 from asr1k_neutron_l3.models.neutron.l3 import nat
 from asr1k_neutron_l3.models.neutron.l3 import prefix
@@ -85,6 +88,8 @@ class Router(Base):
                            rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
                            rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=global_vrf_id)
 
+        self._build_fwaas_conf(router_info)
+
         self.nat_acl = self._build_nat_acl()
         self.pbr_acl = self._build_pbr_acl()
 
@@ -136,10 +141,29 @@ class Router(Base):
             interfaces.append(self.gateway_interface)
 
         inf_ports = self.router_info.get('_interfaces', [])
+
+        # turn that dict around, we now want to know which policy should be bound on which interface in
+        # which direction
+        port_policy_map = defaultdict(dict)
+        for policy_id, policy in self.router_info.get('fwaas_policies', {}).items():
+            for egress_port in policy['egress_ports']:
+                port_policy_map[egress_port]['egress'] = policy_id
+            for ingress_port in policy['ingress_ports']:
+                port_policy_map[ingress_port]['ingress'] = policy_id
+
         if inf_ports is not None:
             for inf_port in inf_ports:
+                firewall_acls = dict()
+                ingress = port_policy_map[inf_port['id']].get('ingress')
+                egress = port_policy_map[inf_port['id']].get('egress')
+                if ingress:
+                    firewall_acls['ingress_acl'] = firewall.AccessList.get_id_by_policy_id(ingress)
+                if egress:
+                    firewall_acls['egress_acl'] = firewall.AccessList.get_id_by_policy_id(egress)
+
                 interfaces.append(
-                    l3_interface.InternalInterface(self.router_id, inf_port, self._port_extra_atts(inf_port)))
+                    l3_interface.InternalInterface(self.router_id, inf_port, self._port_extra_atts(inf_port),
+                                                   **firewall_acls))
 
         for port_id in utils.calculate_deleted_ports(self.router_info):
             port = {'id': port_id}
@@ -174,7 +198,7 @@ class Router(Base):
     def _build_nat_acl(self):
         acl = access_list.AccessList("NAT-{}".format(utils.uuid_to_vrf_id(self.router_id)))
 
-        # Check address scope and deny any where internal interface matches externel
+        # Check address scope and deny any where internal interface matches external
         for interface in self.address_scope_matches():
             subnet = interface.primary_subnet
 
@@ -292,6 +316,35 @@ class Router(Base):
 
         return result
 
+    def _build_fwaas_conf(self, router_info):
+        self.fwaas_conf = list()
+        self.fwaas_external_policies = {'ingress': None, 'egress': None}
+        for name, policy in router_info.get('fwaas_policies', {}).items():
+            if self.gateway_interface.id in policy['ingress_ports'] \
+                    or self.gateway_interface.id in policy['egress_ports']:
+                # This policy will be bound on a external interface, so we need to create
+                # class-map and service-policy
+                if self.gateway_interface.id in policy['ingress_ports']:
+                    self.fwaas_external_policies['ingress'] = name
+                if self.gateway_interface.id in policy['egress_ports']:
+                    self.fwaas_external_policies['egress'] = name
+                self.fwaas_conf.append(firewall.ClassMap(name))
+                self.fwaas_conf.append(firewall.ServicePolicy(name))
+            self.fwaas_conf.append(firewall.AccessList(name, policy['rules']))
+
+        if self.fwaas_external_policies['ingress'] or self.fwaas_external_policies['egress']:
+            # As there are external interfaces policies, we create zones and zone-pairs
+            self.fwaas_conf.append(firewall.Zone(self.router_id))
+            self.fwaas_conf.append(
+                firewall.ZonePairExtEgress(self.router_id, self.fwaas_external_policies['egress']))
+            self.fwaas_conf.append(
+                firewall.ZonePairExtIngress(self.router_id, self.fwaas_external_policies['ingress']))
+            # We also want to link the VRF to a policer so we limit VRFs (by boilerplate)
+            self.fwaas_conf.append(firewall.FirewallVrfPolicer(self.router_id))
+            # Mark all interfaces for stateful firewalling
+            for interface in self.interfaces.all_interfaces:
+                interface.has_stateful_firewall = True
+
     def _primary_route(self):
         if self.gateway_interface is not None and self.gateway_interface.primary_gateway_ip is not None:
             return route.Route(self.router_id, "0.0.0.0", "0.0.0.0", self.gateway_interface.primary_gateway_ip)
@@ -352,6 +405,18 @@ class Router(Base):
 
         if self.nat_acl:
             results.append(self.nat_acl.update())
+
+        # a router object will take care of creation of firewall acls and related objects,
+        # it will also update firewall acls
+        for obj in self.fwaas_conf:
+            results.append(obj.update())
+
+        # If there are no external policies, we can create dangling objects which will trigger the deletion
+        if not self.fwaas_external_policies['ingress'] and not self.fwaas_external_policies['egress']:
+            results.append(firewall.DanglingZonePairExtIngress(self.router_id).update())
+            results.append(firewall.DanglingZonePairExtEgress(self.router_id).update())
+            results.append(firewall.DanglingFirewallVrfPolicer(self.router_id).update())
+            results.append(firewall.DanglingZone(self.router_id).update())
 
         if self.pbr_acl:
             results.append(self.pbr_acl.update())
@@ -422,6 +487,9 @@ class Router(Base):
 
         results.append(self.vrf.delete())
 
+        # We do not delete fwaas acls here as the acl could
+        # still be in use by an another router
+
         return results
 
     def diff(self):
@@ -487,6 +555,20 @@ class Router(Base):
         nat_acl_diff = self.nat_acl.diff()
         if not nat_acl_diff.valid:
             diff_results['nat_acl'] = nat_acl_diff.to_dict()
+
+        for obj in self.fwaas_conf:
+            d = obj.diff()
+            if not d.valid:
+                diff_results[obj.id] = d.to_dict()
+
+        if not self.fwaas_external_policies['ingress'] and not self.fwaas_external_policies['egress']:
+            for obj in [firewall.DanglingZonePairExtIngress(self.router_id),
+                        firewall.DanglingZonePairExtEgress(self.router_id),
+                        firewall.DanglingFirewallVrfPolicer(self.router_id),
+                        firewall.DanglingZone(self.router_id)]:
+                d = obj.diff(should_be_none=True)
+                if not d.valid:
+                    diff_results[obj.id] = d.to_dict()
 
         return diff_results
 

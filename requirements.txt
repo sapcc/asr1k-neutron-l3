@@ -13,3 +13,4 @@ prometheus_client>=0.0.19
 bs4>=0.0.1
 ncclient
 git+https://github.com/sapcc/networking-bgpvpn@stable/yoga-m3#egg=networking-bgpvpn
+-e git+https://github.com/openstack/neutron-fwaas@stable/yoga-m3#egg=neutron_fwaas
