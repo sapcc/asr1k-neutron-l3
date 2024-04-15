@@ -168,7 +168,7 @@ class Router(Base):
         primary_route = self._primary_route()
         if not primary_overridden and primary_route is not None and self._route_has_connected_interface(primary_route):
             routes.append(primary_route)
-
+    
         return routes
 
     def _build_nat_acl(self):

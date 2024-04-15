@@ -289,6 +289,16 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             router["rt_export"] = list(set(rt_export))
             router["rt_import"] = list(set(rt_import))
 
+            dynamic_nat_pool = router_att.get('dynamic_nat_pool')   
+            gw_port = router.get('gw_port')
+            if dynamic_nat_pool:
+                fixed_ip = utils.determine_external_interface_ip_with_nat_pool(gw_port, dynamic_nat_pool)
+            elif len(gw_port.get('fixed_ips', [])) > 1:
+                LOG.error("Router %s has more than one external fixed IP but no NAT pool" % router['id'])
+            else:
+                fixed_ip = gw_port.get('fixed_ips')[0].get('ip_address')
+            router['preempt_external_ip_cleanup'] = self.db.preempt_external_ip_cleanup(context, router['id'], fixed_ip,host)
+
         return routers
 
     def get_deleted_router_atts(self, context):
