@@ -278,7 +278,7 @@ class VBInterface(NyBase):
                 for member in bd.bdvif_members:
                     if member.name == self.name:
                         member.mark_deleted = True
-                bd.update(context=context)
+                bd._update(context=context)
 
     def init_config(self):
         if self.nat_inside:
