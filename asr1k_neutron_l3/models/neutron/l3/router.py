@@ -81,9 +81,11 @@ class Router(Base):
             LOG.error("Router %s has no rd attached, configuration is likely to fail!",
                       self.router_info.get('id'))
 
+        self.enable_ipv6 = any(iface.ipv6_addresses for iface in self.interfaces.all_interfaces)
         self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn,
                            rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
-                           rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=global_vrf_id)
+                           rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=global_vrf_id,
+                           enable_ipv6=self.enable_ipv6)
 
         self.nat_acl = self._build_nat_acl()
         self.pbr_acl = self._build_pbr_acl()
@@ -157,6 +159,7 @@ class Router(Base):
         # In case the customer sets a default route, we will restrain from programming the openstack primary route
         primary_overridden = False
         for l3_route in self.router_info.get('routes', []):
+            # FIXME: another place where we need to support ipv6 routes
             ip, netmask = utils.from_cidr(l3_route.get('destination'))
             if netmask == '0.0.0.0':
                 primary_overridden = True
@@ -178,6 +181,7 @@ class Router(Base):
         for interface in self.address_scope_matches():
             subnet = interface.primary_subnet
 
+            # FIXME: filter for ipv6?
             if subnet is not None and subnet.get('cidr') is not None:
                 ip, netmask = utils.from_cidr(subnet.get('cidr'))
                 wildcard = utils.to_wildcard_mask(netmask)
@@ -456,6 +460,7 @@ class Router(Base):
         if not route_diff.valid:
             diff_results['route'] = route_diff.to_dict()
 
+        # FIXME: this diff probably doesn't work for internal routers
         snat_mode = constants.SNAT_MODE_POOL if self.use_nat_pool else constants.SNAT_MODE_INTERFACE
         dynamic_nat_diff = self.dynamic_nat.get(snat_mode).diff()
         if not dynamic_nat_diff.valid:

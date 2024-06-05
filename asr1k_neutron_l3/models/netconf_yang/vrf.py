@@ -26,7 +26,7 @@ from asr1k_neutron_l3.models.connection import ConnectionManager
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, Requeable, NC_OPERATION, execute_on_pair, \
-    retry_on_failure
+    retry_on_failure, YANG_TYPE
 from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
 
 LOG = logging.getLogger(__name__)
@@ -129,6 +129,8 @@ class VrfDefinition(NyBase, Requeable):
             {'key': 'description'},
             {'key': 'address_family_ipv4', "yang-key": "ipv4", "yang-path": "address-family",
              'type': IpV4AddressFamily, "default": {}},
+            {'key': 'address_family_ipv6', "yang-key": "ipv6", "yang-path": "address-family",
+             'yang-type': YANG_TYPE.EMPTY},
             {'key': 'rd'}
         ]
 
@@ -140,8 +142,10 @@ class VrfDefinition(NyBase, Requeable):
                 kwargs.get('rt_export', None) is not None:
             self.address_family_ipv4 = IpV4AddressFamily(**kwargs)
 
-        self.asn = None
+        if kwargs.get('enable_ipv6'):
+            self.address_family_ipv6 = True
 
+        self.asn = None
         if self.rd:
             self.asn = self.rd.split(":")[0]
 
@@ -161,8 +165,12 @@ class VrfDefinition(NyBase, Requeable):
         # hopefully
         definition[VrfConstants.RD] = self.rd
 
-        if self.address_family_ipv4 is not None:
-            definition[VrfConstants.ADDRESS_FAMILY][VrfConstants.IPV4] = self.address_family_ipv4.to_dict(context)
+        if self.address_family_ipv4 or self.address_family_ipv6:
+            af = definition[VrfConstants.ADDRESS_FAMILY] = {}
+            if self.address_family_ipv4 is not None:
+                af[VrfConstants.IPV4] = self.address_family_ipv4.to_dict(context)
+            if self.address_family_ipv6:
+                af[VrfConstants.IPV6] = ""
 
         result = OrderedDict()
         result[VrfConstants.DEFINITION] = definition

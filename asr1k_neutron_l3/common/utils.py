@@ -18,7 +18,7 @@ import re
 import socket
 import struct
 
-from netaddr import IPNetwork, IPAddress
+from netaddr import AddrFormatError, IPNetwork, IPAddress
 from oslo_log import log as logging
 
 
@@ -126,6 +126,14 @@ def to_wildcard_mask(prefix_len):
 
 def ip_in_network(ip, net):
     return IPAddress(ip) in IPNetwork(net)
+
+
+def get_ip_version(ip):
+    try:
+        ip = IPAddress(ip)
+        return ip.version
+    except AddrFormatError:
+        return None
 
 
 def network_in_network(net, parent_net):

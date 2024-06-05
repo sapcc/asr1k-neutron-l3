@@ -23,7 +23,7 @@ from oslo_config import cfg
 
 class Vrf(base.Base):
     def __init__(self, name, description=None, asn=None, rd=None, routable_interface=False,
-                 rt_import=[], rt_export=[], global_vrf_id=None):
+                 rt_import=[], rt_export=[], global_vrf_id=None, enable_ipv6=False):
         super(Vrf, self).__init__()
         self.name = utils.uuid_to_vrf_id(name)
         self.description = description
@@ -45,10 +45,13 @@ class Vrf(base.Base):
         self.rt_import = [{'asn_ip': asn_ip} for asn_ip in rt_import] if rt_import else None
         self.rt_export = [{'asn_ip': asn_ip} for asn_ip in rt_export] if rt_export else None
 
+        self.enable_ipv6 = enable_ipv6
+
         self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description,
                                                   rd=self.rd, enable_bgp=self.enable_bgp,
                                                   map=self.map, map_17_3=self.map_17_3,
-                                                  rt_import=self.rt_import, rt_export=self.rt_export)
+                                                  rt_import=self.rt_import, rt_export=self.rt_export,
+                                                  enable_ipv6=enable_ipv6)
 
     def get(self):
         return vrf.VrfDefinition.get(self.name)
