@@ -48,6 +48,9 @@ class L3Constants(object):
     PRIMARY = "primary"
     SECONDARY = "secondary"
     MASK = "mask"
+    IPV6 = "ipv6"
+    PREFIX = 'prefix'
+    PREFIX_LIST = 'prefix-list'
     VRF = "vrf"
     FORWARDING = "forwarding"
     SHUTDOWN = "shutdown"
@@ -125,7 +128,8 @@ class BDInterface(NyBase):
             {'key': 'vrf', 'yang-path': 'vrf', 'yang-key': "forwarding"},
             {'key': 'ip_address', 'yang-path': 'ip/address', 'yang-key': "primary", 'type': BDPrimaryIpAddress},
             {'key': 'secondary_ip_addresses', 'yang-path': 'ip/address', 'yang-key': "secondary",
-             'type': [BDSecondaryIpAddress], 'default': [], 'validate':False},
+             'type': [BDSecondaryIpAddress], 'default': [], 'validate': False},
+            {'key': 'ipv6_addresses', 'yang-path': 'ipv6/address', 'yang-key': "prefix-list", 'type': [BDIpv6Address]},
             {'key': 'nat_inside', 'yang-key': 'inside', 'yang-path': 'ip/nat', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,
@@ -240,11 +244,22 @@ class BDInterface(NyBase):
                     xml_utils.OPERATION: NC_OPERATION.REMOVE
                 }
             }
+        vbi[L3Constants.IP] = ip
+
+        if self.ipv6_addresses:
+            vbi[L3Constants.IPV6] = {
+                xml_utils.OPERATION: NC_OPERATION.PUT,
+                L3Constants.ADDRESS: {
+                    L3Constants.PREFIX_LIST: [
+                        addr.to_dict(context) for addr in self.ipv6_addresses
+                    ]
+                }
+            }
+        else:
+            vbi[L3Constants.IPV6] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
 
         vrf = OrderedDict()
         vrf[L3Constants.FORWARDING] = self.vrf
-
-        vbi[L3Constants.IP] = ip
         vbi[L3Constants.VRF] = vrf
 
         vbi[L3Constants.NTP] = {xml_utils.NS: xml_utils.NS_CISCO_NTP}
@@ -434,3 +449,17 @@ class BDPrimaryIpAddress(NyBase):
         ip[L3Constants.PRIMARY] = primary
 
         return ip
+
+
+class BDIpv6Address(NyBase):
+    ITEM_KEY = L3Constants.PREFIX
+    LIST_KEY = L3Constants.PREFIX_LIST
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {"key": 'prefix', 'id': True},
+        ]
+
+    def to_dict(self, context):
+        return {L3Constants.PREFIX: self.prefix.lower()}

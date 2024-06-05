@@ -20,6 +20,7 @@ from asr1k_neutron_l3.models.netconf_yang.arp_cache import ArpCache
 from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat, PoolDynamicNat, StaticNatList
 from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
@@ -932,3 +933,101 @@ class ParsingTest(base.BaseTestCase):
         rm = RouteMap.from_xml(rm_17_15_xml, context)
         self.assertEqual("RM-DAP-OYSTRCTCH02", rm.name)
         self.assertEqual(['65126:101', 'additive'], rm.seq[0].asn)
+
+    def test_bdvif_ipv6_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <interface>
+        <BD-VIF>
+          <name>5514</name>
+          <description>Dat interface geraet</description>
+          <mac-address>fa16.3e5a.9da7</mac-address>
+          <vrf>
+            <forwarding>c4505a0be48e497b942b0e07bb57f1fe</forwarding>
+          </vrf>
+          <ip>
+            <address>
+              <primary>
+                <address>192.168.1.1</address>
+                <mask>255.255.255.0</mask>
+              </primary>
+            </address>
+            <policy>
+              <route-map>pbr-c4505a0be48e497b942b0e07bb57f1fe</route-map>
+            </policy>
+            <nat xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+              <stick/>
+            </nat>
+          </ip>
+          <ipv6>
+            <address>
+              <prefix-list>
+                <prefix>FD00::/64</prefix>
+              </prefix-list>
+              <prefix-list>
+                <prefix>FD00::256/64</prefix>
+              </prefix-list>
+            </address>
+          </ipv6>
+          <mtu>8950</mtu>
+          <ntp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
+            <disable/>
+          </ntp>
+        </BD-VIF>
+      </interface>
+    </native>
+
+  </data>
+</rpc-reply>"""
+
+        expected_v6 = {"fd00::/64", "fd00::256/64"}
+
+        # parse
+        context = FakeASR1KContext()
+        iface = BDInterface.from_xml(xml, context)
+
+        self.assertEqual("5514", iface.name)
+        self.assertEqual("192.168.1.1", iface.ip_address.address)
+        self.assertEqual(expected_v6, {addr.prefix.lower() for addr in iface.ipv6_addresses})
+
+        # back to xml
+        iface_dict = iface.to_dict(context)
+        self.assertEqual(expected_v6, {p['prefix'] for p in iface_dict['BD-VIF']['ipv6']['address']['prefix-list']})
+
+    def test_vrf_ipv6_af_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <vrf>
+        <definition>
+          <name>c4505a0be48e497b942b0e07bb57f1fe</name>
+          <description>Router c4505a0b-e48e-497b-942b-0e07bb57f1fe</description>
+          <rd>65148:39354</rd>
+          <address-family>
+            <ipv4>
+              <export>
+                <map>exp-c4505a0be48e497b942b0e07bb57f1fe</map>
+              </export>
+            </ipv4>
+            <ipv6/>
+          </address-family>
+        </definition>
+      </vrf>
+    </native>
+  </data>
+</rpc-reply>
+"""
+
+        # parse
+        context = FakeASR1KContext()
+        vrf = VrfDefinition.from_xml(xml, context)
+        self.assertTrue(vrf.address_family_ipv6)
+
+        # back to xml
+        vrf_dict = vrf.to_dict(context)
+        self.assertEqual('', vrf_dict['definition']['address-family']['ipv6'])

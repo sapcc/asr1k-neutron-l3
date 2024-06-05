@@ -34,6 +34,11 @@ class AddressFamily(base.Base):
         self.networks_v4 = set()
 
         for net in connected_cidrs + extra_routes:
+            ip, _ = net.split("/", 1)
+            if utils.get_ip_version(ip) != 4:
+                # FIXME: skip ipv6 for now
+                continue
+
             # rm is applied to all routable networks and their subnets
             rm = None
             if any(utils.network_in_network(net, routable_network) for routable_network in routable_networks):
