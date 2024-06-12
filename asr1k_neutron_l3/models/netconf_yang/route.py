@@ -14,8 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from collections import OrderedDict
-
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION
@@ -25,21 +23,23 @@ LOG = logging.getLogger(__name__)
 
 
 class RouteConstants(object):
-    DEFINITION = "vrf"
-
     VRF = "vrf"
     IP = "ip"
     ROUTE = "route"
     NAME = "name"
 
-    FOWARDING = "ip-route-interface-forwarding-list"
+    IPV6 = "ipv6"
+    IPV6_ROUTE_LIST = "ipv6-route-list"
+    IPV6_FWD_LIST = "ipv6-fwd-list"
+
+    FORWARDING = "ip-route-interface-forwarding-list"
     FWD_LIST = "fwd-list"
     FWD = "fwd"
     PREFIX = "prefix"
     MASK = "mask"
 
 
-class VrfRoute(NyBase):
+class VrfRouteBase(NyBase):
     ID_FILTER = """
               <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
                       xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
@@ -68,7 +68,10 @@ class VrfRoute(NyBase):
     VRF_XPATH_FILTER = "/native/ip/route/vrf[name='{vrf}']"
 
     LIST_KEY = RouteConstants.ROUTE
-    ITEM_KEY = RouteConstants.DEFINITION
+    ITEM_KEY = RouteConstants.VRF
+
+    IP_ROUTE_CLASS = None
+    IP_KEY = None
 
     @classmethod
     def get_for_vrf(cls, context, vrf=None):
@@ -78,7 +81,7 @@ class VrfRoute(NyBase):
     def __parameters__(cls):
         return [
             {'key': 'name', 'id': True},
-            {'key': 'routes', 'yang-key': RouteConstants.FOWARDING, 'type': [IpRoute], 'default': []}
+            {'key': 'routes', 'yang-key': cls.IP_ROUTE_CLASS.LIST_KEY, 'type': [cls.IP_ROUTE_CLASS], 'default': []}
         ]
 
     @classmethod
@@ -87,23 +90,21 @@ class VrfRoute(NyBase):
 
     @classmethod
     def remove_wrapper(cls, dict, context):
-        dict = super(VrfRoute, cls)._remove_base_wrapper(dict, context)
+        dict = cls._remove_base_wrapper(dict, context)
         if dict is None:
             return
 
-        dict = dict.get(RouteConstants.IP, dict)
+        dict = dict.get(cls.IP_KEY, dict)
         dict = dict.get(cls.LIST_KEY, dict)
 
         return dict
 
     def _wrapper_preamble(self, dict, context):
-        result = {}
-        result[self.LIST_KEY] = dict
-        result = {RouteConstants.IP: result}
-        return result
-
-    def __init__(self, **kwargs):
-        super(VrfRoute, self).__init__(**kwargs)
+        return {
+            self.IP_KEY: {
+                self.LIST_KEY: dict,
+            }
+        }
 
     @property
     def neutron_router_id(self):
@@ -113,37 +114,41 @@ class VrfRoute(NyBase):
     @execute_on_pair()
     def update(self, context):
         if len(self.routes) > 0:
-            return super(VrfRoute, self)._update(context=context, method=NC_OPERATION.PUT)
+            return self._update(context=context, method=NC_OPERATION.PUT)
         else:
             return self._delete(context=context)
 
+    def to_single_dict(self, context):
+        raise NotImplementedError
+
     def to_dict(self, context):
-        vrf_route = OrderedDict()
-        vrf_route[RouteConstants.NAME] = self.name
-        vrf_route[RouteConstants.FOWARDING] = []
+        if not self.routes:
+            # no routes --> empty container
+            return {}
 
-        if isinstance(self.routes, list):
+        vrf_routes = []
+        if self.routes:
             for route in sorted(self.routes, key=lambda route: route.prefix):
-                vrf_route[RouteConstants.FOWARDING].append(route.to_single_dict(context))
+                vrf_routes.append(route.to_single_dict(context))
 
-        result = OrderedDict()
-        result[RouteConstants.DEFINITION] = vrf_route
-
-        return dict(result)
+        return {
+            RouteConstants.VRF: {
+                RouteConstants.NAME: self.name,
+                self.IP_ROUTE_CLASS.LIST_KEY: vrf_routes,
+            }
+        }
 
     def to_delete_dict(self, context):
-        vrf_route = OrderedDict()
-        vrf_route[RouteConstants.NAME] = self.name
-        vrf_route[RouteConstants.FOWARDING] = []
-
-        result = OrderedDict()
-        result[RouteConstants.DEFINITION] = vrf_route
-
-        return dict(result)
+        return {
+            RouteConstants.VRF: {
+                RouteConstants.NAME: self.name,
+                self.IP_ROUTE_CLASS.LIST_KEY: [],
+            }
+        }
 
 
-class IpRoute(NyBase):
-    LIST_KEY = RouteConstants.FOWARDING
+class IpRouteV4(NyBase):
+    LIST_KEY = RouteConstants.FORWARDING
 
     @classmethod
     def __parameters__(cls):
@@ -153,27 +158,107 @@ class IpRoute(NyBase):
             {'key': 'fwd_list', 'yang-key': RouteConstants.FWD_LIST, 'default': []}
         ]
 
-    def __init__(self, **kwargs):
-        super(IpRoute, self).__init__(**kwargs)
-
-    @property
-    def vrf(self):
-        if self.parent:
-            self.parent.get(RouteConstants.VRF)
-
-    def __id_function__(self, id_field, **kwargs):
-        self.id = "{},{}".format(self.prefix, self.mask)
-
     def to_single_dict(self, context):
-        ip_route = OrderedDict()
-        ip_route[RouteConstants.PREFIX] = self.prefix
-        ip_route[RouteConstants.MASK] = self.mask
-        ip_route[RouteConstants.FWD_LIST] = self.fwd_list
-
-        return ip_route
+        return {
+            RouteConstants.PREFIX: self.prefix,
+            RouteConstants.MASK: self.mask,
+            RouteConstants.FWD_LIST: self.fwd_list,
+        }
 
     def to_dict(self, context):
-        result = OrderedDict()
-        result[RouteConstants.FOWARDING] = self.to_single_dict(context)
+        return {self.LIST_KEY: self.to_single_dict(context)}
 
-        return dict(result)
+
+class IpRouteV6(NyBase):
+    LIST_KEY = RouteConstants.IPV6_ROUTE_LIST
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {'key': 'prefix', 'mandatory': True},
+            {'key': 'fwd_list', 'yang-key': RouteConstants.IPV6_FWD_LIST, 'default': []}
+        ]
+
+    def to_single_dict(self, context):
+        return {
+            RouteConstants.PREFIX: self.prefix,
+            RouteConstants.IPV6_FWD_LIST: self.fwd_list,
+        }
+
+    def to_dict(self, context):
+        return {self.LIST_KEY: self.to_single_dict(context)}
+
+
+class VrfRouteV4(VrfRouteBase):
+    ID_FILTER = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                <ip>
+                  <route>
+                   <vrf>
+                    <name>{id}</name>
+                   </vrf>
+                  </route>
+                </ip>
+              </native>
+    """
+
+    GET_ALL_STUB = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+                <ip>
+                  <route>
+                   <vrf>
+                    <name/>
+                   </vrf>
+                  </route>
+                </ip>
+              </native>
+    """
+
+    VRF_XPATH_FILTER = "/native/ip/route/vrf[name='{vrf}']"
+    IP_ROUTE_CLASS = IpRouteV4
+    IP_KEY = RouteConstants.IP
+
+    def to_single_dict(self, context):
+        return {
+            RouteConstants.PREFIX: self.prefix,
+            RouteConstants.MASK: self.mask,
+            RouteConstants.FWD_LIST: self.fwd_list
+        }
+
+
+class VrfRouteV6(VrfRouteBase):
+    ID_FILTER = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
+                      xmlns:ios-eth="http://cisco.com/ns/yang/Cisco-IOS-XE-ethernet">
+                <ipv6>
+                  <route>
+                   <vrf>
+                    <name>{id}</name>
+                   </vrf>
+                  </route>
+                </ipv6>
+              </native>
+    """
+
+    GET_ALL_STUB = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+                <ipv6>
+                  <route>
+                   <vrf>
+                    <name/>
+                   </vrf>
+                  </route>
+                </ipv6>
+              </native>
+    """
+
+    VRF_XPATH_FILTER = "/native/ipv6/route/vrf[name='{vrf}']"
+    IP_ROUTE_CLASS = IpRouteV6
+    IP_KEY = RouteConstants.IPV6
+
+    def to_single_dict(self, context):
+        return {
+            RouteConstants.PREFIX: self.prefix,
+            RouteConstants.IPV6_FWD_LIST: self.fwd_list
+        }

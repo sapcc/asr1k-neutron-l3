@@ -29,7 +29,7 @@ from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain, Loop
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat, NatPool, InterfaceDynamicNat, PoolDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
-from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
+from asr1k_neutron_l3.models.netconf_yang.route import VrfRouteV4, VrfRouteV6
 from asr1k_neutron_l3.models.netconf_yang.route_map import RouteMap
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
@@ -53,7 +53,7 @@ class DeviceCleanerMixin(object):
         BridgeDomain, LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface,
         StaticNat, PoolDynamicNat, InterfaceDynamicNat, NatPool,
         VBInterface,
-        RouteMap, Prefix, AccessList, VrfArpList, VrfRoute, VrfDefinition
+        RouteMap, Prefix, AccessList, VrfArpList, VrfRouteV4, VrfRouteV6, VrfDefinition
     ]
 
     def _get_all_router_ids(self):

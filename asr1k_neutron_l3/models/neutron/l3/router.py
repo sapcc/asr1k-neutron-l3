@@ -81,7 +81,6 @@ class Router(Base):
             LOG.error("Router %s has no rd attached, configuration is likely to fail!",
                       self.router_info.get('id'))
 
-        self.enable_ipv6 = any(iface.ipv6_addresses for iface in self.interfaces.all_interfaces)
         self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn,
                            rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
                            rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=global_vrf_id,
@@ -112,6 +111,14 @@ class Router(Base):
             LOG.error("Global vrf id for rt %s was %s, needs to be >= 0! Continuing, but unlikely to succeed",
                       rt, global_vrf_id)
         return global_vrf_id
+
+    @property
+    def enable_ipv4(self):
+        return any(iface.ip_address for iface in self.interfaces.all_interfaces)
+
+    @property
+    def enable_ipv6(self):
+        return any(iface.ipv6_addresses for iface in self.interfaces.all_interfaces)
 
     def address_scope_matches(self):
         result = []
@@ -154,23 +161,38 @@ class Router(Base):
                 if iface.primary_subnet and 'cidr' in iface.primary_subnet]
 
     def _build_routes(self):
-        routes = route.RouteCollection(self.router_id)
+        routes = {
+            4: route.RouteCollectionV4(self.router_id),
+            6: route.RouteCollectionV6(self.router_id),
+        }
 
         # In case the customer sets a default route, we will restrain from programming the openstack primary route
-        primary_overridden = False
+        primary_overridden = {4: False, 6: False}
         for l3_route in self.router_info.get('routes', []):
-            # FIXME: another place where we need to support ipv6 routes
-            ip, netmask = utils.from_cidr(l3_route.get('destination'))
-            if netmask == '0.0.0.0':
-                primary_overridden = True
+            ip_net = netaddr.IPNetwork(l3_route['destination'])
+            if ip_net.prefixlen == 0:
+                primary_overridden[ip_net.version] = True
 
-            r = route.Route(self.router_id, ip, netmask, l3_route.get('nexthop'))
+            if ip_net.version == 4:
+                r = route.RouteV4(self.router_id, str(ip_net.ip), str(ip_net.netmask), l3_route.get('nexthop'))
+            else:
+                r = route.RouteV6(self.router_id, str(ip_net), l3_route.get('nexthop'))
+
             if self._route_has_connected_interface(r):
-                routes.append(r)
+                routes[ip_net.version].append(r)
 
-        primary_route = self._primary_route()
-        if not primary_overridden and primary_route is not None and self._route_has_connected_interface(primary_route):
-            routes.append(primary_route)
+        if self.gateway_interface is not None:
+            if self.gateway_interface.primary_gateway_ip and not primary_overridden[4]:
+                primary_route = route.RouteV4(self.router_id, "0.0.0.0", "0.0.0.0",
+                                              self.gateway_interface.primary_gateway_ip)
+                if self._route_has_connected_interface(primary_route):
+                    routes[4].append(primary_route)
+
+            if self.gateway_interface.ipv6_addresses and not primary_overridden[6]:
+                primary_route = route.RouteV6(self.router_id, "::/0",
+                                              sorted(self.gateway_interface.ipv6_addresses)[0])
+                if self._route_has_connected_interface(primary_route):
+                    routes[6].append(primary_route)
 
         return routes
 
@@ -229,7 +251,8 @@ class Router(Base):
         connected_cidrs = self.get_internal_cidrs()
         extra_routes = list()
         if self.router_info["bgpvpn_advertise_extra_routes"]:
-            extra_routes = [x.cidr for x in self.routes.routes if x.cidr != "0.0.0.0/0"]
+            # FIXME: we don't process ipv6 extraroutes yet
+            extra_routes = [x.cidr for x in self.routes[4].routes if x.cidr != "0.0.0.0/0"]
 
         return bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
                                  routable_interface=self.routable_interface,
@@ -295,10 +318,6 @@ class Router(Base):
                                          internal_interfaces=no_snat_interfaces))
 
         return result
-
-    def _primary_route(self):
-        if self.gateway_interface is not None and self.gateway_interface.primary_gateway_ip is not None:
-            return route.Route(self.router_id, "0.0.0.0", "0.0.0.0", self.gateway_interface.primary_gateway_ip)
 
     def _port_extra_atts(self, port):
         try:
@@ -369,7 +388,8 @@ class Router(Base):
             if not isinstance(interface, l3_interface.OrphanedInterface):
                 results.append(interface.update())
 
-        results.append(self.routes.update())
+        results.append(self.routes[4].update())
+        results.append(self.routes[6].update())
 
         if self.gateway_interface is not None:
             if self.use_nat_pool:
@@ -410,7 +430,8 @@ class Router(Base):
         results.append(self.route_map.delete())
         results.append(self.floating_ips.delete())
         results.append(self.arp_entries.delete())
-        results.append(self.routes.delete())
+        results.append(self.routes[4].delete())
+        results.append(self.routes[6].delete())
 
         for key in self.dynamic_nat.keys():
             results.append(self.dynamic_nat.get(key).delete())
@@ -456,9 +477,10 @@ class Router(Base):
             if not pbr_rm_diff.valid:
                 diff_results['pbr_route_map'] = pbr_rm_diff.to_dict()
 
-        route_diff = self.routes.diff()
-        if not route_diff.valid:
-            diff_results['route'] = route_diff.to_dict()
+        for ip_version in (4, 6):
+            route_diff = self.routes[ip_version].diff()
+            if not route_diff.valid:
+                diff_results[f'route_v{ip_version}'] = route_diff.to_dict()
 
         # FIXME: this diff probably doesn't work for internal routers
         snat_mode = constants.SNAT_MODE_POOL if self.use_nat_pool else constants.SNAT_MODE_INTERFACE

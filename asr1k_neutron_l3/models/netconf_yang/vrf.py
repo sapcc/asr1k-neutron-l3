@@ -27,7 +27,7 @@ from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, Requeable, NC_OPERATION, execute_on_pair, \
     retry_on_failure, YANG_TYPE
-from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
+from asr1k_neutron_l3.models.netconf_yang.route import VrfRouteV4, VrfRouteV6
 
 LOG = logging.getLogger(__name__)
 
@@ -241,16 +241,18 @@ class VrfDefinition(NyBase, Requeable):
 
         routes = []
         try:
-            routes = VrfRoute.get_for_vrf(context=context, vrf=self.id)
-            if len(routes) == 0:
-                LOG.info("No routes to clean")
+            routes_v4 = VrfRouteV4.get_for_vrf(context=context, vrf=self.id)
+            routes_v6 = VrfRouteV6.get_for_vrf(context=context, vrf=self.id)
+            routes = routes_v4 + routes_v6
+            if routes:
+                LOG.info("No routes to clean for %s", self.name)
 
             for route in routes:
-                LOG.info("Deleting hanging route {} in vrf {} postflight.".format(route.name, self.name))
+                LOG.info("Deleting hanging route %s in vrf %s postflight.", route.name, self.name)
                 route._delete(context=context)
-                LOG.info("Deleted hanging route {} in vrf {} postflight.".format(route.name, self.name))
-        except BaseException as e:
-            LOG.error("Failed to delete {} routes in VRF {} postlight : {}".format(len(routes), self.id, e))
+                LOG.debug("Deleted hanging route %s in vrf %s postflight.", route.name, self.name)
+        except Exception as e:
+            LOG.error("Failed to delete %s routes in VRF %s postlight: %s", len(routes), self.id, e)
 
         LOG.debug("Processing Interfaces")
         vbis = []
