@@ -55,7 +55,7 @@ class AddressFamily(base.Base):
             self.enable_bgp = True
 
         self._rest_definition = bgp.AddressFamily(vrf=self.vrf, asn=self.asn, enable_bgp=self.enable_bgp,
-                                                  static=True, connected=True, networks_v4=self.networks_v4)
+                                                  networks_v4=self.networks_v4)
 
     def get(self):
         return bgp.AddressFamily.get(self.vrf, asn=self.asn, enable_bgp=self.enable_bgp)
