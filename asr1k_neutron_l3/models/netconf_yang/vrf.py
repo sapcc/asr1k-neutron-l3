@@ -138,8 +138,8 @@ class VrfDefinition(NyBase, Requeable):
         super(VrfDefinition, self).__init__(**kwargs)
 
         self.enable_bgp = kwargs.get('enable_bgp', False)
-        if kwargs.get('map', None) is not None or kwargs.get('rt_import', None) is not None or \
-                kwargs.get('rt_export', None) is not None:
+        if kwargs.get('map') is not None or kwargs.get('rt_import') is not None or \
+                kwargs.get('rt_export') is not None:
             self.address_family_ipv4 = IpV4AddressFamily(**kwargs)
 
         if kwargs.get('enable_ipv6'):
@@ -301,15 +301,6 @@ class IpV4AddressFamily(NyBase):
     def __parameters__(cls):
         return [
             {'key': 'map', 'yang-path': "export", "default": None},
-            {'key': 'map_17_3', 'default': None},
-
-            # =16.9
-            {'key': 'rt_export', 'yang-key': "export", 'yang-path': "route-target",
-             'type': [RouteTarget], "default": []},
-            {'key': 'rt_import', 'yang-key': "import", 'yang-path': "route-target",
-             'type': [RouteTarget], "default": []},
-
-            # >16.9
             {'key': 'rt_export', 'yang-key': "without-stitching",
              'yang-path': "route-target/export-route-target",
              'type': [RouteTarget], "default": []},
@@ -322,34 +313,24 @@ class IpV4AddressFamily(NyBase):
         address_family = OrderedDict()
 
         if self.map is not None:
-            export_map = self.map
-            if not self.from_device and context.version_min_17_3 and self.map_17_3:
-                export_map = self.map_17_3
-            address_family[VrfConstants.EXPORT] = {"map": export_map}
+            address_family[VrfConstants.EXPORT] = {"map": self.map}
 
-        address_family[VrfConstants.ROUTE_TARGET] = {}
-
+        rts = {}
         if self.rt_export:
             asns = []
             for rt in sorted(self.rt_export, key=attrgetter('normalized_asn_ip')):
                 asns.append(rt.to_dict(context))
 
-            if context.version_min_17_3:
-                rt = {VrfConstants.ROUTE_TARGET_EXPORT: {VrfConstants.WITHOUT_STITCHING: asns}}
-            else:
-                rt = {VrfConstants.EXPORT: asns}
-            address_family[VrfConstants.ROUTE_TARGET].update(rt)
+            rts[VrfConstants.ROUTE_TARGET_EXPORT] = {VrfConstants.WITHOUT_STITCHING: asns}
 
         if self.rt_import:
             asns = []
             for rt in sorted(self.rt_import, key=attrgetter('normalized_asn_ip')):
                 asns.append(rt.to_dict(context))
 
-            if context.version_min_17_3:
-                rt = {VrfConstants.ROUTE_TARGET_IMPORT: {VrfConstants.WITHOUT_STITCHING: asns}}
-            else:
-                rt = {VrfConstants.IMPORT: asns}
-            address_family[VrfConstants.ROUTE_TARGET].update(rt)
+            rts[VrfConstants.ROUTE_TARGET_IMPORT] = {VrfConstants.WITHOUT_STITCHING: asns}
+
+        address_family[VrfConstants.ROUTE_TARGET] = rts
 
         return dict(address_family)
 

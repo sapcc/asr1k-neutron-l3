@@ -35,12 +35,11 @@ class Vrf(base.Base):
         self.rd = utils.to_rd(self.asn, rd)
 
         self.enable_bgp = False
-        self.map_17_3 = None
         if self.routable_interface:
             self.enable_bgp = True
-            self.map_17_3 = "{}{:02d}".format(cfg.CONF.asr1k_l3.dapnet_rm_prefix, global_vrf_id)
-
-        self.map = "exp-{}".format(self.name)
+            self.map = f"{cfg.CONF.asr1k_l3.dapnet_rm_prefix}{global_vrf_id:02d}"
+        else:
+            self.map = f"exp-{self.name}"
 
         self.rt_import = [{'asn_ip': asn_ip} for asn_ip in rt_import] if rt_import else None
         self.rt_export = [{'asn_ip': asn_ip} for asn_ip in rt_export] if rt_export else None
@@ -49,7 +48,7 @@ class Vrf(base.Base):
 
         self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description,
                                                   rd=self.rd, enable_bgp=self.enable_bgp,
-                                                  map=self.map, map_17_3=self.map_17_3,
+                                                  map=self.map,
                                                   rt_import=self.rt_import, rt_export=self.rt_export,
                                                   enable_ipv6=enable_ipv6)
 
