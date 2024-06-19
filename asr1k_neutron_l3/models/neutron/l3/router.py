@@ -87,12 +87,11 @@ class Router(Base):
                            enable_ipv6=self.enable_ipv6)
 
         self.nat_acl = self._build_nat_acl()
-        self.pbr_acl = self._build_pbr_acl()
 
         self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,
                                             routable_interface=self.routable_interface)
 
-        self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'), gateway_interface=self.gateway_interface)
+        self.pbr_route_map = route_map.PBRRouteMap(self.router_id, gateway_interface=self.gateway_interface)
 
         self.bgp_address_family = self._build_bgp_address_family()
 
@@ -214,20 +213,6 @@ class Router(Base):
             acl.append_rule(access_list.Rule(action='deny'))
         else:
             acl.append_rule(access_list.Rule())
-        return acl
-
-    def _build_pbr_acl(self):
-        acl = access_list.AccessList("PBR-{}".format(utils.uuid_to_vrf_id(self.router_id)), drop_on_17_3=True)
-
-        if self.gateway_interface:
-            subnet = self.gateway_interface.primary_subnet
-
-            if subnet is not None and subnet.get('cidr') is not None:
-                ip, netmask = utils.from_cidr(subnet.get('cidr'))
-                wildcard = utils.to_wildcard_mask(netmask)
-                rule = access_list.Rule(destination=ip, destination_mask=wildcard)
-                acl.append_rule(rule)
-
         return acl
 
     def _route_has_connected_interface(self, l3_route):
@@ -395,8 +380,6 @@ class Router(Base):
         if self.nat_acl:
             results.append(self.nat_acl.update())
 
-        if self.pbr_acl:
-            results.append(self.pbr_acl.update())
         # Working assumption is that any NAT mode migration is completed
 
         results.append(self.floating_ips.update())
@@ -458,7 +441,6 @@ class Router(Base):
 
         results.append(self.pbr_route_map.delete())
         results.append(self.nat_acl.delete())
-        results.append(self.pbr_acl.delete())
         results.append(self.bgp_address_family[4].delete())
         results.append(self.bgp_address_family[6].delete())
 

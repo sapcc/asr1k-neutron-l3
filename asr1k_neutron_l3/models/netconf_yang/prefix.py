@@ -162,45 +162,30 @@ class PrefixSeq(NyBase):
         seq = OrderedDict()
 
         seq[PrefixConstants.NUMBER] = self.no
-        if context.version_min_17_3:
-            if self.action is not None:
-                # parameters passed in 17.3 format
-                seq[PrefixConstants.ACTION] = self.action
-                seq[PrefixConstants.IP] = self.action_ip
-                if self.ge:
-                    seq[PrefixConstants.GE] = self.ge
-                if self.le:
-                    seq[PrefixConstants.GE] = self.le
-            else:
-                # parameters passed in old format by the driver
-                if self.deny_ip is not None:
-                    seq[PrefixConstants.ACTION] = PrefixConstants.DENY
-                    seq[PrefixConstants.IP] = self.deny_ip
-                    if self.deny_ge is not None:
-                        seq[PrefixConstants.GE] = self.deny_ge
-                    if self.deny_le is not None:
-                        seq[PrefixConstants.LE] = self.deny_le
-
-                if self.permit_ip is not None:
-                    seq[PrefixConstants.ACTION] = PrefixConstants.PERMIT
-                    seq[PrefixConstants.IP] = self.permit_ip
-                    if self.permit_ge is not None:
-                        seq[PrefixConstants.GE] = self.permit_ge
-                    if self.permit_le is not None:
-                        seq[PrefixConstants.LE] = self.permit_le
+        if self.action is not None:
+            # parameters passed in 17.3 format
+            seq[PrefixConstants.ACTION] = self.action
+            seq[PrefixConstants.IP] = self.action_ip
+            if self.ge:
+                seq[PrefixConstants.GE] = self.ge
+            if self.le:
+                seq[PrefixConstants.GE] = self.le
         else:
+            # parameters passed in old format by the driver
             if self.deny_ip is not None:
-                seq[PrefixConstants.DENY] = {PrefixConstants.IP: self.deny_ip}
+                seq[PrefixConstants.ACTION] = PrefixConstants.DENY
+                seq[PrefixConstants.IP] = self.deny_ip
                 if self.deny_ge is not None:
-                    seq[PrefixConstants.DENY][PrefixConstants.GE] = self.deny_ge
+                    seq[PrefixConstants.GE] = self.deny_ge
                 if self.deny_le is not None:
-                    seq[PrefixConstants.DENY][PrefixConstants.LE] = self.deny_le
+                    seq[PrefixConstants.LE] = self.deny_le
 
             if self.permit_ip is not None:
-                seq[PrefixConstants.PERMIT] = {PrefixConstants.IP: self.permit_ip}
+                seq[PrefixConstants.ACTION] = PrefixConstants.PERMIT
+                seq[PrefixConstants.IP] = self.permit_ip
                 if self.permit_ge is not None:
-                    seq[PrefixConstants.PERMIT][PrefixConstants.GE] = self.permit_ge
+                    seq[PrefixConstants.GE] = self.permit_ge
                 if self.permit_le is not None:
-                    seq[PrefixConstants.PERMIT][PrefixConstants.LE] = self.permit_le
+                    seq[PrefixConstants.LE] = self.permit_le
 
         return seq
