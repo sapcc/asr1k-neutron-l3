@@ -21,24 +21,22 @@ from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.neutron.l3 import base
 
 
-class AddressFamily(base.Base):
-    def __init__(self, vrf, asn=None, routable_interface=False, rt_export=[],
+class AddressFamilyBase(base.Base):
+    YANG_BGP_CLASS = None
+    YANG_BGP_NETWORK_CLASS = None
+
+    def __init__(self, vrf, asn=None, has_routable_interface=False, rt_export=[],
                  connected_cidrs=[], routable_networks=[], extra_routes=[]):
-        super(AddressFamily, self).__init__()
+        super().__init__()
         self.vrf = utils.uuid_to_vrf_id(vrf)
-        self.routable_interface = routable_interface
+        self.has_routable_interface = has_routable_interface
         self.asn = asn
         self.enable_bgp = False
         self.rt_export = rt_export
         self.routable_networks = routable_networks
-        self.networks_v4 = set()
+        self.networks = set()
 
         for net in connected_cidrs + extra_routes:
-            ip, _ = net.split("/", 1)
-            if utils.get_ip_version(ip) != 4:
-                # FIXME: skip ipv6 for now
-                continue
-
             # rm is applied to all routable networks and their subnets
             rm = None
             if any(utils.network_in_network(net, routable_network) for routable_network in routable_networks):
@@ -47,18 +45,28 @@ class AddressFamily(base.Base):
                 else:
                     rm = cfg.CONF.asr1k_l3.dapnet_network_rm
 
-            net = bgp.Network.from_cidr(net, rm)
-            self.networks_v4.add(net)
-        self.networks_v4 = list(self.networks_v4)
+            net = self.YANG_BGP_NETWORK_CLASS.from_cidr(net, rm)
+            self.networks.add(net)
+        self.networks = list(self.networks)
 
-        if self.routable_interface or len(self.rt_export) > 0:
+        if self.has_routable_interface or len(self.rt_export) > 0:
             self.enable_bgp = True
 
-        self._rest_definition = bgp.AddressFamily(vrf=self.vrf, asn=self.asn, enable_bgp=self.enable_bgp,
-                                                  networks_v4=self.networks_v4)
+        self._rest_definition = self.YANG_BGP_CLASS(vrf=self.vrf, asn=self.asn, enable_bgp=self.enable_bgp,
+                                                    networks=self.networks)
 
     def get(self):
-        return bgp.AddressFamily.get(self.vrf, asn=self.asn, enable_bgp=self.enable_bgp)
+        return self.YANG_BGP_CLASS.get(self.vrf, asn=self.asn, enable_bgp=self.enable_bgp)
 
     def diff(self, should_be_none=False):
-        return super(AddressFamily, self).diff(should_be_none=not self.enable_bgp)
+        return super().diff(should_be_none=not self.enable_bgp)
+
+
+class AddressFamilyV4(AddressFamilyBase):
+    YANG_BGP_CLASS = bgp.AddressFamilyV4
+    YANG_BGP_NETWORK_CLASS = bgp.NetworkV4
+
+
+class AddressFamilyV6(AddressFamilyBase):
+    YANG_BGP_CLASS = bgp.AddressFamilyV6
+    YANG_BGP_NETWORK_CLASS = bgp.NetworkV6

@@ -19,7 +19,7 @@ import re
 
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.models.netconf_yang.bgp import AddressFamily
+from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.common import cli_snippets
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.connection import ConnectionManager
@@ -273,17 +273,17 @@ class VrfDefinition(NyBase, Requeable):
         LOG.debug("Processing Address Families")
         afs = []
         try:
-            afs = AddressFamily.get_for_vrf(context=context, asn=self.asn, vrf=self.id)
+            afs_v4 = bgp.AddressFamilyV4.get_for_vrf(context=context, asn=self.asn, vrf=self.id)
+            afs_v6 = bgp.AddressFamilyV6.get_for_vrf(context=context, asn=self.asn, vrf=self.id)
+            afs = afs_v4 + afs_v6
 
             if len(afs) == 0:
-                LOG.info("No address fammilies to clean")
+                LOG.info("No address families to clean")
 
             for af in afs:
-                LOG.info("Deleting hanging address family in vrf {} postflight.".format(self.name))
-                LOG.info(af)
+                LOG.info("Deleting hanging address family %s in vrf %s postflight.", af, self.name)
                 result = af._delete(context=context)
-                LOG.debug(result)
-                LOG.info("Deleted hanging address family in vrf {} postflight.".format(self.name))
+                LOG.debug("Deleted hanging address family %s in vrf %s postflight. Result: %s", af, self.name, result)
         except BaseException as e:
             LOG.error("Failed to delete {} BGP address families in VRF {} postlight : {}".format(len(afs), self.id, e))
 

@@ -197,16 +197,16 @@ class ParsingTest(base.BaseTestCase):
         rm_name = "wubwubwub"
 
         context = FakeASR1KContext()
-        bgp_af = bgp.AddressFamily.from_xml(bgp_xml, context)
-        parsed_cidrs = {net.cidr for net in bgp_af.networks_v4}
+        bgp_af = bgp.AddressFamilyV4.from_xml(bgp_xml, context)
+        parsed_cidrs = {net.cidr for net in bgp_af.networks}
         self.assertEqual(orig_cidrs, parsed_cidrs)
-        for network in bgp_af.networks_v4:
+        for network in bgp_af.networks:
             expected_rm = rm_name if network.cidr in cidrs_with_route_map else None
             self.assertEqual(network.route_map, expected_rm)
 
-        nets = [bgp.Network.from_cidr(cidr, route_map=rm_name if cidr in cidrs_with_route_map else None)
+        nets = [bgp.NetworkV4.from_cidr(cidr, route_map=rm_name if cidr in cidrs_with_route_map else None)
                 for cidr in orig_cidrs]
-        bgp_af = bgp.AddressFamily(vrf="meow", networks_v4=nets)
+        bgp_af = bgp.AddressFamilyV4(vrf="meow", networks=nets)
         result = bgp_af.to_dict(context)
 
         orig_netmasks = {from_cidr(cidr) for cidr in orig_cidrs}
