@@ -248,17 +248,35 @@ class Router(Base):
         return False
 
     def _build_bgp_address_family(self):
-        connected_cidrs = self.get_internal_cidrs()
-        extra_routes = list()
-        if self.router_info["bgpvpn_advertise_extra_routes"]:
-            # FIXME: we don't process ipv6 extraroutes yet
-            extra_routes = [x.cidr for x in self.routes[4].routes if x.cidr != "0.0.0.0/0"]
+        networks_v4 = [iface.primary_subnet['cidr'] for iface in self.interfaces.internal_interfaces
+                       if iface.primary_subnet and 'cidr' in iface.primary_subnet and
+                       utils.get_ip_version(iface.primary_subnet['cidr']) == 4]
+        networks_v6 = [addr.prefix for iface in self.interfaces.internal_interfaces
+                       for addr in iface.ipv6_addresses]
+        routable_networks_v4 = [iface.primary_subnet['cidr'] for iface in self.address_scope_matches()
+                                if iface.primary_subnet and 'cidr' in iface.primary_subnet and
+                                utils.get_ip_version(iface.primary_subnet['cidr']) == 4]
+        routable_networks_v6 = [addr.prefix for iface in self.address_scope_matches()
+                                for addr in iface.ipv6_addresses]
 
-        return bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
-                                 routable_interface=self.routable_interface,
-                                 rt_export=self.rt_export, connected_cidrs=connected_cidrs,
-                                 routable_networks=self.get_routable_networks(),
-                                 extra_routes=extra_routes)
+        extra_routes_v4 = []
+        extra_routes_v6 = []
+        if self.router_info["bgpvpn_advertise_extra_routes"]:
+            extra_routes_v4 = [x.cidr for x in self.routes[4].routes if x.cidr != "0.0.0.0/0"]
+            extra_routes_v6 = [x.cidr for x in self.routes[6].routes if x.cidr != "::/0"]
+
+        def_args = {
+            "vrf": utils.uuid_to_vrf_id(self.router_id),
+            "asn": self.config.asr1k_l3.fabric_asn,
+            "has_routable_interface": self.routable_interface,
+            "rt_export": self.rt_export,
+        }
+        return {
+            4: bgp.AddressFamilyV4(connected_cidrs=networks_v4, extra_routes=extra_routes_v4,
+                                   routable_networks=routable_networks_v4, **def_args),
+            6: bgp.AddressFamilyV6(connected_cidrs=networks_v6, extra_routes=extra_routes_v6,
+                                   routable_networks=routable_networks_v6, **def_args),
+        }
 
     def _build_dynamic_nat(self):
         pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
@@ -368,10 +386,11 @@ class Router(Base):
 
         # results.append(self.bgp_address_family.update())
 
-        if self.routable_interface or len(self.rt_export) > 0:
-            results.append(self.bgp_address_family.update())
-        else:
-            results.append(self.bgp_address_family.delete())
+        for ip_version in (4, 6):
+            if (self.routable_interface or len(self.rt_export) > 0) and self.bgp_address_family[ip_version].networks:
+                results.append(self.bgp_address_family[ip_version].update())
+            else:
+                results.append(self.bgp_address_family[ip_version].delete())
 
         if self.nat_acl:
             results.append(self.nat_acl.update())
@@ -440,7 +459,8 @@ class Router(Base):
         results.append(self.pbr_route_map.delete())
         results.append(self.nat_acl.delete())
         results.append(self.pbr_acl.delete())
-        results.append(self.bgp_address_family.delete())
+        results.append(self.bgp_address_family[4].delete())
+        results.append(self.bgp_address_family[6].delete())
 
         for interface in self.interfaces.all_interfaces:
             results.append(interface.delete())
@@ -457,10 +477,10 @@ class Router(Base):
             diff_results['vrf'] = vrf_diff.to_dict()
 
         if self.routable_interface:
-            bgp_diff = self.bgp_address_family.diff()
-
-            if not bgp_diff.valid:
-                diff_results['bgp'] = bgp_diff.to_dict()
+            for ip_version in (4, 6):
+                bgp_diff = self.bgp_address_family[ip_version].diff()
+                if not bgp_diff.valid:
+                    diff_results[f'bgp_v{ip_version}'] = bgp_diff.to_dict()
 
         for prefix_list in self.prefix_lists:
             if prefix_list.internal_interfaces is not None and len(prefix_list.internal_interfaces) > 0:

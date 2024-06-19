@@ -130,7 +130,7 @@ def ip_in_network(ip, net):
 
 def get_ip_version(ip):
     try:
-        ip = IPAddress(ip)
+        ip = IPNetwork(ip)
         return ip.version
     except AddrFormatError:
         return None
