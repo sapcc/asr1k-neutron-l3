@@ -23,7 +23,7 @@ from oslo_config import cfg
 
 class Vrf(base.Base):
     def __init__(self, name, description=None, asn=None, rd=None, routable_interface=False,
-                 rt_import=[], rt_export=[], global_vrf_id=None):
+                 rt_import=[], rt_export=[], global_vrf_id=None, enable_ipv6=False):
         super(Vrf, self).__init__()
         self.name = utils.uuid_to_vrf_id(name)
         self.description = description
@@ -34,21 +34,24 @@ class Vrf(base.Base):
         self.asn = asn
         self.rd = utils.to_rd(self.asn, rd)
 
-        self.enable_bgp = False
-        self.map_17_3 = None
         if self.routable_interface:
-            self.enable_bgp = True
-            self.map_17_3 = "{}{:02d}".format(cfg.CONF.asr1k_l3.dapnet_rm_prefix, global_vrf_id)
-
-        self.map = "exp-{}".format(self.name)
+            self.map = f"{cfg.CONF.asr1k_l3.dapnet_rm_prefix}{global_vrf_id:02d}"
+        else:
+            self.map = f"exp-{self.name}"
 
         self.rt_import = [{'asn_ip': asn_ip} for asn_ip in rt_import] if rt_import else None
         self.rt_export = [{'asn_ip': asn_ip} for asn_ip in rt_export] if rt_export else None
 
+        self.map_v6 = None
+        self.enable_ipv6 = enable_ipv6
+        if enable_ipv6:
+            self.map = f"exp-v6-{self.name}"
+
         self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description,
-                                                  rd=self.rd, enable_bgp=self.enable_bgp,
-                                                  map=self.map, map_17_3=self.map_17_3,
-                                                  rt_import=self.rt_import, rt_export=self.rt_export)
+                                                  rd=self.rd,
+                                                  map=self.map, map_v6=self.map_v6,
+                                                  rt_import=self.rt_import, rt_export=self.rt_export,
+                                                  enable_ipv6=enable_ipv6)
 
     def get(self):
         return vrf.VrfDefinition.get(self.name)

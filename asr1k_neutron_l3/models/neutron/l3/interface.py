@@ -19,7 +19,8 @@ from oslo_log import log as logging
 
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.neutron.l3 import base
-from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface, VBIPrimaryIpAddress, VBISecondaryIpAddress
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface, VBIPrimaryIpAddress, VBISecondaryIpAddress, \
+    VBIIpv6Address
 from asr1k_neutron_l3.models.netconf_yang.l3_interface_state import VBInterfaceState
 
 LOG = logging.getLogger(__name__)
@@ -63,6 +64,7 @@ class Interface(base.Base):
         self.vrf = utils.uuid_to_vrf_id(self.router_id)
         self._primary_subnet_id = None
         self.ip_address = self._ip_address()
+        self.ipv6_addresses = self._ipv6_addresses()
 
         self.secondary_ip_addresses = []
         self.primary_subnet = self._primary_subnet()
@@ -75,17 +77,27 @@ class Interface(base.Base):
         self.address_scope = router_port.get('address_scopes', {}).get('4')
 
     def add_secondary_ip_address(self, ip_address, netmask):
+        # FIXME: is this method still in use?
         self.secondary_ip_addresses.append(VBISecondaryIpAddress(address=ip_address,
                                            mask=utils.to_netmask(netmask)))
 
     def _ip_address(self):
-        if self.router_port.get('fixed_ips'):
-            n_fixed_ip = next(iter(self.router_port.get('fixed_ips')), None)
+        for n_fixed_ip in self.router_port.get('fixed_ips', []):
+            if utils.get_ip_version(n_fixed_ip['ip_address']) == 4:
+                self._primary_subnet_id = n_fixed_ip.get('subnet_id')
 
-            self._primary_subnet_id = n_fixed_ip.get('subnet_id')
+                return VBIPrimaryIpAddress(address=n_fixed_ip.get('ip_address'),
+                                           mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
+        return None
 
-            return VBIPrimaryIpAddress(address=n_fixed_ip.get('ip_address'),
-                                       mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
+    def _ipv6_addresses(self):
+        ipv6_addrs = []
+        for ip in self.router_port.get('fixed_ips', []):
+            if utils.get_ip_version(ip['ip_address']) == 6:
+                if self._primary_subnet_id is None:
+                    self._primary_subnet_id = ip.get('subnet_id')
+                ipv6_addrs.append(VBIIpv6Address(prefix=f"{ip['ip_address']}/{ip['prefixlen']}"))
+        return ipv6_addrs
 
     def _primary_subnet(self):
         for subnet in self.router_port.get('subnets', []):
@@ -136,7 +148,7 @@ class GatewayInterface(Interface):
 
         self._rest_definition = VBInterface(name=self.bridge_domain, description=description,
                                             mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
-                                            ip_address=self.ip_address,
+                                            ip_address=self.ip_address, ipv6_addresses=self.ipv6_addresses,
                                             secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
                                             redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS',
                                             ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout)
@@ -149,6 +161,10 @@ class GatewayInterface(Interface):
         start_ip, end_ip = ips.split("-")
         ip_pool = netaddr.IPSet(netaddr.IPRange(start_ip, end_ip))
         for n_fixed_ip in self.router_port['fixed_ips']:
+            # filter out v6
+            if utils.get_ip_version(n_fixed_ip['ip_address']) != 4:
+                continue
+
             if n_fixed_ip['ip_address'] not in ip_pool:
                 break
         else:
@@ -182,7 +198,7 @@ class InternalInterface(Interface):
 
         self._rest_definition = VBInterface(name=self.bridge_domain, description=description,
                                             mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
-                                            ip_address=self.ip_address,
+                                            ip_address=self.ip_address, ipv6_addresses=self.ipv6_addresses,
                                             secondary_ip_addresses=self.secondary_ip_addresses,
                                             nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf),
                                             ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.internal_iface_arp_timeout)

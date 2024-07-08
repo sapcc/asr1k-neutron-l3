@@ -76,7 +76,6 @@ class AccessList(NyBase):
         return [
             {"key": "name", "id": True},
             {'key': 'rules', 'yang-key': "access-list-seq-rule", 'type': [ACLRule], 'default': []},
-            {'key': 'drop_on_17_3', 'default': False},
         ]
 
     @classmethod
@@ -112,9 +111,6 @@ class AccessList(NyBase):
         self.rules.append(rule)
 
     def to_dict(self, context):
-        if context.version_min_17_3 and self.drop_on_17_3:
-            return {ACLConstants.EXTENDED: {}}
-
         entry = OrderedDict()
         entry[ACLConstants.NAME] = self.name
         # entry[ACLConstants.ACL_RULE]=self.rules
@@ -130,20 +126,12 @@ class AccessList(NyBase):
 
     @execute_on_pair()
     def update(self, context):
-        if context.version_min_17_3 and self.drop_on_17_3:
-            return None
-
         # we need to check if the ACL needs to be updated, if it does selectively delete,
         # because we can't easily update individual rules
         if len(self._internal_validate(context=context)) > 0:
             super(AccessList, self)._delete(context=context)
 
         return super(AccessList, self)._update(context=context)
-
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
-        return context.version_min_17_3 and \
-            (self.drop_on_17_3 or self.name.startswith("PBR-") and self.neutron_router_id is not None) or \
-            super(AccessList, self).is_orphan(all_router_ids, all_segmentation_ids, all_bd_ids, context)
 
 
 class ACLRule(NyBase):
