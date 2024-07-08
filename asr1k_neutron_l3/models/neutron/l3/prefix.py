@@ -32,23 +32,43 @@ class BasePrefix(base.Base):
         if self.gateway_interface is not None:
             self.gateway_address_scope = self.gateway_interface.address_scope
 
-        self._rest_definition = prefix.Prefix(name="{}-{}".format(name_prefix, self.vrf))
+        self._rest_definition = self.PREFIX_MODEL(name="{}-{}".format(name_prefix, self.vrf))
 
 
-class ExtPrefix(BasePrefix):
+class BasePrefixV4(BasePrefix):
+    PREFIX_MODEL = prefix.PrefixV4
+
+
+class BasePrefixV6(BasePrefix):
+    PREFIX_MODEL = prefix.PrefixV6
+
+
+class ExtPrefixBase(BasePrefix):
+    IP_VERSION = None
+
     def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
-        super(ExtPrefix, self).__init__(name_prefix='ext', router_id=router_id, gateway_interface=gateway_interface,
-                                        internal_interfaces=internal_interfaces)
+        super().__init__(name_prefix='ext', router_id=router_id, gateway_interface=gateway_interface,
+                         internal_interfaces=internal_interfaces)
 
         if self.gateway_interface is not None:
             i = 1
             for subnet in sorted(self.gateway_interface.subnets, key=itemgetter('id')):
+                if utils.get_ip_version(subnet.get('cidr')) != self.IP_VERSION:
+                    continue
                 self.has_prefixes = True
                 self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
                 i += 1
 
 
-class SnatPrefix(BasePrefix):
+class ExtPrefixV4(BasePrefixV6, ExtPrefixBase):
+    IP_VERSION = 4
+
+
+class ExtPrefixV6(BasePrefixV6, ExtPrefixBase):
+    IP_VERSION = 6
+
+
+class SnatPrefix(BasePrefixV4):
     def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
         super(SnatPrefix, self).__init__(name_prefix='snat', router_id=router_id, gateway_interface=gateway_interface,
                                          internal_interfaces=internal_interfaces)
@@ -61,7 +81,7 @@ class SnatPrefix(BasePrefix):
                 i += 1
 
 
-class RoutePrefix(BasePrefix):
+class RoutePrefix(BasePrefixV4):
     def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
         super(RoutePrefix, self).__init__(name_prefix='route', router_id=router_id, gateway_interface=gateway_interface,
                                           internal_interfaces=internal_interfaces)

@@ -19,7 +19,7 @@ from asr1k_neutron_l3.models.neutron.l3 import base
 
 
 class RouteMap(base.Base):
-    def __init__(self, name, rt=None, routable_interface=False):
+    def __init__(self, name, rt=None, routable_interface=False, enable_ipv6=False):
         super(RouteMap, self).__init__()
         self.vrf = utils.uuid_to_vrf_id(name)
         self.name = "exp-{}".format(self.vrf)
@@ -53,6 +53,10 @@ class RouteMap(base.Base):
                 seq += 10
 
         sequences.append(route_map.MapSequence(seq_no=seq, operation='deny', prefix_list='ext-{}'.format(self.vrf)))
+        if enable_ipv6:
+            seq += 10
+            # FIXME: how to tell that this is an ipv6 list
+            sequences.append(route_map.MapSequence(seq_no=seq, operation='deny', prefix_list='ext-{}'.format(self.vrf)))
 
         self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)
 

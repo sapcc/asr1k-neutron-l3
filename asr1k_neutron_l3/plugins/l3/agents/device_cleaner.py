@@ -53,6 +53,7 @@ class DeviceCleanerMixin(object):
         BridgeDomain, LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface,
         StaticNat, PoolDynamicNat, InterfaceDynamicNat, NatPool,
         VBInterface,
+        # FIXME: remove PBR access-list / route-map
         RouteMap, Prefix, AccessList, VrfArpList, VrfRouteV4, VrfRouteV6, VrfDefinition
     ]
 

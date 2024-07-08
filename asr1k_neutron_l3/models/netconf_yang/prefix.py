@@ -14,14 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from collections import OrderedDict
-
 from asr1k_neutron_l3.models.netconf_yang.ny_base import execute_on_pair, NC_OPERATION, NyBase
 from asr1k_neutron_l3.common import utils
 
 
 class PrefixConstants(object):
     IP = 'ip'
+    IPV6 = 'ipv6'
     PREFIX_LIST = 'prefix-list'
     PREFIXES = 'prefixes'
     NAME = 'name'
@@ -35,7 +34,7 @@ class PrefixConstants(object):
     LE = 'le'
 
 
-class Prefix(NyBase):
+class PrefixBase(NyBase):
     ID_FILTER = """
       <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
         <ip>
@@ -62,6 +61,7 @@ class Prefix(NyBase):
 
     LIST_KEY = PrefixConstants.PREFIX_LIST
     ITEM_KEY = PrefixConstants.PREFIXES
+    AF_KEY = None
 
     @classmethod
     def __parameters__(cls):
@@ -73,10 +73,10 @@ class Prefix(NyBase):
 
     @classmethod
     def remove_wrapper(cls, dict, context):
-        dict = super(Prefix, cls)._remove_base_wrapper(dict, context)
+        dict = super()._remove_base_wrapper(dict, context)
         if dict is None:
             return
-        dict = dict.get(PrefixConstants.IP, dict)
+        dict = dict.get(cls.AF_KEY, dict)
         dict = dict.get(cls.LIST_KEY, dict)
 
         return dict
@@ -84,11 +84,8 @@ class Prefix(NyBase):
     def _wrapper_preamble(self, dict, context):
         result = {}
         result[self.LIST_KEY] = dict
-        result = {PrefixConstants.IP: result}
+        result = {self.AF_KEY: result}
         return result
-
-    def __init__(self, **kwargs):
-        super(Prefix, self).__init__(**kwargs)
 
     @property
     def neutron_router_id(self):
@@ -107,30 +104,85 @@ class Prefix(NyBase):
     @execute_on_pair()
     def update(self, context):
         if len(self.seq) > 0:
-            return super(Prefix, self)._update(context=context, method=NC_OPERATION.PUT)
+            return super()._update(context=context, method=NC_OPERATION.PUT)
         else:
-            return super(Prefix, self)._delete(context=context)
+            return super()._delete(context=context)
 
     def to_dict(self, context):
-        prefix = OrderedDict()
+        prefix = {}
         prefix[PrefixConstants.NAME] = self.name
         prefix[PrefixConstants.SEQ] = []
 
         for seq in self.seq:
             prefix[PrefixConstants.SEQ].append(seq.to_dict(context))
 
-        result = OrderedDict()
+        result = {}
         result[PrefixConstants.PREFIXES] = prefix
 
-        return dict(result)
+        return result
 
     def to_delete_dict(self, context):
-        prefix = OrderedDict()
-        prefix[PrefixConstants.NAME] = self.name
-        result = OrderedDict()
-        result[PrefixConstants.PREFIXES] = prefix
+        return {
+            PrefixConstants.PREFIXES: {
+                PrefixConstants.NAME: self.name,
+            }
+        }
 
-        return dict(result)
+
+class PrefixV4(PrefixBase):
+    ID_FILTER = """
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+        <ip>
+          <prefix-list>
+            <prefixes>
+              <name>{id}</name>
+            </prefixes>
+          </prefix-list>
+        </ip>
+      </native>
+    """
+
+    GET_ALL_STUB = """
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+        <ip>
+          <prefix-list>
+            <prefixes>
+              <name/>
+            </prefixes>
+          </prefix-list>
+        </ip>
+      </native>
+    """
+
+    AF_KEY = PrefixConstants.IP
+
+
+class PrefixV6(PrefixBase):
+    ID_FILTER = """
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+        <ipv6>
+          <prefix-list>
+            <prefixes>
+              <name>{id}</name>
+            </prefixes>
+          </prefix-list>
+        </ipv6>
+      </native>
+    """
+
+    GET_ALL_STUB = """
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+        <ipv6>
+          <prefix-list>
+            <prefixes>
+              <name/>
+            </prefixes>
+          </prefix-list>
+        </ipv6>
+      </native>
+    """
+
+    AF_KEY = PrefixConstants.IPV6
 
 
 class PrefixSeq(NyBase):
@@ -159,7 +211,7 @@ class PrefixSeq(NyBase):
             raise Exception("Permit and Deny statements canot coexist on the same sequence")
 
     def to_dict(self, context):
-        seq = OrderedDict()
+        seq = {}
 
         seq[PrefixConstants.NUMBER] = self.no
         if self.action is not None:

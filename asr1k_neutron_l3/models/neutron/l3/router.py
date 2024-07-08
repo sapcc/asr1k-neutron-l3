@@ -310,7 +310,8 @@ class Router(Base):
         result = []
 
         # external interface
-        result.append(prefix.ExtPrefix(router_id=self.router_id, gateway_interface=self.gateway_interface))
+        result.append(prefix.ExtPrefixV4(router_id=self.router_id, gateway_interface=self.gateway_interface))
+        result.append(prefix.ExtPrefixV6(router_id=self.router_id, gateway_interface=self.gateway_interface))
 
         no_snat_interfaces = self.address_scope_matches()
 
@@ -426,7 +427,8 @@ class Router(Base):
 
         if len(self.prefix_lists) == 0:
             results.append(prefix.SnatPrefix(router_id=self.router_id).delete())
-            results.append(prefix.ExtPrefix(router_id=self.router_id).delete())
+            results.append(prefix.ExtPrefixV4(router_id=self.router_id).delete())
+            results.append(prefix.ExtPrefixV6(router_id=self.router_id).delete())
             results.append(prefix.RoutePrefix(router_id=self.router_id).delete())
 
         results.append(self.route_map.delete())
