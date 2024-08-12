@@ -33,42 +33,13 @@ class AccessList(base.Base):
         acl = access_list.AccessList(name=self.id, drop_on_17_3=self._drop_on_17_3)
         for i, rule in enumerate(self.rules):
             sequence = (i + 1) * 10
-
-            ip_args = {}
-            if rule.source_mask:
-                ip_args['ipv4_address'] = rule.source
-                ip_args['mask'] = rule.source_mask
-            else:
-                ip_args['host'] = rule.source
-
-            if rule.destination_mask:
-                ip_args['dest_ipv4_address'] = rule.destination
-                ip_args['dest_mask'] = rule.destination_mask
-            else:
-                ip_args['dst_host'] = rule.destination
-
-            port_args = dict()
-            for direction, yang_direction in (('source', 'src'), ('destination', 'dst')):
-                ports = getattr(rule, direction + '_port_range')
-                if ports:
-                    if len(ports) == 1:
-                        # Not a range
-                        port_args[f'{yang_direction}_eq'] = ports[0]
-                    else:
-                        port_args[f'{yang_direction}_range1'] = ports[0]
-                        port_args[f'{yang_direction}_range2'] = ports[1]
-
-            if rule.protocol == 'tcp' and rule.established:
-                port_args['established'] = True
-
-            if rule.protocol not in ('tcp', 'udp') and rule.named_message_type:
-                port_args['named_message_type'] = rule.named_message_type
-
             ace_rule = access_list.ACERule(
-                access_list=self.id, acl_rule=sequence, action=rule.action,
+                access_list=self.id,
+                acl_rule=sequence,
+                action=rule.action,
                 protocol=rule.protocol,
-                **ip_args,
-                **port_args
+                **rule.ip_args,
+                **rule.port_args
             )
             acl_rule = access_list.ACLRule(access_list=self.id, sequence=sequence, ace_rule=[ace_rule])
             acl.add_rule(acl_rule)
@@ -101,3 +72,41 @@ class Rule():
         self.destination_port_range = destination_port_range
         self.named_message_type = named_message_type
         self.established = established
+
+    @property
+    def ip_args(self):
+        ip_args = {}
+        if self.source_mask:
+            ip_args['ipv4_address'] = self.source
+            ip_args['mask'] = self.source_mask
+        else:
+            ip_args['host'] = self.source
+
+        if self.destination_mask:
+            ip_args['dest_ipv4_address'] = self.destination
+            ip_args['dest_mask'] = self.destination_mask
+        else:
+            ip_args['dst_host'] = self.destination
+
+        return ip_args
+
+    @property
+    def port_args(self):
+        port_args = {}
+        for direction, yang_direction in (('source', 'src'), ('destination', 'dst')):
+            ports = getattr(self, direction + '_port_range')
+            if ports:
+                if len(ports) == 1:
+                    # Not a range
+                    port_args[f'{yang_direction}_eq'] = ports[0]
+                else:
+                    port_args[f'{yang_direction}_range1'] = ports[0]
+                    port_args[f'{yang_direction}_range2'] = ports[1]
+
+        if self.protocol == 'tcp' and self.established:
+            port_args['established'] = True
+
+        if self.protocol not in ('tcp', 'udp') and self.named_message_type:
+            port_args['named_message_type'] = self.named_message_type
+
+        return port_args
