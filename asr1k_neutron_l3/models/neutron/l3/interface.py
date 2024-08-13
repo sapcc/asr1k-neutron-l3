@@ -124,8 +124,9 @@ class Interface(base.Base):
 
 class GatewayInterface(Interface):
 
-    def __init__(self, router_id, router_port, extra_atts, dynamic_nat_pool):
+    def __init__(self, router_id, router_port, extra_atts, dynamic_nat_pool, preempt_ip_cleanup):
         self.dynamic_nat_pool = dynamic_nat_pool
+        self.preempt_ip_cleanup = preempt_ip_cleanup
         super(GatewayInterface, self).__init__(router_id, router_port, extra_atts)
 
         self.nat_address = self._nat_address()
@@ -139,28 +140,25 @@ class GatewayInterface(Interface):
                                             ip_address=self.ip_address,
                                             secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
                                             redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS',
-                                            ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout)
+                                            ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout
+                                            preempt_ip_cleanup=self.preempt_ip_cleanup)
 
     def _ip_address(self):
         if self.dynamic_nat_pool is None or not self.router_port.get('fixed_ips'):
             return super()._ip_address()
-
-        ips, _ = self.dynamic_nat_pool.split("/")
-        start_ip, end_ip = ips.split("-")
-        ip_pool = netaddr.IPSet(netaddr.IPRange(start_ip, end_ip))
-        for n_fixed_ip in self.router_port['fixed_ips']:
-            if n_fixed_ip['ip_address'] not in ip_pool:
-                break
-        else:
+        
+        fixed_ip = utils.determine_external_interface_ip_with_nat_pool(self.router_port.get('fixed_ips'),
+                                                                       self.dynamic_nat_pool)
+        
+        if not fixed_ip:
             LOG.error("VRF %s gateway interface has no IP that is not part of dynamic NAT pool %s, "
                       "not configuring primary IP",
                       self.vrf, self.dynamic_nat_pool)
             return None
-
-        self._primary_subnet_id = n_fixed_ip.get('subnet_id')
-
-        return VBIPrimaryIpAddress(address=n_fixed_ip['ip_address'],
-                                   mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
+        
+        self._primary_subnet_id = fixed_ip.get('subnet_id')
+        return VBIPrimaryIpAddress(address=fixed_ip['ip_address'],
+                                   mask=utils.to_netmask(fixed_ip.get('prefixlen')))
 
     def _nat_address(self):
         ips = self.router_port.get('fixed_ips')

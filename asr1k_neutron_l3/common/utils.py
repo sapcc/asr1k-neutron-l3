@@ -18,7 +18,7 @@ import re
 import socket
 import struct
 
-from netaddr import IPNetwork, IPAddress
+from netaddr import IPAddress, IPNetwork, IPRange, IPSet
 from oslo_log import log as logging
 
 
@@ -49,6 +49,18 @@ def get_router_ports(router):
         router_ports.append(interface.get('id'))
 
     return router_ports
+
+
+def determine_external_interface_ip_with_nat_pool(external_fixed_ips, dynamic_nat_pool):
+    if dynamic_nat_pool is None:
+        return ValueError("dynamic_nat_pool cannot be None")
+
+    ips, _ = dynamic_nat_pool.split("/")
+    start_ip, end_ip = ips.split("-")
+    ip_pool = IPSet(IPRange(start_ip, end_ip))
+    for n_fixed_ip in external_fixed_ips:
+        if n_fixed_ip['ip_address'] not in ip_pool:
+            return n_fixed_ip
 
 
 def uuid_to_vrf_id(uuid):

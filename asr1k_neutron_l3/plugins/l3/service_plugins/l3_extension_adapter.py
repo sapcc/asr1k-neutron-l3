@@ -269,34 +269,6 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             router_att = router_atts.get(router['id'], {})
             router[constants.ASR1K_ROUTER_ATTS_KEY] = router_att
 
-            # Make sure the gateway IPs all have prefixes and are sorted consistently
-            # this is to prevent foo when we have to assign to nat pool, because we
-            # can guarantee a consistent order from neutron and we can't change the
-            # pool on the active device and it has (currently) to be different from
-            # the interface device.
-
-            gw_info = router.get('external_gateway_info', None)
-            gw_port = router.get('gw_port', None)
-            if gw_port is not None:
-                ips = gw_port.get('fixed_ips', [])
-                prefixes = {}
-                if bool(ips):
-                    for ip in ips:
-                        prefix = ip.get('prefixlen', None)
-                        subnet_id = ip.get('subnet_id', None)
-                        if prefix is not None and subnet_id is not None:
-                            prefixes[subnet_id] = prefix
-
-                    for ip in ips:
-                        if ip.get('prefixlen', None) is None:
-                            prefix = prefixes.get(ip.get('subnet_id', None))
-                            if prefix is not None:
-                                ip['prefixlen'] = prefix
-
-                    gw_port['fixed_ips'] = sorted(ips, key=lambda k: k.get('ip_address'))
-                    if gw_info is not None:
-                        gw_info['external_fixed_ips'] = gw_port['fixed_ips']
-
             rt_import = []
             rt_export = []
             bgpvpns = self.db.get_bgpvpns_by_router_id(context, router['id'])
@@ -316,6 +288,16 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
             router["rt_export"] = list(set(rt_export))
             router["rt_import"] = list(set(rt_import))
+
+            dynamic_nat_pool = router_att.get('dynamic_nat_pool')   
+            gw_port = router.get('gw_port')
+            if dynamic_nat_pool:
+                fixed_ip = utils.determine_external_interface_ip_with_nat_pool(gw_port, dynamic_nat_pool)
+            elif len(gw_port.get('fixed_ips', [])) > 1:
+                LOG.error("Router %s has more than one external fixed IP but no NAT pool" % router['id'])
+            else:
+                fixed_ip = gw_port.get('fixed_ips')[0].get('ip_address')
+            router['preempt_external_ip_cleanup'] = self.db.preempt_external_ip_cleanup(context, router['id'], fixed_ip,host)
 
         return routers
 

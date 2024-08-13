@@ -560,6 +560,25 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             query = query.filter(l3_models.Router.id == router_id)
 
         return {e.floating_ip_address: e.mac_address for e in query}
+    
+    def preempt_external_ip_cleanup(self, context, router_id, ip, host):
+        # The current firmware mal-allocates an external interfaces NAT pool (the pointer to the hash-table, I presume)
+        # if there is an external interface with the same IP of another router on the same agent/host. 
+        # Never the less, this could still happen in reality as multiple address scopes could lead to this being
+        # a completely legal condition, even though for now it is unlikely to be seen in out environment.
+        # This function will cover for this condition, it will indicate if such a case is prevalent for the IP given.
+        query = context.session.query(models_v2.Port)
+        query = query.join(l3agent_models.RouterL3AgentBinding,
+                           l3agent_models.RouterL3AgentBinding.router_id == models_v2.Port.device_id)
+        query = query.join(agent_model.Agent,
+                           l3agent_models.RouterL3AgentBinding.l3_agent_id == agent_model.Agent.id)
+        query = query.filter(agent_model.Agent.host == host)
+        query = query.join(models_v2.IPAllocation,
+                           models_v2.IPAllocation.port_id == models_v2.Port.id)
+        query = query.filter(models_v2.Port.device_owner == n_constants.DEVICE_OWNER_ROUTER_GW)
+        query = query.filter(models_v2.IPAllocation.ip_address == ip)
+        query = query.filter(l3agent_models.RouterL3AgentBinding.router_id != router_id)
+        return bool(query.count())
 
     def ensure_router_atts(self, context, router_id):
         with db_api.CONTEXT_WRITER.using(context):

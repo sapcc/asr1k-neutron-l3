@@ -264,7 +264,6 @@ class L3PluginApi(object):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_floating_ips_with_router_macs', fips=fips, router_id=router_id)
 
-
 class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin):
     """Manager for L3 ASR Agent
 

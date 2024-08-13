@@ -121,6 +121,13 @@ class VBInterface(NyBase):
     def get_for_vrf(cls, context, vrf=None):
         return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf,
                                                                                       iftype=context.bd_iftype))
+    
+    def _preflight_cleanup_needed(self, context):
+        BD_VIF_IP_FILTER = f'/native/interface/BD-VIF/ip[address/primary/address="{self.ip_address}"]'
+        bd_vifs = cls._get_all(context=context, xpath_filter=BD_VIF_IP_FILTER)
+        
+        return len(bd_vifs) > 1
+
 
     @classmethod
     def __parameters__(cls):
@@ -151,6 +158,7 @@ class VBInterface(NyBase):
         ]
 
     def __init__(self, **kwargs):
+        self.preempt_ip_cleanup = kwargs.pop('preempt_ip_cleanup', True)
         super(VBInterface, self).__init__(**kwargs)
         if int(self.mtu) < self.MIN_MTU:
             self.mtu = str(self.MIN_MTU)
@@ -176,6 +184,8 @@ class VBInterface(NyBase):
         if bdi:
             LOG.debug("Removing BDI%s from %s before adding new BD-VIF%s", bdi.name, context.host, self.name)
             bdi._delete(context=nobdvif_context, postflight=False)  # disable postflight checks
+        
+        if self.preempt_ip_cleanup and self._preflight_cleanup_needed()
 
     def to_dict(self, context):
         vbi = OrderedDict()
