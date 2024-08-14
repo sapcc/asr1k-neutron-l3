@@ -23,7 +23,8 @@ from asr1k_neutron_l3.models.neutron.l3 import base
 
 class AddressFamily(base.Base):
     def __init__(self, vrf, asn=None, routable_interface=False, rt_export=[],
-                 connected_cidrs=[], routable_networks=[], extra_routes=[]):
+                 connected_cidrs=[], routable_networks=[], extra_routes=[],
+                 redist_rm=None):
         super(AddressFamily, self).__init__()
         self.vrf = utils.uuid_to_vrf_id(vrf)
         self.routable_interface = routable_interface
@@ -50,7 +51,8 @@ class AddressFamily(base.Base):
             self.enable_bgp = True
 
         self._rest_definition = bgp.AddressFamily(vrf=self.vrf, asn=self.asn, enable_bgp=self.enable_bgp,
-                                                  static=True, connected=True, networks_v4=self.networks_v4)
+                                                  networks_v4=self.networks_v4,
+                                                  static_with_rm=redist_rm, connected_with_rm=redist_rm)
 
     def get(self):
         return bgp.AddressFamily.get(self.vrf, asn=self.asn, enable_bgp=self.enable_bgp)

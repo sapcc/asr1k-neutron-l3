@@ -29,6 +29,9 @@ class RouteMapConstants(object):
     OPERATION = "operation"
     SET = "set"
     EXTCOMMUNITY = 'extcommunity'
+    COMMUNITY = 'community'
+    COMMUNITY_WELL_KNOWN = 'community-well-known'
+    COMMUNITY_LIST = 'community-list'
     RT = 'rt'
     RANGE = 'range'
     ADDITIVE = 'additive'
@@ -128,6 +131,8 @@ class MapSequence(NyBase):
             {'key': 'prefix_list', 'yang-key': 'prefix-list', 'yang-path': 'match/ip/address'},
             {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
             {'key': 'ip_precedence', 'yang-path': 'set/ip/precedence', 'yang-key': 'precedence-fields'},
+            {'key': 'community_list', 'yang-key': 'community-list', 'yang-path': 'set/community/community-well-known',
+             'default': []},
             {'key': 'drop_on_17_3', 'default': False},
         ]
 
@@ -158,24 +163,26 @@ class MapSequence(NyBase):
         seq[RouteMapConstants.OPERATION] = self.operation
 
         if self.asn:
-            seq[RouteMapConstants.SET] = {
-                RouteMapConstants.EXTCOMMUNITY: {RouteMapConstants.RT: {RouteMapConstants.ASN: self.asn}}}
+            seq.setdefault(RouteMapConstants.SET, {})
+            seq[RouteMapConstants.SET][RouteMapConstants.EXTCOMMUNITY] = {
+                RouteMapConstants.RT: {RouteMapConstants.ASN: self.asn},
+            }
 
         if self.next_hop is not None:
+            seq.setdefault(RouteMapConstants.SET, {})
             if context.version_min_17_3:
-                seq[RouteMapConstants.SET] = {
-                    RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP: {RouteMapConstants.ADDRESS: [self.next_hop]}}
+                seq[RouteMapConstants.SET][RouteMapConstants.IP] = {
+                    RouteMapConstants.NEXT_HOP: {RouteMapConstants.ADDRESS: [self.next_hop]},
                 }
                 if self.force:
                     # it looks like the force flag is now part of the address list in 17.3+
                     seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][
                         RouteMapConstants.ADDRESS].append(RouteMapConstants.FORCE)
             else:
-                seq[RouteMapConstants.SET] = {
-                    RouteMapConstants.IP: {
-                        RouteMapConstants.NEXT_HOP: {
-                            RouteMapConstants.NEXT_HOP_ADDR: {
-                                RouteMapConstants.ADDRESS: self.next_hop}}}}
+                seq[RouteMapConstants.SET][RouteMapConstants.IP] = {
+                    RouteMapConstants.NEXT_HOP: {
+                        RouteMapConstants.NEXT_HOP_ADDR: {
+                            RouteMapConstants.ADDRESS: self.next_hop}}}
                 if self.force:
                     seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][
                         RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE] = ""
@@ -188,12 +195,18 @@ class MapSequence(NyBase):
             seq[RouteMapConstants.MATCH] = {
                 RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {RouteMapConstants.ACCESS_LIST: self.access_list}}}
         if self.ip_precedence:
-            if RouteMapConstants.SET not in seq:
-                seq[RouteMapConstants.SET] = {}
+            seq.setdefault(RouteMapConstants.SET, {})
             if RouteMapConstants.IP not in seq[RouteMapConstants.SET]:
                 seq[RouteMapConstants.SET][RouteMapConstants.IP] = {}
             seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.PRECEDENCE] = {
                 RouteMapConstants.PRECEDENCE_FIELDS: self.ip_precedence,
+            }
+        if self.community_list:
+            seq.setdefault(RouteMapConstants.SET, {})
+            seq[RouteMapConstants.SET][RouteMapConstants.COMMUNITY] = {
+                RouteMapConstants.COMMUNITY_WELL_KNOWN: {
+                    RouteMapConstants.COMMUNITY_LIST: self.community_list,
+                },
             }
         seq[xml_utils.NS] = xml_utils.NS_CISCO_ROUTE_MAP
 

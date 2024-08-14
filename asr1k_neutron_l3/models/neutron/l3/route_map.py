@@ -13,9 +13,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from oslo_config import cfg
+
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang import route_map
-from asr1k_neutron_l3.models.neutron.l3 import base
+from asr1k_neutron_l3.models.neutron.l3 import base, prefix
 
 
 class RouteMap(base.Base):
@@ -80,5 +82,29 @@ class PBRRouteMap(base.Base):
             sequences.append(route_map.MapSequence(seq_no=15,
                                                    operation='permit',
                                                    ip_precedence='routine'))
+
+        self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)
+
+
+class BgpvpnRedistRouteMap(base.Base):
+    def __init__(self, router_id):
+        super().__init__()
+
+        self.vrf = utils.uuid_to_vrf_id(router_id)
+        self.name = "BGPVPNREDIST-{}".format(self.vrf)
+
+        sequences = [
+            route_map.MapSequence(seq_no=10,
+                                  operation='permit',
+                                  community_list=cfg.CONF.asr1k_l3.dapn_routable_nets_communities,
+                                  access_list=f"{prefix.RoutableInternalPrefixes.PREFIX_NAME}-{self.vrf}"),
+            route_map.MapSequence(seq_no=20,
+                                  operation='permit',
+                                  community_list=cfg.CONF.asr1k_l3.dapn_extra_routes_communities,
+                                  access_list=f"{prefix.RoutableExtraPrefixes.PREFIX_NAME}-{self.vrf}"),
+            route_map.MapSequence(seq_no=30,
+                                  operation='permit',
+                                  access_list=f"{prefix.BgpvpnPrefixes.PREFIX_NAME}-{self.vrf}"),
+        ]
 
         self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)
