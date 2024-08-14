@@ -38,6 +38,7 @@ class BGPConstants(object):
     REDISTRIBUTE_VRF = "redistribute-vrf"
     CONNECTED = "connected"
     STATIC = "static"
+    DEFAULT = "default"
     UNICAST = "unicast"
     NETWORK = "network"
     WITH_MASK = "with-mask"
@@ -82,14 +83,14 @@ class AddressFamily(NyBase):
         return [
             {'key': 'asn', 'id': True, 'yang-key': 'id'},
             {'key': 'vrf', 'yang-key': 'name'},
-            {'key': 'connected', 'yang-path': 'ipv4-unicast/redistribute', 'default': False,
-             'yang-type': YANG_TYPE.EMPTY},
-            {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute', 'default': False,
-             'yang-type': YANG_TYPE.EMPTY},
             {'key': 'connected', 'yang-path': 'ipv4-unicast/redistribute-vrf', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'connected_with_rm', 'yang-key': 'route-map',
+             'yang-path': 'ipv4-unicast/redistribute-vrf/connected'},
             {'key': 'static', 'yang-path': 'ipv4-unicast/redistribute-vrf', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'static_with_rm', 'yang-key': 'route-map',
+             'yang-path': 'ipv4-unicast/redistribute-vrf/default/static'},
             {'key': 'networks_v4', 'yang-path': 'ipv4-unicast/network', 'yang-key': BGPConstants.WITH_MASK,
              'type': [Network], 'default': []},
         ]
@@ -152,34 +153,37 @@ class AddressFamily(NyBase):
             self.asn = kwargs.get("asn", None)
 
     def to_dict(self, context):
-        result = OrderedDict()
-        if self.vrf is not None:
-            vrf = OrderedDict()
-            vrf[BGPConstants.NAME] = self.vrf
-            vrf[BGPConstants.IPV4_UNICAST] = {
-                xml_utils.OPERATION: NC_OPERATION.PUT,
+        if self.vrf is None:
+            return {}
+
+        result = {}
+
+        vrf = {}
+        vrf[BGPConstants.NAME] = self.vrf
+        vrf[BGPConstants.IPV4_UNICAST] = {
+            xml_utils.OPERATION: NC_OPERATION.PUT,
+        }
+
+        if self.connected or self.connected_with_rm or self.static or self.static_with_rm:
+            redist = vrf[BGPConstants.IPV4_UNICAST].setdefault(BGPConstants.REDISTRIBUTE_VRF, {})
+            if self.connected_with_rm:
+                redist[BGPConstants.CONNECTED] = {BGPConstants.ROUTE_MAP: self.connected_with_rm}
+            elif self.connected:
+                redist[BGPConstants.CONNECTED] = ''
+
+            if self.static_with_rm:
+                redist[BGPConstants.STATIC] = {BGPConstants.DEFAULT: {BGPConstants.ROUTE_MAP: self.static_with_rm}}
+            elif self.static:
+                redist[BGPConstants.STATIC] = ''
+
+        if self.networks_v4:
+            vrf[BGPConstants.IPV4_UNICAST][BGPConstants.NETWORK] = {
+                BGPConstants.WITH_MASK: [
+                    net.to_dict(context) for net in sorted(self.networks_v4, key=lambda x: (x.number, x.mask))
+                ]
             }
-
-            REDIST_CONST = BGPConstants.REDISTRIBUTE_VRF if context.version_min_17_3 else BGPConstants.REDISTRIBUTE
-
-            # redistribute connected/static is only used with 16.9
-            if self.from_device or not context.version_min_17_3:
-                if self.connected or self.static:
-                    vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST] = {}
-                    if self.connected:
-                        vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST][BGPConstants.CONNECTED] = ''
-                    if self.static:
-                        vrf[BGPConstants.IPV4_UNICAST][REDIST_CONST][BGPConstants.STATIC] = ''
-
-            # networks are currently only announced with 17.4
-            if self.networks_v4 and (self.from_device or context.version_min_17_3):
-                vrf[BGPConstants.IPV4_UNICAST][BGPConstants.NETWORK] = {
-                    BGPConstants.WITH_MASK: [
-                        net.to_dict(context) for net in sorted(self.networks_v4, key=lambda x: (x.number, x.mask))
-                    ]
-                }
-            result[BGPConstants.VRF] = vrf
-        return dict(result)
+        result[BGPConstants.VRF] = vrf
+        return result
 
     def to_delete_dict(self, context):
         result = OrderedDict()

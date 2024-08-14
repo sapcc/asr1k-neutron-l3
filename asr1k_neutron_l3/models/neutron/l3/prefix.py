@@ -24,6 +24,7 @@ from asr1k_neutron_l3.models.netconf_yang import prefix
 class BasePrefix(base.Base):
     def __init__(self, name_prefix, router_id, gateway_interface, internal_interfaces):
         self.vrf = utils.uuid_to_vrf_id(router_id)
+        self.list_name = f"{name_prefix}-{self.vrf}"
         self.internal_interfaces = internal_interfaces
         self.gateway_interface = gateway_interface
         self.gateway_address_scope = None
@@ -32,7 +33,7 @@ class BasePrefix(base.Base):
         if self.gateway_interface is not None:
             self.gateway_address_scope = self.gateway_interface.address_scope
 
-        self._rest_definition = prefix.Prefix(name="{}-{}".format(name_prefix, self.vrf))
+        self._rest_definition = prefix.Prefix(name=self.list_name)
 
 
 class ExtPrefix(BasePrefix):
@@ -74,3 +75,26 @@ class RoutePrefix(BasePrefix):
                 permit_ge = utils.prefix_from_cidr(cidr) + 1
                 self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=cidr, permit_ge=permit_ge))
                 i += 1
+
+
+class BasePrefixWithPrefixes(BasePrefix):
+    PREFIX_NAME = None
+
+    def __init__(self, router_id, prefixes):
+        super().__init__(self.PREFIX_NAME, router_id, None, None)
+
+        self.has_prefixes = bool(prefixes)
+        for n, cidr in enumerate(sorted(prefixes), 1):
+            self._rest_definition.add_seq(prefix.PrefixSeq(no=n * 10, permit_ip=cidr))
+
+
+class BgpvpnPrefixes(BasePrefixWithPrefixes):
+    PREFIX_NAME = "BGPVPN"
+
+
+class RoutableInternalPrefixes(BasePrefixWithPrefixes):
+    PREFIX_NAME = "ROUTABLEINT"
+
+
+class RoutableExtraPrefixes(BasePrefixWithPrefixes):
+    PREFIX_NAME = "ROUTABLEEXTRA"

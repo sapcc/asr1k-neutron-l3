@@ -92,12 +92,10 @@ class Prefix(NyBase):
 
     @property
     def neutron_router_id(self):
-        if self.name is not None and self.name.startswith('ext-'):
-            return utils.vrf_id_to_uuid(self.name[4:])
-        elif self.name is not None and self.name.startswith('snat-'):
-            return utils.vrf_id_to_uuid(self.name[5:])
-        elif self.name is not None and self.name.startswith('route-'):
-            return utils.vrf_id_to_uuid(self.name[6:])
+        for prefix in 'ext-', 'snat-', 'route-', 'BGPVPN-', 'ROUTABLEINT-', 'ROUTABLEEXTRA-':
+            if self.name and self.name.startswith(prefix):
+                return utils.vrf_id_to_uuid(self.name[len(prefix):])
+        return None
 
     def add_seq(self, seq):
         if seq.no is None:

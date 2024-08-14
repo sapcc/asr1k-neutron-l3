@@ -20,6 +20,7 @@ from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNatList
+from asr1k_neutron_l3.models.netconf_yang.route_map import RouteMap
 
 
 class ParsingTest(base.BaseTestCase):
@@ -246,7 +247,9 @@ class ParsingTest(base.BaseTestCase):
                       </with-mask>
                     </network>
                     <redistribute-vrf>
-                      <connected/>
+                      <connected>
+                        <route-map>stonechat</route-map>
+                      </connected>
                       <static/>
                     </redistribute-vrf>
                   </ipv4-unicast>
@@ -266,6 +269,10 @@ class ParsingTest(base.BaseTestCase):
 
         context = FakeASR1KContext()
         bgp_af = bgp.AddressFamily.from_xml(bgp_xml, context)
+        self.assertTrue(bgp_af.connected)
+        self.assertEqual("stonechat", bgp_af.connected_with_rm)
+        self.assertTrue(bgp_af.static)
+        self.assertIsNone(bgp_af.static_with_rm)
         parsed_cidrs = {net.cidr for net in bgp_af.networks_v4}
         self.assertEqual(orig_cidrs, parsed_cidrs)
         for network in bgp_af.networks_v4:
@@ -408,3 +415,33 @@ class ParsingTest(base.BaseTestCase):
         snl = StaticNatList.from_xml(xml, context)
         nat = snl.static_nats[0]
         self.assertEqual('6657', nat.garp_bdvif_iface)
+
+    def test_parse_route_map_community_set(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+    message-id="urn:uuid:9caf3918-3eb9-4d0e-a8a5-5ec268e3bf97">
+    <data>
+      <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <route-map>
+        <name>RM-DAP-EXTRA-ROUTES</name>
+        <route-map-without-order-seq xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-route-map">
+          <seq_no>10</seq_no>
+          <operation>permit</operation>
+          <set>
+            <community>
+              <community-well-known>
+                <community-list>65126</community-list>
+                <community-list>4268097541</community-list>
+              </community-well-known>
+            </community>
+          </set>
+        </route-map-without-order-seq>
+      </route-map>
+
+      </native>
+  </data>
+</rpc-reply>"""
+        context = FakeASR1KContext()
+        rm = RouteMap.from_xml(xml, context)
+
+        self.assertEqual(["65126", "4268097541"], rm.seq[0].community_list)

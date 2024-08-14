@@ -94,6 +94,7 @@ class Router(Base):
         self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'), gateway_interface=self.gateway_interface)
 
         self.bgp_address_family = self._build_bgp_address_family()
+        self.bgpvpn_extras = self._build_bgpvpn_extras()
 
         self.dynamic_nat = self._build_dynamic_nat()
         self.nat_pool = self._build_nat_pool()
@@ -222,16 +223,45 @@ class Router(Base):
         return False
 
     def _build_bgp_address_family(self):
-        connected_cidrs = self.get_internal_cidrs()
-        extra_routes = list()
-        if self.router_info["bgpvpn_advertise_extra_routes"]:
-            extra_routes = [x.cidr for x in self.routes.routes if x.cidr != "0.0.0.0/0"]
+        routable_connected_cidrs = [
+            cidr for cidr in self.get_internal_cidrs()
+            if any(utils.network_in_network(cidr, rn) for rn in self.get_routable_networks())]
 
         return bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
                                  routable_interface=self.routable_interface,
-                                 rt_export=self.rt_export, connected_cidrs=connected_cidrs,
+                                 rt_export=self.rt_export, connected_cidrs=routable_connected_cidrs,
                                  routable_networks=self.get_routable_networks(),
-                                 extra_routes=extra_routes)
+                                 extra_routes=[],
+                                 redist_rm="BGPVPNREDIST-{}".format(utils.uuid_to_vrf_id(self.router_id)))
+
+    def _build_bgpvpn_extras(self):
+        # connected routes without DAPNets (DAPNets will be announced via network statement)
+        connected_cidrs = [cidr for cidr in self.get_internal_cidrs()
+                           if not any(utils.network_in_network(cidr, rn)
+                                      for rn in self.get_routable_networks())]
+
+        # extra routes
+        extra_routes = []
+        if self.router_info["bgpvpn_advertise_extra_routes"]:
+            extra_routes = [x.cidr for x in self.routes.routes if x.cidr != "0.0.0.0/0"]
+
+        routable_internal = []
+        routable_extra = []
+        bgpvpn_cidrs = connected_cidrs
+
+        for cidr in extra_routes:
+            if any(utils.network_in_network(cidr, rn) for rn in self.get_routable_networks()):
+                routable_extra.append(cidr)
+            else:
+                bgpvpn_cidrs.append(cidr)
+
+        return [
+            prefix.RoutableInternalPrefixes(self.router_id, routable_internal),  # FIXME: will be empty with current setup
+            prefix.RoutableExtraPrefixes(self.router_id, routable_extra),
+            prefix.BgpvpnPrefixes(self.router_id, bgpvpn_cidrs),
+
+            route_map.BgpvpnRedistRouteMap(self.router_id),
+        ]
 
     def _build_dynamic_nat(self):
         pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
@@ -347,8 +377,10 @@ class Router(Base):
 
         if self.routable_interface or len(self.rt_export) > 0:
             results.append(self.bgp_address_family.update())
+            results.extend(obj.update() for obj in self.bgpvpn_extras)
         else:
             results.append(self.bgp_address_family.delete())
+            results.extend(obj.delete() for obj in self.bgpvpn_extras)
 
         if self.nat_acl:
             results.append(self.nat_acl.update())
@@ -416,6 +448,7 @@ class Router(Base):
         results.append(self.nat_acl.delete())
         results.append(self.pbr_acl.delete())
         results.append(self.bgp_address_family.delete())
+        results.extend(obj.delete() for obj in self.bgpvpn_extras)
 
         for interface in self.interfaces.all_interfaces:
             results.append(interface.delete())
@@ -436,6 +469,11 @@ class Router(Base):
 
             if not bgp_diff.valid:
                 diff_results['bgp'] = bgp_diff.to_dict()
+
+            for obj in self.bgpvpn_extras:
+                obj_diff = obj.diff()
+                if not obj_diff.valid:
+                    diff_results.setdefault('bgpvpn_extras', []).append(obj_diff.to_dict())
 
         for prefix_list in self.prefix_lists:
             if prefix_list.internal_interfaces is not None and len(prefix_list.internal_interfaces) > 0:

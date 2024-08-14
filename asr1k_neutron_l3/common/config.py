@@ -83,6 +83,9 @@ ASR1K_L3_OPTS = [
                help="Route-Map to apply to all DAPNet BGP network statements"),
     cfg.StrOpt('dapnet_extra_routes_rm', default='RM-DAP-EXTRA-ROUTES',
                help="Route-Map to apply to all BGP network statements for extra routes that are contained in a DAPNet"),
+    # FIXME: move defaults away from here
+    cfg.ListOpt('dapn_extra_routes_communities', default=["65126", "4268097541"],
+                help="Communities to assign to DAPNet extraroutes (via redistribute statement)"),
     cfg.IntOpt('external_iface_arp_timeout', default=1800,
                help="Set ARP timeout for the external interface of a router. Set to 0 to not set this attribute"),
     cfg.IntOpt('internal_iface_arp_timeout', default=0,
