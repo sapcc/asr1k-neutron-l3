@@ -94,12 +94,10 @@ class BgpvpnRedistRouteMap(base.Base):
         self.name = "BGPVPNREDIST-{}".format(self.vrf)
 
         sequences = [
-            # FIXME: remove once we decided we don't need it (as we do it via network statements)
             route_map.MapSequence(seq_no=10,
                                   operation='permit',
+                                  community_list=cfg.CONF.asr1k_l3.dapn_routable_nets_communities,
                                   access_list=f"{prefix.RoutableInternalPrefixes.PREFIX_NAME}-{self.vrf}"),
-
-            # FIXME: set community
             route_map.MapSequence(seq_no=20,
                                   operation='permit',
                                   community_list=cfg.CONF.asr1k_l3.dapn_extra_routes_communities,

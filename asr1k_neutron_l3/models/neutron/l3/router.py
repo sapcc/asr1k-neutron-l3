@@ -223,40 +223,32 @@ class Router(Base):
         return False
 
     def _build_bgp_address_family(self):
-        routable_connected_cidrs = [
-            cidr for cidr in self.get_internal_cidrs()
-            if any(utils.network_in_network(cidr, rn) for rn in self.get_routable_networks())]
-
         return bgp.AddressFamily(self.router_info.get('id'), asn=self.config.asr1k_l3.fabric_asn,
                                  routable_interface=self.routable_interface,
-                                 rt_export=self.rt_export, connected_cidrs=routable_connected_cidrs,
+                                 rt_export=self.rt_export, connected_cidrs=[],
                                  routable_networks=self.get_routable_networks(),
                                  extra_routes=[],
                                  redist_rm="BGPVPNREDIST-{}".format(utils.uuid_to_vrf_id(self.router_id)))
 
     def _build_bgpvpn_extras(self):
-        # connected routes without DAPNets (DAPNets will be announced via network statement)
-        connected_cidrs = [cidr for cidr in self.get_internal_cidrs()
-                           if not any(utils.network_in_network(cidr, rn)
-                                      for rn in self.get_routable_networks())]
-
-        # extra routes
         extra_routes = []
         if self.router_info["bgpvpn_advertise_extra_routes"]:
             extra_routes = [x.cidr for x in self.routes.routes if x.cidr != "0.0.0.0/0"]
 
         routable_internal = []
         routable_extra = []
-        bgpvpn_cidrs = connected_cidrs
-
-        for cidr in extra_routes:
+        bgpvpn_cidrs = []
+        for cidr in self.get_internal_cidrs() + extra_routes:
             if any(utils.network_in_network(cidr, rn) for rn in self.get_routable_networks()):
-                routable_extra.append(cidr)
+                if cidr in extra_routes:
+                    routable_extra.append(cidr)
+                else:
+                    routable_internal.append(cidr)
             else:
                 bgpvpn_cidrs.append(cidr)
 
         return [
-            prefix.RoutableInternalPrefixes(self.router_id, routable_internal),  # FIXME: will be empty with current setup
+            prefix.RoutableInternalPrefixes(self.router_id, routable_internal),
             prefix.RoutableExtraPrefixes(self.router_id, routable_extra),
             prefix.BgpvpnPrefixes(self.router_id, bgpvpn_cidrs),
 
