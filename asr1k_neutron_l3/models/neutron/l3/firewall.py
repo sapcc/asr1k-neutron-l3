@@ -33,25 +33,25 @@ from asr1k_neutron_l3.models.netconf_yang.zone_pair import ZonePair as ncZonePai
 LOG = logging.getLogger(__name__)
 
 
-class FirewallPolicyObject(base.Base):
+class FirewallPolicyMixin:
 
     PREFIX = None
 
     @classmethod
     def get_id_by_policy_id(cls, policy_id: str) -> str:
         if not cls.PREFIX:
-            raise NotImplementedError("Class derived from 'FirewallPolicyObject' must define static var 'PREFIX'")
+            raise NotImplementedError("Class derived from 'FirewallPolicyMixin' must define static var 'PREFIX'")
         return f"{cls.PREFIX}{policy_id}"
 
-    def __init__(self, policy_id: str):
+    def __init__(self, policy_id=None, **kwargs):
         self.policy_id = policy_id
         self.id = self.get_id_by_policy_id(self.policy_id)
-        super().__init__()
+        super().__init__(id=self.id, **kwargs)
 
 
-class AccessList(access_list.AccessList, FirewallPolicyObject):
-
+class AccessList(FirewallPolicyMixin, access_list.AccessList):
     PREFIX = const.FWAAS_ACL_PREFIX
+
     ACTIONS = {
                 'allow': 'permit',
                 'deny': 'deny',
@@ -69,6 +69,7 @@ class AccessList(access_list.AccessList, FirewallPolicyObject):
     def __init__(self, policy_id: str, rules: List[dict]):
         self.policy_id = policy_id
         super().__init__(policy_id=policy_id)
+        self.id = self.get_id_by_policy_id(self.policy_id)
         self.rules = self.MIMIC_STATEFUL_RULES.copy()
         for rule in rules:
             if not rule['enabled']:
@@ -98,7 +99,7 @@ class AccessList(access_list.AccessList, FirewallPolicyObject):
             self.rules.append(access_list.Rule(**rule_args))
 
 
-class ClassMap(FirewallPolicyObject):
+class ClassMap(FirewallPolicyMixin, base.Base):
     PREFIX = const.FWAAS_CLASS_MAP_PREFIX
 
     @property
@@ -107,7 +108,7 @@ class ClassMap(FirewallPolicyObject):
                           type='inspect', prematch='match-all')
 
 
-class ServicePolicy(FirewallPolicyObject):
+class ServicePolicy(FirewallPolicyMixin, base.Base):
     PREFIX = const.FWAAS_SERVICE_POLICY_PREFIX
 
     @property

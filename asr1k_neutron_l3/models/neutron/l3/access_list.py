@@ -20,10 +20,7 @@ from asr1k_neutron_l3.models.netconf_yang import access_list
 
 class AccessList(base.Base):
     def __init__(self, id, drop_on_17_3=False):
-        # If we use super(AccessList, self) here the MRO of type(self) is determining the __init__
-        # we call. If self is a child, that could lead to not calling base.Base.__init__().
-        # If the second argument to super is a type, the returned method is unbound, hence we pass self to it.
-        super(AccessList, AccessList).__init__(self)
+        super().__init__()
         self.id = id
         self._drop_on_17_3 = drop_on_17_3
         self.rules = []
