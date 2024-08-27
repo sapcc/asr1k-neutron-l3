@@ -422,12 +422,12 @@ class Router(Base):
         for obj in self.fwaas_conf:
             results.append(obj.update())
 
-        # If there are no external policies, we can create dangling objects which will trigger the deletion
+        # If there are no external policies, we can create dangling objects which will and call delete
         if not self.fwaas_external_policies['ingress'] and not self.fwaas_external_policies['egress']:
-            results.append(firewall.DanglingZonePairExtIngress(self.router_id).update())
-            results.append(firewall.DanglingZonePairExtEgress(self.router_id).update())
-            results.append(firewall.DanglingFirewallVrfPolicer(self.router_id).update())
-            results.append(firewall.DanglingZone(self.router_id).update())
+            results.append(firewall.ZonePairExtIngress(self.router_id).delete())
+            results.append(firewall.ZonePairExtEgress(self.router_id).delete())
+            results.append(firewall.FirewallVrfPolicer(self.router_id).delete())
+            results.append(firewall.Zone(self.router_id).delete())
 
         if self.pbr_acl:
             results.append(self.pbr_acl.update())
@@ -496,10 +496,10 @@ class Router(Base):
         for interface in self.interfaces.all_interfaces:
             results.append(interface.delete())
 
-        results.append(firewall.DanglingZonePairExtIngress(self.router_id).delete())
-        results.append(firewall.DanglingZonePairExtEgress(self.router_id).delete())
-        results.append(firewall.DanglingFirewallVrfPolicer(self.router_id).delete())
-        results.append(firewall.DanglingZone(self.router_id).delete())
+        results.append(firewall.ZonePairExtIngress(self.router_id).delete())
+        results.append(firewall.ZonePairExtEgress(self.router_id).delete())
+        results.append(firewall.FirewallVrfPolicer(self.router_id).delete())
+        results.append(firewall.Zone(self.router_id).delete())
 
         results.append(self.vrf.delete())
 
@@ -578,10 +578,10 @@ class Router(Base):
                 diff_results[obj.id] = d.to_dict()
 
         if not self.fwaas_external_policies['ingress'] and not self.fwaas_external_policies['egress']:
-            for obj in [firewall.DanglingZonePairExtIngress(self.router_id),
-                        firewall.DanglingZonePairExtEgress(self.router_id),
-                        firewall.DanglingFirewallVrfPolicer(self.router_id),
-                        firewall.DanglingZone(self.router_id)]:
+            for obj in [firewall.ZonePairExtIngress(self.router_id),
+                        firewall.ZonePairExtEgress(self.router_id),
+                        firewall.FirewallVrfPolicer(self.router_id),
+                        firewall.Zone(self.router_id)]:
                 d = obj.diff(should_be_none=True)
                 if not d.valid:
                     diff_results[obj.id] = d.to_dict()

@@ -121,12 +121,6 @@ class ServicePolicy(FirewallPolicyMixin, base.Base):
         return ncServicePolicy(id=self.id, type='inspect', classes=classes)
 
 
-class DanglingServicePolicy(ServicePolicy):
-
-    def update(self):
-        return self.delete()
-
-
 class FirewallZoneObject(base.Base):
 
     PREFIX = None
@@ -157,12 +151,6 @@ class Zone(FirewallZoneObject):
     @property
     def _rest_definition(self):
         return ncZone(id=self.id)
-
-
-class DanglingZone(Zone):
-
-    def update(self):
-        return self.delete()
 
 
 class ZonePair(FirewallZoneObject):
@@ -198,16 +186,6 @@ class ZonePairExtEgress(ZonePair):
         super().__init__(router_id, self.source, self.destination, policy_id)
 
 
-class DanglingZonePairExtEgress(ZonePairExtEgress):
-
-    def __init__(self, router_id: str):
-        super().__init__(router_id)
-        self.policy_id = None
-
-    def update(self):
-        return self.delete()
-
-
 class ZonePairExtIngress(ZonePair):
 
     PREFIX = const.FWAAS_ZONE_PAIR_EXT_INGRESS_PREFIX
@@ -216,16 +194,6 @@ class ZonePairExtIngress(ZonePair):
         self.source = Zone.get_id_by_router_id(router_id)
         self.destination = 'default'
         super().__init__(router_id, self.source, self.destination, policy_id)
-
-
-class DanglingZonePairExtIngress(ZonePairExtIngress):
-
-    def __init__(self, router_id: str):
-        super().__init__(router_id)
-        self.policy_id = None
-
-    def update(self):
-        return self.delete()
 
 
 class FirewallVrfPolicer(base.Base):
@@ -249,12 +217,3 @@ class FirewallVrfPolicer(base.Base):
     @property
     def _rest_definition(self) -> ncParameterMapInspectGlobalVrf:
         return ncParameterMapInspectGlobalVrf(vrf=self.vrf, parameter_map=self.parameter_map)
-
-
-class DanglingFirewallVrfPolicer(FirewallVrfPolicer):
-
-    def __init__(self, router_id: str, parameter_map=None) -> None:
-        super().__init__(router_id, parameter_map)
-
-    def update(self):
-        return self.delete()
