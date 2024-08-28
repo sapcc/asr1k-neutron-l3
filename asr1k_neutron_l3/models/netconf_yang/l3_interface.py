@@ -353,7 +353,7 @@ class VBInterface(NyBase):
                                                               vrf=self.vrf, ip=self.ip_address.address,
                                                               netmask=self.ip_address.mask, nat=nat)
 
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+    def is_orphan(self, all_bd_ids, *args, **kwargs):
         # An interface is an orphan if ALL of these conditions are met
         #   * ID is in neutron namespace
         #   * its ID is not referenced in the extra atts table

@@ -105,7 +105,7 @@ class ParameterMapInspectGlobalVrf(NyBase):
     def neutron_router_id(self):
         return utils.vrf_id_to_uuid(self.id)
 
-    def is_orphan(self, all_router_ids, all_routers_with_external_policies):
+    def is_orphan(self, all_router_ids, all_routers_with_external_policies, *args, **kwargs):
         if self.neutron_router_id in all_routers_with_external_policies:
             return False
 

@@ -150,10 +150,10 @@ class AccessList(NyBase):
 
         return super(AccessList, self)._update(context=context)
 
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+    def is_orphan(self, context, *args, **kwargs):
         return context.version_min_17_3 and \
             (self.drop_on_17_3 or self.name.startswith("PBR-") and self.neutron_router_id is not None) or \
-            super(AccessList, self).is_orphan(all_router_ids, all_segmentation_ids, all_bd_ids, context)
+            super(AccessList, self).is_orphan(*args, context=context, **kwargs)
 
 
 class ACLRule(NyBase):

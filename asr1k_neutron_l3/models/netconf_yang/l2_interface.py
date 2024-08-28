@@ -181,7 +181,7 @@ class BridgeDomain(NyBase):
                     device_config.bdvif_members.remove(bdvif)
         return super(BridgeDomain, self)._diff(context, device_config)
 
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+    def is_orphan(self, all_segmentation_ids, *args, **kwargs):
         return asr1k_db.MIN_DOT1Q <= int(self.id) <= asr1k_db.MAX_DOT1Q and \
             int(self.id) not in all_segmentation_ids
 
@@ -419,7 +419,7 @@ class ExternalInterface(ServiceInstance):
         kwargs['dot1q'] = kwargs.get('id')
         super(ExternalInterface, self).__init__(**kwargs)
 
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+    def is_orphan(self, all_segmentation_ids, *args, **kwargs):
         return asr1k_db.MIN_DOT1Q <= int(self.id) <= asr1k_db.MAX_DOT1Q and \
             int(self.id) not in all_segmentation_ids
 
@@ -438,7 +438,7 @@ class LoopbackExternalInterface(ServiceInstance):
         else:
             return super(LoopbackExternalInterface, self).to_dict(context)
 
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+    def is_orphan(self, all_segmentation_ids, all_bd_ids, context, *args, **kwargs):
         # KeepBDUpInterface is included here, as they share a port-channel
         return not context.use_bdvif and \
             (utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) <= int(self.id) <=
@@ -461,7 +461,7 @@ class LoopbackInternalInterface(ServiceInstance):
         else:
             return super(LoopbackInternalInterface, self).to_dict(context)
 
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+    def is_orphan(self, all_bd_ids, context, *args, **kwargs):
         return context.use_bdvif or \
             (utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) <= int(self.id) <=
              utils.to_bridge_domain(asr1k_db.MAX_SECOND_DOT1Q) and
@@ -480,5 +480,5 @@ class KeepBDUpInterface(ServiceInstance):
         else:
             return {}
 
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context, *args, **kwargs):
         raise NotImplementedError("This class' orphan check is handled by LoopbackExternalInterface")
