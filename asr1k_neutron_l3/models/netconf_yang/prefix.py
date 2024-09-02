@@ -14,15 +14,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from collections import OrderedDict
+from oslo_log import log as logging
 
 from asr1k_neutron_l3.models.netconf_yang.ny_base import execute_on_pair, NC_OPERATION, NyBase
+from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.common import utils
+
+LOG = logging.getLogger(__name__)
 
 
 class PrefixConstants(object):
     IP = 'ip'
-    PREFIX_LIST = 'prefix-list'
+    PREFIX_LISTS = 'prefix-lists'
     PREFIXES = 'prefixes'
     NAME = 'name'
     DESCRIPTION = 'description'
@@ -39,11 +42,11 @@ class Prefix(NyBase):
     ID_FILTER = """
       <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
         <ip>
-          <prefix-list>
+          <prefix-lists>
             <prefixes>
               <name>{id}</name>
             </prefixes>
-          </prefix-list>
+          </prefix-lists>
         </ip>
       </native>
     """
@@ -51,17 +54,18 @@ class Prefix(NyBase):
     GET_ALL_STUB = """
       <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
         <ip>
-          <prefix-list>
+          <prefix-lists>
             <prefixes>
               <name/>
+              <no/>
             </prefixes>
-          </prefix-list>
+          </prefix-lists>
         </ip>
       </native>
     """
 
-    LIST_KEY = PrefixConstants.PREFIX_LIST
-    ITEM_KEY = PrefixConstants.PREFIXES
+    LIST_KEY = PrefixConstants.IP
+    ITEM_KEY = PrefixConstants.PREFIX_LISTS
 
     @classmethod
     def __parameters__(cls):
@@ -73,22 +77,39 @@ class Prefix(NyBase):
 
     @classmethod
     def remove_wrapper(cls, dict, context):
-        dict = super(Prefix, cls)._remove_base_wrapper(dict, context)
+        dict = super().remove_wrapper(dict, context)
         if dict is None:
             return
-        dict = dict.get(PrefixConstants.IP, dict)
-        dict = dict.get(cls.LIST_KEY, dict)
+        dict = dict.get(cls.ITEM_KEY, {})
+        if PrefixConstants.PREFIXES not in dict:
+            return
 
-        return dict
+        # merge together prefix lists with the same name
+        prefixes = dict[PrefixConstants.PREFIXES]
+        if not isinstance(prefixes, list):
+            prefixes = [prefixes]
 
-    def _wrapper_preamble(self, dict, context):
-        result = {}
-        result[self.LIST_KEY] = dict
-        result = {PrefixConstants.IP: result}
+        seqs = {}
+        for prefix in prefixes:
+            pfx_name = prefix.get(PrefixConstants.NAME)
+            seqs.setdefault(pfx_name, []).append(prefix)
+
+        result = [
+            {
+                PrefixConstants.NAME: name,
+                PrefixConstants.SEQ: seq,
+            }
+            for name, seq in seqs.items()
+        ]
+
+        # default get will only have a single entry due to the xml filter
+        # get_all_stubs_from_device() will have a single or multiple entries (and can handle both)
+        # --> we unpack the list in case of a single entry
+        if len(result) == 1:
+            result = result[0]
+
+        result = {cls.ITEM_KEY: result}
         return result
-
-    def __init__(self, **kwargs):
-        super(Prefix, self).__init__(**kwargs)
 
     @property
     def neutron_router_id(self):
@@ -107,30 +128,41 @@ class Prefix(NyBase):
     @execute_on_pair()
     def update(self, context):
         if len(self.seq) > 0:
-            return super(Prefix, self)._update(context=context, method=NC_OPERATION.PUT)
+            return super(Prefix, self)._update(context=context)
         else:
             return super(Prefix, self)._delete(context=context)
 
+    def preflight(self, context):
+        # delete all rules that should not be on the device (by seq no, rest is done by update-replace)
+        # NOTE: if this deletion succeeds and a later update fails we might get in a situation
+        #       where a route is deleted here (with seq 30) that cannot be readded (with seq 20)
+        #       and we loose an entry until the next update. The probability is pretty low, but we
+        #       should keep this in mind if we see behavior like that
+        dev_pfx_list = self._internal_get(context=context)
+        if dev_pfx_list and dev_pfx_list.seq:
+            dev_seq_to_remove = {seq.no for seq in dev_pfx_list.seq} - {seq.no for seq in self.seq}
+            if dev_seq_to_remove:
+                LOG.warning("Prefix-list %s needs cleaning - seq %s present on device but not in neutron",
+                            self.name, ", ".join(map(str, dev_seq_to_remove)))
+                dev_pfx_list.seq = dev_seq_to_remove
+                dev_pfx_list._delete(context=context)
+
     def to_dict(self, context):
-        prefix = OrderedDict()
-        prefix[PrefixConstants.NAME] = self.name
-        prefix[PrefixConstants.SEQ] = []
-
+        prefixes = []
         for seq in self.seq:
-            prefix[PrefixConstants.SEQ].append(seq.to_dict(context))
-
-        result = OrderedDict()
-        result[PrefixConstants.PREFIXES] = prefix
-
-        return dict(result)
+            seq_dict = {PrefixConstants.NAME: self.name}
+            seq_dict.update(seq.to_dict(context))
+            prefixes.append(seq_dict)
+        return {PrefixConstants.PREFIX_LISTS: {PrefixConstants.PREFIXES: prefixes}}
 
     def to_delete_dict(self, context):
-        prefix = OrderedDict()
-        prefix[PrefixConstants.NAME] = self.name
-        result = OrderedDict()
-        result[PrefixConstants.PREFIXES] = prefix
-
-        return dict(result)
+        prefixes = []
+        for seq in self.seq:
+            prefixes.append({
+                PrefixConstants.NAME: self.name,
+                PrefixConstants.NUMBER: seq.no,
+            })
+        return {PrefixConstants.PREFIX_LISTS: {PrefixConstants.PREFIXES: prefixes}}
 
 
 class PrefixSeq(NyBase):
@@ -138,12 +170,6 @@ class PrefixSeq(NyBase):
     def __parameters__(cls):
         return [
             {'key': 'no', 'id': True},
-            {'key': 'deny_ip', 'yang-key': 'ip', 'yang-path': 'deny'},
-            {'key': 'deny_ge', 'yang-key': 'ge', 'yang-path': 'deny'},
-            {'key': 'deny_le', 'yang-key': 'le', 'yang-path': 'deny'},
-            {'key': 'permit_ip', 'yang-key': 'ip', 'yang-path': 'permit'},
-            {'key': 'permit_ge', 'yang-key': 'ge', 'yang-path': 'permit'},
-            {'key': 'permit_le', 'yang-key': 'le', 'yang-path': 'permit'},
 
             # new seq format for 17.3+
             {'key': 'action'},
@@ -152,40 +178,16 @@ class PrefixSeq(NyBase):
             {'key': 'ge'},
         ]
 
-    def __init__(self, **kwargs):
-        super(PrefixSeq, self).__init__(**kwargs)
-
-        if self.deny_ip is not None and self.permit_ip is not None:
-            raise Exception("Permit and Deny statements canot coexist on the same sequence")
-
     def to_dict(self, context):
-        seq = OrderedDict()
+        seq = {}
 
+        seq[xml_utils.OPERATION] = NC_OPERATION.PUT
         seq[PrefixConstants.NUMBER] = self.no
-        if self.action is not None:
-            # parameters passed in 17.3 format
-            seq[PrefixConstants.ACTION] = self.action
-            seq[PrefixConstants.IP] = self.action_ip
-            if self.ge:
-                seq[PrefixConstants.GE] = self.ge
-            if self.le:
-                seq[PrefixConstants.GE] = self.le
-        else:
-            # parameters passed in old format by the driver
-            if self.deny_ip is not None:
-                seq[PrefixConstants.ACTION] = PrefixConstants.DENY
-                seq[PrefixConstants.IP] = self.deny_ip
-                if self.deny_ge is not None:
-                    seq[PrefixConstants.GE] = self.deny_ge
-                if self.deny_le is not None:
-                    seq[PrefixConstants.LE] = self.deny_le
-
-            if self.permit_ip is not None:
-                seq[PrefixConstants.ACTION] = PrefixConstants.PERMIT
-                seq[PrefixConstants.IP] = self.permit_ip
-                if self.permit_ge is not None:
-                    seq[PrefixConstants.GE] = self.permit_ge
-                if self.permit_le is not None:
-                    seq[PrefixConstants.LE] = self.permit_le
+        seq[PrefixConstants.ACTION] = self.action
+        seq[PrefixConstants.IP] = self.action_ip
+        if self.ge:
+            seq[PrefixConstants.GE] = self.ge
+        if self.le:
+            seq[PrefixConstants.GE] = self.le
 
         return seq

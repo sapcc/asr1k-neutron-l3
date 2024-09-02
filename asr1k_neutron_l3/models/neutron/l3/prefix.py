@@ -44,7 +44,8 @@ class ExtPrefix(BasePrefix):
             i = 1
             for subnet in sorted(self.gateway_interface.subnets, key=itemgetter('id')):
                 self.has_prefixes = True
-                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
+                self._rest_definition.add_seq(
+                    prefix.PrefixSeq(no=i * 10, action="permit", action_ip=subnet.get('cidr')))
                 i += 1
 
 
@@ -57,7 +58,8 @@ class SnatPrefix(BasePrefix):
         for interface in sorted(self.internal_interfaces, key=attrgetter('id')):
             for subnet in sorted(interface.subnets, key=itemgetter('id')):
                 self.has_prefixes = True
-                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=subnet.get('cidr')))
+                self._rest_definition.add_seq(
+                    prefix.PrefixSeq(no=i * 10, action="permit", action_ip=subnet.get('cidr')))
                 i += 1
 
 
@@ -72,5 +74,6 @@ class RoutePrefix(BasePrefix):
                 self.has_prefixes = True
                 cidr = subnet.get('cidr')
                 permit_ge = utils.prefix_from_cidr(cidr) + 1
-                self._rest_definition.add_seq(prefix.PrefixSeq(no=i * 10, permit_ip=cidr, permit_ge=permit_ge))
+                self._rest_definition.add_seq(
+                    prefix.PrefixSeq(no=i * 10, action="permit", action_ip=cidr, ge=permit_ge))
                 i += 1
