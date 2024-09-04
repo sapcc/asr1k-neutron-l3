@@ -90,7 +90,7 @@ class RouteMap(NyBase):
         map[RouteMapConstants.NAME] = self.name
         map[RouteMapConstants.ROUTE_MAP_SEQ] = []
         for item in self.seq:
-            if item is not None and not (context.version_min_17_3 and item.drop_on_17_3):
+            if item is not None and not item.drop_on_17_3:
                 map[RouteMapConstants.ROUTE_MAP_SEQ].append(item.to_dict(context=context))
 
         result[self.ITEM_KEY] = map
@@ -140,15 +140,14 @@ class MapSequence(NyBase):
 
     @classmethod
     def from_json(cls, json, context, *args, **kwargs):
-        if context.version_min_17_3:
-            nh = (json.get(RouteMapConstants.SET, {})
-                      .get(RouteMapConstants.IP, {})
-                      .get(RouteMapConstants.NEXT_HOP, {}))
-            if nh:
-                addrs = nh[RouteMapConstants.ADDRESS]
-                nh[RouteMapConstants.NEXT_HOP_ADDR] = {RouteMapConstants.ADDRESS: addrs[0]}
-                if addrs[-1] == 'force':
-                    nh[RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE] = None
+        nh = (json.get(RouteMapConstants.SET, {})
+                  .get(RouteMapConstants.IP, {})
+                  .get(RouteMapConstants.NEXT_HOP, {}))
+        if nh:
+            addrs = nh[RouteMapConstants.ADDRESS]
+            nh[RouteMapConstants.NEXT_HOP_ADDR] = {RouteMapConstants.ADDRESS: addrs[0]}
+            if addrs[-1] == 'force':
+                nh[RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE] = None
 
         return super(MapSequence, cls).from_json(json, context, *args, **kwargs)
 
@@ -162,23 +161,13 @@ class MapSequence(NyBase):
                 RouteMapConstants.EXTCOMMUNITY: {RouteMapConstants.RT: {RouteMapConstants.ASN: self.asn}}}
 
         if self.next_hop is not None:
-            if context.version_min_17_3:
-                seq[RouteMapConstants.SET] = {
-                    RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP: {RouteMapConstants.ADDRESS: [self.next_hop]}}
-                }
-                if self.force:
-                    # it looks like the force flag is now part of the address list in 17.3+
-                    seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][
-                        RouteMapConstants.ADDRESS].append(RouteMapConstants.FORCE)
-            else:
-                seq[RouteMapConstants.SET] = {
-                    RouteMapConstants.IP: {
-                        RouteMapConstants.NEXT_HOP: {
-                            RouteMapConstants.NEXT_HOP_ADDR: {
-                                RouteMapConstants.ADDRESS: self.next_hop}}}}
-                if self.force:
-                    seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][
-                        RouteMapConstants.NEXT_HOP_ADDR][RouteMapConstants.FORCE] = ""
+            seq[RouteMapConstants.SET] = {
+                RouteMapConstants.IP: {RouteMapConstants.NEXT_HOP: {RouteMapConstants.ADDRESS: [self.next_hop]}}
+            }
+            if self.force:
+                # it looks like the force flag is now part of the address list in 17.3+
+                seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][
+                    RouteMapConstants.ADDRESS].append(RouteMapConstants.FORCE)
 
         if self.prefix_list is not None:
             seq[RouteMapConstants.MATCH] = {
