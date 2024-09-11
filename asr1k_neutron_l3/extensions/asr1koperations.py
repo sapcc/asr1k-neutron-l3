@@ -7,9 +7,11 @@ from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
 from neutron import policy
 from neutron import wsgi
+from oslo_config import cfg
 from oslo_log import log as logging
 from webob import exc as exceptions
 
+from asr1k_neutron_l3.common import asr1k_constants as const
 from asr1k_neutron_l3.common.exc_helper import exc_info_full
 
 LOG = logging.getLogger(__name__)
@@ -240,6 +242,8 @@ class FWAASController(wsgi.Controller):
         self.plugin = plugin
 
     def show(self, request, id, **kwargs):
+        if const.FWAAS_SERVICE_PLUGIN not in cfg.CONF.service_plugins:
+            raise exceptions.HTTPServerError(detail="FWaaS not enabled")
         check_access(request)
         try:
             ports = {x['id']: x for x in self.plugin.db.get_router_ports(request.context, id)}

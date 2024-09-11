@@ -39,6 +39,9 @@ TAG_DEFAULT_ROUTE_OVERWRITE = 'custom-default-route'
 TAG_SKIP_MONITORING = 'skip-monitoring'
 
 
+# cannot import from neutron_fwaas.common.fwaas_constants as it might not be installed
+FWAAS_SERVICE_PLUGIN = 'firewall_v2'
+
 FWAAS_ACL_PREFIX = "ACL-FWAAS-"
 FWAAS_CLASS_MAP_PREFIX = "CM-FWAAS-"
 FWAAS_SERVICE_POLICY_PREFIX = "SP-FWAAS-"

@@ -324,7 +324,8 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             if gw_port:
                 all_ports.append(gw_port["id"])
 
-            router["fwaas_policies"] = self.get_fwaas_policies(context, all_ports)
+            if constants.FWAAS_SERVICE_PLUGIN in cfg.CONF.service_plugins:
+                router["fwaas_policies"] = self.get_fwaas_policies(context, all_ports)
 
         return routers
 

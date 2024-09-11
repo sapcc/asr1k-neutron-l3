@@ -387,7 +387,8 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                     self.arp_clean_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_arp_clean)
                     self.arp_clean_loop.start(interval=cfg.CONF.asr1k_l3.arp_cleaning_interval, stop_on_exception=False)
 
-                if cfg.CONF.asr1k_l3.enable_fwaas_cleaning:
+                if cfg.CONF.asr1k_l3.enable_fwaas_cleaning and \
+                        constants.FWAAS_SERVICE_PLUGIN in cfg.CONF.service_plugins:
                     self.fwaas_clean_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_fwaas_clean)
                     self.fwaas_clean_loop.start(interval=cfg.CONF.asr1k_l3.fwaas_cleaning_interval,
                                                 stop_on_exception=False)

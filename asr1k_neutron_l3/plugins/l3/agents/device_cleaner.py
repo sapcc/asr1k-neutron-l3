@@ -17,8 +17,10 @@ import json
 import time
 
 from ncclient.operations import RPCError
+from oslo_config import cfg
 from oslo_log import log as logging
 
+from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common.exc_helper import exc_info_full
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
@@ -158,10 +160,12 @@ class DeviceCleanerMixin(object):
                     all_bd_ids.add(utils.to_bridge_domain(attrs['second_dot1q']))
             LOG.debug("Cleaner fetched all extra atts")
 
-            all_routers_with_external_policies = [
-                x[1] for x in self.plugin_rpc.get_routers_with_policy(self.context, only_external=True)]
-            LOG.debug("Cleaner fetched all routers with external policy attached, found %s routers",
-                      len(all_routers_with_external_policies))
+            all_routers_with_external_policies = []
+            if asr1k_constants.FWAAS_SERVICE_PLUGIN in cfg.CONF.service_plugins:
+                all_routers_with_external_policies = [
+                    x[1] for x in self.plugin_rpc.get_routers_with_policy(self.context, only_external=True)]
+                LOG.debug("Cleaner fetched all routers with external policy attached, found %s routers",
+                        len(all_routers_with_external_policies))
 
             # 3. figure out orphans and delete them
             item_count = 0
