@@ -15,11 +15,17 @@ from neutron.tests import base
 
 from asr1k_neutron_l3.models.asr1k_pair import FakeASR1KContext
 from asr1k_neutron_l3.common.utils import from_cidr, to_cidr
+from asr1k_neutron_l3.models.netconf_yang.access_list import AccessList
 from asr1k_neutron_l3.models.netconf_yang.arp_cache import ArpCache
 from asr1k_neutron_l3.models.netconf_yang import bgp
+from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNatList
+from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
+from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy
+from asr1k_neutron_l3.models.netconf_yang.zone import Zone
+from asr1k_neutron_l3.models.netconf_yang.zone_pair import ZonePair
 
 
 class ParsingTest(base.BaseTestCase):
@@ -408,3 +414,375 @@ class ParsingTest(base.BaseTestCase):
         snl = StaticNatList.from_xml(xml, context)
         nat = snl.static_nats[0]
         self.assertEqual('6657', nat.garp_bdvif_iface)
+
+    def test_acl_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+<data>
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <ip>
+      <access-list>
+        <extended xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-acl">
+          <name>ACL-FWAAS-TEST-ACL</name>
+          <access-list-seq-rule>
+            <sequence>10</sequence>
+            <ace-rule>
+              <action>permit</action>
+              <protocol>tcp</protocol>
+              <any/>
+              <dst-any/>
+              <established/>
+            </ace-rule>
+          </access-list-seq-rule>
+          <access-list-seq-rule>
+            <sequence>20</sequence>
+            <ace-rule>
+              <action>permit</action>
+              <protocol>icmp</protocol>
+              <any/>
+              <dst-any/>
+              <named-msg-type>echo-reply</named-msg-type>
+            </ace-rule>
+          </access-list-seq-rule>
+          <access-list-seq-rule>
+            <sequence>100</sequence>
+            <ace-rule>
+              <action>deny</action>
+              <protocol>tcp</protocol>
+              <host-address>1.1.1.1</host-address>
+              <host>1.1.1.1</host>
+              <dst-host-address>2.2.2.2</dst-host-address>
+              <dst-host>2.2.2.2</dst-host>
+              <dst-eq>3333</dst-eq>
+            </ace-rule>
+          </access-list-seq-rule>
+          <access-list-seq-rule>
+            <sequence>110</sequence>
+            <ace-rule>
+              <action>permit</action>
+              <protocol>udp</protocol>
+              <ipv4-address>10.0.0.0</ipv4-address>
+              <mask>0.0.0.255</mask>
+              <dest-ipv4-address>192.16.0.0</dest-ipv4-address>
+              <dest-mask>0.0.0.16</dest-mask>
+              <dst-eq>22</dst-eq>
+            </ace-rule>
+          </access-list-seq-rule>
+          <access-list-seq-rule>
+            <sequence>120</sequence>
+            <ace-rule>
+              <action>permit</action>
+              <protocol>tcp</protocol>
+              <ipv4-address>192.16.0.0</ipv4-address>
+              <mask>0.0.0.16</mask>
+              <dest-ipv4-address>10.0.0.0</dest-ipv4-address>
+              <dest-mask>0.0.0.255</dest-mask>
+              <dst-range1>1999</dst-range1>
+              <dst-range2>2991</dst-range2>
+            </ace-rule>
+          </access-list-seq-rule>
+          <access-list-seq-rule>
+            <sequence>130</sequence>
+            <ace-rule>
+              <action>deny</action>
+              <protocol>icmp</protocol>
+              <ipv4-address>100.200.0.0</ipv4-address>
+              <mask>0.0.255.255</mask>
+              <dst-any/>
+            </ace-rule>
+          </access-list-seq-rule>
+          <access-list-seq-rule>
+            <sequence>150</sequence>
+            <ace-rule>
+              <action>deny</action>
+              <protocol>udp</protocol>
+              <host-address>1.1.1.1</host-address>
+              <host>1.1.1.1</host>
+              <src-range1>10000</src-range1>
+              <src-range2>20000</src-range2>
+              <dst-any/>
+            </ace-rule>
+          </access-list-seq-rule>
+          <access-list-seq-rule>
+            <sequence>160</sequence>
+            <ace-rule>
+              <action>deny</action>
+              <protocol>ip</protocol>
+              <ipv4-address>192.168.1.0</ipv4-address>
+              <mask>0.0.0.255</mask>
+              <dest-ipv4-address>192.168.2.0</dest-ipv4-address>
+              <dest-mask>0.0.0.255</dest-mask>
+            </ace-rule>
+          </access-list-seq-rule>
+        </extended>
+      </access-list>
+    </ip>
+  </native>
+</data>
+</rpc-reply>
+"""
+
+        context = FakeASR1KContext()
+        acl = AccessList.from_xml(xml, context)
+        self.assertEqual("ACL-FWAAS-TEST-ACL", acl.id)
+        self.assertEqual("ACL-FWAAS-TEST-ACL", acl.name)
+        self.assertEqual(8, len(acl.rules))
+        rules = acl.rules
+
+        rule = rules[0]
+        self.assertEqual("10", rule.sequence)
+        ace = rule.ace_rule[0]
+        self.assertEqual("permit", ace.action)
+        self.assertEqual("tcp", ace.protocol)
+        self.assertTrue(ace.any)
+        self.assertTrue(ace.dst_any)
+        self.assertTrue(ace.established)
+
+        rule = rules[1]
+        self.assertEqual("20", rule.sequence)
+        ace = rule.ace_rule[0]
+        self.assertEqual("permit", ace.action)
+        self.assertEqual("icmp", ace.protocol)
+        self.assertTrue(ace.any)
+        self.assertTrue(ace.dst_any)
+        self.assertEqual("echo-reply", ace.named_message_type)
+
+        rule = rules[2]
+        self.assertEqual("100", rule.sequence)
+        ace = rule.ace_rule[0]
+        self.assertEqual("deny", ace.action)
+        self.assertEqual("tcp", ace.protocol)
+        self.assertEqual("1.1.1.1", ace.host)
+        self.assertEqual("2.2.2.2", ace.dst_host)
+        self.assertEqual("3333", ace.dst_eq)
+
+        rule = rules[3]
+        self.assertEqual("110", rule.sequence)
+        ace = rule.ace_rule[0]
+        self.assertEqual("permit", ace.action)
+        self.assertEqual("udp", ace.protocol)
+        self.assertEqual("10.0.0.0", ace.ipv4_address)
+        self.assertEqual("0.0.0.255", ace.mask)
+        self.assertEqual("192.16.0.0", ace.dest_ipv4_address)
+        self.assertEqual("0.0.0.16", ace.dest_mask)
+        self.assertEqual("22", ace.dst_eq)
+
+        rule = rules[4]
+        self.assertEqual("120", rule.sequence)
+        ace = rule.ace_rule[0]
+        self.assertEqual("permit", ace.action)
+        self.assertEqual("tcp", ace.protocol)
+        self.assertEqual("192.16.0.0", ace.ipv4_address)
+        self.assertEqual("0.0.0.16", ace.mask)
+        self.assertEqual("10.0.0.0", ace.dest_ipv4_address)
+        self.assertEqual("0.0.0.255", ace.dest_mask)
+        self.assertEqual("1999", ace.dst_range1)
+        self.assertEqual("2991", ace.dst_range2)
+
+        rule = rules[5]
+        self.assertEqual("130", rule.sequence)
+        ace = rule.ace_rule[0]
+        self.assertEqual("deny", ace.action)
+        self.assertEqual("icmp", ace.protocol)
+        self.assertEqual("100.200.0.0", ace.ipv4_address)
+        self.assertEqual("0.0.255.255", ace.mask)
+        self.assertTrue(ace.dst_any)
+
+        rule = rules[6]
+        self.assertEqual("150", rule.sequence)
+        ace = rule.ace_rule[0]
+        self.assertEqual("deny", ace.action)
+        self.assertEqual("udp", ace.protocol)
+        self.assertEqual("1.1.1.1", ace.host)
+        self.assertEqual("10000", ace.src_range1)
+        self.assertEqual("20000", ace.src_range2)
+        self.assertTrue(ace.dst_any)
+
+        rule = rules[7]
+        self.assertEqual("160", rule.sequence)
+        ace = rule.ace_rule[0]
+        self.assertEqual("deny", ace.action)
+        self.assertEqual("ip", ace.protocol)
+        self.assertEqual("192.168.1.0", ace.ipv4_address)
+        self.assertEqual("0.0.0.255", ace.mask)
+
+    def test_class_map_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+<data>
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <policy>
+      <class-map xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-policy">
+        <name>CM-FWAAS-COFFEE-CRIMES</name>
+        <type>inspect</type>
+        <prematch>match-all</prematch>
+        <match>
+          <access-group>
+            <name>ACL-FWAAS-FROZEN-CARAMEL-MACHIATO</name>
+          </access-group>
+        </match>
+      </class-map>
+    </policy>
+  </native>
+</data>
+</rpc-reply>
+"""
+        context = FakeASR1KContext()
+        cm = ClassMap.from_xml(xml, context)
+        self.assertEqual("CM-FWAAS-COFFEE-CRIMES", cm.id)
+        self.assertEqual("inspect", cm.type)
+        self.assertEqual("match-all", cm.prematch)
+        self.assertEqual("ACL-FWAAS-FROZEN-CARAMEL-MACHIATO", cm.acl_id)
+
+    def test_parameter_map_inspect_global_vrf_parsing(self):
+
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+<data> 
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <parameter-map>
+      <type>
+        <inspect-global xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-policy">
+          <icmp-unreachable-allow/>
+          <inspect>
+            <vrf>
+              <id>DAGOBERTDUCK</id>
+              <name>PAM-FWAAS-POLICE-VRF</name>
+            </vrf>
+          </inspect>
+        </inspect-global>
+      </type>
+    </parameter-map>
+  </native>
+</data>
+</rpc-reply>
+"""
+        context = FakeASR1KContext()
+        pm = ParameterMapInspectGlobalVrf.from_xml(xml, context)
+        self.assertEqual("DAGOBERTDUCK", pm.vrf)
+        self.assertEqual("PAM-FWAAS-POLICE-VRF", pm.parameter_map)
+
+    def test_service_policy_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <policy>
+      <policy-map xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-policy">
+        <name>SP-FWAAS-NO-CRAP-ON-TAP</name>
+        <type>inspect</type>
+        <class>
+          <name>CM-FWAAS-NO-CRAP-ON-TAP</name>
+          <type>inspect</type>
+          <policy>
+            <action>inspect</action>
+          </policy>
+        </class>
+        <class>
+          <name>class-default</name>
+          <policy>
+            <action>drop</action>
+            <log/>
+          </policy>
+        </class>
+      </policy-map>
+    </policy>
+  </native>
+</data>
+</rpc-reply>
+"""
+
+        context = FakeASR1KContext()
+        sp = ServicePolicy.from_xml(xml, context)
+        self.assertEqual("SP-FWAAS-NO-CRAP-ON-TAP", sp.id)
+        self.assertEqual("inspect", sp.type)
+        classes = sp.classes
+        self.assertEqual(2, len(classes))
+        self.assertEqual("CM-FWAAS-NO-CRAP-ON-TAP", classes[0].id)
+        self.assertEqual("inspect", classes[0].type)
+        self.assertEqual("inspect", classes[0].policy_action)
+        self.assertEqual("class-default", classes[1].id)
+        self.assertEqual("drop", classes[1].policy_action)
+        self.assertTrue(classes[1].log)
+
+    def test_zone_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <zone>
+      <security xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-zone">
+        <id>ZN-FWAAS-123</id>
+      </security>
+    </zone>
+  </native>
+</data>
+</rpc-reply>
+"""
+
+        context = FakeASR1KContext()
+        zone = Zone.from_xml(xml, context)
+        self.assertEqual("ZN-FWAAS-123", zone.id)
+
+    def test_zone_pair_parsing(self):
+        xml = """
+    <rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+            message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+    <data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+        <zone-pair>
+        <security xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-zone">
+            <id>ZP-FWAAS-EXT-EGRESS-123</id>
+            <source>default</source>
+            <destination>ZN-FWAAS-123</destination>
+            <service-policy>
+            <type>
+                <inspect>SP-FWAAS-ALLOW-INSPECT</inspect>
+            </type>
+            </service-policy>
+        </security>
+        </zone-pair>
+    </native>
+    </data>
+    </rpc-reply>
+    """
+        context = FakeASR1KContext()
+        zone_pair = ZonePair.from_xml(xml, context)
+        self.assertEqual("ZP-FWAAS-EXT-EGRESS-123", zone_pair.id)
+        self.assertEqual("default", zone_pair.source)
+        self.assertEqual("ZN-FWAAS-123", zone_pair.destination)
+        self.assertEqual("SP-FWAAS-ALLOW-INSPECT", zone_pair.service_policy)
+        
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+        message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+<data xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+<native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+    <zone-pair>
+      <security xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-zone">
+        <id>ZP-FWAAS-EXT-INGRESS-123</id>
+        <source>ZN-FWAAS-123</source>
+        <destination>default</destination>
+        <service-policy>
+          <type>
+            <inspect>SP-FWAAS-NO-CRAP-ON-TAP</inspect>
+          </type>
+        </service-policy>
+      </security>
+    </zone-pair>
+</native>
+</data>
+</rpc-reply>
+"""
+
+        zone_pair = ZonePair.from_xml(xml, context)
+        self.assertEqual("ZP-FWAAS-EXT-INGRESS-123", zone_pair.id)
+        self.assertEqual("ZN-FWAAS-123", zone_pair.source)
+        self.assertEqual("default", zone_pair.destination)
+        self.assertEqual("SP-FWAAS-NO-CRAP-ON-TAP", zone_pair.service_policy)
+

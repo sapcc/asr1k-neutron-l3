@@ -77,7 +77,10 @@ class BulkOperations(xml_utils.XMLUtils):
             LOG.exception("Could not fetch entity {} for cleaning".format(cls.__name__))
             return []
 
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+    def is_orphan_fwaas(self, all_fwaas_external_policies, all_fwaas_policies, *args, **kwargs):
+        return False
+
+    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, all_routers_with_external_policies, context):
         """Check if this entity is an orphan"""
         if self.neutron_router_id:
             return self.neutron_router_id not in all_router_ids

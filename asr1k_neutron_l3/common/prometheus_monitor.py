@@ -110,6 +110,8 @@ class PrometheusMonitor(object):
             self._gateways = Gauge('gateways', 'Number of managed gateways', STATS_LABELS, namespace=self.namespace)
             self._floating_ips = Gauge('floating_ips', 'Number of managed floating_ips',
                                        STATS_LABELS, namespace=self.namespace)
+            self.fwaas_cleaner_duration = Histogram("fwaas_cleaner_duration", "FWaaS cleaner runtime in seconds",
+                                                  namespace=self.namespace, buckets=ACTION_BUCKETS)
         elif self.type == L2:
             self._port_create_duration = Histogram("port_create_duration", "Port create duration in seconds",
                                                    BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)

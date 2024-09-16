@@ -229,6 +229,17 @@ class L3PluginApi(object):
         cctxt = self.client.prepare()
         return cctxt.call(context, 'get_deleted_router_atts', host=self.host)
 
+    @instrument()
+    def get_policies_on_agent(self, context, only_external=False):
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_policies_on_agent', only_external=only_external, host=self.host)
+
+    @instrument()
+    def get_routers_with_policy(self, context, policy_id=None, only_external=False):
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_routers_with_policy', host=self.host, policy_id=policy_id,
+                          only_external=only_external)
+
     def delete_router_atts(self, context, router_ids):
         """Delete extra atts for unused l3 ports"""
         cctxt = self.client.prepare(version='1.7')
@@ -354,6 +365,17 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         else:
             self.periodic_refresh_address_scope_config(self.context)
 
+            self.device_check_loop = loopingcall.FixedIntervalLoopingCall(self._check_devices_alive, self.context)
+            self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval / 2, stop_on_exception=False)
+
+            # wait for connections to come alive
+            LOG.info("Waiting for connections to come alive")
+            for context in self.asr1k_pair.contexts:
+                if not context.wait_alive():
+                    LOG.error("Connection to %s not alive, still continuing startup", context.host)
+                else:
+                    LOG.debug("Connection to %s alive", context.host)
+
             if cfg.CONF.asr1k_l3.sync_active and cfg.CONF.asr1k_l3.sync_interval > 0:
                 self.sync_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_sync_routers_task)
                 self.sync_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval, stop_on_exception=False)
@@ -365,8 +387,11 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                     self.arp_clean_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_arp_clean)
                     self.arp_clean_loop.start(interval=cfg.CONF.asr1k_l3.arp_cleaning_interval, stop_on_exception=False)
 
-            self.device_check_loop = loopingcall.FixedIntervalLoopingCall(self._check_devices_alive, self.context)
-            self.device_check_loop.start(interval=cfg.CONF.asr1k_l3.sync_interval / 2, stop_on_exception=False)
+                if cfg.CONF.asr1k_l3.enable_fwaas_cleaning and \
+                        constants.FWAAS_SERVICE_PLUGIN in cfg.CONF.service_plugins:
+                    self.fwaas_clean_loop = loopingcall.FixedIntervalLoopingCall(self._periodic_fwaas_clean)
+                    self.fwaas_clean_loop.start(interval=cfg.CONF.asr1k_l3.fwaas_cleaning_interval,
+                                                stop_on_exception=False)
 
             if cfg.CONF.asr1k.clean_orphans:
                 LOG.info("Orphan clean is active, starting cleaning loop")
@@ -460,6 +485,11 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         LOG.debug("Starting per-device clean")
         ArpCache.clean_device_arp(fip_data=fip_data)
         LOG.debug("ARP cleaning done")
+
+    def _periodic_fwaas_clean(self):
+        LOG.info("Starting FWaaS cleaning syncloop")
+        ctx = n_context.get_admin_context_without_session()
+        self.clean_fwaas(ctx)
 
     def _clean_deleted_routers_dict(self):
         for router_id, created_at in list(self._deleted_routers.items()):

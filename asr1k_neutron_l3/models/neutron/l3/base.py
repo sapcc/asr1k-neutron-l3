@@ -22,7 +22,7 @@ LOG = logging.getLogger(__name__)
 
 
 class Base(object):
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.contexts = asr1k_pair.ASR1KPair().contexts
 
     @property

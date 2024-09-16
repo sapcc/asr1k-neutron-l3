@@ -94,6 +94,14 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
         return router_atts
 
     @instrument()
+    def get_policies_on_agent(self, context, host, only_external=False):
+        return self.db.get_policies_on_agent(context, host, only_external=only_external)
+
+    @instrument()
+    def get_routers_with_policy(self, context, host=None, policy_id=None, only_external=False):
+        return self.db.get_routers_with_policy(context, host, policy_id, only_external=only_external)
+
+    @instrument()
     def delete_router_atts(self, context, **kwargs):
         router_ids = kwargs.get('router_ids', [])
         LOG.debug("********** delete_router_atts {}".format(router_ids))

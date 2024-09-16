@@ -16,8 +16,9 @@
 
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import execute_on_pair, NyBase
+from asr1k_neutron_l3.models.netconf_yang.ny_base import YANG_TYPE, execute_on_pair, NyBase
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
+from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common import utils
 
 
@@ -35,10 +36,20 @@ class ACLConstants(object):
     DENY = 'deny'
     ANY = 'any'
     DST_ANY = 'dst-any'
+    SOURCE_HOST = 'host'
     SOURCE_IP = 'ipv4-address'
     SOURCE_MASK = 'mask'
+    SOURCE_EQ = 'src-eq'
+    SOURCE_RANGE_START = 'src-range1'
+    SOURCE_RANGE_END = 'src-range2'
+    DEST_HOST = 'dst-host'
     DEST_IP = 'dest-ipv4-address'
     DEST_MASK = 'dest-mask'
+    DEST_EQ = 'dst-eq'
+    DEST_RANGE_START = 'dst-range1'
+    DEST_RANGE_END = 'dst-range2'
+    NAMED_MESSAGE_TYPE = 'named-msg-type'
+    ESTABLISHED = 'established'
 
 
 class AccessList(NyBase):
@@ -108,6 +119,15 @@ class AccessList(NyBase):
         if self.name is not None and (self.name.startswith('NAT-') or self.name.startswith('PBR-')):
             return utils.vrf_id_to_uuid(self.name[4:])
 
+    @property
+    def policy_id(self):
+        prefix = asr1k_constants.FWAAS_ACL_PREFIX
+        if self.name and self.name.startswith(prefix):
+            uuid = self.name[len(prefix):]
+            if utils.is_valid_uuid(uuid):
+                return uuid
+        return None
+
     def add_rule(self, rule):
         self.rules.append(rule)
 
@@ -140,10 +160,19 @@ class AccessList(NyBase):
 
         return super(AccessList, self)._update(context=context)
 
-    def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context):
+    def is_orphan_fwaas(self, all_fwaas_policies, *args, **kwargs):
+        if self.policy_id:
+            return self.policy_id not in all_fwaas_policies
+        return False
+
+    def is_orphan(self, context, *args, **kwargs):
+        # Back out if we were called from the router cleanup loop and we are a FWAAS-ACL
+        if self.policy_id:
+            return False
+
         return context.version_min_17_3 and \
             (self.drop_on_17_3 or self.name.startswith("PBR-") and self.neutron_router_id is not None) or \
-            super(AccessList, self).is_orphan(all_router_ids, all_segmentation_ids, all_bd_ids, context)
+            super(AccessList, self).is_orphan(*args, context=context, **kwargs)
 
 
 class ACLRule(NyBase):
@@ -190,13 +219,22 @@ class ACERule(NyBase):
             {'key': 'acl_rule', 'validate': False, 'default': ""},
             {'key': 'action', 'id': True},
             {'key': 'protocol'},
-            {'key': 'any', 'default': None},
+            {'key': 'any', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'host'},
             {'key': 'ipv4_address'},
             {'key': 'mask'},
-            {'key': 'dst_any', 'default': None},
+            {'key': 'src_eq'},
+            {'key': 'src_range1'},
+            {'key': 'src_range2'},
+            {'key': 'dst_any', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'dst_host'},
             {'key': 'dest_ipv4_address'},
-            {'key': 'dest_mask'}
-
+            {'key': 'dest_mask'},
+            {'key': 'dst_eq'},
+            {'key': 'dst_range1'},
+            {'key': 'dst_range2'},
+            {'key': 'named_message_type', 'yang-key': 'named-msg-type'},
+            {'key': 'established', 'yang-type': YANG_TYPE.EMPTY, 'default': False}
         ]
 
     def __init__(self, **kwargs):
@@ -207,17 +245,41 @@ class ACERule(NyBase):
         ace_rule[ACLConstants.ACTION] = self.action
         ace_rule[ACLConstants.PROTOCOL] = self.protocol
 
-        if self.ipv4_address is None:
+        if self.ipv4_address is None and self.host is None:
             ace_rule[ACLConstants.ANY] = ""
+        elif self.host:
+            ace_rule[ACLConstants.SOURCE_HOST] = self.host
         else:
             ace_rule[ACLConstants.SOURCE_IP] = self.ipv4_address
             ace_rule[ACLConstants.SOURCE_MASK] = self.mask
 
-        if self.dest_ipv4_address is None:
+        if self.src_eq:
+            ace_rule[ACLConstants.SOURCE_EQ] = self.src_eq
+
+        if self.src_range1 and self.src_range2:
+            ace_rule[ACLConstants.SOURCE_RANGE_START] = self.src_range1
+            ace_rule[ACLConstants.SOURCE_RANGE_END] = self.src_range2
+
+        if self.dest_ipv4_address is None and self.dst_host is None:
             ace_rule[ACLConstants.DST_ANY] = ""
+        elif self.dst_host:
+            ace_rule[ACLConstants.DEST_HOST] = self.dst_host
         else:
             ace_rule[ACLConstants.DEST_IP] = self.dest_ipv4_address
             ace_rule[ACLConstants.DEST_MASK] = self.dest_mask
+
+        if self.dst_eq:
+            ace_rule[ACLConstants.DEST_EQ] = self.dst_eq
+
+        if self.dst_range1 and self.dst_range2:
+            ace_rule[ACLConstants.DEST_RANGE_START] = self.dst_range1
+            ace_rule[ACLConstants.DEST_RANGE_END] = self.dst_range2
+
+        if self.established:
+            ace_rule[ACLConstants.ESTABLISHED] = ''
+
+        if self.named_message_type:
+            ace_rule[ACLConstants.NAMED_MESSAGE_TYPE] = self.named_message_type
 
         return ace_rule
 

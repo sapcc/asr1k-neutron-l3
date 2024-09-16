@@ -14,6 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import time
+
 from oslo_log import log as logging
 from oslo_config import cfg
 
@@ -116,6 +118,18 @@ class ASR1KContext(ASR1KContextBase):
         if not hasattr(self, attr_name):
             raise VersionInfoNotAvailable(host=self.context.host, entity=attr_name)
         return getattr(self, attr_name)
+
+    def wait_alive(self):
+        timed_out = time.time() + self.nc_timeout
+        last_log = time.time()
+        while time.time() < timed_out:
+            if self.alive:
+                return True
+            if last_log + 10 <= time.time():
+                last_log = time.time()
+                LOG.info("Still waiting for yang to come alive on %s", self.host)
+            time.sleep(1)
+        return False
 
     @property
     def use_bdvif(self):

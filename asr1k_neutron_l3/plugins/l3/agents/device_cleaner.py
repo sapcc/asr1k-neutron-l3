@@ -17,8 +17,10 @@ import json
 import time
 
 from ncclient.operations import RPCError
+from oslo_config import cfg
 from oslo_log import log as logging
 
+from asr1k_neutron_l3.common import asr1k_constants
 from asr1k_neutron_l3.common.exc_helper import exc_info_full
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
@@ -26,12 +28,17 @@ from asr1k_neutron_l3.models.netconf_yang.access_list import AccessList
 from asr1k_neutron_l3.models.netconf_yang.arp import VrfArpList
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain, LoopbackInternalInterface, \
     LoopbackExternalInterface, ExternalInterface
+from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat, NatPool, InterfaceDynamicNat, PoolDynamicNat
+from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
 from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
 from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
 from asr1k_neutron_l3.models.netconf_yang.route_map import RouteMap
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
+from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy
+from asr1k_neutron_l3.models.netconf_yang.zone import Zone
+from asr1k_neutron_l3.models.netconf_yang.zone_pair import ZonePair
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
 
 LOG = logging.getLogger(__name__)
@@ -53,7 +60,9 @@ class DeviceCleanerMixin(object):
         BridgeDomain, LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface,
         StaticNat, PoolDynamicNat, InterfaceDynamicNat, NatPool,
         VBInterface,
-        RouteMap, Prefix, AccessList, VrfArpList, VrfRoute, VrfDefinition
+        RouteMap, Prefix, AccessList, VrfArpList, VrfRoute,
+        ZonePair, Zone, ParameterMapInspectGlobalVrf,
+        VrfDefinition
     ]
 
     def _get_all_router_ids(self):
@@ -70,6 +79,39 @@ class DeviceCleanerMixin(object):
             return
 
         return all_router_ids
+
+    def clean_fwaas(self, context, dry=False):
+        """Clean ServicePolicy, ClassMaps and ACLs
+        These objects are mapped to multiple routers, so we cannot include them in a router cleanup
+        """
+
+        LOG.debug("Fetching FWaaS objects from device")
+        fwaas_entities = [ServicePolicy, ClassMap, AccessList]
+        device_objects = {device: [] for device in ASR1KPair().contexts}
+        with PrometheusMonitor().fwaas_cleaner_duration.time():
+            for cls in fwaas_entities:
+                for device in ASR1KPair().contexts:
+                    objs = cls.get_all_stubs_from_device(device)
+                    LOG.debug(f"Got {len(objs)} {cls.__name__} from device {device.host}")
+                    device_objects[device].extend(objs)
+
+            LOG.debug("Fetching all policies on this agent from neutron")
+            # external policies need the whole ClassMap, ServicePolicy dance while internal policies only need
+            # an ACL.
+            all_policies = self.plugin_rpc.get_policies_on_agent(context)
+            all_fwaas_external_policies = set(self.plugin_rpc.get_policies_on_agent(context, only_external=True))
+            LOG.debug(f"Got {len(all_policies)} policies from neutron for this agent, "
+                      f"{len(all_fwaas_external_policies)} of them are external.")
+
+            for device, objs in device_objects.items():
+                for obj in objs:
+                    if not obj.is_orphan_fwaas(all_fwaas_policies=all_policies,
+                                               all_fwaas_external_policies=all_fwaas_external_policies):
+                        continue
+                    LOG.debug(f"Cleaning {obj.id} on device {device.host}")
+                    if dry:
+                        continue
+                    obj.delete(context=device)
 
     def clean_device(self, dry_run):
         try:
@@ -118,6 +160,13 @@ class DeviceCleanerMixin(object):
                     all_bd_ids.add(utils.to_bridge_domain(attrs['second_dot1q']))
             LOG.debug("Cleaner fetched all extra atts")
 
+            all_routers_with_external_policies = []
+            if asr1k_constants.FWAAS_SERVICE_PLUGIN in cfg.CONF.service_plugins:
+                all_routers_with_external_policies = [
+                    x[1] for x in self.plugin_rpc.get_routers_with_policy(self.context, only_external=True)]
+                LOG.debug("Cleaner fetched all routers with external policy attached, found %s routers",
+                        len(all_routers_with_external_policies))
+
             # 3. figure out orphans and delete them
             item_count = 0
             orphan_count = 0
@@ -126,7 +175,10 @@ class DeviceCleanerMixin(object):
                 for context, stubs in entity_stubs.items():
                     for stub in stubs:
                         item_count += 1
-                        if stub.is_orphan(all_router_ids, all_segmentation_ids, all_bd_ids, context):
+                        if stub.is_orphan(all_router_ids=all_router_ids, all_segmentation_ids=all_segmentation_ids,
+                                          all_bd_ids=all_bd_ids,
+                                          all_routers_with_external_policies=all_routers_with_external_policies,
+                                          context=context):
                             orphan_count += 1
                             LOG.debug("%s %s on %s for router %s can be cleaned",
                                       entity_cls.__name__, stub.id, context.name, stub.neutron_router_id)

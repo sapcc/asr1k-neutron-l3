@@ -19,6 +19,7 @@ from oslo_log import log as logging
 
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.neutron.l3 import base
+from asr1k_neutron_l3.models.neutron.l3.firewall import Zone
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface, VBIPrimaryIpAddress, VBISecondaryIpAddress
 from asr1k_neutron_l3.models.netconf_yang.l3_interface_state import VBInterfaceState
 
@@ -63,6 +64,7 @@ class Interface(base.Base):
         self.vrf = utils.uuid_to_vrf_id(self.router_id)
         self._primary_subnet_id = None
         self.ip_address = self._ip_address()
+        self.has_stateful_firewall = False
 
         self.secondary_ip_addresses = []
         self.primary_subnet = self._primary_subnet()
@@ -131,15 +133,26 @@ class GatewayInterface(Interface):
         self.nat_address = self._nat_address()
 
         # annotate details about the router to the interface description so this can be picked up by SNMP
+
+    @property
+    def _rest_definition(self):
         description = (f'type:gw;router:{self.router_id};network:{self.router_port["network_id"]};'
                        f'subnet:{self._primary_subnet_id}')
 
-        self._rest_definition = VBInterface(name=self.bridge_domain, description=description,
-                                            mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
-                                            ip_address=self.ip_address,
-                                            secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
-                                            redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS',
-                                            ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout)
+        interface_args = dict(name=self.bridge_domain, description=description,
+                              mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
+                              ip_address=self.ip_address,
+                              secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
+                              redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS',
+                              ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout)
+
+        if self.has_stateful_firewall:
+            interface_args['redundancy_group'] = 1
+            interface_args['redundancy_group_decrement'] = 1
+            interface_args['rii'] = self.bridge_domain
+            interface_args['zone'] = Zone.get_id_by_vrf(self.vrf)
+
+        return VBInterface(**interface_args)
 
     def _ip_address(self):
         if self.dynamic_nat_pool is None or not self.router_port.get('fixed_ips'):
@@ -173,19 +186,33 @@ class GatewayInterface(Interface):
 
 
 class InternalInterface(Interface):
-    def __init__(self, router_id, router_port, extra_atts):
+    def __init__(self, router_id, router_port, extra_atts, ingress_acl=None, egress_acl=None):
         super(InternalInterface, self).__init__(router_id, router_port, extra_atts)
+        self.ingress_acl = ingress_acl
+        self.egress_acl = egress_acl
 
+    @property
+    def _rest_definition(self):
         # annotate details about the router to the interface description so this can be picked up by SNMP
         description = (f'type:internal;project:{self.router_port["project_id"]};router:{self.router_id};'
-                       f'network:{self.router_port["network_id"]};subnet:{self._primary_subnet_id}')
+                      f'network:{self.router_port["network_id"]};subnet:{self._primary_subnet_id}')
 
-        self._rest_definition = VBInterface(name=self.bridge_domain, description=description,
-                                            mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
-                                            ip_address=self.ip_address,
-                                            secondary_ip_addresses=self.secondary_ip_addresses,
-                                            nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf),
-                                            ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.internal_iface_arp_timeout)
+        interface_args = dict(name=self.bridge_domain, description=description,
+                              mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
+                              ip_address=self.ip_address,
+                              secondary_ip_addresses=self.secondary_ip_addresses,
+                              nat_inside=True, redundancy_group=None, route_map="pbr-{}".format(self.vrf),
+                              ntp_disable=True,
+                              arp_timeout=cfg.CONF.asr1k_l3.internal_iface_arp_timeout,
+                              access_group_out=self.egress_acl,
+                              access_group_in=self.ingress_acl)
+
+        if self.has_stateful_firewall:
+            interface_args['redundancy_group'] = 1
+            interface_args['redundancy_group_decrement'] = 1
+            interface_args['rii'] = self.bridge_domain
+
+        return VBInterface(**interface_args)
 
 
 class OrphanedInterface(Interface):
