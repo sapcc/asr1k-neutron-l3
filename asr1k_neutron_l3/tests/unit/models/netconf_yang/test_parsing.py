@@ -24,6 +24,7 @@ from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat, PoolDynamicNat, StaticNatList
 from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
 from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
+from asr1k_neutron_l3.models.netconf_yang.route_map import RouteMap
 from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy
 from asr1k_neutron_l3.models.netconf_yang.zone import Zone
 from asr1k_neutron_l3.models.netconf_yang.zone_pair import ZonePair
@@ -946,3 +947,65 @@ class ParsingTest(base.BaseTestCase):
         self.assertEqual('267786254', pdn.mapping_id)
         self.assertEqual('1', pdn.redundancy)
         self.assertTrue(pdn.overload)
+
+    def test_route_map_bgp_extcommunity(self):
+        rm_17_6_xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:683b82da-f05d-45ae-ade0-6d1cf7e8b27c">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <route-map>
+        <name>RM-DAP-OYSTRCTCH01</name>
+        <route-map-without-order-seq xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-route-map">
+          <seq_no>10</seq_no>
+          <operation>permit</operation>
+          <set>
+            <extcommunity>
+              <rt>
+                <asn-nn>65126:101</asn-nn>
+                <asn-nn>additive</asn-nn>
+              </rt>
+            </extcommunity>
+          </set>
+        </route-map-without-order-seq>
+      </route-map>
+    </native>
+  </data>
+</rpc-reply>
+        """
+        context_17_6 = FakeASR1KContext(version_min_17_15=False)
+        rm = RouteMap.from_xml(rm_17_6_xml, context_17_6)
+        self.assertEqual("RM-DAP-OYSTRCTCH01", rm.name)
+        self.assertEqual(['65126:101', 'additive'], rm.seq[0].asn)
+
+        rm_17_15_xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:b594b6c9-c564-4759-8f7c-18867feda723">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <route-map>
+        <name>RM-DAP-OYSTRCTCH02</name>
+        <route-map-without-order-seq xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-route-map">
+          <seq_no>10</seq_no>
+          <operation>permit</operation>
+          <set>
+            <bgp-route-map-set xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
+              <extcommunity>
+                <rt>
+                  <asn-nn>65126:101</asn-nn>
+                  <asn-nn>additive</asn-nn>
+                </rt>
+              </extcommunity>
+            </bgp-route-map-set>
+          </set>
+        </route-map-without-order-seq>
+      </route-map>
+    </native>
+  </data>
+</rpc-reply>
+        """
+
+        context = FakeASR1KContext()
+        rm = RouteMap.from_xml(rm_17_15_xml, context)
+        self.assertEqual("RM-DAP-OYSTRCTCH02", rm.name)
+        self.assertEqual(['65126:101', 'additive'], rm.seq[0].asn)

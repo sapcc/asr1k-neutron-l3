@@ -44,10 +44,12 @@ class FakeASR1KContext(ASR1KContextBase):
     stable results
     """
 
-    def __init__(self, version_min_17_3=True, version_min_17_6=True, version_min_17_13=True, has_stateless_nat=True):
+    def __init__(self, version_min_17_3=True, version_min_17_6=True, version_min_17_13=True, version_min_17_15=True,
+                 has_stateless_nat=True):
         self.version_min_17_3 = version_min_17_3
         self.version_min_17_6 = version_min_17_6
         self.version_min_17_13 = version_min_17_13
+        self.version_min_17_15 = version_min_17_15
         self._has_stateless_nat = has_stateless_nat
 
     @property
@@ -59,6 +61,7 @@ class ASR1KContext(ASR1KContextBase):
     version_min_17_3 = property(lambda self: self._get_version_attr('_version_min_17_3'))
     version_min_17_6 = property(lambda self: self._get_version_attr('_version_min_17_6'))
     version_min_17_13 = property(lambda self: self._get_version_attr('_version_min_17_13'))
+    version_min_17_15 = property(lambda self: self._get_version_attr('_version_min_17_15'))
     has_stateless_nat = property(lambda self: self._get_version_attr('_has_stateless_nat'))
 
     def __init__(self, name, host, yang_port, nc_timeout, username, password, use_bdvif, insecure=True,
@@ -108,6 +111,7 @@ class ASR1KContext(ASR1KContextBase):
             self._version_min_17_3 = ver >= (17, 3)
             self._version_min_17_6 = ver >= (17, 6)
             self._version_min_17_13 = ver >= (17, 13)
+            self._version_min_17_15 = ver >= (17, 15)
             self._has_stateless_nat = ver >= (17, 4)
 
         self._got_version_info = True
