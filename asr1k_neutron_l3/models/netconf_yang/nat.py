@@ -752,11 +752,6 @@ class StaticNat(NyBase):
                 entry[NATConstants.MAPPING_ID] = self.mapping_id
             if context.version_min_17_6:
                 entry[NATConstants.NO_ALIAS] = ""
-            if context.version_min_17_13:
-                if self.garp_bdvif_iface:
-                    entry[NATConstants.GARP_IFACE] = {NATConstants.BDVIF: str(self.garp_bdvif_iface)}
-                else:
-                    entry[NATConstants.GARP_IFACE] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
         else:
             if self.stateless:
                 entry[NATConstants.STATELESS] = ""
@@ -766,6 +761,12 @@ class StaticNat(NyBase):
                 entry[NATConstants.REDUNDANCY] = self.redundancy
             if self.mapping_id:
                 entry[NATConstants.MAPPING_ID] = self.mapping_id
+
+        if context.version_min_17_13:
+            if self.garp_bdvif_iface:
+                entry[NATConstants.GARP_IFACE] = {NATConstants.BDVIF: str(self.garp_bdvif_iface)}
+            else:
+                entry[NATConstants.GARP_IFACE] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
 
         return entry
 
