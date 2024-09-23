@@ -27,6 +27,7 @@ class RouteMapConstants(object):
     NAME = "name"
     ORDERING_SEQ = "seq_no"
     OPERATION = "operation"
+    BGP_ROUTE_MAP_SET = "bgp-route-map-set"
     SET = "set"
     EXTCOMMUNITY = 'extcommunity'
     RT = 'rt'
@@ -121,7 +122,13 @@ class MapSequence(NyBase):
         return [
             {'key': 'seq_no', 'yang-key': 'seq_no', 'id': True},
             {'key': 'operation'},
+
+            # < 17.15
             {'key': 'asn', 'yang-key': 'asn-nn', 'yang-path': 'set/extcommunity/rt', 'type': [str]},
+            # >= 17.15
+            {'key': 'asn_new', 'yang-key': 'asn-nn', 'yang-path': 'set/bgp-route-map-set/extcommunity/rt',
+             'type': [str]},
+
             {'key': 'next_hop', 'yang-key': 'address', 'yang-path': 'set/ip/next-hop/next-hop-addr'},
             {'key': 'force', 'yang-path': 'set/ip/next-hop/next-hop-addr', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
@@ -133,6 +140,9 @@ class MapSequence(NyBase):
 
     def __init__(self, **kwargs):
         super(MapSequence, self).__init__(**kwargs)
+        if self.asn_new and not self.asn:
+            self.asn = self.asn_new
+
         if self.asn is not None and not isinstance(self.asn, list):
             self.asn = [self.asn]
 
@@ -157,8 +167,19 @@ class MapSequence(NyBase):
         seq[RouteMapConstants.OPERATION] = self.operation
 
         if self.asn:
-            seq[RouteMapConstants.SET] = {
-                RouteMapConstants.EXTCOMMUNITY: {RouteMapConstants.RT: {RouteMapConstants.ASN: self.asn}}}
+            extcom_dict = {
+                RouteMapConstants.EXTCOMMUNITY: {
+                    RouteMapConstants.RT: {
+                        RouteMapConstants.ASN: self.asn
+                    }
+                }
+            }
+            if context.version_min_17_15:
+                extcom_dict[xml_utils.NS] = xml_utils.NS_CISCO_BGP
+                extcom_dict = {
+                    RouteMapConstants.BGP_ROUTE_MAP_SET: extcom_dict,
+                }
+            seq[RouteMapConstants.SET] = extcom_dict
 
         if self.next_hop is not None:
             seq[RouteMapConstants.SET] = {
