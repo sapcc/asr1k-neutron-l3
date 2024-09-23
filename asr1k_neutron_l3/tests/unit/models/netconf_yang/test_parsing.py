@@ -23,6 +23,7 @@ from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNatList
 from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
+from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
 from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy
 from asr1k_neutron_l3.models.netconf_yang.zone import Zone
 from asr1k_neutron_l3.models.netconf_yang.zone_pair import ZonePair
@@ -786,3 +787,80 @@ class ParsingTest(base.BaseTestCase):
         self.assertEqual("default", zone_pair.destination)
         self.assertEqual("SP-FWAAS-NO-CRAP-ON-TAP", zone_pair.service_policy)
 
+    def test_parse_prefix_list_format(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ip>
+        <prefix-lists>
+          <prefixes>
+            <name>seagull-yang-test</name>
+            <no>10</no>
+            <action>permit</action>
+            <ip>1.1.1.0/24</ip>
+            <le>32</le>
+          </prefixes>
+          <prefixes>
+            <name>seagull-yang-test</name>
+            <no>20</no>
+            <action>permit</action>
+            <ip>2.2.2.2/32</ip>
+          </prefixes>
+          <prefixes>
+            <name>seagull-yang-test</name>
+            <no>30</no>
+            <action>permit</action>
+            <ip>3.3.3.0/24</ip>
+            <ge>28</ge>
+          </prefixes>
+        </prefix-lists>
+      </ip>
+    </native>
+  </data>
+</rpc-reply>
+
+"""
+        context = FakeASR1KContext()
+        pfx = Prefix.from_xml(xml, context)
+        self.assertEqual("seagull-yang-test", pfx.name)
+
+        seqs = [(s.no, s.action, s.ip, s.le, s.ge) for s in pfx.seq]
+        expected_seqs = [
+            ('10', 'permit', '1.1.1.0/24', '32', None),
+            ('20', 'permit', '2.2.2.2/32', None, None),
+            ('30', 'permit', '3.3.3.0/24', None, '28'),
+        ]
+        self.assertEqual(expected_seqs, seqs)
+
+    def test_parse_prefix_list_format_single(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ip>
+        <prefix-lists>
+          <prefixes>
+            <name>seagull-yang-test</name>
+            <no>10</no>
+            <action>permit</action>
+            <ip>1.1.1.0/24</ip>
+            <le>32</le>
+          </prefixes>
+        </prefix-lists>
+      </ip>
+    </native>
+  </data>
+</rpc-reply>
+
+"""
+        context = FakeASR1KContext()
+        pfx = Prefix.from_xml(xml, context)
+        self.assertEqual("seagull-yang-test", pfx.name)
+
+        seqs = [(s.no, s.action, s.ip) for s in pfx.seq]
+        seqs = [(s.no, s.action, s.ip, s.le, s.ge) for s in pfx.seq]
+        expected_seqs = [
+            ('10', 'permit', '1.1.1.0/24', '32', None),
+        ]
+        self.assertEqual(expected_seqs, seqs)

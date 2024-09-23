@@ -173,7 +173,7 @@ class PrefixSeq(NyBase):
 
             # new seq format for 17.3+
             {'key': 'action'},
-            {'key': 'action_ip', 'yang-key': 'ip'},
+            {'key': 'ip', 'yang-key': 'ip'},
             {'key': 'le'},
             {'key': 'ge'},
         ]
@@ -184,7 +184,7 @@ class PrefixSeq(NyBase):
         seq[xml_utils.OPERATION] = NC_OPERATION.PUT
         seq[PrefixConstants.NUMBER] = self.no
         seq[PrefixConstants.ACTION] = self.action
-        seq[PrefixConstants.IP] = self.action_ip
+        seq[PrefixConstants.IP] = self.ip
         if self.ge:
             seq[PrefixConstants.GE] = self.ge
         if self.le:
