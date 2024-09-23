@@ -522,10 +522,11 @@ class Router(Base):
                 diff_results['bgp'] = bgp_diff.to_dict()
 
         for prefix_list in self.prefix_lists:
-            if prefix_list.internal_interfaces is not None and len(prefix_list.internal_interfaces) > 0:
-                prefix_diff = prefix_list.diff()
-                if not prefix_diff.valid:
-                    diff_results['prefix_list'] = prefix_diff.to_dict()
+            prefix_diff = prefix_list.diff()
+            if not prefix_diff.valid:
+                if 'prefix_list' not in diff_results:
+                    diff_results['prefix_list'] = []
+                diff_results['prefix_list'].append(prefix_diff.to_dict())
 
         rm_diff = self.route_map.diff()
         if not rm_diff.valid:

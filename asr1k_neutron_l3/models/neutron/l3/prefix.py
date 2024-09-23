@@ -34,6 +34,9 @@ class BasePrefix(base.Base):
 
         self._rest_definition = prefix.Prefix(name="{}-{}".format(name_prefix, self.vrf))
 
+    def diff(self, should_be_none=False):
+        return super().diff(should_be_none=not self.has_prefixes)
+
 
 class ExtPrefix(BasePrefix):
     def __init__(self, router_id=None, gateway_interface=None, internal_interfaces=None):
@@ -45,7 +48,7 @@ class ExtPrefix(BasePrefix):
             for subnet in sorted(self.gateway_interface.subnets, key=itemgetter('id')):
                 self.has_prefixes = True
                 self._rest_definition.add_seq(
-                    prefix.PrefixSeq(no=i * 10, action="permit", action_ip=subnet.get('cidr')))
+                    prefix.PrefixSeq(no=i * 10, action="permit", ip=subnet.get('cidr')))
                 i += 1
 
 
@@ -59,7 +62,7 @@ class SnatPrefix(BasePrefix):
             for subnet in sorted(interface.subnets, key=itemgetter('id')):
                 self.has_prefixes = True
                 self._rest_definition.add_seq(
-                    prefix.PrefixSeq(no=i * 10, action="permit", action_ip=subnet.get('cidr')))
+                    prefix.PrefixSeq(no=i * 10, action="permit", ip=subnet.get('cidr')))
                 i += 1
 
 
@@ -75,5 +78,5 @@ class RoutePrefix(BasePrefix):
                 cidr = subnet.get('cidr')
                 permit_ge = utils.prefix_from_cidr(cidr) + 1
                 self._rest_definition.add_seq(
-                    prefix.PrefixSeq(no=i * 10, action="permit", action_ip=cidr, ge=permit_ge))
+                    prefix.PrefixSeq(no=i * 10, action="permit", ip=cidr, ge=permit_ge))
                 i += 1
