@@ -21,7 +21,7 @@ from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
-from asr1k_neutron_l3.models.netconf_yang.nat import StaticNatList
+from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat, PoolDynamicNat, StaticNatList
 from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
 from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
 from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy
@@ -864,3 +864,85 @@ class ParsingTest(base.BaseTestCase):
             ('10', 'permit', '1.1.1.0/24', '32', None),
         ]
         self.assertEqual(expected_seqs, seqs)
+
+    def test_parse_interface_dynamic_nat(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:614fba98-6ee3-4551-a529-c96f09989cc9">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ip>
+        <nat xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+          <inside>
+            <source>
+              <list-interface>
+                <list>
+                  <id>NAT-025723acabdd4dcfa2e72b6644a86b45</id>
+                  <interface>
+                    <name>BD-VIF5692</name>
+                    <vrf-new>
+                      <name>025723acabdd4dcfa2e72b6644a86b45</name>
+                      <overload-new/>
+                    </vrf-new>
+                  </interface>
+                </list>
+              </list-interface>
+            </source>
+          </inside>
+        </nat>
+      </ip>
+    </native>
+  </data>
+</rpc-reply>
+"""
+        context = FakeASR1KContext()
+        idn = InterfaceDynamicNat.from_xml(xml, context)
+        self.assertEqual("NAT-025723acabdd4dcfa2e72b6644a86b45", idn.id)
+        self.assertEqual("BD-VIF5692", idn.interface)
+        self.assertEqual("025723acabdd4dcfa2e72b6644a86b45", idn.vrf)
+        self.assertTrue(idn.overload)
+
+    def test_parse_pool_dynamic_nat(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:2f906e1b-14bf-454d-9743-ede37968be06">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <ip>
+        <nat xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+          <inside>
+            <source>
+              <list-pool>
+                <list>
+                  <id>NAT-2677a86be25a41c4b26d9c23576c7d13</id>
+                  <pool>
+                    <name>POOL-2677a86be25a41c4b26d9c23576c7d13</name>
+                    <redundancy-new>
+                      <name>1</name>
+                      <mapping-id-new>
+                        <name>267786254</name>
+                        <vrf-new>
+                          <name>2677a86be25a41c4b26d9c23576c7d13</name>
+                          <overload-new/>
+                        </vrf-new>
+                      </mapping-id-new>
+                    </redundancy-new>
+                  </pool>
+                </list>
+              </list-pool>
+            </source>
+          </inside>
+        </nat>
+      </ip>
+    </native>
+  </data>
+</rpc-reply>
+"""
+        context = FakeASR1KContext()
+        pdn = PoolDynamicNat.from_xml(xml, context)
+        self.assertEqual("NAT-2677a86be25a41c4b26d9c23576c7d13", pdn.id)
+        self.assertEqual("POOL-2677a86be25a41c4b26d9c23576c7d13", pdn.pool)
+        self.assertEqual("2677a86be25a41c4b26d9c23576c7d13", pdn.vrf)
+        self.assertEqual('267786254', pdn.mapping_id)
+        self.assertEqual('1', pdn.redundancy)
+        self.assertTrue(pdn.overload)
