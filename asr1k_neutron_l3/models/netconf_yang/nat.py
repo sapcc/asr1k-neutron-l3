@@ -33,6 +33,7 @@ class NATConstants(object):
     VRF_NAME = "vrf-name"
     INTERFACE = "interface"
     INTERFACE_WITH_VRF = 'interface-with-vrf'
+    POOL_WITH_VRF = 'pool-with-vrf'
     BDI = "BDI"
     BDVIF = "BD-VIF"
     ID = "id"
@@ -42,12 +43,18 @@ class NATConstants(object):
     PREFIX_LENGTH = "prefix-length"
 
     LIST = "list"
+    LIST_INTERFACE = "list-interface"
+    LIST_POOL = "list-pool"
     SOURCE = "source"
     INSIDE = "inside"
     REDUNDANCY = "redundancy"
+    REDUNDANCY_NEW = "redundancy-new"
     MAPPING_ID = "mapping-id"
+    MAPPING_ID_NEW = "mapping-id-new"
     VRF = "vrf"
+    VRF_NEW = "vrf-new"
     OVERLOAD = "overload"
+    OVERLOAD_NEW = "overload-new"
 
     TRANSPORT_LIST = "nat-static-transport-list-with-vrf"
     STATIC = "static"
@@ -177,12 +184,9 @@ class NatPool(NyBase):
 
 
 class DynamicNat(NyBase):
+    EXTRA_LIST_KEY = None
     LIST_KEY = NATConstants.SOURCE
     ITEM_KEY = NATConstants.LIST
-
-    # @classmethod
-    # def get_primary_filter(cls,**kwargs):
-    #     return cls.ID_FILTER.format(**{'id': kwargs.get('id'),'vrf':kwargs.get('vrf')})
 
     @classmethod
     def remove_wrapper(cls, dict, context):
@@ -192,12 +196,16 @@ class DynamicNat(NyBase):
         dict = dict.get(NATConstants.IP, dict)
         dict = dict.get(NATConstants.NAT, dict)
         dict = dict.get(NATConstants.INSIDE, dict)
-
         dict = dict.get(cls.LIST_KEY, dict)
+        if cls.EXTRA_LIST_KEY is not None:
+            dict = dict.get(cls.EXTRA_LIST_KEY, dict)
 
         return dict
 
     def _wrapper_preamble(self, dict, context):
+        if self.EXTRA_LIST_KEY is not None:
+            dict = {self.EXTRA_LIST_KEY: dict}
+
         result = {}
         result[self.LIST_KEY] = dict
         result = {NATConstants.INSIDE: result}
@@ -217,6 +225,8 @@ class DynamicNat(NyBase):
 
 
 class InterfaceDynamicNat(DynamicNat):
+    EXTRA_LIST_KEY = NATConstants.LIST_INTERFACE
+
     ID_FILTER = """
                   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
                           xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat"
@@ -225,9 +235,11 @@ class InterfaceDynamicNat(DynamicNat):
                       <ios-nat:nat>
                         <ios-nat:inside>
                           <ios-nat:source>
-                            <ios-nat:list>
-                              <ios-nat:id>{id}</ios-nat:id>
-                            </ios-nat:list>
+                            <ios-nat:list-interface>
+                              <ios-nat:list>
+                                <ios-nat:id>{id}</ios-nat:id>
+                              </ios-nat:list>
+                            </ios-nat:list-interface>
                           </ios-nat:source>
                         </ios-nat:inside>
                       </ios-nat:nat>
@@ -242,9 +254,11 @@ class InterfaceDynamicNat(DynamicNat):
                       <ios-nat:nat>
                         <ios-nat:inside>
                           <ios-nat:source>
-                            <ios-nat:list>
-                              <ios-nat:id/>
-                            </ios-nat:list>
+                            <ios-nat:list-interface>
+                              <ios-nat:list>
+                                <ios-nat:id/>
+                              </ios-nat:list>
+                            </ios-nat:list-interface>
                           </ios-nat:source>
                         </ios-nat:inside>
                       </ios-nat:nat>
@@ -252,22 +266,18 @@ class InterfaceDynamicNat(DynamicNat):
                   </native>
     """
 
-    VRF_XPATH_FILTER = "/native/ip/nat/inside/source/list[id='NAT-{vrf}']"
-
-    @classmethod
-    def get_for_vrf(cls, context, vrf=None):
-        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
+    VRF_XPATH_FILTER = "/native/ip/nat/inside/source/list-interface/list[id='NAT-{vrf}']"
 
     @classmethod
     def __parameters__(cls):
         return [
             {"key": "id", "mandatory": True},
-            {'key': 'interface', 'yang-key': 'name', 'yang-path': "interface-with-vrf/interface"},
+            {'key': 'interface', 'yang-key': 'name', 'yang-path': "interface"},
             {'key': 'redundancy'},
             {'key': 'mapping_id'},
-            {'key': 'vrf', 'yang-key': 'vrf-name', 'yang-path': "interface-with-vrf/interface/vrf"},
-            {'key': 'overload', 'yang-path': "interface-with-vrf/interface/vrf", 'default': False,
-             'yang-type': YANG_TYPE.EMPTY}
+            {'key': 'vrf', 'yang-key': 'name', 'yang-path': "interface/vrf-new"},
+            {'key': 'overload', 'yang-key': 'overload-new', 'yang-path': "interface/vrf-new",
+             'yang-type': YANG_TYPE.EMPTY},
         ]
 
     @classmethod
@@ -301,34 +311,28 @@ class InterfaceDynamicNat(DynamicNat):
 
     def to_dict(self, context):
         ifname = "{}{}".format(context.bd_iftype, self.bd)
+        vrf = {
+            NATConstants.NAME: self.vrf,
+        }
+        if self.overload:
+            vrf[NATConstants.OVERLOAD_NEW] = ''
 
-        entry = OrderedDict()
-        entry[NATConstants.ID] = self.id
-
-        entry[NATConstants.INTERFACE_WITH_VRF] = {
-            NATConstants.INTERFACE: {
-                NATConstants.NAME: ifname,
-                NATConstants.VRF: {
-                    NATConstants.VRF_NAME: self.vrf
-                },
-            },
+        result = {
+            NATConstants.LIST: {
+                NATConstants.ID: self.id,
+                NATConstants.INTERFACE: {
+                    NATConstants.NAME: ifname,
+                    NATConstants.VRF_NEW: vrf,
+                }
+            }
         }
 
-        if self.overload:
-            entry[NATConstants.INTERFACE_WITH_VRF][NATConstants.INTERFACE][NATConstants.VRF][NATConstants.OVERLOAD] = ""
-
-        if self.redundancy is not None:
-            entry[NATConstants.REDUNDANCY] = self.redundancy
-            entry[NATConstants.MAPPING_ID] = self.mapping_id
-
-        result = OrderedDict()
-        result[NATConstants.LIST] = []
-        result[NATConstants.LIST].append(entry)
-
-        return dict(result)
+        return result
 
 
 class PoolDynamicNat(DynamicNat):
+    EXTRA_LIST_KEY = NATConstants.LIST_POOL
+
     ID_FILTER = """
               <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native"
                       xmlns:ios-nat="http://cisco.com/ns/yang/Cisco-IOS-XE-nat"
@@ -337,9 +341,11 @@ class PoolDynamicNat(DynamicNat):
                   <ios-nat:nat>
                     <ios-nat:inside>
                       <ios-nat:source>
-                        <ios-nat:list>
-                          <ios-nat:id>{id}</ios-nat:id>
-                        </ios-nat:list>
+                        <ios-nat:list-pool>
+                          <ios-nat:list>
+                            <ios-nat:id>{id}</ios-nat:id>
+                          </ios-nat:list>
+                        </ios-nat:list-pool>
                       </ios-nat:source>
                     </ios-nat:inside>
                   </ios-nat:nat>
@@ -354,9 +360,11 @@ class PoolDynamicNat(DynamicNat):
                   <ios-nat:nat>
                     <ios-nat:inside>
                       <ios-nat:source>
-                        <ios-nat:list>
-                          <ios-nat:id/>
-                        </ios-nat:list>
+                        <ios-nat:list-pool>
+                          <ios-nat:list>
+                            <ios-nat:id/>
+                          </ios-nat:list>
+                        </ios-nat:list-pool>
                       </ios-nat:source>
                     </ios-nat:inside>
                   </ios-nat:nat>
@@ -368,15 +376,19 @@ class PoolDynamicNat(DynamicNat):
     def __parameters__(cls):
         return [
             {"key": "id", "mandatory": True},
-            {'key': 'vrf', 'yang-key': 'name', 'yang-path': "pool-with-vrf/pool/vrf"},
-            {'key': 'redundancy', 'yang-key': 'name', 'yang-path': 'pool-with-vrf/pool/redundancy'},
-            {'key': 'mapping_id', 'yang-key': 'name', 'yang-path': 'pool-with-vrf/pool/redundancy/mapping-id'},
-            {'key': 'pool', 'yang-key': 'name', 'yang-path': "pool-with-vrf/pool"},
-            {'key': 'overload', 'yang-path': "pool-with-vrf/pool/vrf", 'default': False, 'yang-type': YANG_TYPE.EMPTY},
 
-            {'key': 'redundancy_vrf', 'yang-key': 'name', 'yang-path': "pool-with-vrf/pool/redundancy/mapping-id/vrf"},
-            {'key': 'redundancy_overload', 'yang-key': 'overload',
-             'yang-path': "pool-with-vrf/pool/redundancy/mapping-id/vrf", 'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'vrf', 'yang-key': 'name', 'yang-path': "pool/vrf-new"},
+            {'key': 'redundancy', 'yang-key': 'name', 'yang-path': 'pool/redundancy-new'},
+            {'key': 'mapping_id', 'yang-key': 'name', 'yang-path': 'pool/redundancy-new/mapping-id-new'},
+            {'key': 'pool', 'yang-key': 'name', 'yang-path': "pool"},
+            {'key': 'overload', 'yang-key': 'overload-new', 'yang-path': "pool/vrf-new",
+             'default': False, 'yang-type': YANG_TYPE.EMPTY},
+
+            {'key': 'redundancy_vrf', 'yang-key': 'name',
+             'yang-path': "pool/redundancy-new/mapping-id-new/vrf-new"},
+            {'key': 'redundancy_overload', 'yang-key': 'overload-new',
+             'yang-path': "pool/redundancy-new/mapping-id-new/vrf-new", 'yang-type': YANG_TYPE.EMPTY},
+
         ]
 
     def __init__(self, **kwargs):
@@ -403,33 +415,25 @@ class PoolDynamicNat(DynamicNat):
         return False
 
     def to_dict(self, context):
-        pool = {
-            NATConstants.NAME: self.pool,
-        }
-
         vrf = {
             NATConstants.NAME: self.vrf,
         }
         if self.overload:
-            vrf[NATConstants.OVERLOAD] = ""
+            vrf[NATConstants.OVERLOAD_NEW] = ""
 
-        # the whole structure changes if redundancy is enabled (vrf is now inside the redundancy tag)
-        if self.redundancy is not None:
-            pool[NATConstants.REDUNDANCY] = {
-                NATConstants.NAME: self.redundancy,
-                NATConstants.MAPPING_ID: {
-                    NATConstants.NAME: self.mapping_id,
-                    NATConstants.VRF: vrf,
-                },
-            }
-        else:
-            pool[NATConstants.VRF] = vrf
-
+        # we don't support pool dynamic nat without redundancy flag
         entry = {
             NATConstants.ID: self.id,
-            NATConstants.POOL_WITH_VRF: {
-                NATConstants.POOL: pool,
-            },
+            NATConstants.POOL: {
+                NATConstants.NAME: self.pool,
+                NATConstants.REDUNDANCY_NEW: {
+                    NATConstants.NAME: self.redundancy,
+                    NATConstants.MAPPING_ID_NEW: {
+                        NATConstants.NAME: self.mapping_id,
+                        NATConstants.VRF_NEW: vrf,
+                    },
+                }
+            }
         }
 
         result = {
