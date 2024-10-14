@@ -30,7 +30,6 @@ DEVICE_OPTS = [
     cfg.IntOpt('nc_timeout', default=5, help='Netconf-YANG timeout, default 5s'),
     cfg.StrOpt('user_name', default='admin', help='Netconf-YANG User'),
     cfg.StrOpt('password', default='secret', help='Netconf-YANG Password'),
-    cfg.BoolOpt('use_bdvif', default=True, help='Use BD-VIF when supported by device firmware'),
 ]
 
 ASR1K_OPTS = [

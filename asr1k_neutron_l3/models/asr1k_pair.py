@@ -27,13 +27,7 @@ LOG = logging.getLogger(__name__)
 
 
 class ASR1KContextBase(object):
-    @property
-    def use_bdvif(self):
-        return True
-
-    @property
-    def bd_iftype(self):
-        return "BD-VIF" if self.use_bdvif else "BDI"
+    pass
 
 
 class FakeASR1KContext(ASR1KContextBase):
@@ -60,17 +54,15 @@ class ASR1KContext(ASR1KContextBase):
     version_min_17_15 = property(lambda self: self._get_version_attr('_version_min_17_15'))
     has_stateless_nat = property(lambda self: self._get_version_attr('_has_stateless_nat'))
 
-    def __init__(self, name, host, yang_port, nc_timeout, username, password, use_bdvif, insecure=True,
-                 force_bdi=False, headers={}):
+    def __init__(self, name, host, yang_port, nc_timeout, username, password, insecure=True,
+                 headers={}):
         self.name = name
         self.host = host
         self.yang_port = yang_port
         self.nc_timeout = nc_timeout
         self.username = username
         self.password = password
-        self._use_bdvif = use_bdvif
         self.insecure = insecure
-        self.force_bdi = force_bdi
         self.headers = headers
         self.headers['content-type'] = headers.get('content-type', "application/yang-data+json")
         self.headers['accept'] = headers.get('accept', "application/yang-data+json")
@@ -129,10 +121,6 @@ class ASR1KContext(ASR1KContextBase):
             time.sleep(1)
         return False
 
-    @property
-    def use_bdvif(self):
-        return self._use_bdvif and not self.force_bdi
-
     def mark_alive(self, alive):
         if not alive:
             LOG.debug("Device %s marked as dead, resetting version info", self.host)
@@ -158,7 +146,7 @@ class ASR1KPair(object):
 
         for device_name, config in device_config.items():
             asr1kctx = ASR1KContext(device_name, config.host, config.yang_port, config.nc_timeout,
-                                    config.user_name, config.password, config.use_bdvif,
+                                    config.user_name, config.password,
                                     insecure=True)
 
             self.contexts.append(asr1kctx)

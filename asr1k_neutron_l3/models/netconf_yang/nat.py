@@ -310,7 +310,7 @@ class InterfaceDynamicNat(DynamicNat):
         self.redundancy = None
 
     def to_dict(self, context):
-        ifname = "{}{}".format(context.bd_iftype, self.bd)
+        ifname = f"BD-VIF{self.bd}"
         vrf = {
             NATConstants.NAME: self.vrf,
         }
