@@ -116,8 +116,6 @@ class BridgeDomain(NyBase):
 
     def preflight(self, context):
         """Remove wrong interface membership for all BD-VIF members"""
-        if not context.version_min_17_3:
-            return
 
         # go through all non-deleted member interfaces
         for bdvif in self.bdvif_members:
@@ -166,22 +164,16 @@ class BridgeDomain(NyBase):
         bddef[xml_utils.NS] = xml_utils.NS_CISCO_BRIDGE_DOMAIN
         bddef[L2Constants.BRIDGE_DOMAIN_ID] = self.id
 
-        if context.version_min_17_3:
-            if context.use_bdvif:
-                bddef[L2Constants.MEMBER] = {
-                    L2Constants.MEMBER_IFACE: [_m.to_dict(context)
-                                               for _m in sorted(self.if_members,
-                                                                key=lambda _x: _x.interface)],
-                    L2Constants.MEMBER_BDVIF: [_m.to_dict(context)
-                                               for _m in sorted(self.bdvif_members, key=attrgetter('name'))],
-                }
-                if self.has_complete_member_config:
-                    bddef[L2Constants.MEMBER][xml_utils.OPERATION] = NC_OPERATION.PUT
-            else:
-                # This can be used for migrating back from new-style bridges, but might bring some problems
-                # if the bridge was never used as a new-stlye bridge
-                # bddef[L2Constants.MEMBER] = {xml_utils.OPERATION: NC_OPERATION.DELETE}
-                pass
+        if context.use_bdvif:
+            bddef[L2Constants.MEMBER] = {
+                L2Constants.MEMBER_IFACE: [_m.to_dict(context)
+                                           for _m in sorted(self.if_members,
+                                                            key=lambda _x: _x.interface)],
+                L2Constants.MEMBER_BDVIF: [_m.to_dict(context)
+                                           for _m in sorted(self.bdvif_members, key=attrgetter('name'))],
+            }
+            if self.has_complete_member_config:
+                bddef[L2Constants.MEMBER][xml_utils.OPERATION] = NC_OPERATION.PUT
 
         return {L2Constants.BRIDGE_DOMAIN_BRIDGE_ID: bddef}
 

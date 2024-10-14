@@ -232,10 +232,8 @@ class VBInterface(NyBase):
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.ADDRESS] = self.ip_address.address
             ip[L3Constants.ADDRESS][L3Constants.PRIMARY][L3Constants.MASK] = self.ip_address.mask
 
-        if self.nat_stick or (self.nat_inside and context.version_min_17_3):
+        if self.nat_stick or self.nat_inside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_STICK: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
-        elif self.nat_inside:
-            ip[L3Constants.NAT] = {L3Constants.NAT_MODE_INSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
         elif self.nat_outside:
             ip[L3Constants.NAT] = {L3Constants.NAT_MODE_OUTSIDE: '', xml_utils.NS: xml_utils.NS_CISCO_NAT}
 
@@ -277,12 +275,11 @@ class VBInterface(NyBase):
         vbi[L3Constants.IP] = ip
         vbi[L3Constants.VRF] = vrf
 
-        if context.version_min_17_3:
-            vbi[L3Constants.NTP] = {xml_utils.NS: xml_utils.NS_CISCO_NTP}
-            if self.ntp_disable:
-                vbi[L3Constants.NTP][L3Constants.NTP_DISABLE] = ''
-            else:
-                vbi[L3Constants.NTP][xml_utils.OPERATION] = NC_OPERATION.REMOVE
+        vbi[L3Constants.NTP] = {xml_utils.NS: xml_utils.NS_CISCO_NTP}
+        if self.ntp_disable:
+            vbi[L3Constants.NTP][L3Constants.NTP_DISABLE] = ''
+        else:
+            vbi[L3Constants.NTP][xml_utils.OPERATION] = NC_OPERATION.REMOVE
 
         if self.arp_timeout and int(self.arp_timeout) > 0:
             vbi[L3Constants.ARP] = {L3Constants.TIMEOUT: int(self.arp_timeout)}
@@ -325,14 +322,13 @@ class VBInterface(NyBase):
                 dyn_nat.delete()
 
         # remove bridge domain membership, as this stops us from deleting the interface
-        if context.version_min_17_3:
-            bd = BridgeDomain.get_for_bdvif(self.name, context, partial=True)
-            if bd is not None:
-                # in theory there should be only one member, as we're only getting a partial config, but who knows
-                for member in bd.bdvif_members:
-                    if member.name == self.name:
-                        member.mark_deleted = True
-                bd.update(context=context)
+        bd = BridgeDomain.get_for_bdvif(self.name, context, partial=True)
+        if bd is not None:
+            # in theory there should be only one member, as we're only getting a partial config, but who knows
+            for member in bd.bdvif_members:
+                if member.name == self.name:
+                    member.mark_deleted = True
+            bd.update(context=context)
 
     def init_config(self):
         if self.nat_inside:

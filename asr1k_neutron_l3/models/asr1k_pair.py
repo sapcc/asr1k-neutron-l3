@@ -29,7 +29,7 @@ LOG = logging.getLogger(__name__)
 class ASR1KContextBase(object):
     @property
     def use_bdvif(self):
-        return self.version_min_17_3
+        return True
 
     @property
     def bd_iftype(self):
@@ -44,10 +44,8 @@ class FakeASR1KContext(ASR1KContextBase):
     stable results
     """
 
-    def __init__(self, version_min_17_3=True, version_min_17_6=True, version_min_17_13=True, version_min_17_15=True,
+    def __init__(self, version_min_17_13=True, version_min_17_15=True,
                  has_stateless_nat=True):
-        self.version_min_17_3 = version_min_17_3
-        self.version_min_17_6 = version_min_17_6
         self.version_min_17_13 = version_min_17_13
         self.version_min_17_15 = version_min_17_15
         self._has_stateless_nat = has_stateless_nat
@@ -58,8 +56,6 @@ class FakeASR1KContext(ASR1KContextBase):
 
 
 class ASR1KContext(ASR1KContextBase):
-    version_min_17_3 = property(lambda self: self._get_version_attr('_version_min_17_3'))
-    version_min_17_6 = property(lambda self: self._get_version_attr('_version_min_17_6'))
     version_min_17_13 = property(lambda self: self._get_version_attr('_version_min_17_13'))
     version_min_17_15 = property(lambda self: self._get_version_attr('_version_min_17_15'))
     has_stateless_nat = property(lambda self: self._get_version_attr('_has_stateless_nat'))
@@ -108,8 +104,6 @@ class ASR1KContext(ASR1KContextBase):
 
             ver = tuple(_to_int_if_possible(d) for d in ver)
 
-            self._version_min_17_3 = ver >= (17, 3)
-            self._version_min_17_6 = ver >= (17, 6)
             self._version_min_17_13 = ver >= (17, 13)
             self._version_min_17_15 = ver >= (17, 15)
             self._has_stateless_nat = ver >= (17, 4)
@@ -137,7 +131,7 @@ class ASR1KContext(ASR1KContextBase):
 
     @property
     def use_bdvif(self):
-        return self.version_min_17_3 and self._use_bdvif and not self.force_bdi
+        return self._use_bdvif and not self.force_bdi
 
     def mark_alive(self, alive):
         if not alive:
