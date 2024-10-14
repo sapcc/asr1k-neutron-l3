@@ -87,74 +87,7 @@ class ParsingTest(base.BaseTestCase):
         self.assertEqual(bdif2_ids, [6379, 6383])
 
     def test_vrf_parsing_with_rt(self):
-        vrf_xml_1609_multi = """
-<rpc-reply message-id="urn:uuid:68f753a2-4d41-45ad-98f7-3a6460c8dd9d" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-  <data>
-    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-      <vrf>
-        <definition>
-          <name>1ccc4863d8bc4c82affa0cb198e8d5d1</name>
-          <description>Router 1ccc4863-d8bc-4c82-affa-0cb198e8d5d1</description>
-          <rd>65148:871</rd>
-          <address-family>
-            <ipv4>
-              <export>
-                <map>exp-1ccc4863d8bc4c82affa0cb198e8d5d1</map>
-              </export>
-              <route-target>
-                <export>
-                  <asn-ip>4268359684:12345</asn-ip>
-                </export>
-                <export>
-                  <asn-ip>65148:12345</asn-ip>
-                </export>
-                <import>
-                  <asn-ip>4268359685:12345</asn-ip>
-                </import>
-                <import>
-                  <asn-ip>65148:12345</asn-ip>
-                </import>
-              </route-target>
-            </ipv4>
-          </address-family>
-        </definition>
-      </vrf>
-    </native>
-  </data>
-</rpc-reply>
-"""
-        vrf_xml_1609_single = """
-<rpc-reply message-id="urn:uuid:68f753a2-4d41-45ad-98f7-3a6460c8dd9d" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-  <data>
-    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-      <vrf>
-        <definition>
-          <name>1ccc4863d8bc4c82affa0cb198e8d5d1</name>
-          <description>Router 1ccc4863-d8bc-4c82-affa-0cb198e8d5d1</description>
-          <rd>65148:871</rd>
-          <address-family>
-            <ipv4>
-              <export>
-                <map>exp-1ccc4863d8bc4c82affa0cb198e8d5d1</map>
-              </export>
-              <route-target>
-                <export>
-                  <asn-ip>4268359684:12345</asn-ip>
-                </export>
-                <import>
-                  <asn-ip>4268359685:12345</asn-ip>
-                </import>
-              </route-target>
-            </ipv4>
-          </address-family>
-        </definition>
-      </vrf>
-    </native>
-  </data>
-</rpc-reply>
-"""
-
-        vrf_xml_1731 = """
+        vrf_xml = """
 <rpc-reply message-id="urn:uuid:d40a38bd-0a67-4f09-86b1-42ea770a8b5e" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
   <data>
     <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
@@ -195,28 +128,18 @@ class ParsingTest(base.BaseTestCase):
 </rpc-reply>
 """
 
-        expected_single = {
-            "rt_export": {"4268359684:12345", },
-            "rt_import": {"4268359685:12345"},
-        }
-        expected_multi = {
+        expected = {
             "rt_export": {"4268359684:12345", "65148:12345"},
             "rt_import": {"4268359685:12345", "65148:12345"},
         }
 
-        context_1609 = FakeASR1KContext(version_min_17_3=False)
-        context_17_3 = FakeASR1KContext(version_min_17_3=True)
+        context = FakeASR1KContext()
 
-        for context, vrf_xml, expected in ((context_1609, vrf_xml_1609_single, expected_single),
-                                           (context_1609, vrf_xml_1609_multi, expected_multi),
-                                           (context_17_3, vrf_xml_1731, expected_multi)):
-            vrf = VrfDefinition.from_xml(vrf_xml, context)
-            self.assertEqual(expected['rt_export'],
-                             set([rt.normalized_asn_ip for rt in vrf.address_family_ipv4.rt_export]),
-                             "rt_export failed for 17_3={}".format(context.version_min_17_3))
-            self.assertEqual(expected['rt_import'],
-                             set([rt.normalized_asn_ip for rt in vrf.address_family_ipv4.rt_import]),
-                             "rt_import failed for 17_3={}".format(context.version_min_17_3))
+        vrf = VrfDefinition.from_xml(vrf_xml, context)
+        self.assertEqual(expected['rt_export'],
+                         set([rt.normalized_asn_ip for rt in vrf.address_family_ipv4.rt_export]))
+        self.assertEqual(expected['rt_import'],
+                         set([rt.normalized_asn_ip for rt in vrf.address_family_ipv4.rt_import]))
 
     def test_bgp_parsing(self):
         bgp_xml = """
@@ -643,7 +566,7 @@ class ParsingTest(base.BaseTestCase):
         xml = """
 <rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
            message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
-<data> 
+<data>
   <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
     <parameter-map>
       <type>
@@ -759,7 +682,7 @@ class ParsingTest(base.BaseTestCase):
         self.assertEqual("default", zone_pair.source)
         self.assertEqual("ZN-FWAAS-123", zone_pair.destination)
         self.assertEqual("SP-FWAAS-ALLOW-INSPECT", zone_pair.service_policy)
-        
+
         xml = """
 <rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
         message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
