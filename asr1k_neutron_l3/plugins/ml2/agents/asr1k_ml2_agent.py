@@ -65,6 +65,7 @@ SYNC_ROUTERS_MIN_CHUNK_SIZE = 32
 
 
 def main():
+    common_config.register_core_common_config_opts()
     common_config.init(sys.argv[1:])
     asr1k_config.register_common_opts()
     asr1k_config.register_l2_opts()
