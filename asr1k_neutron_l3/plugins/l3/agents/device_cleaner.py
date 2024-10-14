@@ -26,10 +26,9 @@ from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
 from asr1k_neutron_l3.models.netconf_yang.access_list import AccessList
 from asr1k_neutron_l3.models.netconf_yang.arp import VrfArpList
-from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain, LoopbackInternalInterface, \
-    LoopbackExternalInterface, ExternalInterface
+from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain, ExternalInterface, KeepBDUpInterface
 from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap
-from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat, NatPool, InterfaceDynamicNat, PoolDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
 from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
@@ -57,9 +56,9 @@ class OrphanEncoder(json.JSONEncoder):
 
 class DeviceCleanerMixin(object):
     ENTITIES = [
-        BridgeDomain, LoopbackInternalInterface, LoopbackExternalInterface, ExternalInterface,
+        BridgeDomain, KeepBDUpInterface, ExternalInterface,
         StaticNat, PoolDynamicNat, InterfaceDynamicNat, NatPool,
-        VBInterface,
+        BDInterface,
         RouteMap, Prefix, AccessList, VrfArpList, VrfRoute,
         ZonePair, Zone, ParameterMapInspectGlobalVrf,
         VrfDefinition

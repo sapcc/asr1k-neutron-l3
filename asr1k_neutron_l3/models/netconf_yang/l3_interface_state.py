@@ -1,12 +1,12 @@
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 
-class VBInterfaceState(NyBase):
+class BDInterfaceState(NyBase):
     ID_FILTER = """
           <interfaces-state xmlns="urn:ietf:params:xml:ns:yang:ietf-interfaces">
             <interface>
-              <name>{iftype}{id}</name>
+              <name>BD-VIF{id}</name>
             </interface>
           </interfaces-state>
     """
@@ -38,14 +38,6 @@ class VBInterfaceState(NyBase):
             {'key': 'out_discards', 'yang-key': 'out-discards', 'yang-path': 'statistics'},
             {'key': 'out_errors', 'yang-key': 'out-errors', 'yang-path': 'statistics'},
         ]
-
-    def __init__(self, **kwargs):
-        super(VBInterfaceState, self).__init__(**kwargs)
-
-    @classmethod
-    @execute_on_pair()
-    def get(cls, id=None, port_channel=None, context=None):
-        return cls._get(id=id, iftype=context.bd_iftype, context=context)
 
     @classmethod
     def _remove_base_wrapper(cls, dict, context):
