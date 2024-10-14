@@ -12,7 +12,6 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from copy import deepcopy
 import xmltodict
 
 from neutron.tests import base
@@ -30,12 +29,8 @@ class SerializationTest(base.BaseTestCase):
             match_in_vrf=True
         )
         sn_stateless = StaticNat(**sn_args, stateless=True)
-        sn = StaticNat(**sn_args, stateless=False)
-
-        context_17_3 = FakeASR1KContext(version_min_17_3=True, version_min_17_6=False, version_min_17_13=False)
-        context_17_6 = FakeASR1KContext(version_min_17_3=True, version_min_17_6=True, version_min_17_13=False)
-
-        expected_17_3 = xmltodict.parse("""
+        context_17_6 = FakeASR1KContext(version_min_17_13=False, version_min_17_15=False)
+        expected = xmltodict.parse("""
                             <nat-static-transport-list-with-vrf>
                                 <local-ip>10.10.23.12</local-ip>
                                 <global-ip>192.168.23.12</global-ip>
@@ -43,22 +38,14 @@ class SerializationTest(base.BaseTestCase):
                                 <match-in-vrf></match-in-vrf>
                             </nat-static-transport-list-with-vrf>""")[NATConstants.TRANSPORT_LIST]
 
-        for k in expected_17_3:
-            if expected_17_3[k] is None:
-                expected_17_3[k] = ''
+        for k in expected:
+            if expected[k] is None:
+                expected[k] = ''
 
-        expected_stateless_17_3 = deepcopy(expected_17_3)
-        expected_stateless_17_3['stateless'] = ''
+        expected['stateless'] = ''
+        expected['no-alias'] = ''
 
-        expected_17_6 = deepcopy(expected_stateless_17_3)
-        expected_17_6['no-alias'] = ''
-
-        self.assertEqual(expected_17_3, sn.to_single_dict(context_17_3))
-        self.assertEqual(expected_stateless_17_3,
-                         sn_stateless.to_single_dict(context_17_3))
-
-        self.assertEqual(expected_17_6, sn.to_single_dict(context_17_6))
-        self.assertEqual(expected_17_6,
+        self.assertEqual(expected,
                          sn_stateless.to_single_dict(context_17_6))
 
     def test_static_nat_garp_flag(self):

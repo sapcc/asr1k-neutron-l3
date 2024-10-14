@@ -91,7 +91,7 @@ class RouteMap(NyBase):
         map[RouteMapConstants.NAME] = self.name
         map[RouteMapConstants.ROUTE_MAP_SEQ] = []
         for item in self.seq:
-            if item is not None and not item.drop_on_17_3:
+            if item is not None:
                 map[RouteMapConstants.ROUTE_MAP_SEQ].append(item.to_dict(context=context))
 
         result[self.ITEM_KEY] = map
@@ -135,7 +135,6 @@ class MapSequence(NyBase):
             {'key': 'prefix_list', 'yang-key': 'prefix-list', 'yang-path': 'match/ip/address'},
             {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
             {'key': 'ip_precedence', 'yang-path': 'set/ip/precedence', 'yang-key': 'precedence-fields'},
-            {'key': 'drop_on_17_3', 'default': False},
         ]
 
     def __init__(self, **kwargs):

@@ -20,8 +20,8 @@ from oslo_log import log as logging
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.neutron.l3.firewall import Zone
-from asr1k_neutron_l3.models.netconf_yang.l3_interface import VBInterface, VBIPrimaryIpAddress, VBISecondaryIpAddress
-from asr1k_neutron_l3.models.netconf_yang.l3_interface_state import VBInterfaceState
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface, BDPrimaryIpAddress, BDSecondaryIpAddress
+from asr1k_neutron_l3.models.netconf_yang.l3_interface_state import BDInterfaceState
 
 LOG = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class Interface(base.Base):
         self.address_scope = router_port.get('address_scopes', {}).get('4')
 
     def add_secondary_ip_address(self, ip_address, netmask):
-        self.secondary_ip_addresses.append(VBISecondaryIpAddress(address=ip_address,
+        self.secondary_ip_addresses.append(BDSecondaryIpAddress(address=ip_address,
                                            mask=utils.to_netmask(netmask)))
 
     def _ip_address(self):
@@ -86,8 +86,8 @@ class Interface(base.Base):
 
             self._primary_subnet_id = n_fixed_ip.get('subnet_id')
 
-            return VBIPrimaryIpAddress(address=n_fixed_ip.get('ip_address'),
-                                       mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
+            return BDPrimaryIpAddress(address=n_fixed_ip.get('ip_address'),
+                                      mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
 
     def _primary_subnet(self):
         for subnet in self.router_port.get('subnets', []):
@@ -100,7 +100,7 @@ class Interface(base.Base):
         return self.router_port.get('subnets', [])
 
     def get_state(self):
-        state = VBInterfaceState.get(id=self.bridge_domain)
+        state = BDInterfaceState.get(id=self.bridge_domain)
 
         result = {}
         if state is not None:
@@ -109,18 +109,18 @@ class Interface(base.Base):
         return result
 
     def get(self):
-        return VBInterface.get(self.bridge_domain)
+        return BDInterface.get(self.bridge_domain)
 
     def delete(self):
-        vbi = VBInterface(name=self.bridge_domain, vrf=self.vrf)
+        vbi = BDInterface(name=self.bridge_domain, vrf=self.vrf)
         return vbi.delete()
 
     def disable_nat(self):
-        vbi = VBInterface(name=self.bridge_domain)
+        vbi = BDInterface(name=self.bridge_domain)
         return vbi.disable_nat()
 
     def enable_nat(self):
-        vbi = VBInterface(name=self.bridge_domain)
+        vbi = BDInterface(name=self.bridge_domain)
         return vbi.enable_nat()
 
 
@@ -152,7 +152,7 @@ class GatewayInterface(Interface):
             interface_args['rii'] = self.bridge_domain
             interface_args['zone'] = Zone.get_id_by_vrf(self.vrf)
 
-        return VBInterface(**interface_args)
+        return BDInterface(**interface_args)
 
     def _ip_address(self):
         if self.dynamic_nat_pool is None or not self.router_port.get('fixed_ips'):
@@ -172,8 +172,8 @@ class GatewayInterface(Interface):
 
         self._primary_subnet_id = n_fixed_ip.get('subnet_id')
 
-        return VBIPrimaryIpAddress(address=n_fixed_ip['ip_address'],
-                                   mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
+        return BDPrimaryIpAddress(address=n_fixed_ip['ip_address'],
+                                  mask=utils.to_netmask(n_fixed_ip.get('prefixlen')))
 
     def _nat_address(self):
         ips = self.router_port.get('fixed_ips')
@@ -195,7 +195,7 @@ class InternalInterface(Interface):
     def _rest_definition(self):
         # annotate details about the router to the interface description so this can be picked up by SNMP
         description = (f'type:internal;project:{self.router_port["project_id"]};router:{self.router_id};'
-                      f'network:{self.router_port["network_id"]};subnet:{self._primary_subnet_id}')
+                       f'network:{self.router_port["network_id"]};subnet:{self._primary_subnet_id}')
 
         interface_args = dict(name=self.bridge_domain, description=description,
                               mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
@@ -212,7 +212,7 @@ class InternalInterface(Interface):
             interface_args['redundancy_group_decrement'] = 1
             interface_args['rii'] = self.bridge_domain
 
-        return VBInterface(**interface_args)
+        return BDInterface(**interface_args)
 
 
 class OrphanedInterface(Interface):

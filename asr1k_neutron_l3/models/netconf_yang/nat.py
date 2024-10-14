@@ -310,7 +310,7 @@ class InterfaceDynamicNat(DynamicNat):
         self.redundancy = None
 
     def to_dict(self, context):
-        ifname = "{}{}".format(context.bd_iftype, self.bd)
+        ifname = f"BD-VIF{self.bd}"
         vrf = {
             NATConstants.NAME: self.vrf,
         }
@@ -744,14 +744,13 @@ class StaticNat(NyBase):
         entry[NATConstants.MATCH_IN_VRF] = ""
 
         if not self.from_device:
-            if context.version_min_17_6 or (self.stateless and context.has_stateless_nat):
+            if self.stateless and context.has_stateless_nat:
                 entry[NATConstants.STATELESS] = ""
             elif self.redundancy is not None:
                 # only set redundancy if we should not or cannot enable stateless
                 entry[NATConstants.REDUNDANCY] = self.redundancy
                 entry[NATConstants.MAPPING_ID] = self.mapping_id
-            if context.version_min_17_6:
-                entry[NATConstants.NO_ALIAS] = ""
+            entry[NATConstants.NO_ALIAS] = ""
         else:
             if self.stateless:
                 entry[NATConstants.STATELESS] = ""

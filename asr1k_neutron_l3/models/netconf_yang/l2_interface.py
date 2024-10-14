@@ -18,7 +18,6 @@ from operator import attrgetter
 from collections import OrderedDict
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NC_OPERATION, NyBase, execute_on_pair
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.plugins.db import asr1k_db
@@ -116,8 +115,6 @@ class BridgeDomain(NyBase):
 
     def preflight(self, context):
         """Remove wrong interface membership for all BD-VIF members"""
-        if not context.version_min_17_3:
-            return
 
         # go through all non-deleted member interfaces
         for bdvif in self.bdvif_members:
@@ -165,28 +162,20 @@ class BridgeDomain(NyBase):
         bddef = OrderedDict()
         bddef[xml_utils.NS] = xml_utils.NS_CISCO_BRIDGE_DOMAIN
         bddef[L2Constants.BRIDGE_DOMAIN_ID] = self.id
-
-        if context.version_min_17_3:
-            if context.use_bdvif:
-                bddef[L2Constants.MEMBER] = {
-                    L2Constants.MEMBER_IFACE: [_m.to_dict(context)
-                                               for _m in sorted(self.if_members,
-                                                                key=lambda _x: _x.interface)],
-                    L2Constants.MEMBER_BDVIF: [_m.to_dict(context)
-                                               for _m in sorted(self.bdvif_members, key=attrgetter('name'))],
-                }
-                if self.has_complete_member_config:
-                    bddef[L2Constants.MEMBER][xml_utils.OPERATION] = NC_OPERATION.PUT
-            else:
-                # This can be used for migrating back from new-style bridges, but might bring some problems
-                # if the bridge was never used as a new-stlye bridge
-                # bddef[L2Constants.MEMBER] = {xml_utils.OPERATION: NC_OPERATION.DELETE}
-                pass
+        bddef[L2Constants.MEMBER] = {
+            L2Constants.MEMBER_IFACE: [_m.to_dict(context)
+                                       for _m in sorted(self.if_members,
+                                                        key=lambda _x: _x.interface)],
+            L2Constants.MEMBER_BDVIF: [_m.to_dict(context)
+                                       for _m in sorted(self.bdvif_members, key=attrgetter('name'))],
+        }
+        if self.has_complete_member_config:
+            bddef[L2Constants.MEMBER][xml_utils.OPERATION] = NC_OPERATION.PUT
 
         return {L2Constants.BRIDGE_DOMAIN_BRIDGE_ID: bddef}
 
     def _diff(self, context, device_config):
-        if context.use_bdvif and device_config and not self.has_complete_member_config:
+        if device_config and not self.has_complete_member_config:
             # we don't know all bd-vif members - the diff should represent if
             # the bd-vifs we know about are configured
             neutron_bdvif_names = [_m.name for _m in self.bdvif_members]
@@ -402,8 +391,6 @@ class ServiceInstance(NyBase):
         instance[L2Constants.ENCAPSULATION] = OrderedDict()
         instance[L2Constants.ENCAPSULATION][L2Constants.DOT1Q] = dot1q
         instance[L2Constants.REWRITE] = rewrite
-        if not context.use_bdvif:
-            instance[L2Constants.BRIDGE_DOMAIN] = bridge_domain
 
         result = OrderedDict()
         result[L2Constants.SERVICE_INSTANCE] = instance
@@ -438,61 +425,9 @@ class ExternalInterface(ServiceInstance):
             int(self.id) not in all_segmentation_ids
 
 
-class LoopbackExternalInterface(ServiceInstance):
-    PORT_CHANNEL = "2"
-
-    def __init__(self, **kwargs):
-        kwargs['bridge_domain'] = kwargs.get('dot1q')
-        kwargs['dot1q'] = kwargs.get('dot1q')
-        super(LoopbackExternalInterface, self).__init__(**kwargs)
-
-    def to_dict(self, context):
-        if context.use_bdvif:
-            return {}
-        else:
-            return super(LoopbackExternalInterface, self).to_dict(context)
-
-    def is_orphan(self, all_segmentation_ids, all_bd_ids, context, *args, **kwargs):
-        # KeepBDUpInterface is included here, as they share a port-channel
-        return not context.use_bdvif and \
-            (utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) <= int(self.id) <=
-             utils.to_bridge_domain(asr1k_db.MAX_SECOND_DOT1Q) and
-             int(self.id) not in all_bd_ids) or \
-            context.use_bdvif and \
-            (asr1k_db.MIN_DOT1Q <= int(self.id) <= asr1k_db.MAX_DOT1Q and
-             int(self.id) not in all_segmentation_ids)
-
-
-class LoopbackInternalInterface(ServiceInstance):
-    PORT_CHANNEL = "3"
-
-    def __init__(self, **kwargs):
-        super(LoopbackInternalInterface, self).__init__(**kwargs)
-
-    def to_dict(self, context):
-        if context.use_bdvif:
-            return {}
-        else:
-            return super(LoopbackInternalInterface, self).to_dict(context)
-
-    def is_orphan(self, all_bd_ids, context, *args, **kwargs):
-        return context.use_bdvif or \
-            (utils.to_bridge_domain(asr1k_db.MIN_SECOND_DOT1Q) <= int(self.id) <=
-             utils.to_bridge_domain(asr1k_db.MAX_SECOND_DOT1Q) and
-             int(self.id) not in all_bd_ids)
-
-
 class KeepBDUpInterface(ServiceInstance):
     PORT_CHANNEL = "2"
 
-    def __init__(self, **kwargs):
-        super(KeepBDUpInterface, self).__init__(**kwargs)
-
-    def to_dict(self, context):
-        if context.use_bdvif:
-            return super(KeepBDUpInterface, self).to_dict(context)
-        else:
-            return {}
-
     def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, context, *args, **kwargs):
-        raise NotImplementedError("This class' orphan check is handled by LoopbackExternalInterface")
+        return (asr1k_db.MIN_DOT1Q <= int(self.id) <= asr1k_db.MAX_DOT1Q and
+                int(self.id) not in all_segmentation_ids)
