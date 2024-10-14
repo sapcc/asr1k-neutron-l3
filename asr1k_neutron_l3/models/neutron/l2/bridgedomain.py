@@ -105,7 +105,7 @@ class BridgeDomain(object):
                                                                       .format(self.network_id)
                                                                       if self.network_id else None)
 
-        # process ports (16.9: build hyperloop, 17.3: build bdvif members)
+        # process ports (17.3+: build bdvif members)
         self.lb_ext_ifaces = []
         self.lb_int_ifaces = []
         self.if_members = [
@@ -121,22 +121,6 @@ class BridgeDomain(object):
             second_dot1q = port['second_dot1q']
             int_service_instance = utils.to_bridge_domain(second_dot1q)
 
-            # only used for 16.9
-            lb_ext_iface = l2_interface.LoopbackExternalInterface(id=int_service_instance,
-                                                                  description="Port : {}".format(port['port_id']),
-                                                                  dot1q=self.bd_id,
-                                                                  second_dot1q=second_dot1q,
-                                                                  way=2, mode="symmetric")
-            self.lb_ext_ifaces.append(lb_ext_iface)
-            lb_int_iface = l2_interface.LoopbackInternalInterface(id=int_service_instance,
-                                                                  description="Port : {}".format(port['port_id']),
-                                                                  bridge_domain=int_service_instance,
-                                                                  dot1q=self.bd_id,
-                                                                  second_dot1q=second_dot1q,
-                                                                  way=2, mode="symmetric")
-            self.lb_int_ifaces.append(lb_int_iface)
-
-            # only used for 17.3
             bdvif_member = l2_interface.BDVIFMember(name=int_service_instance)
             self.bdvif_members.append(bdvif_member)
 
