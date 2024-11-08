@@ -31,7 +31,7 @@ from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat, NatPool, InterfaceDynamicNat, PoolDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
-from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
+from asr1k_neutron_l3.models.netconf_yang.prefix import PrefixV4, PrefixV6
 from asr1k_neutron_l3.models.netconf_yang.route import VrfRouteV4, VrfRouteV6
 from asr1k_neutron_l3.models.netconf_yang.route_map import RouteMap
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
@@ -59,7 +59,7 @@ class DeviceCleanerMixin(object):
         BridgeDomain, KeepBDUpInterface, ExternalInterface,
         StaticNat, PoolDynamicNat, InterfaceDynamicNat, NatPool,
         BDInterface,
-        RouteMap, Prefix, AccessList, VrfArpList, VrfRouteV4, VrfRouteV6,
+        RouteMap, PrefixV4, PrefixV6, AccessList, VrfArpList, VrfRouteV4, VrfRouteV6,
         ZonePair, Zone, ParameterMapInspectGlobalVrf,
         VrfDefinition
     ]

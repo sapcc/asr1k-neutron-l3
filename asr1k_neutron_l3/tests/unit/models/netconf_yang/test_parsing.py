@@ -24,7 +24,7 @@ from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat, PoolDynamicNat, StaticNatList
 from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
-from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
+from asr1k_neutron_l3.models.netconf_yang.prefix import PrefixV4
 from asr1k_neutron_l3.models.netconf_yang.route_map import RouteMap
 from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy
 from asr1k_neutron_l3.models.netconf_yang.zone import Zone
@@ -747,7 +747,7 @@ class ParsingTest(base.BaseTestCase):
 
 """
         context = FakeASR1KContext()
-        pfx = Prefix.from_xml(xml, context)
+        pfx = PrefixV4.from_xml(xml, context)
         self.assertEqual("seagull-yang-test", pfx.name)
 
         seqs = [(s.no, s.action, s.ip, s.le, s.ge) for s in pfx.seq]
@@ -780,7 +780,7 @@ class ParsingTest(base.BaseTestCase):
 
 """
         context = FakeASR1KContext()
-        pfx = Prefix.from_xml(xml, context)
+        pfx = PrefixV4.from_xml(xml, context)
         self.assertEqual("seagull-yang-test", pfx.name)
 
         seqs = [(s.no, s.action, s.ip) for s in pfx.seq]

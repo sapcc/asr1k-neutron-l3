@@ -25,6 +25,7 @@ LOG = logging.getLogger(__name__)
 
 class PrefixConstants(object):
     IP = 'ip'
+    IPV6 = 'ipv6'
     PREFIX_LISTS = 'prefix-lists'
     PREFIXES = 'prefixes'
     NAME = 'name'
@@ -38,33 +39,33 @@ class PrefixConstants(object):
     LE = 'le'
 
 
-class Prefix(NyBase):
+class PrefixBase(NyBase):
     ID_FILTER = """
       <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-        <ip>
+        <{AF}>
           <prefix-lists>
             <prefixes>
               <name>{id}</name>
             </prefixes>
           </prefix-lists>
-        </ip>
+        </{AF}>
       </native>
     """
 
     GET_ALL_STUB = """
       <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
-        <ip>
+        <{AF}>
           <prefix-lists>
             <prefixes>
               <name/>
               <no/>
             </prefixes>
           </prefix-lists>
-        </ip>
+        </{AF}>
       </native>
     """
 
-    LIST_KEY = PrefixConstants.IP
+    LIST_KEY = None
     ITEM_KEY = PrefixConstants.PREFIX_LISTS
 
     @classmethod
@@ -74,6 +75,18 @@ class Prefix(NyBase):
             {'key': 'description'},
             {'key': 'seq', 'type': [PrefixSeq], 'default': []}
         ]
+
+    @classmethod
+    def get_primary_filter(cls, **kwargs):
+        return cls.ID_FILTER.format(AF=cls.LIST_KEY, id=kwargs.get('id'))
+
+    @classmethod
+    def get_all_filter(cls, **kwargs):
+        return cls.ALL_FILTER.format(AF=cls.LIST_KEY, **kwargs)
+
+    @classmethod
+    def get_all_stub_filter(cls, context):
+        return cls.GET_ALL_STUB.format(AF=cls.LIST_KEY)
 
     @classmethod
     def remove_wrapper(cls, dict, context):
@@ -128,9 +141,9 @@ class Prefix(NyBase):
     @execute_on_pair()
     def update(self, context):
         if len(self.seq) > 0:
-            return super(Prefix, self)._update(context=context)
+            return super()._update(context=context)
         else:
-            return super(Prefix, self)._delete(context=context)
+            return super()._delete(context=context)
 
     def preflight(self, context):
         # delete all rules that should not be on the device (by seq no, rest is done by update-replace)
@@ -163,6 +176,14 @@ class Prefix(NyBase):
                 PrefixConstants.NUMBER: seq.no,
             })
         return {PrefixConstants.PREFIX_LISTS: {PrefixConstants.PREFIXES: prefixes}}
+
+
+class PrefixV4(PrefixBase):
+    LIST_KEY = PrefixConstants.IP
+
+
+class PrefixV6(PrefixBase):
+    LIST_KEY = PrefixConstants.IPV6
 
 
 class PrefixSeq(NyBase):
