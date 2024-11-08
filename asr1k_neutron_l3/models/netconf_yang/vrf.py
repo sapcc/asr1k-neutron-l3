@@ -130,20 +130,21 @@ class VrfDefinition(NyBase, Requeable):
             {'key': 'address_family_ipv4', "yang-key": "ipv4", "yang-path": "address-family",
              'type': IpV4AddressFamily, "default": {}},
             {'key': 'address_family_ipv6', "yang-key": "ipv6", "yang-path": "address-family",
-             'yang-type': YANG_TYPE.EMPTY},
+             'type': IpV6AddressFamily, "default": {}},
             {'key': 'rd'}
         ]
 
     def __init__(self, **kwargs):
         super(VrfDefinition, self).__init__(**kwargs)
 
-        self.enable_bgp = kwargs.get('enable_bgp', False)
-        if kwargs.get('map', None) is not None or kwargs.get('rt_import', None) is not None or \
-                kwargs.get('rt_export', None) is not None:
+        if kwargs.get('map') is not None or kwargs.get('rt_import') is not None or \
+                kwargs.get('rt_export') is not None:
             self.address_family_ipv4 = IpV4AddressFamily(**kwargs)
 
         if kwargs.get('enable_ipv6'):
-            self.address_family_ipv6 = True
+            # we need to pass map_v6 as map key to the AF
+            kwargs['map'] = kwargs.get('map_v6')
+            self.address_family_ipv6 = IpV6AddressFamily(**kwargs)
 
         self.asn = None
         if self.rd:
@@ -167,10 +168,10 @@ class VrfDefinition(NyBase, Requeable):
 
         if self.address_family_ipv4 or self.address_family_ipv6:
             af = definition[VrfConstants.ADDRESS_FAMILY] = {}
-            if self.address_family_ipv4 is not None:
+            if self.address_family_ipv4:
                 af[VrfConstants.IPV4] = self.address_family_ipv4.to_dict(context)
             if self.address_family_ipv6:
-                af[VrfConstants.IPV6] = ""
+                af[VrfConstants.IPV6] = self.address_family_ipv6.to_dict(context)
 
         result = OrderedDict()
         result[VrfConstants.DEFINITION] = definition
@@ -293,9 +294,9 @@ class VrfDefinition(NyBase, Requeable):
         return cli_snippets.VRF_CLI_INIT.format(name=self.name, description=self.description, rd=self.rd)
 
 
-class IpV4AddressFamily(NyBase):
+class IpAddressFamilyBase(NyBase):
     LIST_KEY = VrfConstants.ADDRESS_FAMILY
-    ITEM_KEY = VrfConstants.IPV4
+    ITEM_KEY = None
 
     @classmethod
     def __parameters__(cls):
@@ -311,7 +312,7 @@ class IpV4AddressFamily(NyBase):
         ]
 
     def to_dict(self, context):
-        address_family = OrderedDict()
+        address_family = {}
 
         if self.map is not None:
             address_family[VrfConstants.EXPORT] = {"map": self.map}
@@ -335,6 +336,14 @@ class IpV4AddressFamily(NyBase):
             address_family[VrfConstants.ROUTE_TARGET].update(rt)
 
         return dict(address_family)
+
+
+class IpV4AddressFamily(IpAddressFamilyBase):
+    ITEM_KEY = VrfConstants.IPV4
+
+
+class IpV6AddressFamily(IpAddressFamilyBase):
+    ITEM_KEY = VrfConstants.IPV6
 
 
 class RouteTarget(NyBase):

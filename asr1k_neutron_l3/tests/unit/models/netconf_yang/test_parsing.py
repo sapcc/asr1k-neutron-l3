@@ -1030,4 +1030,4 @@ class ParsingTest(base.BaseTestCase):
 
         # back to xml
         vrf_dict = vrf.to_dict(context)
-        self.assertEqual('', vrf_dict['definition']['address-family']['ipv6'])
+        self.assertEqual({"route-target": {}}, vrf_dict['definition']['address-family']['ipv6'])
