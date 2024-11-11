@@ -35,6 +35,7 @@ class RouteMapConstants(object):
     ADDITIVE = 'additive'
     MATCH = "match"
     IP = "ip"
+    IPV6 = "ipv6"
     FORCE = "force"
     NEXT_HOP = "next-hop"
     NEXT_HOP_ADDR = "next-hop-addr"
@@ -133,6 +134,7 @@ class MapSequence(NyBase):
             {'key': 'force', 'yang-path': 'set/ip/next-hop/next-hop-addr', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'prefix_list', 'yang-key': 'prefix-list', 'yang-path': 'match/ip/address'},
+            {'key': 'prefix_list_v6', 'yang-key': 'prefix-list', 'yang-path': 'match/ipv6/address'},
             {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
             {'key': 'ip_precedence', 'yang-path': 'set/ip/precedence', 'yang-key': 'precedence-fields'},
         ]
@@ -144,8 +146,6 @@ class MapSequence(NyBase):
 
         if self.asn is not None and not isinstance(self.asn, list):
             self.asn = [self.asn]
-
-        self.enable_bgp = kwargs.get('enable_bgp', False)
 
     @classmethod
     def from_json(cls, json, context, *args, **kwargs):
@@ -189,13 +189,20 @@ class MapSequence(NyBase):
                 seq[RouteMapConstants.SET][RouteMapConstants.IP][RouteMapConstants.NEXT_HOP][
                     RouteMapConstants.ADDRESS].append(RouteMapConstants.FORCE)
 
-        if self.prefix_list is not None:
-            seq[RouteMapConstants.MATCH] = {
-                RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {RouteMapConstants.PREFIX_LIST: self.prefix_list}}}
+        if self.prefix_list or self.prefix_list_v6:
+            entry = seq.setdefault(RouteMapConstants.MATCH, {})
+            if self.prefix_list:
+                entry[RouteMapConstants.IP] = {
+                    RouteMapConstants.ADDRESS: {RouteMapConstants.PREFIX_LIST: self.prefix_list}}
+            if self.prefix_list_v6:
+                entry[RouteMapConstants.IP] = {
+                    RouteMapConstants.ADDRESS: {RouteMapConstants.PREFIX_LIST: self.prefix_list_v6}}
 
         if self.access_list is not None:
-            seq[RouteMapConstants.MATCH] = {
-                RouteMapConstants.IP: {RouteMapConstants.ADDRESS: {RouteMapConstants.ACCESS_LIST: self.access_list}}}
+            entry = seq.setdefault(RouteMapConstants.MATCH, {})
+            entry = entry.setdefault(RouteMapConstants.IP, {})
+            entry[RouteMapConstants.ADDRESS] = {RouteMapConstants.ACCESS_LIST: self.access_list}
+
         if self.ip_precedence:
             if RouteMapConstants.SET not in seq:
                 seq[RouteMapConstants.SET] = {}

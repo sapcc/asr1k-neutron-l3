@@ -94,7 +94,7 @@ class Router(Base):
         self.nat_acl = self._build_nat_acl()
 
         self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,
-                                            routable_interface=self.routable_interface)
+                                            routable_interface=self.routable_interface, enable_ipv6=self.enable_ipv6)
 
         self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'), gateway_interface=self.gateway_interface)
 
