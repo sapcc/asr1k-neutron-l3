@@ -154,7 +154,7 @@ class RouterWithSyncDataTestCase(test_address_scope.AddressScopeTestCase,
         network_id = subnet['subnet']['network_id']
         with self.port(subnet=subnet, device_owner="network:router_interface") as port:
             port_id = port['port']['id']
-            self._router_interface_action('add', router_id, None, port_id)
+            self._router_interface_action('add', router_id, None, port_id, as_admin=True)
 
             ctx = context.get_admin_context()
             netseg = self._make_port_binding(ctx, port['port']['id'], self.default_host, network_id,
@@ -178,7 +178,7 @@ class RouterWithSyncDataTestCase(test_address_scope.AddressScopeTestCase,
         ctx = context.get_admin_context()
         with mock.patch.object(asr1k_db.DBPlugin, 'get_network_port_count_per_agent',
                                return_value={'fake-agent': 0}):
-            with self.router(admin_state_up=admin_state_up, tenant_id=tenant_id,
+            with self.router(as_admin=True, admin_state_up=admin_state_up, tenant_id=tenant_id,
                              external_gateway_info=external_gateway_info, **kwargs) as router:
                 pass
 
