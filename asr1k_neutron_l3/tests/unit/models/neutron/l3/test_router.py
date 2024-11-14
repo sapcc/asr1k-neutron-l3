@@ -44,8 +44,8 @@ class TestRouterClass(RouterWithSyncDataTestCase):
                 self.subnetpool(["10.100.0.0/22"], name="yellow-legged-gull",
                                 address_scope_id=addr_scope['address_scope']['id'],
                                 tenant_id=uuidutils.generate_uuid(), admin=True) as sn_pool, \
-                self.subnet(cidr="10.100.1.0/24", subnetpool_id=sn_pool['subnetpool']['id']) as s_ext, \
-                self.subnet(cidr="10.100.2.0/24", subnetpool_id=sn_pool['subnetpool']['id']) as s_dap, \
+                self.subnet(cidr="10.100.1.0/24", subnetpool_id=sn_pool['subnetpool']['id'], as_admin=True) as s_ext, \
+                self.subnet(cidr="10.100.2.0/24", subnetpool_id=sn_pool['subnetpool']['id'], as_admin=True) as s_dap, \
                 self.subnet(cidr="10.200.0.0/24") as s_int:
             self._set_net_external(s_ext['subnet']['network_id'])
             router = self.make_router_extended(name="r1", ext_subnet=s_ext, int_subnets=[s_dap, s_int])
@@ -69,10 +69,10 @@ class TestRouterClass(RouterWithSyncDataTestCase):
                                 address_scope_id=addr_scope['address_scope']['id'],
                                 tenant_id=uuidutils.generate_uuid(), admin=True) as sn_pool, \
                 self.subnet(cidr="2001:db8:101:11a1::/64", subnetpool_id=sn_pool['subnetpool']['id'],
-                            ip_version=6) as s_ext, \
+                            ip_version=6, as_admin=True) as s_ext, \
                 self.subnet(cidr="2001:db8:101:11b2::/64", subnetpool_id=sn_pool['subnetpool']['id'],
-                            ip_version=6) as s_dap, \
-                self.subnet(cidr="fd00:1234:5678::/64", ip_version=6) as s_int:
+                            ip_version=6, as_admin=True) as s_dap, \
+                self.subnet(cidr="fd00:1234:5678::/64", ip_version=6, as_admin=True) as s_int:
             self._set_net_external(s_ext['subnet']['network_id'])
             router = self.make_router_extended(name="r1", ext_subnet=s_ext, int_subnets=[s_dap, s_int])
             dev_router = self._get_ny_router(router['router']['id'])

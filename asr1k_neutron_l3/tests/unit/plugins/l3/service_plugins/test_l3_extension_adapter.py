@@ -42,7 +42,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
         expected_value = [('name', name), ('tenant_id', tenant_id),
                           ('admin_state_up', True), ('status', 'ACTIVE'),
                           ('external_gateway_info', None)]
-        with self.router(name=name, admin_state_up=True,
+        with self.router(name=name, as_admin=True, admin_state_up=True,
                          tenant_id=tenant_id) as router:
             for k, v in expected_value:
                 self.assertEqual(v, router['router'][k])
@@ -52,7 +52,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
 
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -77,7 +77,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
 
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'ip_address': "10.100.1.6"},
@@ -102,7 +102,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
 
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'ip_address': "10.100.1.6"},
@@ -118,7 +118,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
     def test_router_create_with_extended_nat_pool_with_specific_ips_with_one_ip_duplicated(self, pc_mock):
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'ip_address': "10.100.1.6"},
@@ -137,7 +137,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
 
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'ip_address': "10.100.1.6"},
@@ -160,7 +160,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
     def test_router_create_with_extended_nat_pool_non_consecutive_specified_nat_pool(self, pc_mock):
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'ip_address': "10.100.1.5"},
@@ -176,7 +176,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
     def test_router_create_with_extended_nat_pool_mixed_specified_pool(self, pc_mock):
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'ip_address': "10.100.1.6"},
@@ -193,7 +193,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
             self._set_net_external(net['network']['id'])
             with self.subnet(cidr="10.100.1.0/24", network=net) as s1, \
                     self.subnet(cidr="10.100.4.0/24", network=net) as s2:
-                with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                                  external_gateway_info={'network_id': net['network']['id'],
                                                         'external_fixed_ips': [
                                                             {'subnet_id': s1['subnet']['id']},
@@ -206,7 +206,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
     def test_router_create_with_extended_nat_pool_too_small(self, pc_mock):
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -218,7 +218,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
     def test_router_create_with_extended_nat_pool_and_non_fitting_ips_specified(self, pc_mock):
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'ip_address': "1.1.1.6"},
@@ -235,7 +235,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
                 {'ip_address': '10.100.1.4'}, {'ip_address': '10.100.1.11'}, {'ip_address': '10.100.1.17'},
                 {'ip_address': '10.100.1.24'}, {'ip_address': '10.100.1.29'}])
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -258,7 +258,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
             self._make_port("json", s['subnet']['network_id'], fixed_ips=[
                 {'ip_address': f'10.100.1.{n}'} for n in range(2, 7)])
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -277,7 +277,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
     def test_router_create_with_extended_nat_pool_update_gateway(self, pc_mock):
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -299,7 +299,8 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
                                          {'ip_address': "10.100.1.6"},
                                          {'ip_address': "10.100.1.7"},
                                          {'ip_address': "10.100.1.8"},
-                                         {'subnet_id': s['subnet']['id']}]}}})
+                                         {'subnet_id': s['subnet']['id']}]}}},
+                                 as_admin=True)
 
                 ctx.session.expire_all()
                 router_atts = db.get_router_att(ctx, router['router']['id'])
@@ -310,7 +311,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
 
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -324,7 +325,9 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
                 self.assertEqual("10.100.1.2-10.100.1.5/24", router_atts.dynamic_nat_pool)
 
                 with mock.patch.object(ASR1KPluginBase, 'ensure_default_route_skip_monitoring', autospec=True):
-                    upd_router = self._remove_external_gateway_from_router(router['router']['id'], None)
+                    upd_router = self._update('routers', router['router']['id'],
+                                              {'router': {'external_gateway_info': None}},
+                                              as_admin=True)
 
                 ctx.session.expire_all()
                 router_atts = db.get_router_att(ctx, router['router']['id'])
@@ -338,7 +341,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
             self._make_port("json", s['subnet']['network_id'], fixed_ips=[
                 {'ip_address': '10.100.1.24'}])
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -359,7 +362,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
             self._set_net_external(net['network']['id'])
             with self.subnet(cidr="10.100.1.0/24", network=net) as s1, \
                     self.subnet(cidr="2001:db8::/64", network=net, ip_version=6) as s2:
-                with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                                  external_gateway_info={'network_id': net['network']['id'],
                                                         'external_fixed_ips': [
                                                             {'subnet_id': s1['subnet']['id']},
@@ -377,7 +380,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
             self._set_net_external(net['network']['id'])
             with self.subnet(cidr="10.100.1.0/24", network=net) as s1, \
                     self.subnet(cidr="2001:db8::/64", network=net, ip_version=6):
-                with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                                  external_gateway_info={'network_id': net['network']['id'],
                                                         'external_fixed_ips': [
                                                             {'subnet_id': s1['subnet']['id']},
@@ -395,7 +398,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
             self._set_net_external(net['network']['id'])
             with self.subnet(cidr="10.100.1.0/24", network=net) as s1, \
                     self.subnet(cidr="2001:db8::/64", network=net, ip_version=6) as s2:
-                with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                                  external_gateway_info={'network_id': net['network']['id'],
                                                         'external_fixed_ips': [
                                                             {'subnet_id': s1['subnet']['id']},
@@ -415,7 +418,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
     def test_router_create_two_v6_addresses_fail(self, pc_mock):
         with self.subnet(cidr="2001:db8::/64", ip_version=6) as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -427,7 +430,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
     def test_router_create_non_existant_subnet(self, pc_mock):
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': uuidutils.generate_uuid()},
@@ -441,7 +444,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
             self._make_port("json", s['subnet']['network_id'], fixed_ips=[{'ip_address': '10.100.1.254'}])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -467,7 +470,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
         with self.subnet(cidr="10.100.1.0/24") as s:
             self._set_net_external(s['subnet']['network_id'])
             self._make_port("json", s['subnet']['network_id'], fixed_ips=[{'ip_address': '10.100.1.250'}])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+            with self.router(name="r1", as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                              external_gateway_info={'network_id': s['subnet']['network_id'],
                                                     'external_fixed_ips': [
                                                         {'subnet_id': s['subnet']['id']},
@@ -514,7 +517,7 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
 
             with mock.patch.object(l3_plugin, '_find_gateway_ip_for_dynamic_nat_pool',
                                    side_effect=alloc_last_ip_on_first_try), \
-                    self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                    self.router(name="r1",  as_admin=True, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                                 external_gateway_info={'network_id': s['subnet']['network_id'],
                                                        'external_fixed_ips': [
                                                            {'subnet_id': s['subnet']['id']},
