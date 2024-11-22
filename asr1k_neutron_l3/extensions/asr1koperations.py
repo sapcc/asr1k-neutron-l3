@@ -9,6 +9,7 @@ from neutron import policy
 from neutron import wsgi
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_serialization import jsonutils
 from webob import exc as exceptions
 
 from asr1k_neutron_l3.common import asr1k_constants as const
@@ -65,7 +66,8 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
         orphans = extensions.ResourceExtension('asr1k/orphans',
                                                Resource(OrphansController(plugin)))
         config = extensions.ResourceExtension('asr1k/config',
-                                              Resource(ConfigController(plugin)))
+                                              Resource(ConfigController(plugin)),
+                                              member_actions=ConfigController.MEMBER_ACTIONS)
 
         devices = extensions.ResourceExtension('asr1k/devices',
                                                Resource(DevicesController(plugin)))
@@ -178,6 +180,8 @@ class OrphansController(wsgi.Controller):
 
 
 class ConfigController(wsgi.Controller):
+    MEMBER_ACTIONS = {'sync_data': 'GET'}
+
     def __init__(self, plugin, **kwargs):
         super(ConfigController, self).__init__()
         self.plugin = plugin
@@ -193,6 +197,17 @@ class ConfigController(wsgi.Controller):
         check_access(request)
         try:
             return self.plugin.ensure_config(request.context, id)
+        except BaseException as e:
+            raise exceptions.HTTPInternalServerError(detail=str(e))
+
+    def sync_data(self, request, id, **kwargs):
+        check_access(request)
+        try:
+            data = self.plugin.get_sync_data(request.context, router_ids=[id])
+            if not data:
+                raise exceptions.HTTPNotFound(detail=f'No router found for uuid "{id}"')
+            data = jsonutils.to_primitive(data[0], convert_instances=True)
+            return {"config": data}
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=str(e))
 
