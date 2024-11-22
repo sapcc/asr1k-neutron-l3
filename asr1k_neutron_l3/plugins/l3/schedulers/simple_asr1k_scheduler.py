@@ -15,6 +15,7 @@
 #    under the License.
 
 from neutron.scheduler import l3_agent_scheduler
+from neutron_lib.db import api as db_api
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -36,7 +37,7 @@ class SimpleASR1KScheduler(l3_agent_scheduler.AZLeastRoutersScheduler):
     @log_helpers.log_method_call
     def _get_candidates(self, plugin, context, sync_router):
         """Return L3 agents where a router could be scheduled."""
-        with context.session.begin(subtransactions=True):
+        with db_api.CONTEXT_READER.using(context):
 
             current_l3_agents = plugin.get_l3_agents_hosting_routers(
                 context, [sync_router['id']], admin_state_up=True)

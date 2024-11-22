@@ -207,9 +207,9 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
     def get_hosts_for_network(self, context, network_id):
         return self.db.get_asr1k_hosts_for_network(context, network_id)
 
+    @db_api.CONTEXT_WRITER
     def _ensure_second_dot1q(self, context):
-        session = db_api.get_writer_session()
-        extra_atts = session.query(asr1k_models.ASR1KExtraAttsModel).all()
+        extra_atts = context.session.query(asr1k_models.ASR1KExtraAttsModel).all()
         second_dot1qs = []
 
         for extra_att in extra_atts:
@@ -223,12 +223,12 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                         second_dot1qs.append(x)
                         break
 
-                with context.session.begin(subtransactions=True):
-                    entry = session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(router_id=extra_att.router_id,
-                                                                                      agent_host=extra_att.agent_host,
-                                                                                      port_id=extra_att.port_id,
-                                                                                      segment_id=extra_att.segment_id
-                                                                                      ).first()
+                    entry = context.session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(
+                        router_id=extra_att.router_id,
+                        agent_host=extra_att.agent_host,
+                        port_id=extra_att.port_id,
+                        segment_id=extra_att.segment_id
+                        ).first()
                     if entry:
                         entry.update(extra_att)
 
@@ -525,7 +525,7 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         custom_default_route_tags = {constants.TAG_SKIP_MONITORING, constants.TAG_DEFAULT_ROUTE_OVERWRITE}
 
         has_custom_default_route = any(r['destination'].endswith('/0') for r in router['routes'])
-        with context.session.begin(subtransactions=True):
+        with db_api.CONTEXT_WRITER.using(context):
             router_tags = set(tag_plugin.get_tags(context, 'routers', router_id)['tags'])
 
             has_default_route_tags = custom_default_route_tags.issubset(router_tags)
