@@ -649,6 +649,17 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             ra = self.get_router_att(context, router_id)
             ra.dynamic_nat_pool = dynamic_nat_pool
 
+    @db_api.CONTEXT_READER
+    def get_subnet_address_scope_map(self, context, subnet_ids):
+        query = context.session.query(models_v2.Subnet.id,
+                                      models_v2.SubnetPool.address_scope_id)
+        query = query.outerjoin(
+            models_v2.SubnetPool,
+            models_v2.Subnet.subnetpool_id == models_v2.SubnetPool.id)
+        query = query.filter(models_v2.Subnet.id.in_(subnet_ids))
+
+        return {entry[0]: entry[1] for entry in query}
+
 
 class ExtraAttsDb(object):
 
