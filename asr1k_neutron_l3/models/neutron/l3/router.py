@@ -315,8 +315,8 @@ class Router(Base):
         fwaas_conf = []
         fwaas_external_policies = {'ingress': None, 'egress': None}
         for name, policy in router_info.get('fwaas_policies', {}).items():
-            if self.gateway_interface.id in policy['ingress_ports'] \
-                    or self.gateway_interface.id in policy['egress_ports']:
+            if self.gateway_interface and (self.gateway_interface.id in policy['ingress_ports']
+                                           or self.gateway_interface.id in policy['egress_ports']):
                 # This policy will be bound on a external interface, so we need to create
                 # class-map and service-policy
                 if self.gateway_interface.id in policy['ingress_ports']:
