@@ -300,6 +300,14 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                     if gw_info is not None:
                         gw_info['external_fixed_ips'] = gw_port['fixed_ips']
 
+            # add address scope to internal subnets
+            all_ports = router.get('_interfaces', []) + ([gw_port] if gw_port else [])
+            all_subnets = {sn['id'] for port in all_ports for sn in port.get('subnets', [])}
+            subnet_address_scope_map = self.db.get_subnet_address_scope_map(context, all_subnets)
+            for port in all_ports:
+                for subnet in port.get('subnets', []):
+                    subnet['address_scope_id'] = subnet_address_scope_map.get(subnet['id'])
+
             rt_import = []
             rt_export = []
             bgpvpns = self.db.get_bgpvpns_by_router_id(context, router['id'])
@@ -320,12 +328,9 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             router["rt_export"] = list(set(rt_export))
             router["rt_import"] = list(set(rt_import))
 
-            all_ports = [x["id"] for x in router.get("_interfaces", [])]
-            if gw_port:
-                all_ports.append(gw_port["id"])
-
             if constants.FWAAS_SERVICE_PLUGIN in cfg.CONF.service_plugins:
-                router["fwaas_policies"] = self.get_fwaas_policies(context, all_ports)
+                all_port_ids = [port["id"] for port in all_ports]
+                router["fwaas_policies"] = self.get_fwaas_policies(context, all_port_ids)
 
         return routers
 
