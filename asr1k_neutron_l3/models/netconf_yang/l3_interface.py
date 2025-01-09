@@ -152,6 +152,10 @@ class BDInterface(NyBase):
         if int(self.mtu) > self.MAX_MTU:
             self.mtu = str(self.MAX_MTU)
 
+    @classmethod
+    def get_for_vrf(cls, context, vrf):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
+
     @property
     def neutron_router_id(self):
         if self.vrf:
