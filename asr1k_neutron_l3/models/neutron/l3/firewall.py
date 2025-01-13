@@ -84,6 +84,10 @@ class AccessList(FirewallPolicyMixin, access_list.AccessList):
                 'protocol': rule['protocol']
             }
 
+            if rule_args['protocol'] is None:
+                # protocol "any" on IPv4 means we need to specify protocol 'ip'
+                rule_args['protocol'] = 'ip'
+
             # check if there is an IP address/CIDR for each direction
             # if so do the whole mask, wildcard dance
             for direction in ('source', 'destination'):
