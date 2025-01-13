@@ -14,7 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron_lib import context
 from neutron_lib import rpc as n_rpc
 from oslo_log import helpers as log_helpers
 from oslo_log import log
@@ -72,29 +71,28 @@ class ASR1KPluginCallback(object):
 
     def __init__(self):
         self.db = asr1k_db.get_db_plugin()
-        self.context = context.get_admin_context()
 
     @instrument.instrument()
-    def get_ports_with_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
-        return self.db.get_ports_with_extra_atts(self.context, ports, host)
+    def get_ports_with_extra_atts(self, context, ports, agent_id=None, host=None):
+        return self.db.get_ports_with_extra_atts(context, ports, host)
 
     @instrument.instrument()
-    def get_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
-        return self.db.get_extra_atts(self.context, ports, host)
+    def get_extra_atts(self, context, ports, agent_id=None, host=None):
+        return self.db.get_extra_atts(context, ports, host)
 
-    def get_orphaned_extra_atts(self, rpc_context, agent_id=None, host=None):
-        return self.db.get_orphaned_extra_atts(self.context, host=host)
+    def get_orphaned_extra_atts(self, context, agent_id=None, host=None):
+        return self.db.get_orphaned_extra_atts(context, host=host)
 
     @log_helpers.log_method_call
-    def delete_extra_atts(self, rpc_context, ports, agent_id=None, host=None):
+    def delete_extra_atts(self, context, ports, agent_id=None, host=None):
         LOG.debug("Deleting extra atts for ports {}".format(ports))
 
         for port_id in ports:
-            self.db.delete_extra_att(self.context, port_id, l2=True)
+            self.db.delete_extra_att(context, port_id, l2=True)
 
     @instrument.instrument()
-    def get_interface_ports(self, rpc_context, limit=None, offset=None, host=None):
-        ports = self.db.get_interface_ports(self.context, limit=limit,
+    def get_interface_ports(self, context, limit=None, offset=None, host=None):
+        ports = self.db.get_interface_ports(context, limit=limit,
                                             offset=offset, host=host)
 
         LOG.debug("ports len %s", len(ports))
@@ -102,8 +100,8 @@ class ASR1KPluginCallback(object):
         return ports
 
     @instrument.instrument()
-    def get_networks_with_asr1k_ports(self, rpc_context, limit=None, offset=None, host=None, networks=None):
-        return self.db.get_networks_with_asr1k_ports(self.context, limit, offset, host, networks)
+    def get_networks_with_asr1k_ports(self, context, limit=None, offset=None, host=None, networks=None):
+        return self.db.get_networks_with_asr1k_ports(context, limit, offset, host, networks)
 
     @instrument.instrument()
     def get_device_info(self, context, host):
