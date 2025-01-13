@@ -24,7 +24,7 @@ from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.neutron.l3 import access_list
 from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap as ncClassMap
 from asr1k_neutron_l3.models.netconf_yang.parameter_map \
-        import ParameterMapInspectGlobalVrf as ncParameterMapInspectGlobalVrf
+    import ParameterMapInspectGlobalVrf as ncParameterMapInspectGlobalVrf
 from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy as ncServicePolicy
 from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicyClass as ncServicePolicyClass
 from asr1k_neutron_l3.models.netconf_yang.zone import Zone as ncZone
@@ -53,9 +53,9 @@ class AccessList(FirewallPolicyMixin, access_list.AccessList):
     PREFIX = const.FWAAS_ACL_PREFIX
 
     ACTIONS = {
-                'allow': 'permit',
-                'deny': 'deny',
-                'reject': 'deny',
+        'allow': 'permit',
+        'deny': 'deny',
+        'reject': 'deny',
     }
 
     MIMIC_STATEFUL_RULES = [
@@ -173,7 +173,7 @@ class ZonePair(FirewallZoneObject):
     @property
     def _rest_definition(self):
         return ncZonePair(id=self.id, source=self.source, destination=self.destination,
-                        service_policy=self.service_policy)
+                          service_policy=self.service_policy)
 
 
 class ZonePairExtEgress(ZonePair):
