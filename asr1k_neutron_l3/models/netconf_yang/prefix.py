@@ -157,7 +157,7 @@ class PrefixBase(NyBase):
             if dev_seq_to_remove:
                 LOG.warning("Prefix-list %s needs cleaning - seq %s present on device but not in neutron",
                             self.name, ", ".join(map(str, dev_seq_to_remove)))
-                dev_pfx_list.seq = dev_seq_to_remove
+                dev_pfx_list.seq = [PrefixSeq(no=no) for no in dev_seq_to_remove]
                 dev_pfx_list._delete(context=context)
 
     def to_dict(self, context):
