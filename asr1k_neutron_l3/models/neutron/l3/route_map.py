@@ -63,17 +63,74 @@ class RouteMap(base.Base):
 
 
 class PBRRouteMap(base.Base):
-    def __init__(self, name, gateway_interface=None):
-        super(PBRRouteMap, self).__init__()
+    def __init__(self, name, has_gateway_interface=False):
+        super().__init__()
 
         self.vrf = utils.uuid_to_vrf_id(name)
-        self.name = "pbr-{}".format(self.vrf)
+        self.name = f"pbr-{self.vrf}"
+        self.has_gateway_interface = has_gateway_interface
 
         sequences = []
 
-        if gateway_interface is not None:
+        if has_gateway_interface:
             sequences.append(route_map.MapSequence(seq_no=15,
                                                    operation='permit',
                                                    ip_precedence='routine'))
 
         self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)
+
+    def diff(self, should_be_none=False):
+        return super().diff(should_be_none=not self.has_gateway_interface)
+
+    def update(self):
+        if self.has_gateway_interface:
+            return super().update()
+        else:
+            return self.delete()
+
+
+class RedistRouteMapBase(base.Base):
+    def __init__(self, router_id, routable_rt, extraroutes_rt, enabled):
+        super().__init__()
+
+        self.vrf = utils.uuid_to_vrf_id(router_id)
+        self.name = f"bgp-redistribute{self.IP_VERSION}-{self.vrf}"
+        self.enabled = enabled
+        routable_rt_list = [routable_rt] if routable_rt else None
+        extraroutes_rt_list = [extraroutes_rt] if extraroutes_rt else None
+
+        sequences = [
+            route_map.MapSequence(
+                seq_no=10, operation='permit', asn=routable_rt_list,
+                **{self.PREFIX_LIST_PARAM: f"routable{self.IP_VERSION}-{self.vrf}"}),
+            route_map.MapSequence(
+                seq_no=20, operation='permit', asn=extraroutes_rt_list,
+                **{self.PREFIX_LIST_PARAM: f"routable-extraroutes{self.IP_VERSION}-{self.vrf}"}),
+            route_map.MapSequence(
+                seq_no=30, operation='permit',
+                **{self.PREFIX_LIST_PARAM: f"internal{self.IP_VERSION}-{self.vrf}"}),
+            route_map.MapSequence(
+                seq_no=40, operation='permit',
+                **{self.PREFIX_LIST_PARAM: f"internal-extraroutes{self.IP_VERSION}-{self.vrf}"}),
+        ]
+
+        self._rest_definition = route_map.RouteMap(name=self.name, seq=sequences)
+
+    def diff(self, should_be_none=False):
+        return super().diff(should_be_none=not self.enabled)
+
+    def update(self):
+        if self.enabled:
+            return super().update()
+        else:
+            return self.delete()
+
+
+class RedistRouteMapV4(RedistRouteMapBase):
+    IP_VERSION = "4"
+    PREFIX_LIST_PARAM = "prefix_list"
+
+
+class RedistRouteMapV6(RedistRouteMapBase):
+    IP_VERSION = "6"
+    PREFIX_LIST_PARAM = "prefix_list_v6"

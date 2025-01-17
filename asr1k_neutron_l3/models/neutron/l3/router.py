@@ -17,7 +17,7 @@ import netaddr
 import os
 
 from collections import defaultdict
-
+from oslo_config import cfg
 from oslo_log import log as logging
 
 from asr1k_neutron_l3.common import asr1k_constants as constants, utils
@@ -52,51 +52,49 @@ class Router(Base):
         self.status = self.router_info.get('status')
 
         self.gateway_interface = None
-        self.router_id = self.router_info.get('id')
+        self.router_id = self.router_info['id']
         self.interfaces = self._build_interfaces()
         self.routes = self._build_routes()
         self.enable_snat = False
         self.routable_interface = False
         if router_info.get('external_gateway_info') is not None:
             self.enable_snat = router_info.get('external_gateway_info', {}).get('enable_snat', False)
-            self.routable_interface = len(self.address_scope_matches()) > 0
+            self.routable_interface = bool(self.interfaces.get_routable_networks_v4() or
+                                           self.interfaces.get_routable_networks_v6())
 
         description = self.router_info.get('description')
-
-        if description is None or len(description) == 0:
-            description = "Router {}".format(self.router_id)
+        if not description:
+            description = f"Router {self.router_id}"
 
         # TODO : get rt's from config for router
         address_scope_config = router_info.get(constants.ADDRESS_SCOPE_CONFIG, {})
 
-        rt = None
-        global_vrf_id = None
+        self.rt = None
+        self.global_vrf_id = None
         if self.gateway_interface is not None:
-            if self.gateway_interface.address_scope in address_scope_config:
-                rt = address_scope_config[self.gateway_interface.address_scope]
-                global_vrf_id = self._to_global_vrf_id(rt)
-            elif self.gateway_interface.address_scope is not None:
+            # We excpect that the v4 and v6 adress scope is always from the same cloud VRF
+            gw_address_scope = self.gateway_interface.address_scope_v4 or self.gateway_interface.address_scope_v6
+            if gw_address_scope in address_scope_config:
+                self.rt = address_scope_config[gw_address_scope]
+                self.global_vrf_id = self._to_global_vrf_id(self.rt)
+            elif gw_address_scope:
                 LOG.error("Router %s has a gateway interface, but no address scope was found in config "
                           "(address scope of router: %s, available scopes: %s)",
-                          self.router_id, self.gateway_interface.address_scope, list(address_scope_config.keys()))
+                          self.router_id, gw_address_scope, list(address_scope_config.keys()))
 
         if not self.router_atts.get('rd'):
             LOG.error("Router %s has no rd attached, configuration is likely to fail!",
-                      self.router_info.get('id'))
+                      self.router_id)
 
-        self.vrf = vrf.Vrf(self.router_info.get('id'), description=description, asn=self.config.asr1k_l3.fabric_asn,
+        self.vrf = vrf.Vrf(self.router_id, description=description, asn=self.config.asr1k_l3.fabric_asn,
                            rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
-                           rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=global_vrf_id,
+                           rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=self.global_vrf_id,
                            enable_ipv6=self.enable_ipv6)
 
         self.fwaas_conf, self.fwaas_external_policies = self._build_fwaas_conf()
 
+        self.route_maps = self._build_route_maps()
         self.nat_acl = self._build_nat_acl()
-
-        self.route_map = route_map.RouteMap(self.router_info.get('id'), rt=rt,
-                                            routable_interface=self.routable_interface, enable_ipv6=self.enable_ipv6)
-
-        self.pbr_route_map = route_map.PBRRouteMap(self.router_info.get('id'), gateway_interface=self.gateway_interface)
 
         self.bgp_address_family = self._build_bgp_address_family()
 
@@ -118,25 +116,11 @@ class Router(Base):
 
     @property
     def enable_ipv4(self):
-        return any(iface.ip_address for iface in self.interfaces.all_interfaces)
+        return any(iface.ipv4_address for iface in self.interfaces.all_interfaces)
 
     @property
     def enable_ipv6(self):
         return any(iface.ipv6_addresses for iface in self.interfaces.all_interfaces)
-
-    def address_scope_matches(self):
-        result = []
-        if self.gateway_interface is not None:
-            for interface in self.interfaces.internal_interfaces:
-                if self.gateway_interface.address_scope is not None:
-                    if interface.address_scope == self.gateway_interface.address_scope:
-                        result.append(interface)
-        result = sorted(result, key=lambda _iface: _iface.id)
-        return result
-
-    def get_routable_networks(self):
-        return [iface.primary_subnet['cidr'] for iface in self.address_scope_matches()
-                if iface.primary_subnet and 'cidr' in iface.primary_subnet]
 
     def _get_fwaas_acls_by_port(self):
         """
@@ -206,34 +190,31 @@ class Router(Base):
             if self._route_has_connected_interface(r):
                 routes[ip_net.version].append(r)
 
+        # handle default routes
         if self.gateway_interface is not None:
-            if self.gateway_interface.primary_gateway_ip and not primary_overridden[4]:
+            if self.gateway_interface.gateway_ip_v4 and not primary_overridden[4]:
                 primary_route = route.RouteV4(self.router_id, "0.0.0.0/0",
-                                              self.gateway_interface.primary_gateway_ip)
+                                              self.gateway_interface.gateway_ip_v4)
                 if self._route_has_connected_interface(primary_route):
                     routes[4].append(primary_route)
 
-            if self.gateway_interface.ipv6_addresses and not primary_overridden[6]:
+            if self.gateway_interface.gateway_ip_v6 and not primary_overridden[6]:
                 primary_route = route.RouteV6(self.router_id, "::/0",
-                                              sorted(self.gateway_interface.ipv6_addresses)[0])
+                                              self.gateway_interface.gateway_ip_v6)
                 if self._route_has_connected_interface(primary_route):
                     routes[6].append(primary_route)
 
         return routes
 
     def _build_nat_acl(self):
-        acl = access_list.AccessList("NAT-{}".format(utils.uuid_to_vrf_id(self.router_id)))
+        acl = access_list.AccessList(f"NAT-{utils.uuid_to_vrf_id(self.router_id)}")
 
         # Check address scope and deny any where internal interface matches external
-        for interface in self.address_scope_matches():
-            subnet = interface.primary_subnet
-
-            # FIXME: filter for ipv6?
-            if subnet is not None and subnet.get('cidr') is not None:
-                ip, netmask = utils.from_cidr(subnet.get('cidr'))
-                wildcard = utils.to_wildcard_mask(netmask)
-                rule = access_list.Rule(action='deny', source=ip, source_mask=wildcard)
-                acl.append_rule(rule)
+        for network in self.interfaces.get_routable_networks_v4():
+            ip, netmask = utils.from_cidr(network)
+            wildcard = utils.to_wildcard_mask(netmask)
+            rule = access_list.Rule(action='deny', source=ip, source_mask=wildcard)
+            acl.append_rule(rule)
 
         if not self.enable_snat:
             acl.append_rule(access_list.Rule(action='deny'))
@@ -242,59 +223,53 @@ class Router(Base):
         return acl
 
     def _route_has_connected_interface(self, l3_route):
-        gw_port = self.router_info.get('gw_port', None)
-        if gw_port is not None:
-
-            for subnet in gw_port.get('subnets'):
-                if subnet and subnet.get('cidr') and utils.ip_in_network(l3_route.nexthop, subnet['cidr']):
-                    return True
-
-        int_ports = self.router_info.get('_interfaces', [])
-
-        for int_port in int_ports:
-            for subnet in int_port.get('subnets', []):
-                if subnet and subnet.get('cidr') and utils.ip_in_network(l3_route.nexthop, subnet['cidr']):
-                    return True
-
-        return False
+        all_networks = (
+            self.interfaces.get_external_networks_v4() +
+            self.interfaces.get_external_networks_v6() +
+            self.interfaces.get_internal_networks_v4() +
+            self.interfaces.get_internal_networks_v6()
+        )
+        return any(utils.ip_in_network(l3_route.nexthop, network) for network in all_networks)
 
     def _build_bgp_address_family(self):
-        networks_v4 = [iface.primary_subnet['cidr'] for iface in self.interfaces.internal_interfaces
-                       if iface.primary_subnet and 'cidr' in iface.primary_subnet and
-                       utils.get_ip_version(iface.primary_subnet['cidr']) == 4]
-        networks_v6 = [addr.prefix for iface in self.interfaces.internal_interfaces
-                       for addr in iface.ipv6_addresses]
-        routable_networks_v4 = [iface.primary_subnet['cidr'] for iface in self.address_scope_matches()
-                                if iface.primary_subnet and 'cidr' in iface.primary_subnet and
-                                utils.get_ip_version(iface.primary_subnet['cidr']) == 4]
-        routable_networks_v6 = [addr.prefix for iface in self.address_scope_matches()
-                                for addr in iface.ipv6_addresses]
+        bgp_afs = {}
+        for ip_version, BGPAddressFamily in ((4, bgp.AddressFamilyV4), (6, bgp.AddressFamilyV6)):
+            if ip_version == 6 or ip_version == 4 and cfg.CONF.asr1k_l3.advertise_bgp_ipv4_routes_via_redistribute:
+                # use redistribute static/connected
+                networks = []
+                routable_networks = []
+                has_routable_interface = bool(self.interfaces.get_routable_networks(ip_version))
+                redistribute_map = f"bgp-redistribute{ip_version}-{utils.uuid_to_vrf_id(self.router_id)}"
+            else:
+                # use network statements
+                networks = self.interfaces.get_internal_networks(ip_version)
+                routable_networks = self.interfaces.get_routable_networks(ip_version)
+                has_routable_interface = bool(routable_networks)
+                redistribute_map = None
 
-        extra_routes_v4 = []
-        extra_routes_v6 = []
-        if self.router_info["bgpvpn_advertise_extra_routes"]:
-            extra_routes_v4 = [x.cidr for x in self.routes[4].routes if x.cidr != "0.0.0.0/0"]
-            extra_routes_v6 = [x.cidr for x in self.routes[6].routes if x.cidr != "::/0"]
+            enable_af = self.enable_ipv4 if ip_version == 4 else self.enable_ipv6
 
-        def_args = {
-            "vrf": utils.uuid_to_vrf_id(self.router_id),
-            "asn": self.config.asr1k_l3.fabric_asn,
-            "has_routable_interface": self.routable_interface,
-            "rt_export": self.rt_export,
-        }
-        return {
-            4: bgp.AddressFamilyV4(connected_cidrs=networks_v4, extra_routes=extra_routes_v4,
-                                   routable_networks=routable_networks_v4, **def_args),
-            6: bgp.AddressFamilyV6(connected_cidrs=networks_v6, extra_routes=extra_routes_v6,
-                                   routable_networks=routable_networks_v6, **def_args),
-        }
+            extra_routes = []
+            if self.router_info["bgpvpn_advertise_extra_routes"]:
+                extra_routes = [x.cidr for x in self.routes[ip_version].routes if x.cidr not in ("0.0.0.0/0", "::/0")]
+
+            bgp_afs[ip_version] = BGPAddressFamily(
+                vrf=utils.uuid_to_vrf_id(self.router_id),
+                asn=self.config.asr1k_l3.fabric_asn, rt_export=self.rt_export,
+                connected_cidrs=networks, extra_routes=extra_routes,
+                routable_networks=routable_networks,
+                has_routable_interface=has_routable_interface,
+                redistribute_map=redistribute_map,
+                enable_af=enable_af,
+            )
+        return bgp_afs
 
     def _build_dynamic_nat(self):
         pool_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
-                                  interfaces=self.interfaces, mode=constants.SNAT_MODE_POOL,
+                                  mode=constants.SNAT_MODE_POOL,
                                   mapping_id=utils.uuid_to_mapping_id(self.router_id))
         interface_nat = nat.DynamicNAT(self.router_id, gateway_interface=self.gateway_interface,
-                                       interfaces=self.interfaces, mode=constants.SNAT_MODE_INTERFACE)
+                                       mode=constants.SNAT_MODE_INTERFACE)
 
         return {constants.SNAT_MODE_POOL: pool_nat, constants.SNAT_MODE_INTERFACE: interface_nat}
 
@@ -336,18 +311,77 @@ class Router(Base):
         result = []
 
         # external interface
-        result.append(prefix.ExtPrefixV4(router_id=self.router_id, gateway_interface=self.gateway_interface))
-        result.append(prefix.ExtPrefixV6(router_id=self.router_id, gateway_interface=self.gateway_interface))
+        result.append(prefix.ExtPrefixV4(router_id=self.router_id, prefixes=self.interfaces.get_external_networks_v4()))
+        result.append(prefix.ExtPrefixV6(router_id=self.router_id, prefixes=self.interfaces.get_external_networks_v6()))
 
-        no_snat_interfaces = self.address_scope_matches()
+        result.append(prefix.SnatPrefix(router_id=self.router_id, prefixes=self.interfaces.get_routable_networks_v4()))
 
-        result.append(prefix.SnatPrefix(router_id=self.router_id, gateway_interface=self.gateway_interface,
-                                        internal_interfaces=no_snat_interfaces))
+        result.append(prefix.RoutePrefixV4(router_id=self.router_id,
+                                           prefixes=self.interfaces.get_routable_networks_v4()))
+        result.append(prefix.RoutePrefixV6(router_id=self.router_id,
+                                           prefixes=self.interfaces.get_routable_networks_v6()))
 
-        result.append(prefix.RoutePrefix(router_id=self.router_id, gateway_interface=self.gateway_interface,
-                                         internal_interfaces=no_snat_interfaces))
+        # the new prefix lists
+        #   routable -> all dapnets
+        #   routable-extraroutes -> all extraroutes part of a dapnets
+        #   internal -> everything internal
+        #   extraroutes -> extraroutes that are not routable
+        for ip_version, PrefixClass in ((4, prefix.BasePrefixV4), (6, prefix.BasePrefixV6)):
+            if ip_version == 4 and not cfg.CONF.asr1k_l3.advertise_bgp_ipv4_routes_via_redistribute:
+                # we don't need the lists for v4 if they're not being used
+                # to avoid potential config locks, we won't configure them
+                continue
+
+            af_enabled = self.enable_ipv4 if ip_version == 4 else self.enable_ipv6
+            routable_networks = self.interfaces.get_routable_networks(ip_version)
+            internal_networks = self.interfaces.get_internal_networks(ip_version)
+            routable_extraroutes = []
+            internal_extraroutes = []
+            for extraroute in self.routes[ip_version].routes:
+                net = extraroute.cidr
+                if net in ("0.0.0.0/0", "::/0"):
+                    continue
+
+                if any(utils.network_in_network(net, routable_network) for routable_network in routable_networks):
+                    routable_extraroutes.append(net)
+                else:
+                    internal_extraroutes.append(net)
+
+            result.extend([
+                PrefixClass(f"routable{ip_version}", self.router_id, routable_networks, add_deny_if_empty=af_enabled),
+                PrefixClass(f"routable-extraroutes{ip_version}", self.router_id, routable_extraroutes,
+                            add_deny_if_empty=af_enabled),
+                PrefixClass(f"internal{ip_version}", self.router_id, internal_networks, add_deny_if_empty=af_enabled),
+                PrefixClass(f"internal-extraroutes{ip_version}", self.router_id, internal_extraroutes,
+                            add_deny_if_empty=af_enabled),
+            ])
 
         return result
+
+    def _build_route_maps(self):
+        extraroutes_rt = None
+        if self.rt and ':' in self.rt:
+            # 65126:106 --> 65126:1106
+            asn, sf = self.rt.split(":", 1)
+            extraroutes_rt = f"{asn}:1{sf}"
+
+        route_maps = [
+            # exp route-map
+            route_map.RouteMap(self.router_id, rt=self.rt,
+                               routable_interface=self.routable_interface, enable_ipv6=self.enable_ipv6),
+
+            # pbr route-map
+            route_map.PBRRouteMap(self.router_id,
+                                  has_gateway_interface=bool(self.gateway_interface)),
+
+            # redistribute routemaps
+            route_map.RedistRouteMapV4(self.router_id, self.rt, extraroutes_rt,
+                                       enabled=(self.enable_ipv4 and
+                                                cfg.CONF.asr1k_l3.advertise_bgp_ipv4_routes_via_redistribute)),
+            route_map.RedistRouteMapV6(self.router_id, self.rt, extraroutes_rt, enabled=self.enable_ipv6),
+        ]
+
+        return route_maps
 
     def _build_fwaas_conf(self):
         router_info = self.router_info
@@ -420,18 +454,12 @@ class Router(Base):
         for prefix_list in self.prefix_lists:
             results.append(prefix_list.update())
 
-        results.append(self.route_map.update())
+        for rm in self.route_maps:
+            results.append(rm.update())
         results.append(self.vrf.update())
 
-        if self.gateway_interface is not None:
-            results.append(self.pbr_route_map.update())
-        else:
-            results.append(self.pbr_route_map.delete())
-
-        # results.append(self.bgp_address_family.update())
-
         for ip_version in (4, 6):
-            if (self.routable_interface or len(self.rt_export) > 0) and self.bgp_address_family[ip_version].networks:
+            if self.bgp_address_family[ip_version].enable_bgp:
                 results.append(self.bgp_address_family[ip_version].update())
             else:
                 results.append(self.bgp_address_family[ip_version].delete())
@@ -501,7 +529,8 @@ class Router(Base):
             results.append(prefix.ExtPrefixV6(router_id=self.router_id).delete())
             results.append(prefix.RoutePrefix(router_id=self.router_id).delete())
 
-        results.append(self.route_map.delete())
+        for rm in self.route_maps:
+            results.append(rm.delete())
         results.append(self.floating_ips.delete())
         results.append(self.arp_entries.delete())
         results.append(self.routes[4].delete())
@@ -511,7 +540,6 @@ class Router(Base):
             results.append(self.dynamic_nat.get(key).delete())
         results.append(self.nat_pool.delete())
 
-        results.append(self.pbr_route_map.delete())
         results.append(self.nat_acl.delete())
         results.append(self.bgp_address_family[4].delete())
         results.append(self.bgp_address_family[6].delete())
@@ -551,14 +579,10 @@ class Router(Base):
                     diff_results['prefix_list'] = []
                 diff_results['prefix_list'].append(prefix_diff.to_dict())
 
-        rm_diff = self.route_map.diff()
-        if not rm_diff.valid:
-            diff_results['route_map'] = rm_diff.to_dict()
-
-        if self.gateway_interface:
-            pbr_rm_diff = self.pbr_route_map.diff()
-            if not pbr_rm_diff.valid:
-                diff_results['pbr_route_map'] = pbr_rm_diff.to_dict()
+        for rm in self.route_maps:
+            rm_diff = rm.diff()
+            if not rm_diff.valid:
+                diff_results[f'route_map-{rm.name}'] = rm_diff.to_dict()
 
         for ip_version in (4, 6):
             route_diff = self.routes[ip_version].diff()

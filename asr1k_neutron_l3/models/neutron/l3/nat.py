@@ -53,11 +53,9 @@ class NATPool(base.Base):
 
 
 class DynamicNAT(BaseNAT):
-    def __init__(self, router_id, gateway_interface=None, interfaces=[], redundancy=None, mapping_id=None,
+    def __init__(self, router_id, gateway_interface=None, redundancy=None, mapping_id=None,
                  mode=asr1k_constants.SNAT_MODE_POOL, bridge_domain=None):
-        super(DynamicNAT, self).__init__(router_id, gateway_interface, redundancy, mapping_id)
-
-        self.interfaces = interfaces
+        super().__init__(router_id, gateway_interface, redundancy, mapping_id)
 
         self.specific_acl = True
         self.mode = mode
@@ -145,7 +143,7 @@ class FloatingIp(BaseNAT):
         self.floating_ip = floating_ip
         self.local_ip = floating_ip.get("fixed_ip_address")
         self.global_ip = floating_ip.get("floating_ip_address")
-        self.global_ip_mask = gateway_interface.ip_address.mask
+        self.global_ip_mask = gateway_interface.ipv4_address.mask
         self.bridge_domain = gateway_interface.bridge_domain
         self.id = "{},{}".format(self.local_ip, self.global_ip)
         self.mapping_id = utils.uuid_to_mapping_id(self.floating_ip.get('id'))
@@ -168,7 +166,7 @@ class FloatingIp(BaseNAT):
 
 class ArpEntry(BaseNAT):
     def __init__(self, router_id, ip, gateway_interface):
-        super(ArpEntry, self).__init__(router_id, gateway_interface)
+        super().__init__(router_id, gateway_interface)
 
         self.ip = ip
         self.id = self.ip

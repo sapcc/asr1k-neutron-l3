@@ -37,6 +37,7 @@ class BGPConstants(object):
     VRF = "vrf"
     REDISTRIBUTE = "redistribute"
     REDISTRIBUTE_VRF = "redistribute-vrf"
+    REDISTRIBUTE_V6 = "redistribute-v6"
     CONNECTED = "connected"
     STATIC = "static"
     UNICAST = "unicast"
@@ -45,6 +46,7 @@ class BGPConstants(object):
     NUMBER = "number"
     MASK = "mask"
     ROUTE_MAP = "route-map"
+    DEFAULT = "default"
 
 
 class AddressFamilyBase(NyBase):
@@ -104,6 +106,18 @@ class AddressFamilyBase(NyBase):
         bgp[xml_utils.NS] = xml_utils.NS_CISCO_BGP
         result = {BGPConstants.BGP: bgp}
         result = {BGPConstants.ROUTER: result}
+        return result
+
+    @classmethod
+    def _get(cls, **kwargs):
+        # make sure the result has a vrf associated
+        # due to the way we filter for our AF (with the ASN included) we always get a result, which
+        # prompts the original _get() method to always return a class, which results in problems when
+        # we want an empty result in case it's not there (should_be_none=True), therefore we filter out
+        # pseudoempty results here
+        result = super()._get(**kwargs)
+        if result and getattr(result, "vrf", None) is None:
+            return None
         return result
 
     def __init__(self, **kwargs):
@@ -167,26 +181,38 @@ class AddressFamilyV4(AddressFamilyBase):
             {'key': 'vrf', 'yang-key': 'name'},
             {'key': 'networks', 'yang-path': 'ipv4-unicast/network', 'yang-key': BGPConstants.WITH_MASK,
              'type': [NetworkV4], 'default': []},
+            {'key': 'redistribute_connected_with_rm', 'yang-key': 'route-map',
+             'yang-path': 'ipv4-unicast/redistribute-vrf/connected'},
+            {'key': 'redistribute_static_with_rm', 'yang-key': 'route-map',
+             'yang-path': 'ipv4-unicast/redistribute-vrf/static/default'},
         ]
 
     def to_dict(self, context):
         if self.vrf is None:
             return {}
 
-        vrf = {
-            BGPConstants.NAME: self.vrf,
-            BGPConstants.IPV4_UNICAST: {
-                xml_utils.OPERATION: NC_OPERATION.PUT,
-                BGPConstants.NETWORK: {
-                    BGPConstants.WITH_MASK: [
-                        net.to_dict(context) for net in sorted(self.networks, key=lambda x: (x.number, x.mask))
-                    ],
-                },
-            }
+        ipv4_unicast = {
+            xml_utils.OPERATION: NC_OPERATION.PUT,
+            BGPConstants.NETWORK: {
+                BGPConstants.WITH_MASK: [
+                    net.to_dict(context) for net in sorted(self.networks, key=lambda x: (x.number, x.mask))
+                ],
+            },
         }
+        if self.redistribute_connected_with_rm or self.redistribute_static_with_rm:
+            redist = {}
+            if self.redistribute_connected_with_rm:
+                redist[BGPConstants.CONNECTED] = {BGPConstants.ROUTE_MAP: self.redistribute_connected_with_rm}
+            if self.redistribute_static_with_rm:
+                redist[BGPConstants.STATIC] = {
+                    BGPConstants.DEFAULT: {BGPConstants.ROUTE_MAP: self.redistribute_static_with_rm}}
+            ipv4_unicast[BGPConstants.REDISTRIBUTE_VRF] = redist
 
         result = {
-            BGPConstants.VRF: vrf,
+            BGPConstants.VRF: {
+                BGPConstants.NAME: self.vrf,
+                BGPConstants.IPV4_UNICAST: ipv4_unicast,
+            }
         }
         return result
 
@@ -224,24 +250,35 @@ class AddressFamilyV6(AddressFamilyBase):
             {'key': 'vrf', 'yang-key': 'name'},
             {'key': 'networks', 'yang-path': BGPConstants.IPV6_UNICAST, 'yang-key': BGPConstants.NETWORK,
              'type': [NetworkV6], 'default': []},
+            {'key': 'redistribute_connected_with_rm', 'yang-key': 'route-map',
+             'yang-path': 'ipv6-unicast/redistribute-v6/connected'},
+            {'key': 'redistribute_static_with_rm', 'yang-key': 'route-map',
+             'yang-path': 'ipv6-unicast/redistribute-v6/static'},
         ]
 
     def to_dict(self, context):
         if self.vrf is None:
             return {}
 
-        vrf = {
-            BGPConstants.NAME: self.vrf,
-            BGPConstants.IPV6_UNICAST: {
-                xml_utils.OPERATION: NC_OPERATION.PUT,
-                BGPConstants.NETWORK: [
-                    net.to_dict(context) for net in sorted(self.networks, key=lambda x: x.number)
-                ],
-            }
+        ipv6_unicast = {
+            xml_utils.OPERATION: NC_OPERATION.PUT,
+            BGPConstants.NETWORK: [
+                net.to_dict(context) for net in sorted(self.networks, key=lambda x: x.number)
+            ],
         }
+        if self.redistribute_connected_with_rm or self.redistribute_static_with_rm:
+            redist = {}
+            if self.redistribute_connected_with_rm:
+                redist[BGPConstants.CONNECTED] = {BGPConstants.ROUTE_MAP: self.redistribute_connected_with_rm}
+            if self.redistribute_static_with_rm:
+                redist[BGPConstants.STATIC] = {BGPConstants.ROUTE_MAP: self.redistribute_static_with_rm}
+            ipv6_unicast[BGPConstants.REDISTRIBUTE_V6] = redist
 
         result = {
-            BGPConstants.VRF: vrf,
+            BGPConstants.VRF: {
+                BGPConstants.NAME: self.vrf,
+                BGPConstants.IPV6_UNICAST: ipv6_unicast,
+            }
         }
         return result
 

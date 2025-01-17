@@ -218,6 +218,95 @@ class ParsingTest(base.BaseTestCase):
             parsed_netmasks.add((network['number'], network['mask']))
         self.assertEqual(orig_netmasks, parsed_netmasks)
 
+    def test_bgp_redistribute_parsing(self):
+        xml_v4_redist_with_rm = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <router>
+        <bgp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
+          <id>65148</id>
+          <address-family>
+            <with-vrf>
+              <ipv4>
+                <af-name>unicast</af-name>
+                <vrf>
+                  <name>seagull-vrf</name>
+                  <ipv4-unicast>
+                    <redistribute-vrf>
+                      <connected>
+                        <route-map>test123</route-map>
+                      </connected>
+                      <static>
+                        <default>
+                          <route-map>test456</route-map>
+                        </default>
+                      </static>
+                    </redistribute-vrf>
+                  </ipv4-unicast>
+                </vrf>
+              </ipv4>
+            </with-vrf>
+          </address-family>
+        </bgp>
+      </router>
+    </native>
+  </data>
+</rpc-reply>
+        """
+
+        xml_v6_redist_with_rm = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <router>
+        <bgp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
+          <id>65148</id>
+          <address-family>
+            <with-vrf>
+              <ipv6>
+                <af-name>unicast</af-name>
+                <vrf>
+                  <name>seagull-vrf</name>
+                  <ipv6-unicast>
+                    <redistribute-v6>
+                      <connected>
+                        <route-map>test123</route-map>
+                      </connected>
+                      <static>
+                        <route-map>test456</route-map>
+                      </static>
+                    </redistribute-v6>
+                  </ipv6-unicast>
+                </vrf>
+              </ipv6>
+            </with-vrf>
+          </address-family>
+        </bgp>
+      </router>
+    </native>
+  </data>
+</rpc-reply>
+        """
+        context = FakeASR1KContext()
+        bgp_af4 = bgp.AddressFamilyV4.from_xml(xml_v4_redist_with_rm, context)
+        self.assertEqual(bgp_af4.redistribute_connected_with_rm, "test123")
+        self.assertEqual(bgp_af4.redistribute_static_with_rm, "test456")
+
+        bgp_af6 = bgp.AddressFamilyV6.from_xml(xml_v6_redist_with_rm, context)
+        self.assertEqual(bgp_af6.redistribute_connected_with_rm, "test123")
+        self.assertEqual(bgp_af6.redistribute_static_with_rm, "test456")
+
+        # back to xml
+        bgp_af4_dict = bgp_af4.to_dict(context)
+        self.assertEqual("test123", bgp_af4_dict['vrf']['ipv4-unicast']['redistribute-vrf']['connected']['route-map'])
+        self.assertEqual("test456",
+                         bgp_af4_dict['vrf']['ipv4-unicast']['redistribute-vrf']['static']['default']['route-map'])
+
+        bgp_af6_dict = bgp_af6.to_dict(context)
+        self.assertEqual("test123", bgp_af6_dict['vrf']['ipv6-unicast']['redistribute-v6']['connected']['route-map'])
+        self.assertEqual("test456", bgp_af6_dict['vrf']['ipv6-unicast']['redistribute-v6']['static']['route-map'])
+
     def test_static_nat_parsing(self):
         xml = """
 <rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"

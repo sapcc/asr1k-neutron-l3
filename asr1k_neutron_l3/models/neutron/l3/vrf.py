@@ -45,7 +45,7 @@ class Vrf(base.Base):
         self.map_v6 = None
         self.enable_ipv6 = enable_ipv6
         if enable_ipv6:
-            self.map_v6 = f"exp-v6-{self.name}"
+            self.map_v6 = f"bgp-redistribute6-{self.name}"
 
         self._rest_definition = vrf.VrfDefinition(name=self.name, description=self.description,
                                                   rd=self.rd, map=self.map, map_v6=self.map_v6,

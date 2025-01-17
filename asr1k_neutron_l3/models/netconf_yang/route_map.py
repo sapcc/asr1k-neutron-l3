@@ -68,6 +68,11 @@ class RouteMap(NyBase):
     LIST_KEY = None
     ITEM_KEY = RouteMapConstants.ROUTE_MAP
 
+    KNOWN_PREFIXES = [
+        "exp-", "pbr-",
+        "bgp-redistribute4-", "bgp-redistribute6-",
+    ]
+
     @classmethod
     def __parameters__(cls):
         return [
@@ -81,8 +86,11 @@ class RouteMap(NyBase):
 
     @property
     def neutron_router_id(self):
-        if self.name is not None and (self.name.startswith('exp-') or self.name.startswith('pbr-')):
-            return utils.vrf_id_to_uuid(self.name[4:])
+        if self.name:
+            for prefix in self.KNOWN_PREFIXES:
+                if self.name.startswith(prefix):
+                    return utils.vrf_id_to_uuid(self.name[len(prefix):])
+        return None
 
     def to_dict(self, context):
         result = OrderedDict()
@@ -195,7 +203,7 @@ class MapSequence(NyBase):
                 entry[RouteMapConstants.IP] = {
                     RouteMapConstants.ADDRESS: {RouteMapConstants.PREFIX_LIST: self.prefix_list}}
             if self.prefix_list_v6:
-                entry[RouteMapConstants.IP] = {
+                entry[RouteMapConstants.IPV6] = {
                     RouteMapConstants.ADDRESS: {RouteMapConstants.PREFIX_LIST: self.prefix_list_v6}}
 
         if self.access_list is not None:

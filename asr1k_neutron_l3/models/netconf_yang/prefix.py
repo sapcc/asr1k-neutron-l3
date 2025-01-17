@@ -68,6 +68,14 @@ class PrefixBase(NyBase):
     LIST_KEY = None
     ITEM_KEY = PrefixConstants.PREFIX_LISTS
 
+    KNOWN_PREFIXES = [
+        "ext-", "snat-", "route-",
+        "routable4-", "routable6-",
+        "routable-extraroutes4-", "routable-extraroutes6-",
+        "internal4-", "internal6-",
+        "internal-extraroutes4-", "internal-extraroutes6-",
+    ]
+
     @classmethod
     def __parameters__(cls):
         return [

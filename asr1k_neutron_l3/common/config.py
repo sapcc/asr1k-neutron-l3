@@ -91,6 +91,10 @@ ASR1K_L3_OPTS = [
     cfg.BoolOpt('enable_fwaas_cleaning', default=True, help="Run FWaaS cleaning sync to remove stale FWaaS ACLs, "
                                                             "Class Maps and Service Policies"),
     cfg.IntOpt('fwaas_cleaning_interval', default=300, help="Interval for FWaaS cleaning"),
+    cfg.BoolOpt('advertise_bgp_ipv4_routes_via_redistribute', default=False,
+                help=('Advertise BGP routes (BGPVPN/DAPNets) on IPv4 via redistribute static/connected + route-map '
+                      'instead of using network statements. This avoids the global config lock, that occurs on current '
+                      'firmwares (at least 17.15) when the BGP tree is modified.')),
 ]
 
 ASR1K_L2_OPTS = [

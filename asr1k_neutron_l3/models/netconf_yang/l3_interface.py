@@ -463,3 +463,9 @@ class BDIpv6Address(NyBase):
 
     def to_dict(self, context):
         return {L3Constants.PREFIX: self.prefix.lower()}
+
+    @property
+    def address(self):
+        if self.prefix:
+            return self.prefix.split("/")[0]
+        return None
