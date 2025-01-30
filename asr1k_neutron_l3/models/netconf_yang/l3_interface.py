@@ -65,12 +65,15 @@ class L3Constants(object):
     IN = "in"
     ACL = "acl"
     ACL_NAME = "acl-name"
+    DIRECTION = "direction"
     DIRECTION_OUT = "out"
     DIRECTION_IN = "in"
     NTP = "ntp"
     NTP_DISABLE = "disable"
     ARP = "arp"
     TIMEOUT = "timeout"
+    TRAFFIC_FILTER = "traffic-filter"
+    COMMON = "common"
 
 
 class BDInterface(NyBase):
@@ -137,8 +140,11 @@ class BDInterface(NyBase):
             {'key': 'nat_stick', 'yang-key': 'stick', 'yang-path': 'ip/nat', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'route_map', 'yang-key': 'route-map', 'yang-path': 'ip/policy'},
+            {'key': 'policy_map_v6', 'yang-key': 'route-map', 'yang-path': 'ipv6/policy'},
             {'key': 'access_group_out', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/out/acl'},
             {'key': 'access_group_in', 'yang-key': 'acl-name', 'yang-path': 'ip/access-group/in/acl'},
+            {'key': 'traffic_filters_v6', 'yang-key': 'traffic-filter', 'yang-path': 'ipv6',
+             'type': [TrafficFilter], 'default': []},
             {'key': 'redundancy_group', 'yang-key': 'id', 'yang-path': 'redundancy/group'},
             {'key': 'redundancy_group_decrement', 'yang-key': 'decrement', 'yang-path': 'redundancy/group'},
             {'key': 'rii', 'yang-key': 'id', 'yang-path': 'redundancy/rii'},
@@ -246,15 +252,25 @@ class BDInterface(NyBase):
             }
         vbi[L3Constants.IP] = ip
 
-        if self.ipv6_addresses:
-            vbi[L3Constants.IPV6] = {
+        if self.ipv6_addresses or self.policy_map_v6 or self.traffic_filters_v6:
+            ipv6 = {
                 xml_utils.OPERATION: NC_OPERATION.PUT,
-                L3Constants.ADDRESS: {
+            }
+
+            if self.ipv6_addresses:
+                ipv6[L3Constants.ADDRESS] = {
                     L3Constants.PREFIX_LIST: [
                         addr.to_dict(context) for addr in self.ipv6_addresses
                     ]
                 }
-            }
+
+            if self.policy_map_v6:
+                ipv6[L3Constants.POLICY] = {L3Constants.ROUTE_MAP: self.policy_map_v6}
+
+            if self.traffic_filters_v6:
+                ipv6[L3Constants.TRAFFIC_FILTER] = [tf.to_dict(context) for tf in self.traffic_filters_v6]
+
+            vbi[L3Constants.IPV6] = ipv6
         else:
             vbi[L3Constants.IPV6] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
 
@@ -469,3 +485,18 @@ class BDIpv6Address(NyBase):
         if self.prefix:
             return self.prefix.split("/")[0]
         return None
+
+
+class TrafficFilter(NyBase):
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {"key": 'direction'},
+            {'key': 'access_list', 'yang-key': 'common'},
+        ]
+
+    def to_dict(self, context):
+        return {
+            L3Constants.DIRECTION: self.direction,
+            L3Constants.COMMON: self.access_list,
+        }

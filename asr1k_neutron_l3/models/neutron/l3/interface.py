@@ -21,7 +21,7 @@ from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.neutron.l3.firewall import Zone
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface, BDPrimaryIpAddress, BDSecondaryIpAddress, \
-    BDIpv6Address
+    BDIpv6Address, TrafficFilter
 from asr1k_neutron_l3.models.netconf_yang.l3_interface_state import BDInterfaceState
 
 LOG = logging.getLogger(__name__)
@@ -202,6 +202,10 @@ class GatewayInterface(Interface):
                               secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
                               redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS',
                               ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout)
+
+        if self.ipv6_addresses:
+            interface_args['policy_map_v6'] = 'RM-EXT-TOS-V6'
+            interface_args['traffic_filters_v6'] = [TrafficFilter(direction="out", access_list="ACL-EXT-TOS-V6")]
 
         if self.has_stateful_firewall:
             interface_args['redundancy_group'] = 1

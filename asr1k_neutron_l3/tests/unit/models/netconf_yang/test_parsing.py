@@ -1120,3 +1120,49 @@ class ParsingTest(base.BaseTestCase):
         # back to xml
         vrf_dict = vrf.to_dict(context)
         self.assertEqual({"route-target": {}}, vrf_dict['definition']['address-family']['ipv6'])
+
+    def test_bdvif_ipv6_policy_and_acl_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <interface>
+        <BD-VIF>
+          <name>9999</name>
+          <ipv6>
+            <address>
+              <prefix-list>
+                <prefix>FD00::/64</prefix>
+              </prefix-list>
+              <prefix-list>
+                <prefix>FD00::256/64</prefix>
+              </prefix-list>
+            </address>
+            <policy>
+              <route-map>RM-EXT-TOS-V6</route-map>
+            </policy>
+            <traffic-filter>
+              <direction>out</direction>
+              <common>ACL-EXT-TOS-V6</common>
+            </traffic-filter>
+          </ipv6>
+        </BD-VIF>
+      </interface>
+    </native>
+  </data>
+</rpc-reply>"""
+
+        # parse
+        context = FakeASR1KContext()
+        iface = BDInterface.from_xml(xml, context)
+
+        self.assertEqual("9999", iface.name)
+        self.assertEqual("RM-EXT-TOS-V6", iface.policy_map_v6)
+        self.assertEqual("out", iface.traffic_filters_v6[0].direction)
+        self.assertEqual("ACL-EXT-TOS-V6", iface.traffic_filters_v6[0].access_list)
+
+        # back to xml
+        iface_dict = iface.to_dict(context)
+        self.assertEqual("RM-EXT-TOS-V6", iface_dict['BD-VIF']['ipv6']['policy']['route-map'])
+        self.assertEqual("out", iface_dict['BD-VIF']['ipv6']['traffic-filter'][0]['direction'])
+        self.assertEqual("ACL-EXT-TOS-V6", iface_dict['BD-VIF']['ipv6']['traffic-filter'][0]['common'])
