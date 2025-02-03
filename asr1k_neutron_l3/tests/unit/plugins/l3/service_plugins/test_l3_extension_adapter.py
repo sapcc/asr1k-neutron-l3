@@ -26,19 +26,12 @@ from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.l3.service_plugins.l3_extension_adapter import ASR1KPluginBase
 
 
-class ASR1KTestL3NatIntPlugin(test_l3.TestL3NatIntPlugin):
-    supported_extension_aliases = test_l3.TestL3NatIntPlugin.supported_extension_aliases + [
-        'availability_zone', 'agent',
-    ]
-
-
 @mock.patch.object(asr1k_db.DBPlugin, 'get_network_port_count_per_agent', return_value={'fake-agent': 0})
 class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCaseMixin):
     def setUp(self):
         l3_plugin = 'asr1k_l3_routing'
         service_plugins = {'l3_plugin_name': l3_plugin}
-        plugin = ('asr1k_neutron_l3.tests.unit.plugins.l3.service_plugins.'
-                  'test_l3_extension_adapter.ASR1KTestL3NatIntPlugin')
+        plugin = ('asr1k_neutron_l3.tests.common.fixtures.ASR1KTestL3NatIntPlugin')
         super().setUp(plugin=plugin, service_plugins=service_plugins)
 
         directory.add_plugin(plugin_constants.FLAVORS, flavors_plugin.FlavorsPlugin())

@@ -22,8 +22,9 @@ from asr1k_neutron_l3.models.netconf_yang import prefix
 class BasePrefix(base.Base):
     def __init__(self, name_prefix, router_id, prefixes, add_deny_if_empty=False):
         self.vrf = utils.uuid_to_vrf_id(router_id)
+        self.name = f"{name_prefix}-{self.vrf}"
         self.prefixes = prefixes
-        self._rest_definition = self.PREFIX_MODEL(name=f"{name_prefix}-{self.vrf}")
+        self._rest_definition = self.PREFIX_MODEL(name=self.name)
 
         for n, pfx in enumerate(prefixes, 1):
             self._rest_definition.add_seq(
