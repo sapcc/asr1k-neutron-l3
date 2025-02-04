@@ -28,6 +28,7 @@ from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, Requeable, NC_OPERATION, execute_on_pair, \
     retry_on_failure, YANG_TYPE
 from asr1k_neutron_l3.models.netconf_yang.route import VrfRouteV4, VrfRouteV6
+from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -128,23 +129,26 @@ class VrfDefinition(NyBase, Requeable):
             {'key': 'name', 'id': True},
             {'key': 'description'},
             {'key': 'address_family_ipv4', "yang-key": "ipv4", "yang-path": "address-family",
-             'type': IpV4AddressFamily, "default": {}},
+             'type': IpV4AddressFamily},
             {'key': 'address_family_ipv6', "yang-key": "ipv6", "yang-path": "address-family",
-             'type': IpV6AddressFamily, "default": {}},
-            {'key': 'rd'}
+             'type': IpV6AddressFamily},
+            {'key': 'rd'},
+
+            # only used to detect empty address families on device
+            {'key': 'device_has_address_family_ipv4', "yang-key": "ipv4", "yang-path": "address-family",
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'device_has_address_family_ipv6', "yang-key": "ipv6", "yang-path": "address-family",
+             'yang-type': YANG_TYPE.EMPTY},
         ]
 
     def __init__(self, **kwargs):
+        # create address family if device only has an empty address family (used for diffing/cleanup)
+        if kwargs.get('device_has_address_family_ipv4') and not kwargs.get('address_family_ipv4'):
+            kwargs['address_family_ipv4'] = IpV4AddressFamily()
+        if kwargs.get('device_has_address_family_ipv6') and not kwargs.get('address_family_ipv6'):
+            kwargs['address_family_ipv6'] = IpV6AddressFamily()
+
         super(VrfDefinition, self).__init__(**kwargs)
-
-        if kwargs.get('map') is not None or kwargs.get('rt_import') is not None or \
-                kwargs.get('rt_export') is not None:
-            self.address_family_ipv4 = IpV4AddressFamily(**kwargs)
-
-        if kwargs.get('enable_ipv6'):
-            # we need to pass map_v6 as map key to the AF
-            kwargs['map'] = kwargs.get('map_v6')
-            self.address_family_ipv6 = IpV6AddressFamily(**kwargs)
 
         self.asn = None
         if self.rd:
@@ -170,8 +174,13 @@ class VrfDefinition(NyBase, Requeable):
             af = definition[VrfConstants.ADDRESS_FAMILY] = {}
             if self.address_family_ipv4:
                 af[VrfConstants.IPV4] = self.address_family_ipv4.to_dict(context)
+            else:
+                af[VrfConstants.IPV4] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
+
             if self.address_family_ipv6:
                 af[VrfConstants.IPV6] = self.address_family_ipv6.to_dict(context)
+            else:
+                af[VrfConstants.IPV6] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
 
         result = OrderedDict()
         result[VrfConstants.DEFINITION] = definition

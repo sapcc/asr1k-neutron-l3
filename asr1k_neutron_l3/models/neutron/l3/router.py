@@ -89,7 +89,7 @@ class Router(Base):
         self.vrf = vrf.Vrf(self.router_id, description=description, asn=self.config.asr1k_l3.fabric_asn,
                            rd=self.router_atts.get('rd'), routable_interface=self.routable_interface,
                            rt_import=self.rt_import, rt_export=self.rt_export, global_vrf_id=self.global_vrf_id,
-                           enable_ipv6=self.enable_ipv6)
+                           enable_ipv4=True, enable_ipv6=self.enable_ipv6)
 
         self.fwaas_conf, self.fwaas_external_policies = self._build_fwaas_conf()
 

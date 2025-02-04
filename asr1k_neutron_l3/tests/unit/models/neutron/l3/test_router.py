@@ -36,6 +36,8 @@ class TestRouterClass(RouterWithSyncDataTestCase):
         self.assertEqual([], dev_router.interfaces.get_routable_networks_v4())
         self.assertFalse(dev_router.bgp_address_family[4].enable_bgp)
         self.assertFalse(dev_router.bgp_address_family[6].enable_bgp)
+        self.assertIsNotNone(dev_router.vrf._rest_definition.address_family_ipv4)
+        self.assertIsNone(dev_router.vrf._rest_definition.address_family_ipv6)
 
     def test_router_with_dapnet_v4(self):
         with self.address_scope(name="the-open-sea") as addr_scope, \
@@ -96,3 +98,6 @@ class TestRouterClass(RouterWithSyncDataTestCase):
         pl_er6 = [pl for pl in dev_router.prefix_lists if pl.name.startswith("routable-extraroutes6-")][0]
         self.assertEqual(1, len(pl_er6._rest_definition.seq))
         self.assertEqual("deny", pl_er6._rest_definition.seq[0].action)
+
+        self.assertIsNotNone(dev_router.vrf._rest_definition.address_family_ipv4)
+        self.assertIsNotNone(dev_router.vrf._rest_definition.address_family_ipv6)
