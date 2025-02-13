@@ -148,3 +148,11 @@ class DynamicNatPoolGivenIPsDontBelongToNetwork(nexception.BadRequest):
 class DynamicNatPoolExternalNetExhausted(nexception.BadRequest):
     message = ("Could not find %(ip_count)s consecutive IP addresses in subnet %(subnet_id)s - "
                "make sure there is enough undivided IP space")
+
+
+class OnlyOneExternalIPv6AddressAllowed(nexception.BadRequest):
+    message = ("Only one external IPv6 address allowed per router")
+
+
+class InvalidExternalGatewayIPDefinition(nexception.BadRequest):
+    message = ("Invalid external gateway ip definition found: %(ext_ip)s")

@@ -189,17 +189,19 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
                                  router["NeutronError"]["type"])
 
     def test_router_create_with_extended_nat_pool_two_subnets_found(self, pc_mock):
-        with self.subnet(cidr="10.100.1.0/24") as s:
-            self._set_net_external(s['subnet']['network_id'])
-            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
-                             external_gateway_info={'network_id': s['subnet']['network_id'],
-                                                    'external_fixed_ips': [
-                                                        {'subnet_id': uuidutils.generate_uuid()},
-                                                        {'subnet_id': uuidutils.generate_uuid()},
-                                                        {'subnet_id': s['subnet']['id']},
-                             ]}) as router:
-                self.assertEqual("DynamicNatPoolTwoSubnetsFound",
-                                 router["NeutronError"]["type"])
+        with self.network() as net:
+            self._set_net_external(net['network']['id'])
+            with self.subnet(cidr="10.100.1.0/24", network=net) as s1, \
+                    self.subnet(cidr="10.100.4.0/24", network=net) as s2:
+                with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                                 external_gateway_info={'network_id': net['network']['id'],
+                                                        'external_fixed_ips': [
+                                                            {'subnet_id': s1['subnet']['id']},
+                                                            {'subnet_id': s2['subnet']['id']},
+                                                            {'subnet_id': s2['subnet']['id']},
+                                 ]}) as router:
+                    self.assertEqual("DynamicNatPoolTwoSubnetsFound",
+                                     router["NeutronError"]["type"])
 
     def test_router_create_with_extended_nat_pool_too_small(self, pc_mock):
         with self.subnet(cidr="10.100.1.0/24") as s:
@@ -350,3 +352,86 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
                 db = asr1k_db.get_db_plugin()
                 router_atts = db.get_router_att(ctx, router['router']['id'])
                 self.assertEqual("10.100.1.25-10.100.1.28/27", router_atts.dynamic_nat_pool)
+
+    def test_router_create_dualstack_without_nat_pool_given_subnet(self, pc_mock):
+        ctx = context.get_admin_context()
+
+        with self.network() as net:
+            self._set_net_external(net['network']['id'])
+            with self.subnet(cidr="10.100.1.0/24", network=net) as s1, \
+                    self.subnet(cidr="2001:db8::/64", network=net, ip_version=6) as s2:
+                with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                                 external_gateway_info={'network_id': net['network']['id'],
+                                                        'external_fixed_ips': [
+                                                            {'subnet_id': s1['subnet']['id']},
+                                                            {'subnet_id': s2['subnet']['id']},
+                                 ]}) as router:
+                    db = asr1k_db.get_db_plugin()
+                    router_atts = db.get_router_att(ctx, router['router']['id'])
+                    self.assertIsNone(router_atts.dynamic_nat_pool)
+                    self.assertEqual(2, len(router['router']['external_gateway_info']['external_fixed_ips']))
+
+    def test_router_create_dualstack_without_nat_pool_given_ipv6_addr(self, pc_mock):
+        ctx = context.get_admin_context()
+
+        with self.network() as net:
+            self._set_net_external(net['network']['id'])
+            with self.subnet(cidr="10.100.1.0/24", network=net) as s1, \
+                    self.subnet(cidr="2001:db8::/64", network=net, ip_version=6):
+                with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                                 external_gateway_info={'network_id': net['network']['id'],
+                                                        'external_fixed_ips': [
+                                                            {'subnet_id': s1['subnet']['id']},
+                                                            {'ip_address': '2001:db8::23'},
+                                 ]}) as router:
+                    db = asr1k_db.get_db_plugin()
+                    router_atts = db.get_router_att(ctx, router['router']['id'])
+                    self.assertIsNone(router_atts.dynamic_nat_pool)
+                    self.assertEqual(2, len(router['router']['external_gateway_info']['external_fixed_ips']))
+
+    def test_router_create_dualstack_with_nat_pool(self, pc_mock):
+        ctx = context.get_admin_context()
+
+        with self.network() as net:
+            self._set_net_external(net['network']['id'])
+            with self.subnet(cidr="10.100.1.0/24", network=net) as s1, \
+                    self.subnet(cidr="2001:db8::/64", network=net, ip_version=6) as s2:
+                with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                                 external_gateway_info={'network_id': net['network']['id'],
+                                                        'external_fixed_ips': [
+                                                            {'subnet_id': s1['subnet']['id']},
+                                                            {'subnet_id': s1['subnet']['id']},
+                                                            {'subnet_id': s2['subnet']['id']},
+                                                            {'subnet_id': s1['subnet']['id']},
+                                                            {'subnet_id': s1['subnet']['id']},
+                                                            {'subnet_id': s1['subnet']['id']},
+                                 ]}) as router:
+                    db = asr1k_db.get_db_plugin()
+                    router_atts = db.get_router_att(ctx, router['router']['id'])
+                    self.assertEqual("10.100.1.2-10.100.1.5/24", router_atts.dynamic_nat_pool)
+                    ext_ips = router['router']['external_gateway_info']['external_fixed_ips']
+                    self.assertEqual(6, len(ext_ips))
+                    self.assertEqual(1, len([ip for ip in ext_ips if ':' in ip['ip_address']]))
+
+    def test_router_create_two_v6_addresses_fail(self, pc_mock):
+        with self.subnet(cidr="2001:db8::/64", ip_version=6) as s:
+            self._set_net_external(s['subnet']['network_id'])
+            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                             external_gateway_info={'network_id': s['subnet']['network_id'],
+                                                    'external_fixed_ips': [
+                                                        {'subnet_id': s['subnet']['id']},
+                                                        {'subnet_id': s['subnet']['id']},
+                             ]}) as router:
+                self.assertEqual("OnlyOneExternalIPv6AddressAllowed",
+                                 router["NeutronError"]["type"])
+
+    def test_router_create_non_existant_subnet(self, pc_mock):
+        with self.subnet(cidr="10.100.1.0/24") as s:
+            self._set_net_external(s['subnet']['network_id'])
+            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                             external_gateway_info={'network_id': s['subnet']['network_id'],
+                                                    'external_fixed_ips': [
+                                                        {'subnet_id': uuidutils.generate_uuid()},
+                             ]}) as router:
+                self.assertEqual("SubnetNotFound",
+                                 router["NeutronError"]["type"])

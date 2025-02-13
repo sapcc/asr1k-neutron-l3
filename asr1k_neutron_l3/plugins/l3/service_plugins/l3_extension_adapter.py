@@ -405,8 +405,29 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         ext_ips = info.get('external_fixed_ips', []) if info else []
         orig_router_atts = self.db.get_router_att(context, router_id)
         dynamic_nat_pool = None
-        if len(ext_ips) > 1:
-            dynamic_nat_pool = self._handle_dynamic_nat_pool_allocation(context, router_id, info, ext_ips)
+        ext_ips_v4 = []
+        ext_ips_v6 = []
+
+        for ext_ip in ext_ips:
+            ip_version = None
+            if 'ip_address' in ext_ip:
+                ip_version = utils.get_ip_version(ext_ip['ip_address'])
+            elif 'subnet_id' in ext_ip:
+                # this will throw a "subnet not found" if the user specified an invalid subnet
+                ip_version = self.db.get_subnet(context, ext_ip['subnet_id'])['ip_version']
+
+            if ip_version == 4:
+                ext_ips_v4.append(ext_ip)
+            elif ip_version == 6:
+                ext_ips_v6.append(ext_ip)
+            else:
+                # in theory we should always have an ip version, buf if not we have this safeguard here
+                raise asr1k_exc.InvalidExternalGatewayIPDefinition(ext_ip=ext_ip)
+
+        if len(ext_ips_v6) > 1:
+            raise asr1k_exc.OnlyOneExternalIPv6AddressAllowed()
+        if len(ext_ips_v4) > 1:
+            dynamic_nat_pool = self._handle_dynamic_nat_pool_allocation(context, router_id, info, ext_ips_v4)
 
         result = super()._update_router_gw_info(context, router_id, info, request_body, router)
         if dynamic_nat_pool is not None or orig_router_atts.dynamic_nat_pool:
