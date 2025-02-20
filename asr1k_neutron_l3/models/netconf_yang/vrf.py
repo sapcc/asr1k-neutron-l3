@@ -19,15 +19,16 @@ import re
 
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.models.netconf_yang.bgp import AddressFamily
+from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.common import cli_snippets
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.connection import ConnectionManager
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, Requeable, NC_OPERATION, execute_on_pair, \
-    retry_on_failure
-from asr1k_neutron_l3.models.netconf_yang.route import VrfRoute
+    retry_on_failure, YANG_TYPE
+from asr1k_neutron_l3.models.netconf_yang.route import VrfRouteV4, VrfRouteV6
+from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -128,20 +129,28 @@ class VrfDefinition(NyBase, Requeable):
             {'key': 'name', 'id': True},
             {'key': 'description'},
             {'key': 'address_family_ipv4', "yang-key": "ipv4", "yang-path": "address-family",
-             'type': IpV4AddressFamily, "default": {}},
-            {'key': 'rd'}
+             'type': IpV4AddressFamily},
+            {'key': 'address_family_ipv6', "yang-key": "ipv6", "yang-path": "address-family",
+             'type': IpV6AddressFamily},
+            {'key': 'rd'},
+
+            # only used to detect empty address families on device
+            {'key': 'device_has_address_family_ipv4', "yang-key": "ipv4", "yang-path": "address-family",
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'device_has_address_family_ipv6', "yang-key": "ipv6", "yang-path": "address-family",
+             'yang-type': YANG_TYPE.EMPTY},
         ]
 
     def __init__(self, **kwargs):
+        # create address family if device only has an empty address family (used for diffing/cleanup)
+        if kwargs.get('device_has_address_family_ipv4') and not kwargs.get('address_family_ipv4'):
+            kwargs['address_family_ipv4'] = IpV4AddressFamily()
+        if kwargs.get('device_has_address_family_ipv6') and not kwargs.get('address_family_ipv6'):
+            kwargs['address_family_ipv6'] = IpV6AddressFamily()
+
         super(VrfDefinition, self).__init__(**kwargs)
 
-        self.enable_bgp = kwargs.get('enable_bgp', False)
-        if kwargs.get('map', None) is not None or kwargs.get('rt_import', None) is not None or \
-                kwargs.get('rt_export', None) is not None:
-            self.address_family_ipv4 = IpV4AddressFamily(**kwargs)
-
         self.asn = None
-
         if self.rd:
             self.asn = self.rd.split(":")[0]
 
@@ -161,8 +170,17 @@ class VrfDefinition(NyBase, Requeable):
         # hopefully
         definition[VrfConstants.RD] = self.rd
 
-        if self.address_family_ipv4 is not None:
-            definition[VrfConstants.ADDRESS_FAMILY][VrfConstants.IPV4] = self.address_family_ipv4.to_dict(context)
+        if self.address_family_ipv4 or self.address_family_ipv6:
+            af = definition[VrfConstants.ADDRESS_FAMILY] = {}
+            if self.address_family_ipv4:
+                af[VrfConstants.IPV4] = self.address_family_ipv4.to_dict(context)
+            else:
+                af[VrfConstants.IPV4] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
+
+            if self.address_family_ipv6:
+                af[VrfConstants.IPV6] = self.address_family_ipv6.to_dict(context)
+            else:
+                af[VrfConstants.IPV6] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
 
         result = OrderedDict()
         result[VrfConstants.DEFINITION] = definition
@@ -233,16 +251,18 @@ class VrfDefinition(NyBase, Requeable):
 
         routes = []
         try:
-            routes = VrfRoute.get_for_vrf(context=context, vrf=self.id)
-            if len(routes) == 0:
-                LOG.info("No routes to clean")
+            routes_v4 = VrfRouteV4.get_for_vrf(context=context, vrf=self.id)
+            routes_v6 = VrfRouteV6.get_for_vrf(context=context, vrf=self.id)
+            routes = routes_v4 + routes_v6
+            if not routes:
+                LOG.info("No routes to clean for %s", self.name)
 
             for route in routes:
-                LOG.info("Deleting hanging route {} in vrf {} postflight.".format(route.name, self.name))
+                LOG.info("Deleting hanging route %s in vrf %s postflight.", route.name, self.name)
                 route._delete(context=context)
-                LOG.info("Deleted hanging route {} in vrf {} postflight.".format(route.name, self.name))
-        except BaseException as e:
-            LOG.error("Failed to delete {} routes in VRF {} postlight : {}".format(len(routes), self.id, e))
+                LOG.debug("Deleted hanging route %s in vrf %s postflight.", route.name, self.name)
+        except Exception as e:
+            LOG.error("Failed to delete %s routes in VRF %s postflight: %s", len(routes), self.id, e)
 
         LOG.debug("Processing Interfaces")
         bdifs = []
@@ -263,17 +283,17 @@ class VrfDefinition(NyBase, Requeable):
         LOG.debug("Processing Address Families")
         afs = []
         try:
-            afs = AddressFamily.get_for_vrf(context=context, asn=self.asn, vrf=self.id)
+            afs_v4 = bgp.AddressFamilyV4.get_for_vrf(context=context, asn=self.asn, vrf=self.id)
+            afs_v6 = bgp.AddressFamilyV6.get_for_vrf(context=context, asn=self.asn, vrf=self.id)
+            afs = afs_v4 + afs_v6
 
             if len(afs) == 0:
-                LOG.info("No address fammilies to clean")
+                LOG.info("No address families to clean")
 
             for af in afs:
-                LOG.info("Deleting hanging address family in vrf {} postflight.".format(self.name))
-                LOG.info(af)
+                LOG.info("Deleting hanging address family %s in vrf %s postflight.", af, self.name)
                 result = af._delete(context=context)
-                LOG.debug(result)
-                LOG.info("Deleted hanging address family in vrf {} postflight.".format(self.name))
+                LOG.debug("Deleted hanging address family %s in vrf %s postflight. Result: %s", af, self.name, result)
         except BaseException as e:
             LOG.error("Failed to delete {} BGP address families in VRF {} postlight : {}".format(len(afs), self.id, e))
 
@@ -283,9 +303,9 @@ class VrfDefinition(NyBase, Requeable):
         return cli_snippets.VRF_CLI_INIT.format(name=self.name, description=self.description, rd=self.rd)
 
 
-class IpV4AddressFamily(NyBase):
+class IpAddressFamilyBase(NyBase):
     LIST_KEY = VrfConstants.ADDRESS_FAMILY
-    ITEM_KEY = VrfConstants.IPV4
+    ITEM_KEY = None
 
     @classmethod
     def __parameters__(cls):
@@ -301,7 +321,7 @@ class IpV4AddressFamily(NyBase):
         ]
 
     def to_dict(self, context):
-        address_family = OrderedDict()
+        address_family = {}
 
         if self.map is not None:
             address_family[VrfConstants.EXPORT] = {"map": self.map}
@@ -325,6 +345,14 @@ class IpV4AddressFamily(NyBase):
             address_family[VrfConstants.ROUTE_TARGET].update(rt)
 
         return dict(address_family)
+
+
+class IpV4AddressFamily(IpAddressFamilyBase):
+    ITEM_KEY = VrfConstants.IPV4
+
+
+class IpV6AddressFamily(IpAddressFamilyBase):
+    ITEM_KEY = VrfConstants.IPV6
 
 
 class RouteTarget(NyBase):

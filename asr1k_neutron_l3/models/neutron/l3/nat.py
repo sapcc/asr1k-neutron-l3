@@ -53,23 +53,20 @@ class NATPool(base.Base):
 
 
 class DynamicNAT(BaseNAT):
-    def __init__(self, router_id, gateway_interface=None, interfaces=[], redundancy=None, mapping_id=None,
-                 mode=asr1k_constants.SNAT_MODE_POOL, bridge_domain=None):
-        super(DynamicNAT, self).__init__(router_id, gateway_interface, redundancy, mapping_id)
-
-        self.interfaces = interfaces
+    def __init__(self, router_id, gateway_interface=None, redundancy=None, mapping_id=None,
+                 mode=asr1k_constants.SNAT_MODE_POOL):
+        super().__init__(router_id, gateway_interface, redundancy, mapping_id)
 
         self.specific_acl = True
         self.mode = mode
 
         self.id = utils.vrf_to_access_list_id(self.router_id)
-        self.bridge_domain = bridge_domain
+        self.bridge_domain = None
+        if self.gateway_interface:
+            self.bridge_domain = self.gateway_interface.bridge_domain
 
     @property
     def _rest_definition(self):
-        if self.gateway_interface is not None:
-            self.bridge_domain = self.gateway_interface.bridge_domain
-
         if self.mode == asr1k_constants.SNAT_MODE_POOL:
             return l3_nat.PoolDynamicNat(id=self.id, vrf=self.router_id, pool=l3_nat.NatPool.gen_id(self.router_id),
                                          bridge_domain=self.bridge_domain, redundancy=self.redundancy,
@@ -79,6 +76,15 @@ class DynamicNAT(BaseNAT):
             return l3_nat.InterfaceDynamicNat(id=self.id, vrf=self.router_id,
                                               bridge_domain=self.bridge_domain, redundancy=self.redundancy,
                                               mapping_id=self.mapping_id, overload=True)
+
+    def diff(self, should_be_none=False):
+        return super().diff(should_be_none=not bool(self.bridge_domain))
+
+    def update(self):
+        if self.bridge_domain:
+            return super().update()
+        else:
+            return super().delete()
 
 
 class NatList(BaseNAT):
@@ -145,7 +151,7 @@ class FloatingIp(BaseNAT):
         self.floating_ip = floating_ip
         self.local_ip = floating_ip.get("fixed_ip_address")
         self.global_ip = floating_ip.get("floating_ip_address")
-        self.global_ip_mask = gateway_interface.ip_address.mask
+        self.global_ip_mask = gateway_interface.ipv4_address.mask
         self.bridge_domain = gateway_interface.bridge_domain
         self.id = "{},{}".format(self.local_ip, self.global_ip)
         self.mapping_id = utils.uuid_to_mapping_id(self.floating_ip.get('id'))
@@ -168,7 +174,7 @@ class FloatingIp(BaseNAT):
 
 class ArpEntry(BaseNAT):
     def __init__(self, router_id, ip, gateway_interface):
-        super(ArpEntry, self).__init__(router_id, gateway_interface)
+        super().__init__(router_id, gateway_interface)
 
         self.ip = ip
         self.id = self.ip

@@ -17,6 +17,7 @@ import xmltodict
 from neutron.tests import base
 
 from asr1k_neutron_l3.models.asr1k_pair import FakeASR1KContext
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface, BDIpv6Address
 from asr1k_neutron_l3.models.netconf_yang.nat import NATConstants, StaticNat
 
 
@@ -72,3 +73,17 @@ class SerializationTest(base.BaseTestCase):
 
         context_17_13 = FakeASR1KContext()
         self.assertEqual({'@operation': 'remove'}, sn.to_single_dict(context_17_13).get('garp-interface'))
+
+    def test_bdvif_ipv6(self):
+        ipv6_addresses = ["fd00::/64", "fd00::256/64"]
+        bdvif = {
+            'ipv6_addresses': [BDIpv6Address(prefix=ip) for ip in ipv6_addresses]
+        }
+        iface = BDInterface(**bdvif)
+        context = FakeASR1KContext()
+        iface_dict = iface.to_dict(context)
+        self.assertEqual(set(ipv6_addresses),
+                         {p['prefix'] for p in iface_dict['BD-VIF']['ipv6']['address']['prefix-list']})
+
+    def test_vrf_ipv6_af(self):
+        pass

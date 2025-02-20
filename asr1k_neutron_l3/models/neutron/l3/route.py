@@ -14,46 +14,70 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import netaddr
+
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.netconf_yang import route as l3_route
 from asr1k_neutron_l3.models.neutron.l3 import base
 
 
-class RouteCollection(base.Base):
+class RouteCollectionBase(base.Base):
     def __init__(self, router_id):
-        super(RouteCollection, self).__init__()
+        super().__init__()
         self.router_id = utils.uuid_to_vrf_id(router_id)
         self.routes = []
 
     @property
+    def _route_collection_model(self):
+        raise NotImplementedError
+
+    @property
     def _rest_definition(self):
-        rest_routes = []
-        for route in self.routes:
-            rest_routes.append(route._rest_definition)
-        return l3_route.VrfRoute(name=self.router_id, routes=rest_routes)
+        rest_routes = [route._rest_definition for route in self.routes]
+        return self._route_collection_model(name=self.router_id, routes=rest_routes)
 
     def append(self, route):
         self.routes.append(route)
 
-    def get(self):
-        return l3_route.VrfRoute.get(self.router_id)
 
-    def delete(self):
-        rc = l3_route.VrfRoute(name=self.router_id)
-
-        return rc.delete()
+class RouteCollectionV4(RouteCollectionBase):
+    @property
+    def _route_collection_model(self):
+        return l3_route.VrfRouteV4
 
 
-class Route(base.Base):
-    def __init__(self, router_id, destination, mask, nexthop):
+class RouteV4(base.Base):
+    def __init__(self, router_id, destination, nexthop):
+        ip_net = netaddr.IPNetwork(destination)
+
         self.router_id = router_id
-        self.destination = destination
-        self.mask = mask
+        self.destination = str(ip_net.ip)
+        self.mask = str(ip_net.netmask)
         self.nexthop = nexthop
 
-        self._rest_definition = l3_route.IpRoute(vrf=self.router_id, prefix=self.destination, mask=self.mask,
-                                                 fwd_list={"fwd": self.nexthop})
+        self._rest_definition = l3_route.IpRouteV4(vrf=self.router_id, prefix=self.destination, mask=self.mask,
+                                                   fwd_list={"fwd": self.nexthop})
 
     @property
     def cidr(self):
         return utils.to_cidr(self.destination, self.mask)
+
+
+class RouteCollectionV6(RouteCollectionBase):
+    @property
+    def _route_collection_model(self):
+        return l3_route.VrfRouteV6
+
+
+class RouteV6(base.Base):
+    def __init__(self, router_id, destination, nexthop):
+        self.router_id = router_id
+        self.destination = destination
+        self.nexthop = nexthop
+
+        self._rest_definition = l3_route.IpRouteV6(vrf=self.router_id, prefix=self.destination,
+                                                   fwd_list={"fwd": self.nexthop})
+
+    @property
+    def cidr(self):
+        return self.destination

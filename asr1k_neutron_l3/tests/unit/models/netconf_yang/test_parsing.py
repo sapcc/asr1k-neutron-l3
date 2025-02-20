@@ -20,10 +20,11 @@ from asr1k_neutron_l3.models.netconf_yang.arp_cache import ArpCache
 from asr1k_neutron_l3.models.netconf_yang import bgp
 from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface
 from asr1k_neutron_l3.models.netconf_yang.vrf import VrfDefinition
 from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat, PoolDynamicNat, StaticNatList
 from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
-from asr1k_neutron_l3.models.netconf_yang.prefix import Prefix
+from asr1k_neutron_l3.models.netconf_yang.prefix import PrefixV4
 from asr1k_neutron_l3.models.netconf_yang.route_map import RouteMap
 from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy
 from asr1k_neutron_l3.models.netconf_yang.zone import Zone
@@ -196,16 +197,16 @@ class ParsingTest(base.BaseTestCase):
         rm_name = "wubwubwub"
 
         context = FakeASR1KContext()
-        bgp_af = bgp.AddressFamily.from_xml(bgp_xml, context)
-        parsed_cidrs = {net.cidr for net in bgp_af.networks_v4}
+        bgp_af = bgp.AddressFamilyV4.from_xml(bgp_xml, context)
+        parsed_cidrs = {net.cidr for net in bgp_af.networks}
         self.assertEqual(orig_cidrs, parsed_cidrs)
-        for network in bgp_af.networks_v4:
+        for network in bgp_af.networks:
             expected_rm = rm_name if network.cidr in cidrs_with_route_map else None
             self.assertEqual(network.route_map, expected_rm)
 
-        nets = [bgp.Network.from_cidr(cidr, route_map=rm_name if cidr in cidrs_with_route_map else None)
+        nets = [bgp.NetworkV4.from_cidr(cidr, route_map=rm_name if cidr in cidrs_with_route_map else None)
                 for cidr in orig_cidrs]
-        bgp_af = bgp.AddressFamily(vrf="meow", networks_v4=nets)
+        bgp_af = bgp.AddressFamilyV4(vrf="meow", networks=nets)
         result = bgp_af.to_dict(context)
 
         orig_netmasks = {from_cidr(cidr) for cidr in orig_cidrs}
@@ -216,6 +217,95 @@ class ParsingTest(base.BaseTestCase):
             self.assertEqual(network.get("route-map"), expected_rm)
             parsed_netmasks.add((network['number'], network['mask']))
         self.assertEqual(orig_netmasks, parsed_netmasks)
+
+    def test_bgp_redistribute_parsing(self):
+        xml_v4_redist_with_rm = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <router>
+        <bgp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
+          <id>65148</id>
+          <address-family>
+            <with-vrf>
+              <ipv4>
+                <af-name>unicast</af-name>
+                <vrf>
+                  <name>seagull-vrf</name>
+                  <ipv4-unicast>
+                    <redistribute-vrf>
+                      <connected>
+                        <route-map>test123</route-map>
+                      </connected>
+                      <static>
+                        <default>
+                          <route-map>test456</route-map>
+                        </default>
+                      </static>
+                    </redistribute-vrf>
+                  </ipv4-unicast>
+                </vrf>
+              </ipv4>
+            </with-vrf>
+          </address-family>
+        </bgp>
+      </router>
+    </native>
+  </data>
+</rpc-reply>
+        """
+
+        xml_v6_redist_with_rm = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <router>
+        <bgp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
+          <id>65148</id>
+          <address-family>
+            <with-vrf>
+              <ipv6>
+                <af-name>unicast</af-name>
+                <vrf>
+                  <name>seagull-vrf</name>
+                  <ipv6-unicast>
+                    <redistribute-v6>
+                      <connected>
+                        <route-map>test123</route-map>
+                      </connected>
+                      <static>
+                        <route-map>test456</route-map>
+                      </static>
+                    </redistribute-v6>
+                  </ipv6-unicast>
+                </vrf>
+              </ipv6>
+            </with-vrf>
+          </address-family>
+        </bgp>
+      </router>
+    </native>
+  </data>
+</rpc-reply>
+        """
+        context = FakeASR1KContext()
+        bgp_af4 = bgp.AddressFamilyV4.from_xml(xml_v4_redist_with_rm, context)
+        self.assertEqual(bgp_af4.redistribute_connected_with_rm, "test123")
+        self.assertEqual(bgp_af4.redistribute_static_with_rm, "test456")
+
+        bgp_af6 = bgp.AddressFamilyV6.from_xml(xml_v6_redist_with_rm, context)
+        self.assertEqual(bgp_af6.redistribute_connected_with_rm, "test123")
+        self.assertEqual(bgp_af6.redistribute_static_with_rm, "test456")
+
+        # back to xml
+        bgp_af4_dict = bgp_af4.to_dict(context)
+        self.assertEqual("test123", bgp_af4_dict['vrf']['ipv4-unicast']['redistribute-vrf']['connected']['route-map'])
+        self.assertEqual("test456",
+                         bgp_af4_dict['vrf']['ipv4-unicast']['redistribute-vrf']['static']['default']['route-map'])
+
+        bgp_af6_dict = bgp_af6.to_dict(context)
+        self.assertEqual("test123", bgp_af6_dict['vrf']['ipv6-unicast']['redistribute-v6']['connected']['route-map'])
+        self.assertEqual("test456", bgp_af6_dict['vrf']['ipv6-unicast']['redistribute-v6']['static']['route-map'])
 
     def test_static_nat_parsing(self):
         xml = """
@@ -746,7 +836,7 @@ class ParsingTest(base.BaseTestCase):
 
 """
         context = FakeASR1KContext()
-        pfx = Prefix.from_xml(xml, context)
+        pfx = PrefixV4.from_xml(xml, context)
         self.assertEqual("seagull-yang-test", pfx.name)
 
         seqs = [(s.no, s.action, s.ip, s.le, s.ge) for s in pfx.seq]
@@ -779,7 +869,7 @@ class ParsingTest(base.BaseTestCase):
 
 """
         context = FakeASR1KContext()
-        pfx = Prefix.from_xml(xml, context)
+        pfx = PrefixV4.from_xml(xml, context)
         self.assertEqual("seagull-yang-test", pfx.name)
 
         seqs = [(s.no, s.action, s.ip) for s in pfx.seq]
@@ -932,3 +1022,316 @@ class ParsingTest(base.BaseTestCase):
         rm = RouteMap.from_xml(rm_17_15_xml, context)
         self.assertEqual("RM-DAP-OYSTRCTCH02", rm.name)
         self.assertEqual(['65126:101', 'additive'], rm.seq[0].asn)
+
+    def test_bdvif_ipv6_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <interface>
+        <BD-VIF>
+          <name>5514</name>
+          <description>Dat interface geraet</description>
+          <mac-address>fa16.3e5a.9da7</mac-address>
+          <vrf>
+            <forwarding>c4505a0be48e497b942b0e07bb57f1fe</forwarding>
+          </vrf>
+          <ip>
+            <address>
+              <primary>
+                <address>192.168.1.1</address>
+                <mask>255.255.255.0</mask>
+              </primary>
+            </address>
+            <policy>
+              <route-map>pbr-c4505a0be48e497b942b0e07bb57f1fe</route-map>
+            </policy>
+            <nat xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-nat">
+              <stick/>
+            </nat>
+          </ip>
+          <ipv6>
+            <address>
+              <prefix-list>
+                <prefix>FD00::/64</prefix>
+              </prefix-list>
+              <prefix-list>
+                <prefix>FD00::256/64</prefix>
+              </prefix-list>
+            </address>
+          </ipv6>
+          <mtu>8950</mtu>
+          <ntp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-ntp">
+            <disable/>
+          </ntp>
+        </BD-VIF>
+      </interface>
+    </native>
+
+  </data>
+</rpc-reply>"""
+
+        expected_v6 = {"fd00::/64", "fd00::256/64"}
+
+        # parse
+        context = FakeASR1KContext()
+        iface = BDInterface.from_xml(xml, context)
+
+        self.assertEqual("5514", iface.name)
+        self.assertEqual("192.168.1.1", iface.ip_address.address)
+        self.assertEqual(expected_v6, {addr.prefix.lower() for addr in iface.ipv6_addresses})
+
+        # back to xml
+        iface_dict = iface.to_dict(context)
+        self.assertEqual(expected_v6, {p['prefix'] for p in iface_dict['BD-VIF']['ipv6']['address']['prefix-list']})
+
+    def test_vrf_ipv6_af_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <vrf>
+        <definition>
+          <name>c4505a0be48e497b942b0e07bb57f1fe</name>
+          <description>Router c4505a0b-e48e-497b-942b-0e07bb57f1fe</description>
+          <rd>65148:39354</rd>
+          <address-family>
+            <ipv4>
+              <export>
+                <map>exp-c4505a0be48e497b942b0e07bb57f1fe</map>
+              </export>
+            </ipv4>
+            <ipv6>
+              <export>
+                <map>bgp-redistribute6-c4505a0be48e497b942b0e07bb57f1fe</map>
+              </export>
+            </ipv6>
+          </address-family>
+        </definition>
+      </vrf>
+    </native>
+  </data>
+</rpc-reply>
+"""
+
+        # parse
+        context = FakeASR1KContext()
+        vrf = VrfDefinition.from_xml(xml, context)
+        self.assertTrue(vrf.address_family_ipv6)
+        self.assertEqual("bgp-redistribute6-c4505a0be48e497b942b0e07bb57f1fe", vrf.address_family_ipv6.map)
+
+        # back to xml
+        vrf_dict = vrf.to_dict(context)
+        self.assertEqual({'export': {'map': 'bgp-redistribute6-c4505a0be48e497b942b0e07bb57f1fe'},
+                          'route-target': {}},
+                         vrf_dict['definition']['address-family']['ipv6'])
+
+    def test_vrf_empty_address_families_on_device(self):
+        xml_empty_af4 = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <vrf>
+        <definition>
+          <name>c4505a0be48e497b942b0e07bb57f1fe</name>
+          <description>Router c4505a0b-e48e-497b-942b-0e07bb57f1fe</description>
+          <rd>65148:39354</rd>
+          <address-family>
+            <ipv4/>
+            <ipv6>
+              <export>
+                <map>bgp-redistribute6-c4505a0be48e497b942b0e07bb57f1fe</map>
+              </export>
+            </ipv6>
+          </address-family>
+        </definition>
+      </vrf>
+    </native>
+  </data>
+</rpc-reply>
+"""
+
+        xml_no_af4 = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <vrf>
+        <definition>
+          <name>c4505a0be48e497b942b0e07bb57f1fe</name>
+          <description>Router c4505a0b-e48e-497b-942b-0e07bb57f1fe</description>
+          <rd>65148:39354</rd>
+          <address-family>
+            <ipv6>
+              <export>
+                <map>bgp-redistribute6-c4505a0be48e497b942b0e07bb57f1fe</map>
+              </export>
+            </ipv6>
+          </address-family>
+        </definition>
+      </vrf>
+    </native>
+  </data>
+</rpc-reply>
+"""
+
+        xml_empty_af6 = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <vrf>
+        <definition>
+          <name>c4505a0be48e497b942b0e07bb57f1fe</name>
+          <description>Router c4505a0b-e48e-497b-942b-0e07bb57f1fe</description>
+          <rd>65148:39354</rd>
+          <address-family>
+            <ipv4>
+              <export>
+                <map>exp-c4505a0be48e497b942b0e07bb57f1fe</map>
+              </export>
+            </ipv4>
+            <ipv6/>
+          </address-family>
+        </definition>
+      </vrf>
+    </native>
+  </data>
+</rpc-reply>
+"""
+
+        xml_no_af6 = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <vrf>
+        <definition>
+          <name>c4505a0be48e497b942b0e07bb57f1fe</name>
+          <description>Router c4505a0b-e48e-497b-942b-0e07bb57f1fe</description>
+          <rd>65148:39354</rd>
+          <address-family>
+            <ipv4>
+              <export>
+                <map>exp-c4505a0be48e497b942b0e07bb57f1fe</map>
+              </export>
+            </ipv4>
+          </address-family>
+        </definition>
+      </vrf>
+    </native>
+  </data>
+</rpc-reply>
+"""
+
+        # ipv4
+        context = FakeASR1KContext()
+        vrf = VrfDefinition.from_xml(xml_empty_af4, context)
+        self.assertTrue(vrf.address_family_ipv4)
+        self.assertTrue(vrf.device_has_address_family_ipv4)
+        self.assertIsNone(vrf.address_family_ipv4.map)
+        self.assertEqual([], vrf.address_family_ipv4.rt_export)
+        self.assertEqual([], vrf.address_family_ipv4.rt_import)
+        self.assertEqual("bgp-redistribute6-c4505a0be48e497b942b0e07bb57f1fe", vrf.address_family_ipv6.map)
+
+        vrf = VrfDefinition.from_xml(xml_no_af4, context)
+        self.assertIsNone(vrf.address_family_ipv4)
+        self.assertEqual("bgp-redistribute6-c4505a0be48e497b942b0e07bb57f1fe", vrf.address_family_ipv6.map)
+
+        # ipv6
+        context = FakeASR1KContext()
+        vrf = VrfDefinition.from_xml(xml_empty_af6, context)
+        self.assertTrue(vrf.address_family_ipv6)
+        self.assertTrue(vrf.device_has_address_family_ipv6)
+        self.assertIsNone(vrf.address_family_ipv6.map)
+        self.assertEqual([], vrf.address_family_ipv6.rt_export)
+        self.assertEqual([], vrf.address_family_ipv6.rt_import)
+        self.assertEqual("exp-c4505a0be48e497b942b0e07bb57f1fe", vrf.address_family_ipv4.map)
+
+        vrf = VrfDefinition.from_xml(xml_no_af6, context)
+        self.assertIsNone(vrf.address_family_ipv6)
+        self.assertEqual("exp-c4505a0be48e497b942b0e07bb57f1fe", vrf.address_family_ipv4.map)
+
+    def test_vrf_ipv4_af_without_v6_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
+           message-id="urn:uuid:37bffcac-d037-48c6-b382-f29aaeddaa4a">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <vrf>
+        <definition>
+          <name>c4505a0be48e497b942b0e07bb57f1fe</name>
+          <description>Router c4505a0b-e48e-497b-942b-0e07bb57f1fe</description>
+          <rd>65148:39354</rd>
+          <address-family>
+            <ipv4>
+              <export>
+                <map>exp-c4505a0be48e497b942b0e07bb57f1fe</map>
+              </export>
+            </ipv4>
+          </address-family>
+        </definition>
+      </vrf>
+    </native>
+  </data>
+</rpc-reply>
+"""
+
+        # parse
+        context = FakeASR1KContext()
+        vrf = VrfDefinition.from_xml(xml, context)
+        self.assertIsNone(vrf.address_family_ipv6)
+        self.assertEqual("exp-c4505a0be48e497b942b0e07bb57f1fe", vrf.address_family_ipv4.map)
+
+        vrf_dict = vrf.to_dict(context)
+        self.assertEqual({'@operation': 'remove'},
+                         vrf_dict['definition']['address-family']['ipv6'])
+
+    def test_bdvif_ipv6_policy_and_acl_parsing(self):
+        xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <interface>
+        <BD-VIF>
+          <name>9999</name>
+          <ipv6>
+            <address>
+              <prefix-list>
+                <prefix>FD00::/64</prefix>
+              </prefix-list>
+              <prefix-list>
+                <prefix>FD00::256/64</prefix>
+              </prefix-list>
+            </address>
+            <policy>
+              <route-map>RM-EXT-TOS-V6</route-map>
+            </policy>
+            <traffic-filter>
+              <direction>out</direction>
+              <common>ACL-EXT-TOS-V6</common>
+            </traffic-filter>
+          </ipv6>
+        </BD-VIF>
+      </interface>
+    </native>
+  </data>
+</rpc-reply>"""
+
+        # parse
+        context = FakeASR1KContext()
+        iface = BDInterface.from_xml(xml, context)
+
+        self.assertEqual("9999", iface.name)
+        self.assertEqual("RM-EXT-TOS-V6", iface.policy_map_v6)
+        self.assertEqual("out", iface.traffic_filters_v6[0].direction)
+        self.assertEqual("ACL-EXT-TOS-V6", iface.traffic_filters_v6[0].access_list)
+
+        # back to xml
+        iface_dict = iface.to_dict(context)
+        self.assertEqual("RM-EXT-TOS-V6", iface_dict['BD-VIF']['ipv6']['policy']['route-map'])
+        self.assertEqual("out", iface_dict['BD-VIF']['ipv6']['traffic-filter'][0]['direction'])
+        self.assertEqual("ACL-EXT-TOS-V6", iface_dict['BD-VIF']['ipv6']['traffic-filter'][0]['common'])
