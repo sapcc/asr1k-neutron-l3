@@ -24,7 +24,7 @@ from asr1k_neutron_l3.common import cli_snippets
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.connection import ConnectionManager
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface
-from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat
+from asr1k_neutron_l3.models.netconf_yang.nat import InterfaceDynamicNat, PoolDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, Requeable, NC_OPERATION, execute_on_pair, \
     retry_on_failure, YANG_TYPE
 from asr1k_neutron_l3.models.netconf_yang.route import VrfRouteV4, VrfRouteV6
@@ -228,23 +228,27 @@ class VrfDefinition(NyBase, Requeable):
             return connection.edit_config(config=config, entity=self.__class__.__name__, action="update")
 
     def postflight(self, context, method):
-        # Clean remaining interface NAT
-        LOG.debug("Processing Interface NAT")
-        interface_nats = []
+        # Clean remaining hanging NAT
+        LOG.debug("Processing potentially hanging NAT for %s", self.id)
+        all_vrf_nats = []
 
         try:
-            interface_nats = InterfaceDynamicNat.get_for_vrf(context=context, vrf=self.id)
+            all_vrf_nats.extend(InterfaceDynamicNat.get_for_vrf(context=context, vrf=self.id))
+            all_vrf_nats.extend(PoolDynamicNat.get_for_vrf(context=context, vrf=self.id))
 
             # Clean remaining interfaces
-            if len(interface_nats) == 0:
-                LOG.info("No interface NAT to clean")
-            for interface_nat in interface_nats:
-                LOG.info("Deleting hanging interface nat {} in vrf {} postflight.".format(interface_nat.id, self.name))
-                interface_nat._delete(context=context)
-                LOG.info("Deleted hanging interface nat {} in vrf {} postflight.".format(interface_nat.id, self.name))
-        except BaseException as e:
-            LOG.error("Failed to delete {} interface NAT in VRF {} postlight : {}"
-                      "".format(len(interface_nats), self.id, e))
+            if len(all_vrf_nats) > 0:
+                for vrf_nat in all_vrf_nats:
+                    LOG.info("Deleting hanging NAT %s %s in VRF %s postflight",
+                             vrf_nat.__class__.__name__, vrf_nat.id, self.name)
+                    vrf_nat._delete(context=context)
+                    LOG.info("Deleted hanging NAT %s %s in VRF %s postflight",
+                             vrf_nat.__class__.__name__, vrf_nat.id, self.name)
+            else:
+                LOG.debug("No hanging NAT to clean for %s", self.id)
+        except Exception as e:
+            LOG.error("Failed to delete %s hanging NAT in VRF %s postflight: %s",
+                      len(all_vrf_nats), self.id, e)
 
         # Clean remaining routes
         LOG.debug("Processing Routes")
