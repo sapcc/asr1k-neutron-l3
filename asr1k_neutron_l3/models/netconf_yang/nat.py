@@ -269,7 +269,7 @@ class InterfaceDynamicNat(DynamicNat):
     VRF_XPATH_FILTER = "/native/ip/nat/inside/source/list-interface/list[id='NAT-{vrf}']"
 
     @classmethod
-    def get_for_vrf(cls, context, vrf=None):
+    def get_for_vrf(cls, context, vrf):
         return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
 
     @classmethod
@@ -375,6 +375,12 @@ class PoolDynamicNat(DynamicNat):
                 </ip>
               </native>
     """
+
+    VRF_XPATH_FILTER = "/native/ip/nat/inside/source/list-pool/list[id='NAT-{vrf}']"
+
+    @classmethod
+    def get_for_vrf(cls, context, vrf):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
 
     @classmethod
     def __parameters__(cls):
