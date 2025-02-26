@@ -153,6 +153,11 @@ class PrefixBase(NyBase):
         else:
             return super()._delete(context=context)
 
+    def _delete_no_retry(self, context, method=NC_OPERATION.DELETE, postflight=True):
+        # override method - we want to have a patch, as due to the new prefix model the delete operation
+        #                   needs to be one level deeper in the xml request (see to_delete_dict())
+        super()._delete_no_retry(context, method=NC_OPERATION.PATCH, postflight=postflight)
+
     def preflight(self, context):
         # delete all rules that should not be on the device (by seq no, rest is done by update-replace)
         # NOTE: if this deletion succeeds and a later update fails we might get in a situation
@@ -180,6 +185,7 @@ class PrefixBase(NyBase):
         prefixes = []
         for seq in self.seq:
             prefixes.append({
+                xml_utils.OPERATION: NC_OPERATION.REMOVE,
                 PrefixConstants.NAME: self.name,
                 PrefixConstants.NUMBER: seq.no,
             })
