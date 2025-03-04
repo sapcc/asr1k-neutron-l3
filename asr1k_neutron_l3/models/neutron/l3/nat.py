@@ -151,7 +151,6 @@ class FloatingIp(BaseNAT):
         self.floating_ip = floating_ip
         self.local_ip = floating_ip.get("fixed_ip_address")
         self.global_ip = floating_ip.get("floating_ip_address")
-        self.global_ip_mask = gateway_interface.ipv4_address.mask
         self.bridge_domain = gateway_interface.bridge_domain
         self.id = "{},{}".format(self.local_ip, self.global_ip)
         self.mapping_id = utils.uuid_to_mapping_id(self.floating_ip.get('id'))
@@ -161,7 +160,7 @@ class FloatingIp(BaseNAT):
             self.mac_address = self.gateway_interface.mac_address
             self.garp_iface_id = self.gateway_interface.bridge_domain
         self._rest_definition = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
-                                                 mask=self.global_ip_mask, bridge_domain=self.bridge_domain,
+                                                 bridge_domain=self.bridge_domain,
                                                  redundancy=self.redundancy, mapping_id=self.mapping_id,
                                                  mac_address=self.mac_address, match_in_vrf=True,
                                                  stateless=cfg.CONF.asr1k_l3.stateless_nat,
