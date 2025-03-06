@@ -16,7 +16,7 @@
 
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.models.netconf_yang.ny_base import execute_on_pair, NC_OPERATION, NyBase
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NC_OPERATION, NyBase
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.common import utils
 
@@ -145,13 +145,6 @@ class PrefixBase(NyBase):
         if seq.no is None:
             seq.no = (len(self.seq) + 1) * 10
         self.seq.append(seq)
-
-    @execute_on_pair()
-    def update(self, context):
-        if len(self.seq) > 0:
-            return super()._update(context=context)
-        else:
-            return super()._delete(context=context)
 
     def _delete_no_retry(self, context, method=NC_OPERATION.DELETE, postflight=True):
         # override method - we want to have a patch, as due to the new prefix model the delete operation
