@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 from collections import OrderedDict
+import copy
 from operator import attrgetter
 import time
 
@@ -23,6 +24,7 @@ from neutron.db import extraroute_db
 from neutron.db import l3_gwmode_db as l3_db
 from neutron.extensions.tagging import TAG_PLUGIN_TYPE
 from neutron.ipam import driver as neutron_ipam_driver
+from neutron.ipam import exceptions as ipam_exc
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import l3 as l3_def
 from neutron_lib.callbacks import events
@@ -34,6 +36,7 @@ from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log
+import tenacity
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import asr1k_exceptions as asr1k_exc
@@ -400,8 +403,14 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         result = super(ASR1KPluginBase, self).create_router(context, router)
         return result
 
+    @tenacity.retry(retry=tenacity.retry_if_exception_type(ipam_exc.IpAddressAlreadyAllocated),
+                    stop=tenacity.stop_after_attempt(5), reraise=True,
+                    wait=tenacity.wait_random(min=0.0, max=0.05))
     def _update_router_gw_info(self, context, router_id, info,
                                request_body, router=None):
+        # we are modifying the info dict, but need the original in case of a retry --> deepcopy()
+        info = copy.deepcopy(info)
+
         ext_ips = info.get('external_fixed_ips', []) if info else []
         orig_router_atts = self.db.get_router_att(context, router_id)
         dynamic_nat_pool = None
@@ -474,7 +483,6 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
             for ext_ip, ip in zip(ext_ips, ips):
                 ext_ip['ip_address'] = ip
-            return dynamic_nat_pool
         else:
             # all ips are specified, check that they are consecutive
             ipset = netaddr.IPSet([ip_def['ip_address'] for ip_def in ext_ips[:-1]])
@@ -492,26 +500,46 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                     break
             else:
                 raise asr1k_exc.DynamicNatPoolGivenIPsDontBelongToNetwork(ip=pool_from, network_id=info['network_id'])
+
+        # try to allocate a gateway ip that doesn't fragment up the space too much
+        gw_ip_def = ext_ips[-1]
+        if 'subnet_id' in gw_ip_def and 'ip_address' not in gw_ip_def:
+            nat_pool_ips = [netaddr.IPAddress(ext_ip['ip_address']) for ext_ip in ext_ips[:-1]]
+            ip = self._find_gateway_ip_for_dynamic_nat_pool(context, gw_ip_def['subnet_id'], nat_pool_ips)
+            if ip:
+                gw_ip_def['ip_address'] = str(ip)
+            else:
+                LOG.warning("Failed to find gateway ip in subnet %s for router %s with nat pool %s, "
+                            "falling back to letting OpenStack find one (is the IP space exhausted?)",
+                            gw_ip_def['subnet_id'], router_id, dynamic_nat_pool)
+
         return dynamic_nat_pool
+
+    def _get_subnet_allocation_pools_and_allocations(self, context, subnet_id):
+        """Get a subnet's allocation pools and an IPSet of already allocated IPs for a subnet"""
+        ipam_driver = neutron_ipam_driver.Pool.get_instance(None, context)
+        ipam_subnet = ipam_driver.get_subnet(subnet_id)
+        allocation_pools = ipam_subnet.subnet_manager.list_pools(context)
+        allocations = ipam_subnet.subnet_manager.list_allocations(context)
+        ip_allocations = netaddr.IPSet([netaddr.IPAddress(allocation.ip_address) for allocation in allocations])
+
+        return allocation_pools, ip_allocations
 
     def _find_ips_for_dynamic_nat_pool(self, context, subnet_id, ip_count):
         """Search for a block of consecutive IPs in the given subnet, return ips and pool"""
-        ipam_driver = neutron_ipam_driver.Pool.get_instance(None, context)
-        ipam_subnet = ipam_driver.get_subnet(subnet_id)
-        allocations = ipam_subnet.subnet_manager.list_allocations(context)
-        ip_allocations = netaddr.IPSet([netaddr.IPAddress(allocation.ip_address) for allocation in allocations])
+        allocation_pools, ip_allocations = self._get_subnet_allocation_pools_and_allocations(context, subnet_id)
 
         plugin = directory.get_plugin()
         subnet = plugin.get_subnet(context, subnet_id)
 
-        for ip_pool in ipam_subnet.subnet_manager.list_pools(context):
+        for ip_pool in allocation_pools:
             ip_set = netaddr.IPSet()
             ip_set.add(netaddr.IPRange(ip_pool.first_ip, ip_pool.last_ip))
             av_set = ip_set.difference(ip_allocations)
             if av_set.size < ip_count:
                 continue
 
-            av_ranges = sorted(av_set.iter_ipranges(), key=attrgetter('size'))
+            av_ranges = sorted(av_set.iter_ipranges(), key=attrgetter('size', 'first'))
             for av_range in av_ranges:
                 if av_range.size >= ip_count:
                     result = [str(ip) for ip in av_range[:ip_count]]
@@ -519,6 +547,24 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                     return result, pool
 
         return None, None
+
+    def _find_gateway_ip_for_dynamic_nat_pool(self, context, subnet_id, nat_pool_ips):
+        """Find a usable gateway ip for a nat pool in a subnet without fragmenting the ip space too much"""
+        # current allocation logic: last ip that is not allocated and not in the pool
+        allocation_pools, ip_allocations = self._get_subnet_allocation_pools_and_allocations(context, subnet_id)
+
+        gw_ip_candidate = None
+        for ip_pool in allocation_pools:
+            for ip in netaddr.iter_iprange(ip_pool.last_ip, ip_pool.first_ip, step=-1):
+                # don't need to look at smaller ips if we have a candidate
+                if gw_ip_candidate and ip < gw_ip_candidate:
+                    break
+
+                if ip not in ip_allocations and ip not in nat_pool_ips:
+                    gw_ip_candidate = ip
+                    break
+
+        return gw_ip_candidate
 
     def ensure_default_route_skip_monitoring(self, context, router_id, router):
         tag_plugin = directory.get_plugin(TAG_PLUGIN_TYPE)
