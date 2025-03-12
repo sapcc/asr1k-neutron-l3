@@ -65,12 +65,12 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
                 router_atts = db.get_router_att(ctx, router['router']['id'])
                 self.assertEqual("10.100.1.2-10.100.1.5/24", router_atts.dynamic_nat_pool)
 
-                expected_pool_ips = [f"10.100.1.{n}" for n in range(2, 6)]
+                expected_pool_ips = [f"10.100.1.{n}" for n in range(2, 6)] + ["10.100.1.254"]
                 router_ips = [ip_def['ip_address']
                               for ip_def in router['router']['external_gateway_info']['external_fixed_ips']]
                 router_ips.sort(key=lambda _ip: int(netaddr.IPAddress(_ip)))
                 self.assertEqual(5, len(router_ips))
-                self.assertEqual(expected_pool_ips, router_ips[:-1])
+                self.assertEqual(expected_pool_ips, router_ips)
 
     def test_router_create_with_extended_nat_pool_with_specific_ips(self, pc_mock):
         ctx = context.get_admin_context()
@@ -150,12 +150,12 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
                 router_atts = db.get_router_att(ctx, router['router']['id'])
                 self.assertEqual("10.100.1.6-10.100.1.9/24", router_atts.dynamic_nat_pool)
 
-                expected_pool_ips = [f"10.100.1.{n}" for n in range(6, 10)]
+                expected_pool_ips = [f"10.100.1.{n}" for n in range(6, 10)] + ["10.100.1.254"]
                 router_ips = [ip_def['ip_address']
                               for ip_def in router['router']['external_gateway_info']['external_fixed_ips']]
                 router_ips.sort(key=lambda _ip: int(netaddr.IPAddress(_ip)))
                 self.assertEqual(5, len(router_ips))
-                self.assertEqual(expected_pool_ips, router_ips[:-1])
+                self.assertEqual(expected_pool_ips, router_ips)
 
     def test_router_create_with_extended_nat_pool_non_consecutive_specified_nat_pool(self, pc_mock):
         with self.subnet(cidr="10.100.1.0/24") as s:
@@ -321,7 +321,6 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
                              ]}) as router:
                 db = asr1k_db.get_db_plugin()
                 router_atts = db.get_router_att(ctx, router['router']['id'])
-                router_atts = db.get_router_att(ctx, router['router']['id'])
                 self.assertEqual("10.100.1.2-10.100.1.5/24", router_atts.dynamic_nat_pool)
 
                 with mock.patch.object(ASR1KPluginBase, 'ensure_default_route_skip_monitoring', autospec=True):
@@ -435,3 +434,102 @@ class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
                              ]}) as router:
                 self.assertEqual("SubnetNotFound",
                                  router["NeutronError"]["type"])
+
+    def test_router_create_with_extended_nat_pool_and_last_ip_used(self, pc_mock):
+        ctx = context.get_admin_context()
+
+        with self.subnet(cidr="10.100.1.0/24") as s:
+            self._set_net_external(s['subnet']['network_id'])
+            self._make_port("json", s['subnet']['network_id'], fixed_ips=[{'ip_address': '10.100.1.254'}])
+            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                             external_gateway_info={'network_id': s['subnet']['network_id'],
+                                                    'external_fixed_ips': [
+                                                        {'subnet_id': s['subnet']['id']},
+                                                        {'subnet_id': s['subnet']['id']},
+                                                        {'subnet_id': s['subnet']['id']},
+                                                        {'subnet_id': s['subnet']['id']},
+                                                        {'subnet_id': s['subnet']['id']},
+                             ]}) as router:
+                db = asr1k_db.get_db_plugin()
+                router_atts = db.get_router_att(ctx, router['router']['id'])
+                self.assertEqual("10.100.1.2-10.100.1.5/24", router_atts.dynamic_nat_pool)
+
+                expected_pool_ips = [f"10.100.1.{n}" for n in range(2, 6)] + ["10.100.1.253"]
+                router_ips = [ip_def['ip_address']
+                              for ip_def in router['router']['external_gateway_info']['external_fixed_ips']]
+                router_ips.sort(key=lambda _ip: int(netaddr.IPAddress(_ip)))
+                self.assertEqual(5, len(router_ips))
+                self.assertEqual(expected_pool_ips, router_ips)
+
+    def test_router_create_with_extended_nat_pool_and_selected_pool_is_at_end(self, pc_mock):
+        ctx = context.get_admin_context()
+
+        with self.subnet(cidr="10.100.1.0/24") as s:
+            self._set_net_external(s['subnet']['network_id'])
+            self._make_port("json", s['subnet']['network_id'], fixed_ips=[{'ip_address': '10.100.1.250'}])
+            with self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                             external_gateway_info={'network_id': s['subnet']['network_id'],
+                                                    'external_fixed_ips': [
+                                                        {'subnet_id': s['subnet']['id']},
+                                                        {'subnet_id': s['subnet']['id']},
+                                                        {'subnet_id': s['subnet']['id']},
+                                                        {'subnet_id': s['subnet']['id']},
+                                                        {'subnet_id': s['subnet']['id']},
+                             ]}) as router:
+                db = asr1k_db.get_db_plugin()
+                router_atts = db.get_router_att(ctx, router['router']['id'])
+                self.assertEqual("10.100.1.251-10.100.1.254/24", router_atts.dynamic_nat_pool)
+
+                expected_pool_ips = ["10.100.1.249"] + [f"10.100.1.{n}" for n in range(251, 255)]
+                router_ips = [ip_def['ip_address']
+                              for ip_def in router['router']['external_gateway_info']['external_fixed_ips']]
+                router_ips.sort(key=lambda _ip: int(netaddr.IPAddress(_ip)))
+                self.assertEqual(5, len(router_ips))
+                self.assertEqual(expected_pool_ips, router_ips)
+
+    def test_router_create_with_extended_nat_pool_where_gw_ip_is_snatched_before_allocation(self, pc_mock):
+        ctx = context.get_admin_context()
+
+        with self.subnet(cidr="10.100.1.0/24") as s:
+            self._set_net_external(s['subnet']['network_id'])
+
+            # machinery to allocate the ip on first try
+            l3_plugin = directory.get_plugin(plugin_constants.L3)
+            is_first_try = True
+            orig_meth = l3_plugin._find_gateway_ip_for_dynamic_nat_pool
+
+            def alloc_last_ip_on_first_try(*args, **kwargs):
+                nonlocal is_first_try
+
+                ret = orig_meth(*args, **kwargs)
+                if is_first_try:
+                    self.assertEqual("10.100.1.254", str(ret))
+
+                    # allocate the ip painstakingly found by the allocation algorithm *mwahahahaha*
+                    self._make_port("json", s['subnet']['network_id'], fixed_ips=[{'ip_address': '10.100.1.254'}])
+                    is_first_try = False
+                else:
+                    self.assertEqual("10.100.1.253", str(ret))
+                return ret
+
+            with mock.patch.object(l3_plugin, '_find_gateway_ip_for_dynamic_nat_pool',
+                                   side_effect=alloc_last_ip_on_first_try), \
+                    self.router(name="r1", admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
+                                external_gateway_info={'network_id': s['subnet']['network_id'],
+                                                       'external_fixed_ips': [
+                                                           {'subnet_id': s['subnet']['id']},
+                                                           {'subnet_id': s['subnet']['id']},
+                                                           {'subnet_id': s['subnet']['id']},
+                                                           {'subnet_id': s['subnet']['id']},
+                                                           {'subnet_id': s['subnet']['id']},
+                                ]}) as router:
+                db = asr1k_db.get_db_plugin()
+                router_atts = db.get_router_att(ctx, router['router']['id'])
+                self.assertEqual("10.100.1.2-10.100.1.5/24", router_atts.dynamic_nat_pool)
+
+                expected_pool_ips = [f"10.100.1.{n}" for n in range(2, 6)] + ["10.100.1.253"]
+                router_ips = [ip_def['ip_address']
+                              for ip_def in router['router']['external_gateway_info']['external_fixed_ips']]
+                router_ips.sort(key=lambda _ip: int(netaddr.IPAddress(_ip)))
+                self.assertEqual(5, len(router_ips))
+                self.assertEqual(expected_pool_ips, router_ips)
