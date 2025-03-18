@@ -420,8 +420,8 @@ class Router(Base):
             if self.extra_atts is not None:
                 return self.extra_atts.get(port.get('id'), {})
             else:
-                LOG.error("Cannot get  extra atts from {} for port {} on router {}"
-                          "".format(self.extra_atts, port.get('id'), self.router_id))
+                LOG.error("Cannot get extra atts from %s for port %s on router %s",
+                          self.extra_atts, port.get('id'), self.router_id)
                 return {}
         except BaseException as e:
 
