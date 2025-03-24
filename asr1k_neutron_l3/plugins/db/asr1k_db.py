@@ -166,6 +166,23 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         return False
 
     @db_api.CONTEXT_READER
+    def get_bgpvpn_network_associations_by_router_id(self, context, router_id):
+        fields = [models_v2.Subnet.id, models_v2.Subnet.cidr]
+        query = context.session.query(*fields)
+        query = query.join(l3_models.RouterPort, l3_models.RouterPort.router_id == l3_models.Router.id)
+        query = query.filter(l3_models.RouterPort.port_type == n_constants.DEVICE_OWNER_ROUTER_INTF)
+        query = query.join(models_v2.Port, models_v2.Port.id == l3_models.RouterPort.port_id)
+        query = query.join(bgpvpn_db.BGPVPNNetworkAssociation,
+                           bgpvpn_db.BGPVPNNetworkAssociation.network_id == models_v2.Port.network_id)
+        query = query.join(models_v2.IPAllocation, models_v2.IPAllocation.port_id == models_v2.Port.id)
+        query = query.join(models_v2.Subnet, models_v2.Subnet.id == models_v2.IPAllocation.subnet_id)
+        query = query.filter(l3_models.Router.id == router_id)
+
+        return [
+            {"subnet_id": entry.id, "cidr": entry.cidr} for entry in query.all()
+        ]
+
+    @db_api.CONTEXT_READER
     def get_network_port_count_per_agent(self, context: n_context.Context, network_id: str) -> Dict[str, int]:
         query = context.session.query(asr1k_models.ASR1KExtraAttsModel.agent_host,
                                       func.count(asr1k_models.ASR1KExtraAttsModel.port_id).label('port_count')) \

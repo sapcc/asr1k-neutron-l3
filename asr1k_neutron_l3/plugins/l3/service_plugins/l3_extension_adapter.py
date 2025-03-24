@@ -313,6 +313,9 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
             rt_import = []
             rt_export = []
+            # FIXME: fetch bgpvpns not only by router associations, also by network associations
+            # --> we need to have a flag for "advertise everything" and for only specific subnets
+            #   we could also mark subnets as "advertise them" or not
             bgpvpns = self.db.get_bgpvpns_by_router_id(context, router['id'])
             router["bgpvpn_advertise_extra_routes"] = True
             if bgpvpns:

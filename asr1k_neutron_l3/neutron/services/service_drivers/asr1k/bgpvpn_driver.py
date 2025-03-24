@@ -80,6 +80,25 @@ class ASR1KBGPVPNDriver(driver_api.BGPVPNDriverRC):
         LOG.debug("***************************** delete_router_assoc_postcommit")
         return self._notifier().routers_updated(context, [router_assoc.get('router_id')])
 
+    def create_network_assoc_precommit(self, context, network_assoc):
+        # FIXME: check if there's a router in the network
+        LOG.debug("****************************** create_network_assoc_precommit")
+
+    def create_network_assoc_postcommit(self, context, network_assoc):
+        # FIXME: get router ids that are in a network
+        LOG.debug("****************************** create_network_assoc_postcommit")
+        return self._notifier().routers_updated(context, [network_assoc.get('router_id')])
+
+    def delete_network_assoc_precommit(self, context, network_assoc):
+        # FIXME: check if there is a router in that network
+        LOG.debug("****************************** delete_network_assoc_precommit")
+
+    def delete_network_assoc_postcommit(self, context, network_assoc):
+        # FIXME: get router ids that are in a network
+        LOG.debug("***************************** delete_network_assoc_postcommit")
+        return self._notifier().routers_updated(context, [network_assoc.get('router_id')])
+
+
 
 class ASR1KBGPVPNNotifier(l3_rpc_agent_api.L3AgentNotifyAPI):
     @log_helpers.log_method_call
