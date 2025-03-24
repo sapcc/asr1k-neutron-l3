@@ -15,62 +15,59 @@
 #    under the License.
 import os
 
+
 if not os.environ.get('DISABLE_EVENTLET_PATCHING'):
     import eventlet
     eventlet.monkey_patch()
 
 import datetime
-import eventlet
 import gc
 import re
-import requests
 import signal
 import sys
 import time
 import traceback
-import urllib3
 
+import eventlet
 from greenlet import greenlet
+from neutron import manager
+from neutron import service as neutron_service
+from neutron.agent import rpc as agent_rpc
 from neutron.agent.common import resource_processing_queue as queue
 from neutron.agent.l3 import agent as l3_agent
 from neutron.agent.linux import external_process
-from neutron.agent import rpc as agent_rpc
 from neutron.common import config as common_config
-from neutron import service as neutron_service
+from neutron_lib import constants as lib_constants
+from neutron_lib import context as n_context
+from neutron_lib import rpc as n_rpc
 from neutron_lib.agent import constants as agent_consts
 from neutron_lib.agent import topics
-from neutron_lib.callbacks import events
-from neutron_lib.callbacks import registry
-from neutron_lib.callbacks import resources
-from neutron_lib import context as n_context
-from neutron_lib import constants as lib_constants
+from neutron_lib.callbacks import events, registry, resources
 from neutron_lib.exceptions import l3 as l3_exc
-from neutron_lib import rpc as n_rpc
-from neutron import manager
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
 import oslo_messaging
-from oslo_service import loopingcall
-from oslo_service import periodic_task
-from oslo_service import service
+from oslo_service import loopingcall, periodic_task, service
 from oslo_utils import timeutils
+import requests
+import urllib3
 
-from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
-from asr1k_neutron_l3.common import asr1k_constants as constants, utils
-from asr1k_neutron_l3.common.exc_helper import exc_info_full
-from asr1k_neutron_l3.common import prometheus_monitor
-from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
+from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import asr1k_exceptions as exc
-from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.common import config as asr1k_config
+from asr1k_neutron_l3.common import prometheus_monitor, utils
+from asr1k_neutron_l3.common.exc_helper import exc_info_full
+from asr1k_neutron_l3.common.instrument import instrument
+from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
+from asr1k_neutron_l3.models import asr1k_pair, connection
 from asr1k_neutron_l3.models.netconf_yang.arp_cache import ArpCache
 from asr1k_neutron_l3.models.netconf_yang.copy_config import CopyConfig
 from asr1k_neutron_l3.models.neutron.l3 import router as l3_router
-from asr1k_neutron_l3.models import asr1k_pair
-from asr1k_neutron_l3.models import connection
 from asr1k_neutron_l3.plugins.l3.agents import operations
+from asr1k_neutron_l3.plugins.l3.agents import router_processing_queue as asr1k_queue
 from asr1k_neutron_l3.plugins.l3.agents.device_cleaner import DeviceCleanerMixin
+
 
 # try:
 #     from neutron_fwaas.services.firewall.agents.l3reference \
@@ -502,7 +499,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                       "".format(int(timeutils.now() - self._last_full_sync)))
 
             all_stats = self.plugin_rpc.get_usage_stats(self.context)
-            for status in all_stats.keys():
+            for status in all_stats:
                 stats = all_stats.get(status, {})
                 PrometheusMonitor().routers.labels(status=status).set(stats.get('routers', 0))
                 PrometheusMonitor().interfaces.labels(status=status).set(stats.get('interface_ports', 0))
@@ -691,7 +688,7 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
                                     self.retry_tracker[update.id] = requeue_attempts + 1
                                     self._requeue_router(update)
                                 else:
-                                    LOG.debug('Max requeing attempts reached for %s' % update.id)
+                                    LOG.debug('Max requeing attempts reached for %s', update.id)
                                     self.retry_tracker.pop(update.id, None)
                                     raise e
                             else:

@@ -660,7 +660,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                 return entry
 
             # create new entry for router
-            rds_used = set([item.rd for item in context.session.query(asr1k_models.ASR1KRouterAttsModel)])
+            rds_used = {item.rd for item in context.session.query(asr1k_models.ASR1KRouterAttsModel)}
             rds_available = list(set(range(MIN_RD, MAX_RD)) - rds_used)
             if len(rds_available) == 0:
                 raise asr1k_exceptions.RdPoolExhausted()
@@ -734,8 +734,9 @@ class ExtraAttsDb(object):
 
     def set_next_entries(self):
         with db_api.CONTEXT_READER.using(self.context):
-            extra_atts = self.context.session.query(asr1k_models.ASR1KExtraAttsModel).filter_by(agent_host=self.agent_host)
-            second_dot1qs_used = set([item.second_dot1q for item in extra_atts])
+            extra_atts = self.context.session.query(asr1k_models.ASR1KExtraAttsModel)
+            extra_atts = extra_atts.filter_by(agent_host=self.agent_host)
+            second_dot1qs_used = {item.second_dot1q for item in extra_atts}
             second_dot1qs_available = list(set(range(MIN_SECOND_DOT1Q, MAX_SECOND_DOT1Q)) - second_dot1qs_used)
             if len(second_dot1qs_available) == 0:
                 raise asr1k_exceptions.SecondDot1QPoolExhausted(agent_host=self.agent_host)
@@ -780,8 +781,7 @@ class DeviceInfoDb(object):
     @property
     def _record_exists(self):
         with db_api.CONTEXT_READER.using(self.context):
-            entry = self.context.session.query(asr1k_models.ASR1KDeviceInfoModel).filter_by(id=self.id).first()
-            return entry
+            return self.context.session.query(asr1k_models.ASR1KDeviceInfoModel).filter_by(id=self.id).first()
 
     def update(self):
         with db_api.CONTEXT_WRITER.using(self.context):
