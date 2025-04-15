@@ -86,6 +86,8 @@ class ASR1KFWaaSDriver(driver_api.FirewallDriverDB):
         ports = firewall_group['ports']
         router_ids = self.asr1k_db.get_router_ids_by_ports(context, ports)
         self._notify_asr1k_agent('firewall_group', firewall_group['id'], context, router_ids=router_ids)
+        self.firewall_db.update_firewall_group_status(context, firewall_group['id'],
+                                                      nl_constants.ACTIVE)
 
     @log_helpers.log_method_call
     def update_firewall_group_postcommit(self, context, old_firewall_group, new_firewall_group):
