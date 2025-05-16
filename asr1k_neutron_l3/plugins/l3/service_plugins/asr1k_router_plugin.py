@@ -18,12 +18,14 @@ from neutron_lib.agent import topics
 from neutron_lib.api.definitions import extraroute
 from neutron_lib.api.definitions import extraroute_atomic
 from neutron_lib.api.definitions import l3 as l3_apidef
+from neutron_lib.api.definitions import l3_flavors
 from neutron_lib.api.definitions import l3_port_ip_change_not_allowed
 from neutron_lib.api.definitions import router_availability_zone
 from neutron_lib import constants as n_const
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib import rpc as n_rpc
 from neutron_lib.services import base
+from neutron.services.l3_router.service_providers import driver_controller
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
@@ -45,6 +47,7 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePlugin
                                    extraroute_atomic.ALIAS,
                                    n_const.L3_AGENT_SCHEDULER_EXT_ALIAS,
                                    router_availability_zone.ALIAS,
+                                   l3_flavors.ALIAS,
                                    l3_port_ip_change_not_allowed.ALIAS,
                                    asr1k_ext.ASR1K_DEVICES_ALIAS,
                                    ]
@@ -76,6 +79,7 @@ class ASR1KRouterPlugin(l3_extension_adapter.ASR1KPluginBase, base.ServicePlugin
         self.add_periodic_l3_agent_status_check()
         self.agent_notifiers.update(
             {n_const.AGENT_TYPE_L3: ask1k_l3_notifier.ASR1KAgentNotifyAPI()})
+        self.l3_driver_controller = driver_controller.DriverController(self)
 
     @log_helpers.log_method_call
     def start_rpc_listeners(self):

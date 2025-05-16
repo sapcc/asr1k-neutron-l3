@@ -841,6 +841,12 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
     def __init__(self, host, conf=None):
         super(L3ASRAgentWithStateReport, self).__init__(host=host, conf=conf)
         self.state_rpc = agent_rpc.PluginReportStateAPI(topics.REPORTS)
+
+        required_traits = self.conf.AGENT.required_traits
+        if self.conf.AGENT.scheduling_disabled:
+            required_traits = required_traits.copy()
+            required_traits.append(constants.TRAIT_SCHEDULING_DISABLED)
+
         self.agent_state = {
             'binary': 'asr1k-neutron-l3-agent',
             'host': host,
@@ -849,6 +855,8 @@ class L3ASRAgentWithStateReport(L3ASRAgent):
             'configurations': {
                 'log_agent_heartbeats': self.conf.AGENT.log_agent_heartbeats,
                 'scheduling_disabled': self.conf.AGENT.scheduling_disabled,
+                'req_traits': required_traits,
+                'opt_traits': self.conf.AGENT.optional_traits,
             },
             'start_flag': True,
             'agent_type': constants.AGENT_TYPE_ASR1K_L3,

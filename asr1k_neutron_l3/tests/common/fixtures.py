@@ -48,7 +48,7 @@ class FakeASR1KPair:
 
 class ASR1KTestL3NatIntPlugin(test_l3.TestL3NatIntPlugin, address_scope_db.AddressScopeDbMixin):
     supported_extension_aliases = test_l3.TestL3NatIntPlugin.supported_extension_aliases + [
-        'availability_zone', 'agent', 'address-scope',
+        'availability_zone', 'agent', 'address-scope', 'flavors',
     ]
 
 
