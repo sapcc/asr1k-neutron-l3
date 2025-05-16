@@ -32,10 +32,12 @@ from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
 from neutron_lib.db import api as db_api
 from neutron_lib.db import resource_extend
+from neutron_lib.exceptions import flavors as flav_exc
 from neutron_lib.plugins import directory
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log
+from oslo_serialization import jsonutils
 import tenacity
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
@@ -368,6 +370,71 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
     def get_deleted_router_atts(self, context):
         return self.db.get_deleted_router_atts(context)
 
+    def get_flavor_metainfo_entries(self, context, flavor_id):
+        """Fetch the metainfo of all service profiles referenced by a flavor"""
+
+        try:
+            flavor = self.db.get_flavor(context, flavor_id)
+        except flav_exc.FlavorNotFound:
+            return None
+
+        entries = []
+        for sp_id in flavor['service_profiles']:
+            sp = self.db.get_service_profile(context, sp_id)
+            if not sp['enabled']:
+                LOG.warning("Service profile %s of flavor %s is disabled, ignoring its metainfo",
+                            sp_id, flavor_id)
+                continue
+
+            if not sp['metainfo']:
+                LOG.warning("Ignoring empty metainfo for service profile %s of flavor %s",
+                            sp_id, flavor_id)
+                continue
+
+            try:
+                metainfo = jsonutils.loads(sp['metainfo'])
+            except ValueError as e:
+                LOG.error("Service profile %s of flavor %s has unparsable metainfo: %s (metainfo was %s)",
+                          sp_id, flavor_id, e, sp['metainfo'])
+                continue
+
+            if not isinstance(metainfo, dict):
+                LOG.error("Service profile %s of flavor %s metainfo is not a dict (metainfo was %s)",
+                          sp_id, flavor_id, sp['metainfo'])
+                continue
+
+            entries.append(metainfo)
+
+        return entries
+
+    def get_metainfo_from_flavor_id(self, context, flavor_id):
+        result = {
+            "req_traits": [],
+            "opt_traits": [],
+        }
+
+        metainfos = self.get_flavor_metainfo_entries(context, flavor_id)
+        if not metainfos:
+            LOG.info("No metainfo information associated with flavor %s", flavor_id)
+            return result
+
+        for entry in metainfos:
+            for key in ("req_traits", "opt_traits"):
+                if key not in entry:
+                    continue
+                if not isinstance(entry[key], list):
+                    LOG.warning("Found non-list entry for key %s in flavor %s metainfo, ignoring it (value was %s)",
+                                key, flavor_id, entry[key])
+                    continue
+                for idx in reversed(range(len(entry[key]))):
+                    if not isinstance(entry[key][idx], str):
+                        LOG.warning("Flavor %s trait key %s has invalid item in list, removing it (idx %s, item %s)",
+                                    flavor_id, key, idx, entry[key][idx])
+                        del entry[key][idx]
+                result[key].extend(entry[key])
+
+        return result
+
     def _get_device_info(self, context, host):
         return self.db.get_device_info(context, host)
 
@@ -595,6 +662,11 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         if result_dict.get('external_gateway_info'):
             result_dict['external_gateway_info']['external_port_id'] = db.gw_port.id
         return result_dict
+
+    @staticmethod
+    @resource_extend.extends([l3_def.ROUTERS])
+    def add_flavor_id(router_res, router_db):
+        router_res['flavor_id'] = router_db['flavor_id']
 
     @log_helpers.log_method_call
     def get_router(self, context, id, fields=None):

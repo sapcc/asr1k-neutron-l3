@@ -119,6 +119,10 @@ AGENT_STATE_OPTS = [
                 help=_('Log agent heartbeats')),
     cfg.BoolOpt('scheduling_disabled', default=False,
                 help="No new routers will be scheduled on this L3 agent."),
+    cfg.ListOpt('required_traits', default=[],
+                help="List of traits required to be scheduled onto this router"),
+    cfg.ListOpt('optional_traits', default=[],
+                help="List of traits this device has but which are not required for scheduling a router onto it"),
 ]
 
 

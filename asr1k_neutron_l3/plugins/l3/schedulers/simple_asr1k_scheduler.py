@@ -19,8 +19,6 @@ from neutron_lib.db import api as db_api
 from oslo_config import cfg
 from oslo_log import helpers as log_helpers
 from oslo_log import log as logging
-from oslo_serialization import jsonutils
-
 
 from asr1k_neutron_l3.common import asr1k_constants as asr1k_const
 
@@ -50,16 +48,35 @@ class SimpleASR1KScheduler(l3_agent_scheduler.AZLeastRoutersScheduler):
 
             orig_candidates = plugin.get_l3_agents(context, active=True)
 
+            router_req_traits = set()
+            router_opt_traits = set()
+            if sync_router['flavor_id']:
+                flav_info = plugin.get_metainfo_from_flavor_id(context, sync_router['flavor_id'])
+                router_req_traits |= set(flav_info["req_traits"])
+                router_opt_traits |= set(flav_info["opt_traits"])
+
             enabled_candidates = []
             disabled_hosts = []
             for candidate in orig_candidates:
-                if not jsonutils.loads(candidate.configurations).get('scheduling_disabled', False):
-                    enabled_candidates.append(candidate)
-                else:
+                agent_config = plugin.get_configuration_dict(candidate)
+                agent_req_traits = set(agent_config.get("req_traits", []))
+                agent_opt_traits = set(agent_config.get("opt_traits", []))
+                if agent_config.get('scheduling_disabled', False):
+                    agent_req_traits.add(asr1k_const.TRAIT_SCHEDULING_DISABLED)
+
+                if missing_traits := agent_req_traits - (router_req_traits | router_opt_traits):
+                    LOG.debug("Ignoring agent host %s for router %s because agent requires traits %s",
+                              candidate.host, sync_router['id'], ", ".join(missing_traits))
                     disabled_hosts.append(candidate.host)
+                elif missing_traits := router_req_traits - (agent_req_traits | agent_opt_traits):
+                    LOG.debug("Ignoring agent host %s for router %s because router requires traits %s",
+                              candidate.host, sync_router['id'], ", ".join(missing_traits))
+                    disabled_hosts.append(candidate.host)
+                else:
+                    enabled_candidates.append(candidate)
 
             if disabled_hosts:
-                LOG.debug('Ignoring agent hosts %s scheduling disabled for scheduling of %s',
+                LOG.debug('Ignoring agent hosts %s due to unmatched traits for scheduling of %s',
                           ', '.join(disabled_hosts), sync_router["id"])
 
             # router creation with az hint: only schedule on agent with appropriate AZ

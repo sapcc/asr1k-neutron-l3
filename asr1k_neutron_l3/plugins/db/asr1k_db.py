@@ -20,6 +20,7 @@ from typing import Dict
 from neutron.db import address_scope_db
 from neutron.db import db_base_plugin_v2
 from neutron.db import external_net_db
+from neutron.db import flavors_db
 from neutron.db import l3_agentschedulers_db
 from neutron.db import l3_db
 from neutron.db import models_v2
@@ -80,7 +81,8 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
                l3_db.L3_NAT_dbonly_mixin,
                l3_agentschedulers_db.L3AgentSchedulerDbMixin,
                bgpvpn_db.BGPVPNPluginDb,
-               fwaas.FirewallPluginDb
+               fwaas.FirewallPluginDb,
+               flavors_db.FlavorsDbMixin,
                ):
     def __init__(self):
         super(DBPlugin, self).__init__()
