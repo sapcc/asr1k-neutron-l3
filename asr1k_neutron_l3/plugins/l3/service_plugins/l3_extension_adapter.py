@@ -280,10 +280,12 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
             gw_info = router.get('external_gateway_info', None)
             gw_port = router.get('gw_port', None)
+            address_scope_id = None
             if gw_port is not None:
+                # FIXME: find address scope
                 ips = gw_port.get('fixed_ips', [])
                 prefixes = {}
-                if bool(ips):
+                if ips:
                     for ip in ips:
                         prefix = ip.get('prefixlen', None)
                         subnet_id = ip.get('subnet_id', None)
@@ -299,6 +301,14 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                     gw_port['fixed_ips'] = sorted(ips, key=lambda k: k.get('ip_address'))
                     if gw_info is not None:
                         gw_info['external_fixed_ips'] = gw_port['fixed_ips']
+
+            # find rt with address scope
+            if address_scope_id:
+                # find scope in config, add RT to config
+                # 1. fetch address scope
+                # 2. lookup name in config
+                # 3. use cloud vrf
+                pass
 
             # add address scope to internal subnets
             all_ports = router.get('_interfaces', []) + ([gw_port] if gw_port else [])

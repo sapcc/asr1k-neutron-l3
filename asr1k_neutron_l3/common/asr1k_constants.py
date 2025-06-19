@@ -27,6 +27,7 @@ ASR1K_ROUTER_ATTS_KEY = 'asr1k_router_atts'
 REQUEUES_KEY = 'requeues'
 
 ADDRESS_SCOPE_CONFIG = 'address_scope_config'
+CLOUD_RT_CONFIG = 'cloud_rt'
 
 ROUTER_STATE_ERROR = 'ERROR'
 

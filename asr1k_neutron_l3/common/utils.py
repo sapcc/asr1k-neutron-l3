@@ -154,21 +154,25 @@ def to_rd(asn, rd):
     return "{}:{}".format(asn, rd)
 
 
+def make_address_scope_dict(scope_config, db_scopes):
+    result = {}
+    for name in scope_config:
+        if name in db_scopes:
+            scope_id = db_scopes[name].get("id")
+            result[scope_id] = scope_config[name]
+        else:
+            LOG.warning('Could not find DB config for configured scope {}', name)
+
+    return result
+
+
 def get_address_scope_config(plugin_rpc, context):
     scope_config = asr1k_config.create_address_scope_dict()
 
-    db_scopes = plugin_rpc.get_address_scopes(context, list(scope_config.keys()))
+    db_scopes = plugin_rpc.get_address_scopes(context, list(scope_config))
+    result = make_address_scope_dict(scope_config, db_scopes)
 
-    result = {}
-    for name in scope_config.keys():
-        if name in db_scopes.keys():
-            id = db_scopes.get(name, {}).get("id")
-            result[id] = scope_config.get(name)
-        else:
-            LOG.warning('Could not find DB config for configured scope {}'.format(name))
-
-    LOG.debug("Address scopes from config")
-    LOG.debug(result)
+    LOG.debug("Address scopes from config: {}", result)
 
     return result
 

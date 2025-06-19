@@ -13,7 +13,9 @@ from oslo_serialization import jsonutils
 from webob import exc as exceptions
 
 from asr1k_neutron_l3.common import asr1k_constants as const
+from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.common.exc_helper import exc_info_full
+from asr1k_neutron_l3.common import utils
 
 LOG = logging.getLogger(__name__)
 
@@ -206,7 +208,15 @@ class ConfigController(wsgi.Controller):
             data = self.plugin.get_sync_data(request.context, router_ids=[id])
             if not data:
                 raise exceptions.HTTPNotFound(detail=f'No router found for uuid "{id}"')
-            data = jsonutils.to_primitive(data[0], convert_instances=True)
+
+            data = data[0]
+
+            # add address scopes to sync data
+            scope_config = asr1k_config.create_address_scope_dict()
+            db_scopes = self.plugin.db.get_address_scopes(request.context, list(scope_config))
+            data[const.ADDRESS_SCOPE_CONFIG] = utils.make_address_scope_dict(scope_config, db_scopes)
+
+            data = jsonutils.to_primitive(data, convert_instances=True)
             return {"config": data}
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=str(e))
