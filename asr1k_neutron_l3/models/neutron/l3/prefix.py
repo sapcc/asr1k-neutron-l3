@@ -40,6 +40,12 @@ class BasePrefix(base.Base):
     def diff(self, should_be_none=False):
         return super().diff(should_be_none=not self.prefixes)
 
+    def update(self):
+        if self.prefixes:
+            return super().update()
+        else:
+            return self.delete()
+
     def _make_seq(self, no, cidr, action="permit"):
         return prefix.PrefixSeq(no=no, action=action, ip=cidr)
 
