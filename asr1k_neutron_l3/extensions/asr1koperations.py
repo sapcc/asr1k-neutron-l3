@@ -72,8 +72,8 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
         devices = extensions.ResourceExtension('asr1k/devices',
                                                Resource(DevicesController(plugin)))
 
-        devices = extensions.ResourceExtension('asr1k/fwaas',
-                                               Resource(FWAASController(plugin)))
+        fwaas = extensions.ResourceExtension('asr1k/fwaas',
+                                             Resource(FWAASController(plugin)))
 
         interface_stats = extensions.ResourceExtension('asr1k/interface-statistics',
                                                        Resource(InterfaceStatisticsController(plugin)))
@@ -95,6 +95,7 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
         resources.append(orphans)
         resources.append(config)
         resources.append(devices)
+        resources.append(fwaas)
         resources.append(interface_stats)
         resources.append(init_scheduler)
         resources.append(init_bindings)
