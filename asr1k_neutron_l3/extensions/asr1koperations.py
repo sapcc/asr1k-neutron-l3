@@ -3,9 +3,11 @@ import abc
 from neutron.api import extensions
 from neutron.api.v2.resource import Resource
 from neutron_lib.api import extensions as api_extensions
+from neutron_lib.exceptions import flavors as flav_exc
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
 from neutron import policy
+from neutron.quota import resource_registry
 from neutron import wsgi
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -75,6 +77,10 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
         fwaas = extensions.ResourceExtension('asr1k/fwaas',
                                              Resource(FWAASController(plugin)))
 
+        flavors = extensions.ResourceExtension('asr1k/flavors',
+                                               Resource(FlavorsController(plugin)),
+                                               collection_actions=FlavorsController.COLLECTION_ACTIONS)
+
         interface_stats = extensions.ResourceExtension('asr1k/interface-statistics',
                                                        Resource(InterfaceStatisticsController(plugin)))
 
@@ -96,6 +102,7 @@ class Asr1koperations(api_extensions.ExtensionDescriptor):
         resources.append(config)
         resources.append(devices)
         resources.append(fwaas)
+        resources.append(flavors)
         resources.append(interface_stats)
         resources.append(init_scheduler)
         resources.append(init_bindings)
@@ -293,6 +300,66 @@ class FWAASController(wsgi.Controller):
         except Exception as e:
             LOG.error("Error fetching FWaaS policies", exc_info=exc_info_full())
             raise exceptions.HTTPInternalServerError(detail=str(e))
+
+
+class FlavorsController(wsgi.Controller):
+    COLLECTION_ACTIONS = {'sync_flavor_quotas': 'PUT'}
+
+    def __init__(self, plugin):
+        super().__init__()
+        self.plugin = plugin
+
+    def _get_flavor_info(self, context, flavor_id):
+        flavor_info = self.plugin.get_metainfo_from_flavor_id(context, flavor_id)
+        if not flavor_info['name']:
+            return None
+
+        flavor_info['id'] = flavor_id
+        if flavor_info['req_quota']:
+            flavor_info['quota_name'] = f"{const.FLAVOR_QUOTA_PREFIX}{flavor_info['name']}"
+            flavor_info['quota_registered'] = bool(resource_registry.get_resource(flavor_info['quota_name']))
+
+        return flavor_info
+
+    def index(self, request, **kwargs):
+        check_access(request)
+        # find all flavors
+        # fetch metadata
+        # return it
+        result = []
+        all_flavors = self.plugin.db.get_flavors(request.context, filters={'service_type': plugin_constants.L3})
+        for flavor in all_flavors:
+            flavor_info = self._get_flavor_info(request.context, flavor['id'])
+            if not flavor_info:
+                continue
+            result.append(flavor_info)
+
+        return {'flavors': result}
+
+    def show(self, request, id, **kwargs):
+        check_access(request)
+
+        try:
+            flavor = self.plugin.db.get_flavor(request.context, id)
+        except flav_exc.FlavorNotFound:
+            flavors = self.plugin.db.get_flavors(request.context, filters={'name': id})
+            if not flavors:
+                raise exceptions.HTTPNotFound()
+
+            # if the flavor admin creates multiple flavors with the same name it'll be their problem
+            flavor = flavors[0]
+
+        flavor_info = self._get_flavor_info(request.context, flavor['id'])
+        if not flavor_info:
+            raise exceptions.HTTPNotFound()
+
+        return {'flavor': flavor_info}
+
+    def sync_flavor_quotas(self, request, **kwargs):
+        check_access(request)
+        result = self.plugin.register_quotas_for_flavors(request.context)
+
+        return {'triggered': True, 'new_quotas_found': result}
 
 
 class InterfaceStatisticsController(wsgi.Controller):

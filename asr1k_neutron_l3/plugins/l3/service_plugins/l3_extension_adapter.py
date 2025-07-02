@@ -15,6 +15,7 @@
 #    under the License.
 from collections import OrderedDict
 import copy
+import functools
 from operator import attrgetter
 import time
 
@@ -25,24 +26,33 @@ from neutron.db import l3_gwmode_db as l3_db
 from neutron.extensions.tagging import TAG_PLUGIN_TYPE
 from neutron.ipam import driver as neutron_ipam_driver
 from neutron.ipam import exceptions as ipam_exc
+from neutron import quota
+from neutron.quota import resource_registry
+from neutron.quota.resource import CountableResource
 from neutron_lib.api.definitions import availability_zone as az_def
 from neutron_lib.api.definitions import l3 as l3_def
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
+from neutron_lib import constants as nl_const
+from neutron_lib import context as n_context
 from neutron_lib.db import api as db_api
 from neutron_lib.db import resource_extend
 from neutron_lib.exceptions import flavors as flav_exc
+from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
 from oslo_config import cfg
+from oslo_concurrency import lockutils
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 from oslo_serialization import jsonutils
+from oslo_service import loopingcall
 import tenacity
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import asr1k_exceptions as asr1k_exc
 from asr1k_neutron_l3.common import cache_utils
+from asr1k_neutron_l3.common import config as asr1k_config
 from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.extensions import asr1koperations as asr1k_ext
@@ -191,7 +201,13 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                       asr1k_scheduler_db.AZASR1KL3AgentSchedulerDbMixin, extraroute_db.ExtraRoute_db_mixin,
                       dns_db.DNSDbMixin, L3RpcNotifierMixin, asr1k_ext.DevicePluginBase):
     def __init__(self):
+        asr1k_config.register_common_opts()
+
         self.db = asr1k_db.get_db_plugin()
+        self._refresh_flavor_quotas_loop = loopingcall.FixedIntervalLoopingCall(self._refresh_flavor_qutotas)
+        if cfg.CONF.asr1k.flavor_quota_refresh_interval > 0:
+            self._refresh_flavor_quotas_loop.start(interval=cfg.CONF.asr1k.flavor_quota_refresh_interval,
+                                                   stop_on_exception=False, initial_delay=1)
 
     def get_agent_for_router(self, context, router_id):
         """Returns all hosts to send notification about router update"""
@@ -376,7 +392,7 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         try:
             flavor = self.db.get_flavor(context, flavor_id)
         except flav_exc.FlavorNotFound:
-            return None
+            return None, None
 
         entries = []
         for sp_id in flavor['service_profiles']:
@@ -405,18 +421,22 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
             entries.append(metainfo)
 
-        return entries
+        return flavor, entries
 
     def get_metainfo_from_flavor_id(self, context, flavor_id):
         result = {
+            "name": None,
             "req_traits": [],
             "opt_traits": [],
+            "req_quota": False,
         }
 
-        metainfos = self.get_flavor_metainfo_entries(context, flavor_id)
+        flavor, metainfos = self.get_flavor_metainfo_entries(context, flavor_id)
         if not metainfos:
             LOG.info("No metainfo information associated with flavor %s", flavor_id)
             return result
+
+        result["name"] = flavor['name']
 
         for entry in metainfos:
             for key in ("req_traits", "opt_traits"):
@@ -432,6 +452,7 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                                     flavor_id, key, idx, entry[key][idx])
                         del entry[key][idx]
                 result[key].extend(entry[key])
+            result["req_quota"] |= bool(entry.get("req_quota"))
 
         return result
 
@@ -465,9 +486,77 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         LOG.debug("Allocating extra atts for router %s", payload.resource_id)
         self.db.ensure_router_atts(payload.context, payload.resource_id)
 
+    def _refresh_flavor_qutotas(self):
+        context = n_context.get_admin_context()
+        self.register_quotas_for_flavors(context)
+
+    @lockutils.synchronized('asr1k-register-quota-flavors')
+    @db_api.CONTEXT_WRITER
+    def register_quotas_for_flavors(self, context):
+        new_flavors_registered = False
+
+        # fetch all flavors
+        all_flavors = self.db.get_flavors(context, filters={'service_type': plugin_constants.L3})
+        for flavor in all_flavors:
+            flavor_info = self.get_metainfo_from_flavor_id(context, flavor['id'])
+            if not flavor_info['req_quota']:
+                continue
+            quota_name = f"{constants.FLAVOR_QUOTA_PREFIX}{flavor_info['name']}"
+            if resource_registry.get_resource(quota_name):
+                continue
+            LOG.info("Registering quota %s for flavor %s", flavor_info['name'], quota_name)
+
+            def _count_func(flavor_name, context, plural_name, project_id):
+                db = asr1k_db.get_db_plugin()
+                return db.get_router_count_by_flavor_name(context, flavor_name, project_id)
+
+            # NOTE(seba): using '' as empty flag here, as None does not work with getattr() on cfg.CONF.QUOTAS
+            #             in BaseResource.default() and we don't have a real quota config option for dynamic quotas
+            cr = CountableResource(quota_name, functools.partial(_count_func, flavor_info['name']), '')
+            resource_registry.register_resource(cr)
+            new_flavors_registered = True
+
+        return new_flavors_registered
+
+    def _ensure_quota_registered(self, context, quota_name):
+        if not resource_registry.get_resource(quota_name):
+            self.register_quotas_for_flavors(context)
+        if not resource_registry.get_resource(quota_name):
+            raise Exception(f'Could not register quota "{quota_name}" with Neutron')
+
     @log_helpers.log_method_call
     def create_router(self, context, router):
-        result = super(ASR1KPluginBase, self).create_router(context, router)
+        reservations = []
+        if router['router'].get("flavor_id", nl_const.ATTR_NOT_SPECIFIED) != nl_const.ATTR_NOT_SPECIFIED:
+            # NOTE(seba): I'm not 100% sure we need the db context here (flavordb might open its own), but
+            #             I'm opening it to be on the safe side
+            with db_api.CONTEXT_READER.using(context):
+                flavor_info = self.get_metainfo_from_flavor_id(context, router['router']['flavor_id'])
+
+            if flavor_info['req_quota']:
+                # this flavor needs quota support
+                quota_name = f"{constants.FLAVOR_QUOTA_PREFIX}{flavor_info['name']}"
+                self._ensure_quota_registered(context, quota_name)
+                reservation = quota.QUOTAS.make_reservation(context, router['router']['project_id'],
+                                                            {quota_name: 1}, directory.get_plugin())
+                reservations.append(reservation)
+
+        try:
+            result = super(ASR1KPluginBase, self).create_router(context, router)
+
+            for reservation in reservations:
+                quota.QUOTAS.commit_reservation(context, reservation.reservation_id)
+            # NOTE(seba): We don't need to mark quota as dirty, as we're a countable resource
+            #             and not tracked
+        except Exception as e:
+            for reservation in reservations:
+                try:
+                    quota.QUOTAS.cancel_reservation(context, reservation.reservation_id)
+                except Exception as qe:
+                    LOG.error("Could not cancel reservation %s due to %s (router create failed due to %s)",
+                              reservation.reservation_id, qe, e)
+
+            raise
         return result
 
     @tenacity.retry(retry=tenacity.retry_if_exception_type(ipam_exc.IpAddressAlreadyAllocated),
