@@ -51,6 +51,9 @@ ASR1K_OPTS = [
                      "is present."),
     cfg.BoolOpt('ignore_router_network_az_hint_mismatch', default=False,
                 help="Do not abort operation if router and network AZ hint do not match."),
+    cfg.IntOpt('flavor_quota_refresh_interval', default=900,
+               help="Interval for checking if there are new flavors relevant for quota. Only relevant for quota reporting. "
+                    "Set to 0 to disable."),
 ]
 
 ASR1K_L3_OPTS = [

@@ -119,12 +119,15 @@ class TestASR1kRouterScheduling(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
 
         return self._make_agent(ctx, host, configuration=c)
 
-    def _make_meta(self, req=None, opt=None):
+    def _make_meta(self, req=None, opt=None, quota=None):
         metainfo = {}
         if req is not None:
             metainfo["req_traits"] = req
         if opt is not None:
             metainfo["opt_traits"] = opt
+
+        if quota is not None:
+            metainfo["req_quota"] = quota
 
         return json.dumps(metainfo)
 
@@ -149,18 +152,20 @@ class TestASR1kRouterScheduling(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
 
         # req
         flav = self._make_flavor(ctx, "my-100g-device", profiles=[{'metainfo': self._make_meta(req=["100g"])}])
-        self.assertEqual({"req_traits": ["100g"], "opt_traits": []}, l3_plugin.get_metainfo_from_flavor_id(ctx, flav))
+        self.assertEqual({"name": "my-100g-device", "req_quota": False, "req_traits": ["100g"], "opt_traits": []},
+                         l3_plugin.get_metainfo_from_flavor_id(ctx, flav))
 
         # opt
         flav = self._make_flavor(ctx, "open-sea", profiles=[{'metainfo': self._make_meta(opt=["seagull"])}])
-        self.assertEqual({"req_traits": [], "opt_traits": ["seagull"]},
+        self.assertEqual({"name": "open-sea", "req_quota": False, "req_traits": [], "opt_traits": ["seagull"]},
                          l3_plugin.get_metainfo_from_flavor_id(ctx, flav))
 
-        # req and opt, multiple values
+        # req and opt, multiple values and quota
         flav = self._make_flavor(ctx, "open-sea",
                                  profiles=[{'metainfo': self._make_meta(req=["100g", "oystercatcher"],
-                                                                        opt=["seagull"])}])
-        self.assertEqual({"req_traits": ["100g", "oystercatcher"], "opt_traits": ["seagull"]},
+                                                                        opt=["seagull"], quota=True)}])
+        self.assertEqual({"name": "open-sea", "req_quota": True,
+                          "req_traits": ["100g", "oystercatcher"], "opt_traits": ["seagull"]},
                          l3_plugin.get_metainfo_from_flavor_id(ctx, flav))
 
         # multiple meta infos / service profiles
@@ -194,7 +199,7 @@ class TestASR1kRouterScheduling(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
             {'metainfo': '{"req_traits": [123, {"foo": 23}, "100g", [1,2,3]]}'},
         ]
         flav = self._make_flavor(ctx, "broken-sea", profiles=profiles)
-        self.assertEqual({"req_traits": ["100g"], "opt_traits": ["meow"]},
+        self.assertEqual({"name": "broken-sea", "req_quota": False, "req_traits": ["100g"], "opt_traits": ["meow"]},
                          l3_plugin.get_metainfo_from_flavor_id(ctx, flav))
 
 

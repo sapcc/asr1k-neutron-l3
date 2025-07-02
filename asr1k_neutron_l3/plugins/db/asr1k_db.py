@@ -26,6 +26,7 @@ from neutron.db import l3_db
 from neutron.db import models_v2
 from neutron.db import segments_db
 from neutron.db.models import agent as agent_model
+from neutron.db.models import flavor as flavor_models
 from neutron.db.models import l3 as l3_models
 from neutron.db.models import l3agent as l3agent_models
 from neutron.db.models import segment as segment_models
@@ -691,6 +692,16 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
         query = query.filter(models_v2.Subnet.id.in_(subnet_ids))
 
         return {entry[0]: entry[1] for entry in query}
+
+    @db_api.CONTEXT_READER
+    def get_router_count_by_flavor_name(self, context, flavor_name, project_id=None):
+        query = context.session.query(l3_models.Router.id)
+        query = query.join(flavor_models.Flavor, flavor_models.Flavor.id == l3_models.Router.flavor_id)
+        query = query.filter(flavor_models.Flavor.name == flavor_name)
+        if project_id:
+            query = query.filter(l3_models.Router.project_id == project_id)
+
+        return query.count()
 
 
 class ExtraAttsDb(object):
