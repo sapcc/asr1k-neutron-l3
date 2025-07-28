@@ -774,8 +774,6 @@ class StaticNat(NyBase):
         if context.version_min_17_13:
             if self.garp_bdvif_iface:
                 entry[NATConstants.GARP_IFACE] = {NATConstants.BDVIF: str(self.garp_bdvif_iface)}
-            else:
-                entry[NATConstants.GARP_IFACE] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
 
         return entry
 

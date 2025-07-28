@@ -95,6 +95,8 @@ ASR1K_L3_OPTS = [
                 help=('Advertise BGP routes (BGPVPN/DAPNets) on IPv4 via redistribute static/connected + route-map '
                       'instead of using network statements. This avoids the global config lock, that occurs on current '
                       'firmwares (at least 17.15) when the BGP tree is modified.')),
+    cfg.BoolOpt('enable_garp', default=False,
+                help=_("Enable GARP feature for floating IPs (requires firmware >= 17.13)")),
 ]
 
 ASR1K_L2_OPTS = [
