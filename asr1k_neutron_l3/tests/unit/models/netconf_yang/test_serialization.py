@@ -72,7 +72,7 @@ class SerializationTest(base.BaseTestCase):
         sn = StaticNat(**sn_args)
 
         context_17_13 = FakeASR1KContext()
-        self.assertEqual({'@operation': 'remove'}, sn.to_single_dict(context_17_13).get('garp-interface'))
+        self.assertNotIn('garp-interface', sn.to_single_dict(context_17_13))
 
     def test_bdvif_ipv6(self):
         ipv6_addresses = ["fd00::/64", "fd00::256/64"]

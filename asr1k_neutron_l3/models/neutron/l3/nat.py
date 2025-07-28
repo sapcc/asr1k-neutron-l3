@@ -158,7 +158,9 @@ class FloatingIp(BaseNAT):
         self.garp_iface_id = None
         if self.gateway_interface:
             self.mac_address = self.gateway_interface.mac_address
-            self.garp_iface_id = self.gateway_interface.bridge_domain
+            if cfg.CONF.asr1k_l3.enable_garp:
+                self.garp_iface_id = self.gateway_interface.bridge_domain
+
         self._rest_definition = l3_nat.StaticNat(vrf=self.router_id, local_ip=self.local_ip, global_ip=self.global_ip,
                                                  bridge_domain=self.bridge_domain,
                                                  redundancy=self.redundancy, mapping_id=self.mapping_id,
