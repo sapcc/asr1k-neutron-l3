@@ -259,7 +259,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                                                                         self.conf.host)
 
                 bridgedomain.update_ports(router_ports, callback=self._bound_ports)
-                self.updated_ports = {}
+                for port_id in ports_to_bind:
+                    self.updated_ports.pop(port_id, None)
             except BaseException as err:
                 LOG.exception(err)
 
@@ -271,7 +272,8 @@ class ASR1KNeutronAgent(sg_rpc.SecurityGroupAgentRpcCallbackMixin):
                 extra_atts = self.agent_rpc.get_extra_atts(self.context, ports_to_delete, agent_id=self.agent_id,
                                                            host=self.conf.host)
                 bridgedomain.delete_ports(extra_atts, callback=self._deleted_ports)
-                self.deleted_ports = {}
+                for port_id in ports_to_delete:
+                    self.deleted_ports.pop(port_id, None)
             except BaseException as err:
                 LOG.exception(err)
 
