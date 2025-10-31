@@ -27,7 +27,14 @@ class AccessList(base.Base):
     @property
     def _rest_definition(self):
         acl = access_list.AccessList(name=self.id)
-        for i, rule in enumerate(self.rules):
+        rule_set = set()
+        dedup_rules = []
+        for rule in self.rules:
+            if rule in rule_set:
+                continue
+            dedup_rules.append(rule)
+            rule_set.add(rule)
+        for i, rule in enumerate(dedup_rules):
             sequence = (i + 1) * 10
             ace_rule = access_list.ACERule(
                 access_list=self.id,
@@ -62,12 +69,30 @@ class Rule():
         self.protocol = protocol
         self.source = source
         self.source_mask = source_mask
-        self.source_port_range = source_port_range
+        # Make port range a tuple for easier hashing and equality checks
+        self.source_port_range = tuple(source_port_range) if source_port_range else None
         self.destination = destination
         self.destination_mask = destination_mask
-        self.destination_port_range = destination_port_range
+        # Make port range a tuple for easier hashing and equality checks
+        self.destination_port_range = tuple(destination_port_range) if destination_port_range else None
         self.named_message_type = named_message_type
         self.established = established
+
+    def _get_tuple(self):
+        """Return tuple of all fields used for hashing and equality."""
+        return (self.action, self.protocol,
+                self.source, self.source_mask, self.source_port_range,
+                self.destination, self.destination_mask,
+                self.destination_port_range,
+                self.named_message_type, self.established)
+
+    def __hash__(self):
+        return hash(self._get_tuple())
+
+    def __eq__(self, value):
+        if not isinstance(value, Rule):
+            return False
+        return self._get_tuple() == value._get_tuple()
 
     @property
     def ip_args(self):
