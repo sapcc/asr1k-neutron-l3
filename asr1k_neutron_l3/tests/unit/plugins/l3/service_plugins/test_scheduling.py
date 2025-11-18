@@ -12,125 +12,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import json
-from unittest import mock
-
-from neutron_lib.agent import topics
 from neutron_lib import context
-from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
-from neutron.services.flavors import flavors_plugin
-from neutron.tests.unit.extensions import test_l3
-from oslo_config import cfg
-from oslo_utils import timeutils, uuidutils
+from oslo_utils import uuidutils
 
-from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.common import asr1k_constants as asr1k_const
+from asr1k_neutron_l3.tests.common.fixtures import RouterWithSyncDataTestCase
 
 
-@mock.patch.object(asr1k_db.DBPlugin, 'get_network_port_count_per_agent', new=mock.Mock(return_value={'fake-agent': 0}))
-class TestASR1kRouterScheduling(test_l3.L3BaseForIntTests, test_l3.L3NatTestCaseMixin):
-    def setUp(self):
-        l3_plugin = 'asr1k_l3_routing'
-        service_plugins = {'l3_plugin_name': l3_plugin}
-        plugin = ('asr1k_neutron_l3.tests.common.fixtures.ASR1KTestL3NatIntPlugin')
-        self.node_driver = "asr1k_neutron_l3.neutron.services.service_providers.asr1k_router.ASR1KRouterDriver"
-        cfg.CONF.set_override('service_provider',
-                              [f'L3_ROUTER_NAT:asr1k:{self.node_driver}:default'], group='service_providers')
-        cfg.CONF.set_override("router_scheduler_driver",
-                              "asr1k_neutron_l3.plugins.l3.schedulers.simple_asr1k_scheduler.SimpleASR1KScheduler")
-        super().setUp(plugin=plugin, service_plugins=service_plugins)
-
-        directory.add_plugin(plugin_constants.FLAVORS, flavors_plugin.FlavorsPlugin())
-
-        self.db = asr1k_db.get_db_plugin()
-        self.fp = directory.get_plugin(plugin_constants.FLAVORS)
-
-    def _make_agent(self, host, configuration=None, az='nova'):
-        if not configuration:
-            configuration = {}
-        agent = {
-          'agent_type': asr1k_const.AGENT_TYPE_ASR1K_L3,
-          'binary': 'asr1k-agent',
-          'host': host,
-          'topic': topics.L3_AGENT,
-          'availability_zone': az,
-          'configurations': configuration}
-
-        admin_context = context.get_admin_context()
-        self.db.create_or_update_agent(admin_context, agent, timeutils.utcnow())
-        return self.db._get_agent_by_type_and_host(
-          admin_context, agent['agent_type'], agent['host'])
-
-    def _make_flavor(self, ctx, flavor_name, profiles=None, description='', service_type='L3_ROUTER_NAT', enabled=True):
-        flavor_def = {'flavor': {
-            'name': flavor_name,
-            'description': description,
-            'service_type': service_type,
-            'enabled': enabled,
-        }}
-        flavor = self.fp.create_flavor(ctx, flavor_def)
-
-        if profiles:
-            for profile in profiles:
-                sp = self._make_service_profile(ctx, **profile)
-                self.fp.create_flavor_service_profile(ctx, {'service_profile': sp}, flavor['id'])
-        return flavor['id']
-
-    def _make_service_profile(self, ctx, metainfo, driver=None, enabled=True, description=''):
-        sp_def = {'service_profile': {
-            'driver': driver or self.node_driver,
-            'enabled': enabled,
-            'metainfo': metainfo,
-            'description': description,
-        }}
-        return self.fp.create_service_profile(ctx, sp_def)
-
-    def _make_meta(self, req=None, opt=None):
-        metainfo = []
-        if req is not None:
-            metainfo["req_traits"] = req
-        if opt is not None:
-            metainfo["opt_traits"] = opt
-
-        return json.dumps(metainfo)
-
-    def _make_agent(self, ctx, host, configuration=None, az='nova'):
-        if not configuration:
-            configuration = {}
-        agent = {
-          'agent_type': asr1k_const.AGENT_TYPE_ASR1K_L3,
-          'binary': 'asr1k-agent',
-          'host': host,
-          'topic': topics.L3_AGENT,
-          'availability_zone': az,
-          'configurations': configuration}
-
-        admin_context = context.get_admin_context()
-        self.db.create_or_update_agent(admin_context, agent, timeutils.utcnow())
-        return self.db._get_agent_by_type_and_host(
-          admin_context, agent['agent_type'], agent['host']).id
-
-    def _make_agent_with_traits(self, ctx, host, req_traits=None, opt_traits=None):
-        c = {
-            'req_traits': req_traits or [],
-            'opt_traits': opt_traits or [],
-        }
-
-        return self._make_agent(ctx, host, configuration=c)
-
-    def _make_meta(self, req=None, opt=None, quota=None):
-        metainfo = {}
-        if req is not None:
-            metainfo["req_traits"] = req
-        if opt is not None:
-            metainfo["opt_traits"] = opt
-
-        if quota is not None:
-            metainfo["req_quota"] = quota
-
-        return json.dumps(metainfo)
-
+class TestASR1kRouterScheduling(RouterWithSyncDataTestCase):
     def _make_flavored_router(self, ext_net_id, flavor_id, name="r1"):
         with self.router(name=name, admin_state_up=True, tenant_id=uuidutils.generate_uuid(),
                          external_gateway_info={'network_id': ext_net_id},
@@ -205,6 +95,9 @@ class TestASR1kRouterScheduling(test_l3.L3BaseForIntTests, test_l3.L3NatTestCase
 
     def test_router_scheduled_on_right_agent_with_flavors(self):
         ctx = context.get_admin_context()
+
+        # get rid of default agent
+        self.db.delete_agent(ctx, self.agent.id)
 
         # agents
         a_def = self._make_agent_with_traits(ctx, "asr1k-agent-01")

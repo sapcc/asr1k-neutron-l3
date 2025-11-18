@@ -112,6 +112,8 @@ class PrometheusMonitor(object):
                                        STATS_LABELS, namespace=self.namespace)
             self.fwaas_cleaner_duration = Histogram("fwaas_cleaner_duration", "FWaaS cleaner runtime in seconds",
                                                   namespace=self.namespace, buckets=ACTION_BUCKETS)
+            self.vpnaas_cleaner_duration = Histogram("vpnaas_cleaner_duration", "VPNaaS cleaner runtime in seconds",
+                                                     namespace=self.namespace, buckets=ACTION_BUCKETS)
         elif self.type == L2:
             self._port_create_duration = Histogram("port_create_duration", "Port create duration in seconds",
                                                    BASIC_LABELS, namespace=self.namespace, buckets=ACTION_BUCKETS)

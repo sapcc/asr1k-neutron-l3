@@ -71,6 +71,12 @@ class ASR1KAgentNotifyAPI(l3_rpc_agent_api.L3AgentNotifyAPI):
             else:
                 raise Exception("No devices found hosting network")
 
+    def delete_tunnel_interface(self, context, host, tunnel_id):
+        cctxt = self.client.prepare(topic=topics.L3_AGENT,
+                                    server=host,
+                                    version='1.1')
+        cctxt.cast(context, 'delete_tunnel_interface', tunnel_id=tunnel_id)
+
     @log_helpers.log_method_call
     def interface_statistics(self, context, router_id):
         if router_id:

@@ -100,6 +100,9 @@ ASR1K_L3_OPTS = [
                       'firmwares (at least 17.15) when the BGP tree is modified.')),
     cfg.BoolOpt('enable_garp', default=False,
                 help=_("Enable GARP feature for floating IPs (requires firmware >= 17.13)")),
+    cfg.Opt('vpnaas_tunnel_id_range', default='20000-29999', type=cfg.types.Range(min=1, max=2147483647),
+            help="Range of ids the driver can choose for tunnel interfaces"),
+    cfg.IntOpt("vpnaas_endpoint_group_max_eps", default=100, help="Maximum number of endpoints per endpoint group"),
 ]
 
 ASR1K_L2_OPTS = [

@@ -47,13 +47,14 @@ class RouteCollectionV4(RouteCollectionBase):
 
 
 class RouteV4(base.Base):
-    def __init__(self, router_id, destination, nexthop):
+    def __init__(self, router_id, destination, nexthop, is_internal=False):
         ip_net = netaddr.IPNetwork(destination)
 
         self.router_id = router_id
         self.destination = str(ip_net.ip)
         self.mask = str(ip_net.netmask)
         self.nexthop = nexthop
+        self.is_internal = is_internal
 
         self._rest_definition = l3_route.IpRouteV4(vrf=self.router_id, prefix=self.destination, mask=self.mask,
                                                    fwd_list={"fwd": self.nexthop})
@@ -70,10 +71,11 @@ class RouteCollectionV6(RouteCollectionBase):
 
 
 class RouteV6(base.Base):
-    def __init__(self, router_id, destination, nexthop):
+    def __init__(self, router_id, destination, nexthop, is_internal=False):
         self.router_id = router_id
         self.destination = destination
         self.nexthop = nexthop
+        self.is_internal = is_internal
 
         self._rest_definition = l3_route.IpRouteV6(vrf=self.router_id, prefix=self.destination,
                                                    fwd_list={"fwd": self.nexthop})

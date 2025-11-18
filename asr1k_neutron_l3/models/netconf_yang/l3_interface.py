@@ -15,15 +15,18 @@
 #    under the License.
 from collections import OrderedDict
 
-from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE, NC_OPERATION
-import asr1k_neutron_l3.models.netconf_yang.nat
-from asr1k_neutron_l3.models.netconf_yang import xml_utils
+from oslo_config import cfg
+from oslo_log import log as logging
 
 from asr1k_neutron_l3.common import cli_snippets, utils
-
+from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain
+import asr1k_neutron_l3.models.netconf_yang.nat
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, YANG_TYPE, NC_OPERATION
+from asr1k_neutron_l3.models.netconf_yang import route
+from asr1k_neutron_l3.models.netconf_yang import xml_utils
 from asr1k_neutron_l3.plugins.db import asr1k_db
-from oslo_log import log as logging
+
+
 LOG = logging.getLogger(__name__)
 
 
@@ -74,6 +77,26 @@ class L3Constants(object):
     TIMEOUT = "timeout"
     TRAFFIC_FILTER = "traffic-filter"
     COMMON = "common"
+
+    IFACE_TUNNEL = "Tunnel"
+    TUNNEL = "tunnel"
+    KEEPALIVE = "keepalive"
+    PERIOD = "period"
+    RETRIES = "retries"
+    KEEPALIVE_CONFIG = "keepalive-config"
+    ADJUST_MSS = "adjust-mss"
+    TCP = "tcp"
+    SOURCE = "source"
+    IPV4 = "ipv4"
+    DUAL_OVERLAY = "dual-overlay"
+    DESTINATION_CONFIG = "destination-config"
+    IPSEC = "ipsec"
+    MODE = "mode"
+    PROFILE_OPTION = "profile-option"
+    PROTECTION = "protection"
+    VRF_CONFIG = "vrf-config"
+    VRF_COMMON = "vrf-common"
+    PATH_MTU_DISCOVERY = "path-mtu-discovery"
 
 
 class BDInterface(NyBase):
@@ -500,3 +523,179 @@ class TrafficFilter(NyBase):
             L3Constants.DIRECTION: self.direction,
             L3Constants.COMMON: self.access_list,
         }
+
+
+class TunnelInterface(NyBase):
+    LIST_KEY = L3Constants.INTERFACE
+    ITEM_KEY = L3Constants.IFACE_TUNNEL
+    ID_FILTER = """
+                <native>
+                    <interface>
+                        <Tunnel>
+                            <name>{id}</name>
+                        </Tunnel>
+                    </interface>
+                </native>
+             """
+
+    GET_ALL_STUB = """
+                <native>
+                    <interface>
+                        <Tunnel>
+                            <name/>
+                            <vrf>
+                                <forwarding/>
+                            </vrf>
+                        </Tunnel>
+                    </interface>
+                </native>
+             """
+
+    VRF_XPATH_FILTER = "/native/interface/Tunnel/vrf[forwarding='{vrf}']"
+
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {'key': 'name', 'id': True},
+            {'key': 'description'},
+            {'key': 'mtu', 'yang-path': 'ip'},
+            {'key': 'ipv6_mtu', 'yang-path': 'ipv6'},
+            {'key': 'tcp_mss', 'yang-key': 'adjust-mss', 'yang-path': 'ip/tcp'},
+            {'key': 'ipv6_tcp_mss', 'yang-key': 'adjust-mss', 'yang-path': 'ipv6/tcp'},
+
+            {'key': 'keepalive', 'yang-path': 'keepalive-config'},
+            {'key': 'keepalive_period', 'yang-key': 'period', 'yang-path': 'keepalive-config'},
+            {'key': 'keepalive_retries', 'yang-key': 'retries', 'yang-path': 'keepalive-config'},
+
+            {'key': 'vrf', 'yang-path': 'vrf', 'yang-key': 'forwarding'},
+
+            {'key': 'ipv4_address', 'yang-key': 'address', 'yang-path': 'ip/address/primary'},
+            {'key': 'ipv4_netmask', 'yang-key': 'mask', 'yang-path': 'ip/address/primary'},
+            {'key': 'ipv6_prefix', 'yang-key': 'prefix', 'yang-path': 'ipv6/address/prefix-list'},
+
+            {'key': 'tunnel_src', 'yang-key': 'source', 'yang-path': 'tunnel'},
+            {'key': 'tunnel_dest_ipv4', 'yang-key': 'ipv4', 'yang-path': 'tunnel/destination-config'},
+            {'key': 'tunnel_dest_ipv6', 'yang-key': 'ipv6', 'yang-path': 'tunnel/destination-config'},
+
+            {'key': 'tunnel_mode_ipsec_ipv4', 'yang-key': 'ipv4', 'yang-path': 'tunnel/mode/ipsec',
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'tunnel_mode_ipsec_ipv6', 'yang-key': 'ipv6', 'yang-path': 'tunnel/mode/ipsec',
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'tunnel_mode_ipsec_dual_overlay', 'yang-key': 'dual-overlay', 'yang-path': 'tunnel/mode/ipsec',
+             'yang-type': YANG_TYPE.EMPTY},
+            {'key': 'path_mtu_discovery', 'yang-path': 'tunnel', 'yang-type': YANG_TYPE.EMPTY},
+
+            {'key': 'ipsec_policy_ipv4', 'yang-key': 'ipv4', 'yang-path': 'tunnel/protection/ipsec/policy'},
+            {'key': 'ipsec_profile', 'yang-key': 'name', 'yang-path': 'tunnel/protection/ipsec/profile-option'},
+
+            {'key': 'tunnel_vrf', 'yang-key': 'vrf', 'yang-path': 'tunnel/vrf-config/vrf-common'},
+            {'key': 'shutdown', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
+        ]
+
+    @classmethod
+    def get_for_vrf(cls, context, vrf):
+        return cls._get_all(context=context, xpath_filter=cls.VRF_XPATH_FILTER.format(vrf=vrf))
+
+    def to_dict(self, context):
+        iface = {
+            L3Constants.NAME: self.name,
+            L3Constants.DESCRIPTION: self.description,
+        }
+
+        keepalive = {}
+        if self.keepalive:
+            keepalive[L3Constants.KEEPALIVE] = self.keepalive
+        if self.keepalive_period:
+            keepalive[L3Constants.PERIOD] = self.keepalive_period
+        if self.keepalive_retries:
+            keepalive[L3Constants.RETRIES] = self.keepalive_retries
+        if keepalive:
+            iface[L3Constants.KEEPALIVE_CONFIG] = keepalive
+
+        ip = {}
+        if self.ipv4_address:
+            ip[L3Constants.ADDRESS] = {
+                L3Constants.PRIMARY: {
+                    L3Constants.ADDRESS: self.ipv4_address,
+                    L3Constants.MASK: self.ipv4_netmask,
+                }
+            }
+        if self.tcp_mss:
+            ip[L3Constants.TCP] = {L3Constants.ADJUST_MSS: self.tcp_mss}
+        if self.mtu:
+            ip[L3Constants.MTU] = self.mtu
+        if ip:
+            iface[L3Constants.IP] = ip
+
+        ipv6 = {}
+        if self.ipv6_prefix:
+            ipv6[L3Constants.ADDRESS] = {L3Constants.PREFIX_LIST: {L3Constants.PREFIX: self.ipv6_prefix}}
+        if self.ipv6_tcp_mss:
+            ipv6[L3Constants.TCP] = {L3Constants.ADJUST_MSS: self.ipv6_tcp_mss}
+        if self.ipv6_mtu:
+            ipv6[L3Constants.MTU] = self.ipv6_mtu
+        if ipv6:
+            iface[L3Constants.IPV6] = ipv6
+
+        if self.vrf:
+            iface[L3Constants.VRF] = {L3Constants.FORWARDING: self.vrf}
+
+        if self.shutdown:
+            iface[L3Constants.SHUTDOWN] = ''
+        else:
+            iface[L3Constants.SHUTDOWN] = {xml_utils.OPERATION: NC_OPERATION.REMOVE}
+
+        tun = {}
+        if self.tunnel_src:
+            tun[L3Constants.SOURCE] = self.tunnel_src
+        if self.tunnel_dest_ipv4 or self.tunnel_dest_ipv6:
+            dest_config = {}
+            if self.tunnel_dest_ipv4:
+                dest_config[L3Constants.IPV4] = self.tunnel_dest_ipv4
+            if self.tunnel_dest_ipv6:
+                dest_config[L3Constants.IPV6] = self.tunnel_dest_ipv6
+            tun[L3Constants.DESTINATION_CONFIG] = dest_config
+        if self.tunnel_mode_ipsec_ipv4:
+            tun[L3Constants.MODE] = {L3Constants.IPSEC: {L3Constants.IPV4: ""}}
+        if self.tunnel_mode_ipsec_ipv6:
+            tun[L3Constants.MODE] = {L3Constants.IPSEC: {L3Constants.IPV6: ""}}
+        if self.tunnel_mode_ipsec_dual_overlay:
+            tun[L3Constants.MODE] = {L3Constants.IPSEC: {L3Constants.DUAL_OVERLAY: ""}}
+        if self.path_mtu_discovery:
+            tun[L3Constants.PATH_MTU_DISCOVERY] = ""
+
+        prot_ipsec = {}
+        if self.ipsec_policy_ipv4:
+            prot_ipsec[L3Constants.POLICY] = {L3Constants.IPV4: self.ipsec_policy_ipv4}
+        if self.ipsec_profile:
+            prot_ipsec[L3Constants.PROFILE_OPTION] = {L3Constants.NAME: self.ipsec_profile}
+        if prot_ipsec:
+            prot_ipsec[xml_utils.NS] = xml_utils.NS_CISCO_CRYPTO
+            tun[L3Constants.PROTECTION] = {L3Constants.IPSEC: prot_ipsec}
+
+        if self.tunnel_vrf:
+            tun[L3Constants.VRF_CONFIG] = {L3Constants.VRF_COMMON: {L3Constants.VRF: self.tunnel_vrf}}
+
+        if tun:
+            tun[xml_utils.NS] = xml_utils.NS_CISCO_TUNNEL
+            iface[L3Constants.TUNNEL] = tun
+
+        return {L3Constants.IFACE_TUNNEL: iface}
+
+    @property
+    def neutron_router_id(self):
+        if self.vrf:
+            return utils.vrf_id_to_uuid(self.vrf)
+        return None
+
+    def postflight(self, context, method):
+        if self.name:
+            # clear all routes referencing this tunnel interface
+            for route_cls in (route.VrfRouteV4, route.VrfRouteV6):
+                route_cls.delete_routes_by_nexthop(context, f"Tunnel{self.name}")
+
+    def is_orphan_vpnaas(self, all_ipsec_siteconnection_ids, all_tunnel_ids):
+        if not self.name:
+            return False
+        tun_id = int(self.name)
+        return tun_id not in all_tunnel_ids and tun_id in cfg.CONF.asr1k_l3.vpnaas_tunnel_id_range

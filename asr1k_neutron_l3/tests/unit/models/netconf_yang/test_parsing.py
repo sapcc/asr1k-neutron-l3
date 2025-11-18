@@ -13,8 +13,8 @@
 # under the License.
 from neutron.tests import base
 
-from asr1k_neutron_l3.models.asr1k_pair import FakeASR1KContext
 from asr1k_neutron_l3.common.utils import from_cidr, to_cidr
+from asr1k_neutron_l3.models.asr1k_pair import FakeASR1KContext
 from asr1k_neutron_l3.models.netconf_yang.access_list import AccessList
 from asr1k_neutron_l3.models.netconf_yang.arp_cache import ArpCache
 from asr1k_neutron_l3.models.netconf_yang import bgp

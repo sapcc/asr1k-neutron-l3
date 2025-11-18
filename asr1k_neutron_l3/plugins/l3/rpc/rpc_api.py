@@ -17,7 +17,7 @@
 from neutron.api.rpc.handlers import l3_rpc
 from oslo_log import log
 
-from asr1k_neutron_l3.common import cache_utils
+from asr1k_neutron_l3.common import cache_utils, utils
 from asr1k_neutron_l3.common.instrument import instrument
 from asr1k_neutron_l3.plugins.db import asr1k_db
 
@@ -100,6 +100,18 @@ class ASR1KRpcAPI(l3_rpc.L3RpcCallback):
     @instrument()
     def get_routers_with_policy(self, context, host=None, policy_id=None, only_external=False):
         return self.db.get_routers_with_policy(context, host, policy_id, only_external=only_external)
+
+    @instrument()
+    def get_ipsec_site_connection_ids(self, context, host):
+        if not utils.is_vpnaas_enabled():
+            return []
+        return self.db.get_ipsec_site_connection_ids(context, host=host)
+
+    @instrument()
+    def get_tunnel_ids(self, context, host):
+        if not utils.is_vpnaas_enabled():
+            return []
+        return [entry['number'] for entry in self.db.get_vpn_tunnel_ids(context, agent_host=host)]
 
     @instrument()
     def delete_router_atts(self, context, **kwargs):

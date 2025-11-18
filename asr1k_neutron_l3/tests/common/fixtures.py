@@ -19,12 +19,17 @@ from neutron.db.models.segment import NetworkSegment
 from neutron.db import models_v2
 from neutron.extensions import address_scope as ext_address_scope
 from neutron.extensions import l3
+from neutron_lib import constants as nl_const
 from neutron_lib import context
 from neutron_lib.db import api as db_api
+from neutron_lib.plugins import constants as plugin_constants
+from neutron_lib.plugins import directory
 from neutron.plugins.ml2 import models as ml2_models
 from neutron.scheduler import l3_agent_scheduler
+from neutron.services.flavors import flavors_plugin
 from neutron.tests.common import helpers
 from neutron.tests.unit.extensions import test_l3, test_address_scope
+from neutron_vpnaas.extensions import vpnaas as ext_vpnaas
 from oslo_config import cfg
 from oslo_serialization import jsonutils
 from oslo_utils import uuidutils
@@ -35,6 +40,11 @@ from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair, FakeASR1KContext
 from asr1k_neutron_l3.models.neutron.l3.router import Router
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.l3.service_plugins.l3_extension_adapter import ASR1KPluginBase
+from asr1k_neutron_l3.tests.common.vpnaas import ASR1KVPNaaSMixin
+from asr1k_neutron_l3.tests.common.flavor import FlavorSchedulingMixin
+
+
+DB_VPN_PLUGIN_KLASS = "neutron_vpnaas.services.vpn.asr1k_plugin.VPNASR1KDriverPlugin"
 
 
 class FakeASR1KPair:
@@ -48,14 +58,15 @@ class FakeASR1KPair:
 
 class ASR1KTestL3NatIntPlugin(test_l3.TestL3NatIntPlugin, address_scope_db.AddressScopeDbMixin):
     supported_extension_aliases = test_l3.TestL3NatIntPlugin.supported_extension_aliases + [
-        'availability_zone', 'agent', 'address-scope', 'flavors',
+        'availability_zone', 'agent', 'address-scope', 'flavors', 'vpnaas',
     ]
 
 
 class ASR1KTestExtensionManager:
     def get_resources(self):
         return (l3.L3.get_resources() +
-                ext_address_scope.Address_scope.get_resources())
+                ext_address_scope.Address_scope.get_resources() +
+                ext_vpnaas.Vpnaas.get_resources())
 
     def get_actions(self):
         return []
@@ -64,25 +75,39 @@ class ASR1KTestExtensionManager:
         return []
 
 
+@mock.patch.object(asr1k_db.DBPlugin, 'get_network_port_count_per_agent', new=mock.Mock(return_value={'fake-agent': 0}))
 class RouterWithSyncDataTestCase(test_address_scope.AddressScopeTestCase,
-                                 test_l3.L3BaseForIntTests, test_l3.L3NatTestCaseMixin):
+                                 test_l3.L3BaseForIntTests, test_l3.L3NatTestCaseMixin,
+                                 FlavorSchedulingMixin, ASR1KVPNaaSMixin):
     def setUp(self):
         l3_plugin = 'asr1k_l3_routing'
-        service_plugins = {'l3_plugin_name': l3_plugin}
+        service_plugins = {'l3_plugin_name': l3_plugin, 'vpnaas': DB_VPN_PLUGIN_KLASS}
+
+        self.node_driver = "asr1k_neutron_l3.neutron.services.service_providers.asr1k_router.ASR1KRouterDriver"
+        vpn_driver = 'asr1k_neutron_l3.neutron.services.service_drivers.asr1k.vpnaas_driver.ASR1KIPSecVPNaaSDriver'
+        cfg.CONF.set_override('service_provider', [f'L3_ROUTER_NAT:asr1k:{self.node_driver}:default',
+                                                   f'VPN:cisco_ipsec:{vpn_driver}:default'],
+                              group='service_providers')
+        cfg.CONF.set_override("router_scheduler_driver",
+                              "asr1k_neutron_l3.plugins.l3.schedulers.simple_asr1k_scheduler.SimpleASR1KScheduler")
 
         # NOTE(seba): we're currently using our own fake test plugin and then for specific
         #             calls we're using an instance of the ASR1KPluginBase to get certain data -
         #             maybe we can improve this and use our real plugin some day
         plugin = ('asr1k_neutron_l3.tests.common.fixtures.ASR1KTestL3NatIntPlugin')
-        ext_mgr = ASR1KTestExtensionManager()
-        super().setUp(plugin=plugin, service_plugins=service_plugins, ext_mgr=ext_mgr)
+        self.ext_mgr = ASR1KTestExtensionManager()
+
+        super().setUp(plugin=plugin, service_plugins=service_plugins, ext_mgr=self.ext_mgr)
 
         self.plugin = ASR1KPluginBase()
         self.db = asr1k_db.get_db_plugin()
 
+        directory.add_plugin(plugin_constants.FLAVORS, flavors_plugin.FlavorsPlugin())
+        self.fp = directory.get_plugin(plugin_constants.FLAVORS)
+
         self.default_host = 'asr1k-agent-314159'
         self.default_physnet = 'np2653589'
-        self.agent = helpers.register_l3_agent(host=self.default_host, az='nova')
+        self.agent = self.register_asr1k_l3_agent(host=self.default_host, az='nova')
 
         # for device setup
         asr1k_config.register_common_opts()
@@ -92,6 +117,13 @@ class RouterWithSyncDataTestCase(test_address_scope.AddressScopeTestCase,
         self.asr1k_ctx = FakeASR1KContext()
 
         self.address_scope_rts = {}
+
+    def register_asr1k_l3_agent(self, host, az):
+        internal_only = True
+        agent_mode = nl_const.L3_AGENT_MODE_LEGACY
+        agent = helpers._get_l3_agent_dict(host, agent_mode, internal_only, az)
+        agent['agent_type'] = asr1k_constants.AGENT_TYPE_ASR1K_L3
+        return helpers._register_agent(agent)
 
     def register_address_scope_rt(self, name, rt):
         self.address_scope_rts[name] = rt
@@ -149,12 +181,12 @@ class RouterWithSyncDataTestCase(test_address_scope.AddressScopeTestCase,
 
         return vlan_netseg
 
-    def _add_subnet_to_router(self, router_id, subnet, vlan_id=None):
+    def _add_subnet_to_router(self, router_id, subnet, vlan_id=None, ia_kwargs={}):
         """Add subnet to router, including a port binding"""
         network_id = subnet['subnet']['network_id']
         with self.port(subnet=subnet, device_owner="network:router_interface") as port:
             port_id = port['port']['id']
-            self._router_interface_action('add', router_id, None, port_id, as_admin=True)
+            self._router_interface_action('add', router_id, None, port_id, as_admin=True, **ia_kwargs)
 
             ctx = context.get_admin_context()
             netseg = self._make_port_binding(ctx, port['port']['id'], self.default_host, network_id,
@@ -185,6 +217,10 @@ class RouterWithSyncDataTestCase(test_address_scope.AddressScopeTestCase,
         # create agent binding
         scheduler = l3_agent_scheduler.ChanceScheduler()
         scheduler.bind_router(self.plugin, ctx, router['router']['id'], self.agent.id)
+        l3_notifier = self.plugin.agent_notifiers[nl_const.AGENT_TYPE_L3]
+        with mock.patch.object(l3_notifier.client, 'prepare', return_value=l3_notifier.client), \
+                mock.patch.object(l3_notifier.client, 'call'):
+            self.plugin.add_router_to_l3_agent(ctx, self.agent.id, router['router']['id'])
 
         # handle external gateway prt bindings + extra atts
         if external_gateway_info:
@@ -199,8 +235,9 @@ class RouterWithSyncDataTestCase(test_address_scope.AddressScopeTestCase,
                 asr1k_db.ExtraAttsDb.ensure(router['router']['id'], port_obj, netseg, clean_old=True)
 
         # handle internal subnets
-        for int_subnet in int_subnets:
-            self._add_subnet_to_router(router['router']['id'], int_subnet)
+        if int_subnets:
+            for int_subnet in int_subnets:
+                self._add_subnet_to_router(router['router']['id'], int_subnet)
 
         return router
 
