@@ -93,6 +93,9 @@ class XMLUtils(object):
         dict = cls._remove_base_wrapper(dict, context)
         if dict is None:
             return
+        if cls.ITEM_PATH:
+            for key in cls.ITEM_PATH:
+                dict = dict.get(key, dict)
         if cls.LIST_KEY is not None:
             dict = dict.get(cls.LIST_KEY, dict)
         return dict
@@ -112,7 +115,12 @@ class XMLUtils(object):
 
     def _wrapper_preamble(self, dict, context):
         if self.LIST_KEY is not None:
+            if self.LIST_KEY_NS:
+                dict[NS] = self.LIST_KEY_NS
             dict = {self.LIST_KEY: dict}
+        if self.ITEM_PATH:
+            for key in reversed(self.ITEM_PATH):
+                dict = {key: dict}
 
         return dict
 

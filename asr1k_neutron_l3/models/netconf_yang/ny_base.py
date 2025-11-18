@@ -397,7 +397,9 @@ class NyBase(BulkOperations):
     PARENT = 'parent'
 
     EMPTY_TYPE = {}
+    ITEM_PATH = None
     LIST_KEY = ""
+    LIST_KEY_NS = None
 
     @classmethod
     def __parameters__(cls):
