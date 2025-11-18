@@ -763,7 +763,7 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
     def _add_router_to_cache(self, context, router_id):
         LOG.debug("Adding router %s to internal router cache", router_id)
-        host = self.get_host_for_router(context, [router_id])
+        host = self.get_host_for_router(context, router_id)
         routers = self.get_sync_data(context, [router_id])
         if not routers:
             LOG.warning("Could not add router %s to internal router cache: get_sync_data came up empty", router_id)
