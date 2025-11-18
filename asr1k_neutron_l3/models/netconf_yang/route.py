@@ -90,6 +90,9 @@ class VrfRouteBase(NyBase):
 
     @execute_on_pair()
     def update(self, context):
+        self._update_on_device(context=context)
+
+    def _update_on_device(self, context):
         if len(self.routes) > 0:
             return self._update(context=context, method=NC_OPERATION.PUT)
         else:
@@ -121,6 +124,28 @@ class VrfRouteBase(NyBase):
                 self.IP_ROUTE_CLASS.LIST_KEY: [],
             }
         }
+
+    @classmethod
+    def delete_routes_by_nexthop(cls, context, nexthop):
+        """Clear all routes referencing a specific nexthop"""
+        all_on_device = cls._get_all(context=context, filter={})
+        routes_found = False
+        for vrf_routes in all_on_device:
+            if not vrf_routes.neutron_router_id:
+                # just to be on the safe side we're ignoring everything not handled by the driver
+                # even if it references something we're trying to delete
+                continue
+
+            new_routes = [r for r in vrf_routes.routes if r.fwd_list and r.fwd_list.get('fwd') != nexthop]
+            if len(vrf_routes.routes) != len(new_routes):
+                LOG.info("Cleaning routes with nexthop %s out of vrf %s on host %s",
+                         nexthop, vrf_routes.name, context.host)
+                vrf_routes.routes = new_routes
+                vrf_routes._update_on_device(context=context)
+                routes_found = True
+
+        if not routes_found:
+            LOG.info("No %s routes to clean for nexthop %s on host %s", cls.IP_KEY, nexthop, context.host)
 
 
 class IpRouteV4(NyBase):
@@ -197,6 +222,17 @@ class VrfRouteV4(VrfRouteBase):
               </native>
     """
 
+    ALL_FILTER = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+                <ip>
+                  <route>
+                   <vrf>
+                   </vrf>
+                  </route>
+                </ip>
+              </native>
+    """
+
     VRF_XPATH_FILTER = "/native/ip/route/vrf[name='{vrf}']"
     IP_ROUTE_CLASS = IpRouteV4
     IP_KEY = RouteConstants.IP
@@ -229,6 +265,17 @@ class VrfRouteV6(VrfRouteBase):
                   <route>
                    <vrf>
                     <name/>
+                   </vrf>
+                  </route>
+                </ipv6>
+              </native>
+    """
+
+    ALL_FILTER = """
+              <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+                <ipv6>
+                  <route>
+                   <vrf>
                    </vrf>
                   </route>
                 </ipv6>

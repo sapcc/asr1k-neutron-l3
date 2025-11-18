@@ -156,3 +156,49 @@ class OnlyOneExternalIPv6AddressAllowed(nexception.BadRequest):
 
 class InvalidExternalGatewayIPDefinition(nexception.BadRequest):
     message = ("Invalid external gateway ip definition found: %(ext_ip)s")
+
+
+class InvalidVPNaaSIPSecSiteConnectionConfig(nexception.BadRequest):
+    message = ("Cannot use IPSecSiteConnection, invalid %(obj)s: "
+               "%(key)s value %(value)s not supported (supported values: %(supported_values)s)")
+
+
+class InvalidVPNaaSInternalTunnelIps(nexception.BadRequest):
+    message = "Invalid internal tunnel IPs: %(reason)s"
+
+
+class RouterIsNotVPNaaSFlavor(nexception.BadRequest):
+    message = ("Cannot attach a VPN service onto non-VPNaaS router %(router_id)s - "
+               "please create a router with a VPNaaS flavor")
+
+
+class DeprecatedAPIField(nexception.BadRequest):
+    message = "Cannot create %(obj_name)s with deprecated field %(deprecated_field)s"
+
+
+class InvalidInternalSubnetOnVPNaasRouter(nexception.BadRequest):
+    message = ("Cannot attach internal network onto VPNaaS router %(router_id)s - to attach an internal subnet, "
+               "please use another router in combination with a BGPVPN")
+
+
+class MultipleVPNServicesOnRouterDisallowed(nexception.BadRequest):
+    message = ("Only one VPN service allowed per router - "
+               "router %(router_id)s already has vpn service %(other_vpn_service_id)s")
+
+
+class EndpointGroupTooLarge(nexception.BadRequest):
+    message = "Endpointgroup %(epg_id)s is too large - group contains %(group_count)s endpoints, limit is %(limit)s"
+
+
+class DuplicateEndpointsBetweenIPSecSiteConnections(nexception.BadRequest):
+    message = ("Peer Endpoint Group of IPSec Site Connection %(ipsec_site_connection_id)s "
+               "contains duplicate prefixes that collide with IPSec Site Connection "
+               "%(other_ipsec_site_connection_id)s. Prefixes are: %(prefixes)s")
+
+
+class PeerNatAddressMustBeIPv4(nexception.BadRequest):
+    message = "Peer NAT address must be a valid IPv4 address"
+
+
+class ExtraRoutesDisallowedOnVPNaaSRouter(nexception.BadRequest):
+    message = "Extra routes are disallowed on VPNaaS flavored routers"

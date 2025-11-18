@@ -16,36 +16,17 @@ import json
 from unittest import mock
 
 from neutron_lib import context
-from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
 from neutron.quota import resource_registry
-from neutron.services.flavors import flavors_plugin
-from neutron.tests.unit.extensions import test_l3
 from oslo_config import cfg
 from oslo_utils import uuidutils
 
 from asr1k_neutron_l3.plugins.db import asr1k_db
+from asr1k_neutron_l3.tests.common.fixtures import RouterWithSyncDataTestCase
 
 
 @mock.patch.object(asr1k_db.DBPlugin, 'get_network_port_count_per_agent', new=mock.Mock(return_value={'fake-agent': 0}))
-class TestASR1kRouterScheduling(test_l3.L3BaseForIntTests, test_l3.L3NatTestCaseMixin):
-    def setUp(self):
-        l3_plugin = 'asr1k_l3_routing'
-        service_plugins = {'l3_plugin_name': l3_plugin}
-        plugin = ('asr1k_neutron_l3.tests.common.fixtures.ASR1KTestL3NatIntPlugin')
-        self.node_driver = "asr1k_neutron_l3.neutron.services.service_providers.asr1k_router.ASR1KRouterDriver"
-        cfg.CONF.set_override('service_provider',
-                              [f'L3_ROUTER_NAT:asr1k:{self.node_driver}:default'], group='service_providers')
-        cfg.CONF.set_override("router_scheduler_driver",
-                              "asr1k_neutron_l3.plugins.l3.schedulers.simple_asr1k_scheduler.SimpleASR1KScheduler")
-        super().setUp(plugin=plugin, service_plugins=service_plugins)
-
-        directory.add_plugin(plugin_constants.FLAVORS, flavors_plugin.FlavorsPlugin())
-
-        self.db = asr1k_db.get_db_plugin()
-        self.fp = directory.get_plugin(plugin_constants.FLAVORS)
-
-
+class TestASR1kRouterScheduling(RouterWithSyncDataTestCase):
     def _make_flavor(self, ctx, flavor_name, profiles=None, description='', service_type='L3_ROUTER_NAT', enabled=True):
         flavor_def = {'flavor': {
             'name': flavor_name,

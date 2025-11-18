@@ -12,6 +12,9 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from neutron_lib import context
+from neutron_lib.plugins import directory
+from oslo_config import cfg
 from oslo_utils import uuidutils
 
 from asr1k_neutron_l3.tests.common.fixtures import RouterWithSyncDataTestCase
@@ -101,3 +104,133 @@ class TestRouterClass(RouterWithSyncDataTestCase):
 
         self.assertIsNotNone(dev_router.vrf._rest_definition.address_family_ipv4)
         self.assertIsNotNone(dev_router.vrf._rest_definition.address_family_ipv6)
+
+
+class TestRouterClassWithVPN(RouterWithSyncDataTestCase):
+    def setUp(self):
+        super().setUp()
+        cfg.CONF.set_override('disconnected_subnets_mode', True, group='vpnaas')
+        self.register_address_scope_rt("the-open-sea", "65123:101")
+        self.vpn_driver = directory.get_plugin('VPN').drivers['cisco_ipsec']
+
+        ctx = context.get_admin_context()
+        self.vpnaas_flavor_id = self._make_flavor(ctx, "vpnaas-falaaaaavor",
+                                                  profiles=[{'metainfo': self._make_meta(req=["vpnaas"])}])
+
+    def _make_vpn_ready_router(self):
+        with self.subnet(cidr="10.100.1.0/24") as s_ext:
+            self._set_net_external(s_ext['subnet']['network_id'])
+            return self.make_router_extended(name="r1", ext_subnet=s_ext, int_subnets=[],
+                                             flavor_id=self.vpnaas_flavor_id)
+
+    def _find_entry(self, cls_name, entries, single=True, check_nonexistent=False):
+        result = [e for e in entries if e.__class__.__name__ == cls_name]
+        if check_nonexistent:
+            self.assertEqual([], result)
+            return None
+        if single:
+            self.assertEqual(1, len(result))
+            return result[0]
+        return result
+
+    def test_router_with_vpn_tunnel_conf(self):
+        router = self._make_vpn_ready_router()
+        vpn = self._create_vpnservice("json", "vpn1", True, router['router']['id'], None, as_admin=True)
+        sc_objs = self._make_sitecon_related_objs(ipsec_args={"encapsulation_mode": "tunnel"})
+        self._create_ipsec_site_connection("json",
+            vpnservice_id=vpn["vpnservice"]["id"],
+            **sc_objs,
+        )
+        dev_router = self._get_ny_router(router['router']['id'])
+        ipsec_ts = self._find_entry("IPSecTransformSet", dev_router.vpnaas_conf)._rest_definition
+        self.assertIsNone(ipsec_ts.transport_choice)
+        self.assertTrue(ipsec_ts.tunnel_choice)
+        self.assertEqual(2, len(dev_router.routes[4].routes))
+        self.assertEqual({"0.0.0.0", "193.175.214.0"}, {r.destination for r in dev_router.routes[4].routes})
+        iface = self._find_entry("TunnelInterface", dev_router.vpnaas_conf)._rest_definition
+        self.assertFalse(iface.shutdown)
+
+    def test_router_with_vpn_transport_conf(self):
+        router = self._make_vpn_ready_router()
+        vpn = self._create_vpnservice("json", "vpn1", True, router['router']['id'], None, as_admin=True)
+        sc_objs = self._make_sitecon_related_objs(ipsec_args={"encapsulation_mode": "transport"},
+                                                  local_eps=["10.100.1.0/24", "10.100.8.0/24"],
+                                                  peer_eps=["193.175.214.0/24", "193.175.215.0/24"])
+        self._create_ipsec_site_connection("json",
+            vpnservice_id=vpn["vpnservice"]["id"],
+            **sc_objs,
+        )
+        dev_router = self._get_ny_router(router['router']['id'])
+
+        ipsec_ts = self._find_entry("IPSecTransformSet", dev_router.vpnaas_conf)._rest_definition
+        self.assertTrue(ipsec_ts.transport_choice)
+        self.assertIsNone(ipsec_ts.tunnel_choice)
+
+        acl = self._find_entry("IPSecTransportAccessList", dev_router.vpnaas_conf)
+        self.assertEqual({("10.100.1.0", "193.175.214.0"), ("10.100.1.0", "193.175.215.0"),
+                          ("10.100.8.0", "193.175.214.0"), ("10.100.8.0", "193.175.215.0")},
+                         {(r.source, r.destination) for r in acl.rules})
+
+    def test_router_with_nat_ip(self):
+        router = self._make_vpn_ready_router()
+        vpn = self._create_vpnservice("json", "vpn1", True, router['router']['id'], None, as_admin=True)
+        sc_objs = self._make_sitecon_related_objs(ipsec_args={"encapsulation_mode": "tunnel"})
+        self._create_ipsec_site_connection("json",
+            vpnservice_id=vpn["vpnservice"]["id"],
+            peer_id="1.2.3.4",
+            peer_nat_address_v4="5.6.7.8",
+            **sc_objs,
+        )
+        dev_router = self._get_ny_router(router['router']['id'])
+        ike_prof = self._find_entry("IKEv2Profile", dev_router.vpnaas_conf)._rest_definition
+        self.assertEqual(2, len(ike_prof.remote_identities_v4))
+        self.assertEqual([{"ipv4-address": "1.2.3.4", "ipv4-mask": "255.255.255.255"},
+                          {"ipv4-address": "5.6.7.8", "ipv4-mask": "255.255.255.255"}],
+                         [ri.to_dict(dev_router.contexts[0]) for ri in ike_prof.remote_identities_v4])
+
+    def test_router_with_two_connections(self):
+        router = self._make_vpn_ready_router()
+        vpn = self._create_vpnservice("json", "vpn1", True, router['router']['id'], None, as_admin=True)
+        self._create_ipsec_site_connection("json",
+            vpnservice_id=vpn["vpnservice"]["id"],
+            **self._make_sitecon_related_objs(peer_eps=["193.175.214.0/24"], ike_args={"auth_algorithm": "sha256"})
+        )
+        self._create_ipsec_site_connection("json",
+            vpnservice_id=vpn["vpnservice"]["id"],
+            **self._make_sitecon_related_objs(peer_eps=["193.175.215.0/24"], ike_args={"auth_algorithm": "sha384"})
+        )
+        dev_router = self._get_ny_router(router['router']['id'])
+        ike_pol = self._find_entry("IKEv2Policy", dev_router.vpnaas_conf)._rest_definition
+        self.assertEqual(2, len(ike_pol.proposals))
+        self.assertEqual(['aes-128_sha256_group15', 'aes-128_sha384_group15'], ike_pol.proposals)
+
+    def test_router_int_peer_address_out_of_network(self):
+        router = self._make_vpn_ready_router()
+        vpn = self._create_vpnservice("json", "vpn1", True, router['router']['id'], None, as_admin=True)
+        sc_objs = self._make_sitecon_related_objs()
+        self._create_ipsec_site_connection("json",
+            vpnservice_id=vpn["vpnservice"]["id"],
+            int_local_cidr_v4="169.254.0.1/30",
+            int_peer_address_v4="192.168.178.1",
+            **sc_objs,
+        )
+        dev_router = self._get_ny_router(router['router']['id'])
+        self.assertEqual(3, len(dev_router.routes[4].routes))
+        self.assertEqual({"0.0.0.0", "192.168.178.1", "193.175.214.0"},
+                         {r.destination for r in dev_router.routes[4].routes})
+        for route in dev_router.routes[4].routes:
+            if route.destination != "0.0.0.0":
+                self.assertTrue(route.nexthop.startswith("Tunnel"))
+
+    def test_router_sitecon_disabled_tunnel_shut(self):
+        router = self._make_vpn_ready_router()
+        vpn = self._create_vpnservice("json", "vpn1", True, router['router']['id'], None, as_admin=True)
+        sc_objs = self._make_sitecon_related_objs()
+        self._create_ipsec_site_connection("json",
+            vpnservice_id=vpn["vpnservice"]["id"],
+            admin_state_up=False,
+            **sc_objs,
+        )
+        dev_router = self._get_ny_router(router['router']['id'])
+        iface = self._find_entry("TunnelInterface", dev_router.vpnaas_conf)._rest_definition
+        self.assertTrue(iface.shutdown)

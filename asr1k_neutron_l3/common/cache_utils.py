@@ -30,7 +30,7 @@ def get_cache():
     if not _LOCAL_CACHE:
         cache = neutron_cache_utils.get_cache(cfg.CONF)
         if not cache:
-            LOG.error("Could not get connection to neutron cache, which is required for proper router deletion")
+            LOG.error("Could not get connection to neutron cache, this might impact delete operations")
             return
         _LOCAL_CACHE = cache
     return _LOCAL_CACHE

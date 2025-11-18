@@ -32,6 +32,7 @@ from asr1k_neutron_l3.models.neutron.l3 import nat
 from asr1k_neutron_l3.models.neutron.l3 import prefix
 from asr1k_neutron_l3.models.neutron.l3 import route
 from asr1k_neutron_l3.models.neutron.l3 import route_map
+from asr1k_neutron_l3.models.neutron.l3 import vpn
 from asr1k_neutron_l3.models.neutron.l3 import vrf
 
 LOG = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ class Router(Base):
                            enable_ipv4=True, enable_ipv6=self.enable_ipv6)
 
         self.fwaas_conf, self.fwaas_external_policies = self._build_fwaas_conf()
+        self.vpnaas_conf = self._build_vpnaas_conf()
 
         self.route_maps = self._build_route_maps()
         self.nat_acl = self._build_nat_acl()
@@ -114,13 +116,23 @@ class Router(Base):
                       rt, global_vrf_id)
         return global_vrf_id
 
+    def get_status_set(self):
+        status = {self.status}
+        if self.router_info.get('vpn'):
+            status.add(self.router_info['vpn']['status'])
+            for sitecon in self.router_info['vpn']['ipsec_site_connections']:
+                status.add(sitecon['status'])
+        return status
+
     @property
     def enable_ipv4(self):
-        return any(iface.ipv4_address for iface in self.interfaces.all_interfaces)
+        return any(iface.ipv4_address for iface in self.interfaces.all_interfaces) or \
+                bool(self.router_info.get('vpn'))
 
     @property
     def enable_ipv6(self):
-        return any(iface.ipv6_addresses for iface in self.interfaces.all_interfaces)
+        return any(iface.ipv6_addresses for iface in self.interfaces.all_interfaces) or \
+                bool(self.router_info.get('vpn'))
 
     def _get_fwaas_acls_by_port(self):
         """
@@ -190,6 +202,24 @@ class Router(Base):
             if self._route_has_connected_interface(r):
                 routes[ip_net.version].append(r)
 
+        # handle vpn routes (endpoint group + int tun ip static route)
+        if self.router_info.get('vpn'):
+            for sitecon in self.router_info['vpn']['ipsec_site_connections']:
+                target_dest = f"Tunnel{sitecon['tun_iface_id']}"
+                for ep_net in sitecon['peer_ep_group']['endpoints']:
+                    ep_net = netaddr.IPNetwork(ep_net)
+                    RouteClass = route.RouteV4 if ep_net.version == 4 else route.RouteV6
+                    r = RouteClass(self.router_id, str(ep_net), target_dest)
+                    routes[ep_net.version].append(r)
+
+                for ip_ver in (4, 6):
+                    local_net = netaddr.IPNetwork(sitecon[f'int_local_cidr_v{ip_ver}'])
+                    peer_ip = netaddr.IPAddress(sitecon[f'int_peer_address_v{ip_ver}'])
+                    if peer_ip not in local_net:
+                        RouteClass = route.RouteV4 if ip_ver == 4 else route.RouteV6
+                        r = RouteClass(self.router_id, str(peer_ip), target_dest, is_internal=True)
+                        routes[ip_ver].append(r)
+
         # handle default routes
         if self.gateway_interface is not None:
             if self.gateway_interface.gateway_ip_v4 and not primary_overridden[4]:
@@ -251,7 +281,8 @@ class Router(Base):
 
             extra_routes = []
             if self.router_info["bgpvpn_advertise_extra_routes"]:
-                extra_routes = [x.cidr for x in self.routes[ip_version].routes if x.cidr not in ("0.0.0.0/0", "::/0")]
+                extra_routes = [x.cidr for x in self.routes[ip_version].routes
+                                if x.cidr not in ("0.0.0.0/0", "::/0") and not x.is_internal]
 
             bgp_afs[ip_version] = BGPAddressFamily(
                 vrf=utils.uuid_to_vrf_id(self.router_id),
@@ -415,6 +446,59 @@ class Router(Base):
                 interface.has_stateful_firewall = True
         return fwaas_conf, fwaas_external_policies
 
+    def _build_vpnaas_conf(self):
+        objs = []
+        vpn_info = self.router_info.get('vpn')
+        if not vpn_info:
+            return objs
+
+        # we expect that the data is already validated
+        # create: policy / proposals
+        proposals = {}
+        transform_sets = {}
+        vrf_id = utils.uuid_to_vrf_id(self.router_id)
+        for sitecon in vpn_info['ipsec_site_connections']:
+            proposal_name = vpn.IKEv2Proposal.gen_name_from_policy(sitecon['ikepolicy'])
+            if proposal_name not in proposals:
+                proposal = vpn.IKEv2Proposal(sitecon['ikepolicy'])
+                proposals[proposal.name] = proposal
+
+            ts_name = vpn.IPSecTransformSet.gen_name_from_policy(sitecon['ipsecpolicy'])
+            if ts_name not in transform_sets:
+                ts = vpn.IPSecTransformSet(vrf=vrf_id, ipsecpolicy=sitecon['ipsecpolicy'])
+                transform_sets[ts.name] = ts
+
+        objs.extend(proposals.values())
+        objs.extend(transform_sets.values())
+
+        # NOTE(seba): removing stale/empty ikev2 policies is not yet supported
+        ikev2_policy = vpn.IKEv2Policy(vrf=vrf_id, proposals=sorted(proposals))
+        objs.append(ikev2_policy)
+
+        for sitecon in vpn_info['ipsec_site_connections']:
+            if sitecon['ipsecpolicy']['encapsulation_mode'] == 'transport':
+                peer_acl = vpn.IPSecTransportAccessList(sitecon)
+                objs.append(peer_acl)
+
+            # create: keyring
+            ikev2_keyring = vpn.IKEv2Keyring(sitecon)
+            objs.append(ikev2_keyring)
+
+            # create: profile
+            ikev2_profile = vpn.IKEv2Profile(vrf_id, sitecon)
+            objs.append(ikev2_profile)
+
+            # create: ipsec profile
+            ipsec_profile = vpn.IPSecProfile(vrf_id, sitecon)
+            objs.append(ipsec_profile)
+
+            # create: tunnel interface
+            tun_iface = vpn.TunnelInterface(vrf_id, sitecon, vpn_info['external_v4_ip'], vpn_info['external_v6_ip'],
+                                            vpn_service_up=vpn_info['admin_state_up'])
+            objs.append(tun_iface)
+
+        return objs
+
     def _port_extra_atts(self, port):
         try:
             if self.extra_atts is not None:
@@ -470,6 +554,9 @@ class Router(Base):
         # a router object will take care of creation of firewall acls and related objects,
         # it will also update firewall acls
         for obj in self.fwaas_conf:
+            results.append(obj.update())
+
+        for obj in self.vpnaas_conf:
             results.append(obj.update())
 
         # If there are no external policies, we can create dangling objects which will and call delete
@@ -552,6 +639,12 @@ class Router(Base):
         results.append(firewall.FirewallVrfPolicer(self.router_id).delete())
         results.append(firewall.Zone(self.router_id).delete())
 
+        for obj in reversed(self.vpnaas_conf):
+            result = obj.delete()
+            # some objects cannot be deleted and return None
+            if result is not None:
+                results.append(obj.delete())
+
         results.append(self.vrf.delete())
 
         # We do not delete fwaas acls here as the acl could
@@ -623,6 +716,11 @@ class Router(Base):
             diff_results['nat_acl'] = nat_acl_diff.to_dict()
 
         for obj in self.fwaas_conf:
+            d = obj.diff()
+            if not d.valid:
+                diff_results[obj.id] = d.to_dict()
+
+        for obj in self.vpnaas_conf:
             d = obj.diff()
             if not d.valid:
                 diff_results[obj.id] = d.to_dict()

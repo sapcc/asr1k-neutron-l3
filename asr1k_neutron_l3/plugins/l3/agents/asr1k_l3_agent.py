@@ -241,6 +241,16 @@ class L3PluginApi(object):
         return cctxt.call(context, 'get_routers_with_policy', host=self.host, policy_id=policy_id,
                           only_external=only_external)
 
+    @instrument()
+    def get_ipsec_site_connection_ids(self, context):
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_ipsec_site_connection_ids', host=self.host)
+
+    @instrument()
+    def get_tunnel_ids(self, context):
+        cctxt = self.client.prepare()
+        return cctxt.call(context, 'get_tunnel_ids', host=self.host)
+
     def delete_router_atts(self, context, router_ids):
         """Delete extra atts for unused l3 ports"""
         cctxt = self.client.prepare(version='1.7')
@@ -720,15 +730,12 @@ class L3ASRAgent(manager.Manager, operations.OperationsMixin, DeviceCleanerMixin
         LOG.debug("Update of {} {} in {:10.3f}s"
                   "".format(router.router_id, "succeeded" if success else "failed", duration))
 
-        current_status = router.status
-
         # Callback to set router state based on update result
-        if not success and current_status != lib_constants.ERROR:
-            LOG.debug("Router has new status of ERROR, callback to update DB")
-            self.plugin_rpc.update_router_status(self.context, router.router_id, lib_constants.ERROR)
-        elif success and current_status != lib_constants.ACTIVE:
-            LOG.debug("Router has new status of ACTIVE, callback to update DB")
-            self.plugin_rpc.update_router_status(self.context, router.router_id, lib_constants.ACTIVE)
+        current_status_set = router.get_status_set()
+        wanted_status = lib_constants.ACTIVE if success else lib_constants.ERROR
+        if {wanted_status} != current_status_set:
+            LOG.debug("Router %s has new status of %s, callback to update DB", router.router_id, wanted_status)
+            self.plugin_rpc.update_router_status(self.context, router.router_id, wanted_status)
 
     def _extra_atts_complete(self, router):
         extra_atts = router.get(constants.ASR1K_EXTRA_ATTS_KEY)

@@ -40,6 +40,7 @@ from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
 from networking_bgpvpn.neutron.db import bgpvpn_db
 from neutron_lib.db import api as db_api
+from neutron_vpnaas.db.vpn import vpn_models
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 from oslo_utils import timeutils
@@ -47,8 +48,7 @@ import sqlalchemy as sa
 from sqlalchemy import and_, or_
 from sqlalchemy import func
 
-from asr1k_neutron_l3.common import asr1k_constants as constants
-from asr1k_neutron_l3.common import asr1k_exceptions
+from asr1k_neutron_l3.common import asr1k_constants as constants, asr1k_exceptions, utils
 from asr1k_neutron_l3.plugins.db import models as asr1k_models
 
 from neutron_fwaas.db.firewall.v2 import firewall_db_v2 as fwaas
@@ -186,12 +186,28 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def update_router_status(self, context, router_id, status):
         try:
             # Try using new session to for router updates
+            LOG.debug("Setting status to %s for router %s", status, router_id)
             router = {'router': {'status': status}}
             ctx = n_context.get_admin_context()
             self.update_router(ctx, router_id, router)
         except l3_exc.RouterNotFound:
-            LOG.info("Update to status to {} for router {} failed, router not found.".format(status, router_id))
+            LOG.warning("Update to status to %s for router %s failed, router not found.", status, router_id)
             return
+
+        if utils.is_vpnaas_enabled():
+            vpn_plugin = directory.get_plugin("VPN")
+            sitecon_ids = self.get_ipsec_site_connection_ids(ctx, router_id=router_id)
+            if sitecon_ids:
+                for sitecon_id in sitecon_ids:
+                    LOG.debug("Setting status to %s for router %s ipsec site connection %s",
+                              status, router_id, sitecon_id)
+                    vpn_plugin.update_ipsec_site_conn_status(ctx, sitecon_id, status)
+
+                first_sitecon = vpn_plugin.get_ipsec_site_connection(ctx, sitecon_ids[0])
+                LOG.debug("Setting status to %s for router %s vpnservice %s",
+                          status, router_id, first_sitecon['vpnservice_id'])
+                vpn_plugin.set_vpnservice_status(ctx, first_sitecon['vpnservice_id'],
+                                                 status, updated_pending_status=True)
 
     @db_api.CONTEXT_READER
     def get_ports_with_extra_atts(self, context, ports, host):
@@ -702,6 +718,108 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
             query = query.filter(l3_models.Router.project_id == project_id)
 
         return query.count()
+
+    @db_api.CONTEXT_READER
+    def get_vpn_internal_tunnel_ips(self, context, ipsec_sitecon_ids=None, vpnservice_id=None):
+        query = context.session.query(asr1k_models.ASR1KInternalTunnelIp)
+        if ipsec_sitecon_ids:
+            query = query.filter(asr1k_models.ASR1KInternalTunnelIp.ipsec_site_connection_id.in_(ipsec_sitecon_ids))
+        if vpnservice_id:
+            query = query.join(vpn_models.IPsecSiteConnection,
+                               asr1k_models.ASR1KInternalTunnelIp.ipsec_site_connection_id ==
+                               vpn_models.IPsecSiteConnection.id)
+            query = query.filter(vpn_models.IPsecSiteConnection.vpnservice_id == vpnservice_id)
+        return [
+            {
+                'ipsec_site_connection_id': entry.ipsec_site_connection_id,
+                'local_cidr_v4': entry.local_cidr_v4,
+                'peer_address_v4': entry.peer_address_v4,
+                'local_cidr_v6': entry.local_cidr_v6,
+                'peer_address_v6': entry.peer_address_v6,
+            }
+            for entry in query
+        ]
+
+    @db_api.CONTEXT_WRITER
+    def create_or_update_vpn_internal_tunnel_ips(self, context, ipsec_sitecon_id,
+                                                 local_cidr_v4, peer_address_v4, local_cidr_v6, peer_address_v6):
+        query = context.session.query(asr1k_models.ASR1KInternalTunnelIp)
+        query = query.filter(asr1k_models.ASR1KInternalTunnelIp.ipsec_site_connection_id == ipsec_sitecon_id)
+        if query.count() > 0:
+            obj = query.first()
+        else:
+            obj = asr1k_models.ASR1KInternalTunnelIp()
+            obj.ipsec_site_connection_id = ipsec_sitecon_id
+        obj.local_cidr_v4 = local_cidr_v4
+        obj.peer_address_v4 = peer_address_v4
+        obj.local_cidr_v6 = local_cidr_v6
+        obj.peer_address_v6 = peer_address_v6
+        context.session.add(obj)
+
+    @db_api.CONTEXT_READER
+    def get_ipsec_site_connection_ids(self, context, router_id=None, host=None):
+        query = context.session.query(vpn_models.IPsecSiteConnection.id)
+        if router_id or host:
+            query = query.join(vpn_models.VPNService,
+                               vpn_models.IPsecSiteConnection.vpnservice_id == vpn_models.VPNService.id)
+
+            if router_id:
+                query = query.filter(vpn_models.VPNService.router_id == router_id)
+
+            if host:
+                query = query.join(l3agent_models.RouterL3AgentBinding,
+                                   vpn_models.VPNService.router_id == l3agent_models.RouterL3AgentBinding.router_id)
+                query = query.join(agent_model.Agent,
+                                   l3agent_models.RouterL3AgentBinding.l3_agent_id == agent_model.Agent.id)
+                query = query.filter(agent_model.Agent.host == host)
+
+        return [entry.id for entry in query.all()]
+
+    @db_api.CONTEXT_READER
+    def get_vpn_tunnel_ids(self, context, ipsec_site_connection_ids=None, agent_host=None):
+        query = context.session.query(asr1k_models.ASR1KTunnelId)
+
+        if ipsec_site_connection_ids:
+            query = query.filter(asr1k_models.ASR1KTunnelId.ipsec_site_connection_id.in_(ipsec_site_connection_ids))
+        if agent_host:
+            query = query.filter(asr1k_models.ASR1KTunnelId.agent_host == agent_host)
+
+        return [{"ipsec_site_connection_id": entry.ipsec_site_connection_id, "agent_host": entry.agent_host,
+                 "number": entry.number}
+                for entry in query.all()]
+
+    @db_api.CONTEXT_WRITER
+    def create_vpn_tunnel_id(self, context, ipsec_site_connection_id, agent_host, number):
+        obj = asr1k_models.ASR1KTunnelId(
+            ipsec_site_connection_id=ipsec_site_connection_id,
+            agent_host=agent_host, number=number,
+        )
+        context.session.add(obj)
+
+    @db_api.CONTEXT_WRITER
+    def clean_vpn_tunnel_ids(self, context, ipsec_site_connection_ids, agent_host):
+        query = context.session.query(asr1k_models.ASR1KTunnelId)
+        query = query.filter(asr1k_models.ASR1KTunnelId.ipsec_site_connection_id.in_(ipsec_site_connection_ids))
+        query = query.filter(asr1k_models.ASR1KTunnelId.agent_host == agent_host)
+        query.delete()
+
+    @db_api.CONTEXT_WRITER
+    def create_or_update_vpn_peer_nat_address(self, context, ipsec_site_connection_id, peer_nat_address):
+        query = context.session.query(asr1k_models.ASR1KVPNNatAddress)
+        query = query.filter(asr1k_models.ASR1KVPNNatAddress.ipsec_site_connection_id == ipsec_site_connection_id)
+        if query.count() > 0:
+            obj = query.first()
+        else:
+            obj = asr1k_models.ASR1KVPNNatAddress()
+            obj.ipsec_site_connection_id = ipsec_site_connection_id
+        obj.address = peer_nat_address
+        context.session.add(obj)
+
+    @db_api.CONTEXT_WRITER
+    def delete_vpn_peer_nat_address(self, context, ipsec_site_connection_id):
+        query = context.session.query(asr1k_models.ASR1KVPNNatAddress)
+        query = query.filter(asr1k_models.ASR1KVPNNatAddress.ipsec_site_connection_id == ipsec_site_connection_id)
+        return query.delete()
 
 
 class ExtraAttsDb(object):

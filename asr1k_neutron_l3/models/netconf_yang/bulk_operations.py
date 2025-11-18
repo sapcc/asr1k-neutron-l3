@@ -80,6 +80,9 @@ class BulkOperations(xml_utils.XMLUtils):
     def is_orphan_fwaas(self, all_fwaas_external_policies, all_fwaas_policies, *args, **kwargs):
         return False
 
+    def is_orphan_vpnaas(self, all_ipsec_siteconnection_ids, all_tunnel_ids):
+        return False
+
     def is_orphan(self, all_router_ids, all_segmentation_ids, all_bd_ids, all_routers_with_external_policies, context):
         """Check if this entity is an orphan"""
         if self.neutron_router_id:

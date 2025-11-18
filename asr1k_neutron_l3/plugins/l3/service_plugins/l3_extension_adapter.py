@@ -17,6 +17,7 @@ from collections import OrderedDict
 import copy
 import functools
 from operator import attrgetter
+import random
 import time
 
 import netaddr
@@ -38,6 +39,7 @@ from neutron_lib import constants as nl_const
 from neutron_lib import context as n_context
 from neutron_lib.db import api as db_api
 from neutron_lib.db import resource_extend
+from neutron_lib.exceptions import agent as agent_exc
 from neutron_lib.exceptions import flavors as flav_exc
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
@@ -127,6 +129,12 @@ class L3RpcNotifierMixin(object):
         return notifier.network_validate(context, network_id)
 
     @log_helpers.log_method_call
+    def notify_delete_tunnel_interface(self, context, host, tunnel_id):
+        notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
+
+        return notifier.delete_tunnel_interface(context, host, tunnel_id)
+
+    @log_helpers.log_method_call
     def notify_interface_statistics(self, context, router_id):
         notifier = ask1k_l3_notifier.ASR1KAgentNotifyAPI()
 
@@ -204,10 +212,17 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         asr1k_config.register_common_opts()
 
         self.db = asr1k_db.get_db_plugin()
+        self._vpn_plugin = None
         self._refresh_flavor_quotas_loop = loopingcall.FixedIntervalLoopingCall(self._refresh_flavor_qutotas)
         if cfg.CONF.asr1k.flavor_quota_refresh_interval > 0:
             self._refresh_flavor_quotas_loop.start(interval=cfg.CONF.asr1k.flavor_quota_refresh_interval,
                                                    stop_on_exception=False, initial_delay=1)
+
+    @property
+    def vpn_plugin(self):
+        if self._vpn_plugin is None:
+            self._vpn_plugin = directory.get_plugin("VPN")
+        return self._vpn_plugin
 
     def get_agent_for_router(self, context, router_id):
         """Returns all hosts to send notification about router update"""
@@ -353,7 +368,44 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                 all_port_ids = [port["id"] for port in all_ports]
                 router["fwaas_policies"] = self.get_fwaas_policies(context, all_port_ids)
 
+            router["vpn"] = None
+            if utils.is_vpnaas_enabled() and router["flavor_id"]:
+                # only routers with an attached flavor can have VPNs
+                router["vpn"] = self.get_vpnaas_objects(context, router["id"], host)
+
         return routers
+
+    def get_vpnaas_objects(self, context, router_id, host):
+        vpns = self.vpn_plugin.get_vpnservices(context, filters={'router_id': [router_id]})
+        if len(vpns) < 1:
+            return None
+        if len(vpns) > 1:
+            LOG.error("Router %s has multiple vpn service objects attached, ignoring all but the first! (ids: %s)",
+                      router_id, ", ".join(v['id'] for v in vpns))
+        vpn = vpns[0]
+
+        ipscons = self.vpn_plugin.get_ipsec_site_connections(context, filters={"vpnservice_id": [vpn['id']]})
+        ipscon_ids = (ipscon['id'] for ipscon in ipscons)
+        tun_entries = self.db.get_vpn_tunnel_ids(context, ipsec_site_connection_ids=ipscon_ids, agent_host=host)
+        tun_ids = {entry['ipsec_site_connection_id']: entry['number'] for entry in tun_entries}
+
+        vpn['ipsec_site_connections'] = []
+        for ipscon in ipscons:
+            # fetch all attributes for a site connection
+            if ipscon['id'] not in tun_ids:
+                LOG.error("Router %s ipsec site connection %s on agent %s has no internal tunnel id, skipping it!",
+                          router_id, ipscon['id'], host)
+                continue
+
+            ipscon['ikepolicy'] = self.vpn_plugin.get_ikepolicy(context, ipscon['ikepolicy_id'])
+            ipscon['ipsecpolicy'] = self.vpn_plugin.get_ipsecpolicy(context, ipscon['ipsecpolicy_id'])
+            ipscon['local_ep_group'] = self.vpn_plugin.get_endpoint_group(context, ipscon['local_ep_group_id'])
+            ipscon['peer_ep_group'] = self.vpn_plugin.get_endpoint_group(context, ipscon['peer_ep_group_id'])
+            ipscon['tun_iface_id'] = tun_ids[ipscon['id']]
+
+            vpn['ipsec_site_connections'].append(ipscon)
+
+        return vpn
 
     def get_fwaas_policies(self, context, port_ids):
         policies = {}
@@ -388,6 +440,9 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
     def get_flavor_metainfo_entries(self, context, flavor_id):
         """Fetch the metainfo of all service profiles referenced by a flavor"""
+
+        if flavor_id is None:
+            return None, None
 
         try:
             flavor = self.db.get_flavor(context, flavor_id)
@@ -779,12 +834,16 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
     @log_helpers.log_method_call
     def add_router_to_l3_agent(self, context, agent_id, router_id):
         result = super(ASR1KPluginBase, self).add_router_to_l3_agent(context, agent_id, router_id)
+        if utils.is_vpnaas_enabled():
+            self.ensure_vpn_tunnel_ids(context, router_id)
         return result
 
     @log_helpers.log_method_call
     def remove_router_from_l3_agent(self, context, agent_id, router_id):
         self._add_router_to_cache(context, router_id)
-        return super(ASR1KPluginBase, self).remove_router_from_l3_agent(context, agent_id, router_id)
+        result = super(ASR1KPluginBase, self).remove_router_from_l3_agent(context, agent_id, router_id)
+        self.clean_vpn_tunnel_ids(context, router_id, agent_id)
+        return result
 
     @log_helpers.log_method_call
     def add_router_interface(self, context, router_id, interface_info=None):
@@ -844,6 +903,13 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                 ports.append(port)
         result['ports'] = ports
 
+        if utils.is_vpnaas_enabled():
+            siteconn_ids = self.db.get_ipsec_site_connection_ids(context, router_id=id)
+            result['vpn_tunnel_ips'] = {entry['ipsec_site_connection_id']: entry
+                                        for entry in self.db.get_vpn_internal_tunnel_ips(context, siteconn_ids)}
+            result['vpn_tunnel_ids'] = {entry['ipsec_site_connection_id']: entry
+                                        for entry in self.db.get_vpn_tunnel_ids(context, siteconn_ids)}
+
         return dict(result)
 
     @registry.receives(resources.ROUTER_GATEWAY, [events.BEFORE_CREATE])
@@ -872,6 +938,68 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                 or (not host and all(x >= limit for x in port_count.values())):
             raise asr1k_exc.BdVifInBdExhausted(network_id=network_id, router_id=router_id)
 
+    @db_api.CONTEXT_WRITER
+    def ensure_vpn_tunnel_ids(self, context, router_id):
+        # 1. get ipsec site connections on router
+        ipsec_sitecon_ids = set(self.db.get_ipsec_site_connection_ids(context, router_id=router_id))
+        if not ipsec_sitecon_ids:
+            return
+
+        # 2. get agent where router is hosted
+        agents = self.db.list_l3_agents_hosting_router(context, router_id)['agents']
+        if not agents:
+            return
+
+        # 3. check that we already have all the tunnel ids allocated. if not, allocate
+        # we normally only should be on one agent, but just to be on the safe side
+        for agent in agents:
+            already_allocated = {entry["ipsec_site_connection_id"]
+                                 for entry in self.db.get_vpn_tunnel_ids(context, ipsec_sitecon_ids,
+                                                                         agent_host=agent['host'])}
+            for ipsec_sitecon_id in ipsec_sitecon_ids - already_allocated:
+                LOG.info("Allocating tunnel id for router %s ipsec site connection %s on agent %s...",
+                         router_id, ipsec_sitecon_id, agent['host'])
+                self._allocate_vpn_tunnel_id(context, agent['host'], ipsec_sitecon_id)
+
+    @db_api.CONTEXT_WRITER
+    def clean_vpn_tunnel_ids(self, context, router_id, agent_id):
+        # 1. check that there is something to do
+        ipsec_sitecon_ids = set(self.db.get_ipsec_site_connection_ids(context, router_id=router_id))
+        if not ipsec_sitecon_ids:
+            return
+
+        # 2. get agent where router is hosted
+        try:
+            agent = self.db.get_agent(context, agent_id)
+        except agent_exc.agent.AgentNotFound:
+            return
+
+        self.db.clean_vpn_tunnel_ids(context, ipsec_sitecon_ids, agent['host'])
+
+    def _allocate_vpn_tunnel_id(self, context, agent_host, ipsec_sitecon_id):
+        # 1. fetch all tunnel ids for agent
+        id_range = cfg.CONF.asr1k_l3.vpnaas_tunnel_id_range
+        allocated_ids = {entry["number"] for entry in self.db.get_vpn_tunnel_ids(context, agent_host=agent_host)}
+
+        if len(allocated_ids) == len(id_range):
+            LOG.error("Cannot allocate tunnel id for ipsec site connection %s, all %s ids allocated on agent %s",
+                      ipsec_sitecon_id, len(allocated_ids), agent_host)
+            return
+
+        # allocate based on id usage
+        new_id = None
+        if len(allocated_ids) / len(id_range) < 0.75:
+            # free id space is large enough, pick random (no need to list out all ranges)
+            while new_id is None or new_id in allocated_ids:
+                new_id = random.randint(id_range.start, id_range.stop - 1)
+        else:
+            # free id space <= 25%, it is more efficient to list out the ids
+            LOG.warning("Tunnel id space for agent %s is allocated more than 75%%", agent_host)
+            available_ids = set(id_range) - set(allocated_ids)
+            new_id = random.choice(tuple(available_ids))
+
+        self.db.create_vpn_tunnel_id(context, ipsec_sitecon_id, agent_host, new_id)
+
     def ensure_config(self, context, id):
         self.db.ensure_router_atts(context, id)
 
@@ -879,6 +1007,9 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         for port in ports:
             segment = self.db.get_router_segment_for_port(context, id, port.get('id'))
             asr1k_db.ExtraAttsDb.ensure(id, port, segment, clean_old=True)
+
+        if utils.is_vpnaas_enabled():
+            self.ensure_vpn_tunnel_ids(context, id)
 
         return self.get_config(context, id)
 

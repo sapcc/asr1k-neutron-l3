@@ -4,12 +4,13 @@ from operator import itemgetter
 from oslo_log import helpers as log_helpers
 from oslo_log import log
 
-from asr1k_neutron_l3.models.neutron.l3.router import Router
-from asr1k_neutron_l3.models.neutron.l2.bridgedomain import BridgeDomain
 from asr1k_neutron_l3.common import utils, asr1k_constants
 from asr1k_neutron_l3.common import asr1k_constants as constants
-from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k.rpc_api import ASR1KPluginApi
 from asr1k_neutron_l3.models.asr1k_pair import ASR1KPair
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import TunnelInterface
+from asr1k_neutron_l3.models.neutron.l2.bridgedomain import BridgeDomain
+from asr1k_neutron_l3.models.neutron.l3.router import Router
+from asr1k_neutron_l3.plugins.ml2.drivers.mech_asr1k.rpc_api import ASR1KPluginApi
 
 LOG = log.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class OperationsMixin(object):
         port_ids = []
         if ri:
             router = Router(ri)
-            router.update()
+            results = router.update()
 
             gateway_interface = router.interfaces.gateway_interface
             if gateway_interface:
@@ -33,6 +34,8 @@ class OperationsMixin(object):
 
             for interface in router.interfaces.internal_interfaces:
                 port_ids.append(interface.id)
+
+            self.process_update_result(router, results)
 
         ports = self._l2_plugin_rpc(context).get_ports_with_extra_atts(context, port_ids, host=self.host)
         ports.sort(key=itemgetter('segmentation_id'))
@@ -127,6 +130,11 @@ class OperationsMixin(object):
             bd.update()
 
         return "Sync"
+
+    @log_helpers.log_method_call
+    def delete_tunnel_interface(self, context, tunnel_id):
+        tun = TunnelInterface(name=tunnel_id)
+        return tun.delete()
 
     @log_helpers.log_method_call
     def list_devices(self, context):

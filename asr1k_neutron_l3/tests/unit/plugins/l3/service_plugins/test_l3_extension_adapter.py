@@ -18,24 +18,15 @@ import netaddr
 from neutron_lib import context
 from neutron_lib.plugins import constants as plugin_constants
 from neutron_lib.plugins import directory
-from neutron.services.flavors import flavors_plugin
-from neutron.tests.unit.extensions import test_l3
 from oslo_utils import uuidutils
 
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.l3.service_plugins.l3_extension_adapter import ASR1KPluginBase
+from asr1k_neutron_l3.tests.common.fixtures import RouterWithSyncDataTestCase
 
 
 @mock.patch.object(asr1k_db.DBPlugin, 'get_network_port_count_per_agent', return_value={'fake-agent': 0})
-class TestASR1kExtensionAdapter(test_l3.L3BaseForIntTests, test_l3.L3NatTestCaseMixin):
-    def setUp(self):
-        l3_plugin = 'asr1k_l3_routing'
-        service_plugins = {'l3_plugin_name': l3_plugin}
-        plugin = ('asr1k_neutron_l3.tests.common.fixtures.ASR1KTestL3NatIntPlugin')
-        super().setUp(plugin=plugin, service_plugins=service_plugins)
-
-        directory.add_plugin(plugin_constants.FLAVORS, flavors_plugin.FlavorsPlugin())
-
+class TestASR1kExtensionAdapter(RouterWithSyncDataTestCase):
     def test_router_create(self, pc_mock):
         name = 'router1'
         tenant_id = uuidutils.generate_uuid()

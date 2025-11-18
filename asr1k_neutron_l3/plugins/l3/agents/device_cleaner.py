@@ -17,6 +17,7 @@ import json
 import time
 
 from ncclient.operations import RPCError
+from neutron_lib import context as n_context
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -28,7 +29,8 @@ from asr1k_neutron_l3.models.netconf_yang.access_list import AccessList
 from asr1k_neutron_l3.models.netconf_yang.arp import VrfArpList
 from asr1k_neutron_l3.models.netconf_yang.l2_interface import BridgeDomain, ExternalInterface, KeepBDUpInterface
 from asr1k_neutron_l3.models.netconf_yang.class_map import ClassMap
-from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface
+from asr1k_neutron_l3.models.netconf_yang.crypto import IKEv2Keyring, IKEv2Policy, IKEv2Profile, IPSecProfile
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface, TunnelInterface
 from asr1k_neutron_l3.models.netconf_yang.nat import StaticNat, NatPool, InterfaceDynamicNat, PoolDynamicNat
 from asr1k_neutron_l3.models.netconf_yang.parameter_map import ParameterMapInspectGlobalVrf
 from asr1k_neutron_l3.models.netconf_yang.prefix import PrefixV4, PrefixV6
@@ -39,6 +41,7 @@ from asr1k_neutron_l3.models.netconf_yang.service_policy import ServicePolicy
 from asr1k_neutron_l3.models.netconf_yang.zone import Zone
 from asr1k_neutron_l3.models.netconf_yang.zone_pair import ZonePair
 from asr1k_neutron_l3.common.prometheus_monitor import PrometheusMonitor
+
 
 LOG = logging.getLogger(__name__)
 
@@ -61,6 +64,7 @@ class DeviceCleanerMixin(object):
         BDInterface,
         RouteMap, PrefixV4, PrefixV6, AccessList, VrfArpList, VrfRouteV4, VrfRouteV6,
         ZonePair, Zone, ParameterMapInspectGlobalVrf,
+        TunnelInterface, IKEv2Policy,
         VrfDefinition
     ]
 
@@ -112,7 +116,46 @@ class DeviceCleanerMixin(object):
                         continue
                     obj.delete(context=device)
 
+    def clean_vpnaas(self, context, dry=False):
+        """Clean orphaned VPNaas objects"""
+        VPNAAS_ENTITIES = [
+            TunnelInterface, IPSecProfile, IKEv2Profile, IKEv2Keyring,
+        ]
+        LOG.debug("Fetching VPNaaS objects from device")
+        device_objects = {device: [] for device in ASR1KPair().contexts}
+        with PrometheusMonitor().vpnaas_cleaner_duration.time():
+            for cls in VPNAAS_ENTITIES:
+                for device in ASR1KPair().contexts:
+                    objs = cls.get_all_stubs_from_device(device)
+                    LOG.debug(f"Got {len(objs)} {cls.__name__} from device {device.host}")
+                    device_objects[device].extend(objs)
+
+            LOG.debug("Fetching all VPNaaS data on this agent from neutron")
+            all_ipsec_siteconnection_ids = self.plugin_rpc.get_ipsec_site_connection_ids(context)
+            all_tunnel_ids = self.plugin_rpc.get_tunnel_ids(context)
+            LOG.debug("Got %d IPSec Site Connections and %d tunnel ids on device",
+                      len(all_ipsec_siteconnection_ids), len(all_tunnel_ids))
+
+            for device, objs in device_objects.items():
+                for obj in objs:
+                    if not obj.is_orphan_vpnaas(all_ipsec_siteconnection_ids=all_ipsec_siteconnection_ids,
+                                                all_tunnel_ids=all_tunnel_ids):
+                        continue
+                    LOG.debug("Cleaning %s %s on device %s", obj.id, obj.__class__.__name__, device.host)
+                    if dry:
+                        continue
+                    obj.delete(context=device)
+
     def clean_device(self, dry_run):
+        # NOTE(seba): when refactoring this we should incorporate FWaaS
+        ctx = n_context.get_admin_context_without_session()
+        self.clean_vrfs(dry_run)
+        try:
+            self.clean_vpnaas(ctx, dry_run)
+        except Exception:
+            LOG.error("Cleaning VPNaaS failed with exception", exc_info=exc_info_full())
+
+    def clean_vrfs(self, dry_run):
         try:
             clean_start = time.time()
             prom = PrometheusMonitor()

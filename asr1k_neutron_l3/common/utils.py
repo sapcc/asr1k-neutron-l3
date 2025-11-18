@@ -19,8 +19,8 @@ import socket
 import struct
 
 from netaddr import AddrFormatError, IPNetwork, IPAddress
+from oslo_config import cfg
 from oslo_log import log as logging
-
 
 from asr1k_neutron_l3.common import asr1k_constants as constants
 from asr1k_neutron_l3.common import config as asr1k_config
@@ -55,6 +55,10 @@ def get_router_ports(router):
 
 def uuid_to_vrf_id(uuid):
     return uuid.replace('-', '')
+
+
+def uuid_to_ipsec_short_id(uuid):
+    return uuid.replace('-', '')[:31]
 
 
 def vrf_id_to_uuid(id):
@@ -187,3 +191,14 @@ def to_bridge_domain(second_dot1q):
     else:
         LOG.error('Have been asked to convert a null second dot1q tag to a bridge domain, '
                   'router att for port is missing : probable cause is a port binding failing. ')
+
+
+_VPNAAS_ENABLED = None
+def is_vpnaas_enabled():
+    global _VPNAAS_ENABLED
+    if _VPNAAS_ENABLED is None:
+        _VPNAAS_ENABLED = any(mod in cfg.CONF.service_plugins
+                              for mod in ('vpnaas', 'neutron_vpnaas.services.vpn.plugin.VPNDriverPlugin',
+                                          'asr1k-vpnaas',
+                                          'neutron_vpnaas.services.vpn.asr1k_plugin.VPNASR1KDriverPlugin'))
+    return _VPNAAS_ENABLED
