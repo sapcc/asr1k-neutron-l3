@@ -104,7 +104,7 @@ class VrfRouteBase(NyBase):
             return {}
 
         vrf_routes = []
-        for route in sorted(self.routes, key=lambda route: route.prefix):
+        for route in sorted(self.routes):
             vrf_routes.append(route.to_single_dict(context))
 
         return {
@@ -144,6 +144,9 @@ class IpRouteV4(NyBase):
     def to_dict(self, context):
         return {self.LIST_KEY: self.to_single_dict(context)}
 
+    def __lt__(self, other):
+        return (self.prefix, self.mask) < (other.prefix, other.mask)
+
 
 class IpRouteV6(NyBase):
     LIST_KEY = RouteConstants.IPV6_ROUTE_LIST
@@ -163,6 +166,9 @@ class IpRouteV6(NyBase):
 
     def to_dict(self, context):
         return {self.LIST_KEY: self.to_single_dict(context)}
+
+    def __lt__(self, other):
+        return self.prefix < other.prefix
 
 
 class VrfRouteV4(VrfRouteBase):
