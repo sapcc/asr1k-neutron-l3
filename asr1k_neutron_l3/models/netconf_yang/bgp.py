@@ -15,6 +15,7 @@
 #    under the License.
 
 from collections import OrderedDict
+import ipaddress
 
 from asr1k_neutron_l3.common.utils import from_cidr, to_cidr
 from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION
@@ -43,6 +44,7 @@ class BGPConstants(object):
     UNICAST = "unicast"
     NETWORK = "network"
     WITH_MASK = "with-mask"
+    NO_MASK = "no-mask"
     NUMBER = "number"
     MASK = "mask"
     ROUTE_MAP = "route-map"
@@ -181,6 +183,8 @@ class AddressFamilyV4(AddressFamilyBase):
             {'key': 'vrf', 'yang-key': 'name'},
             {'key': 'networks', 'yang-path': 'ipv4-unicast/network', 'yang-key': BGPConstants.WITH_MASK,
              'type': [NetworkV4], 'default': []},
+            {'key': 'networks_no_mask', 'yang-path': 'ipv4-unicast/network', 'yang-key': BGPConstants.NO_MASK,
+             'type': [NetworkV4NoMask], 'default': []},
             {'key': 'redistribute_connected_with_rm', 'yang-key': 'route-map',
              'yang-path': 'ipv4-unicast/redistribute-vrf/connected'},
             {'key': 'redistribute_static_with_rm', 'yang-key': 'route-map',
@@ -195,7 +199,8 @@ class AddressFamilyV4(AddressFamilyBase):
             xml_utils.OPERATION: NC_OPERATION.PUT,
             BGPConstants.NETWORK: {
                 BGPConstants.WITH_MASK: [
-                    net.to_dict(context) for net in sorted(self.networks, key=lambda x: (x.number, x.mask))
+                    net.to_dict(context) for net in sorted(self.networks + self.networks_no_mask,
+                                                           key=lambda x: (x.number, x.mask))
                 ],
             },
         }
@@ -308,6 +313,30 @@ class NetworkV4(NyBase):
         if self.route_map:
             net[BGPConstants.ROUTE_MAP] = self.route_map
         return net
+
+
+class NetworkV4NoMask(NetworkV4):
+    CLASSFUL_NETWORKS = (
+        (ipaddress.IPv4Network("0.0.0.0/1"), "255.0.0.0"),
+        (ipaddress.IPv4Network("128.0.0.0/2"), "255.255.0.0"),
+        (ipaddress.IPv4Network("192.0.0.0/3"), "255.255.255.0"),
+
+        # class D and E are summarized to /3 as both classes get the same netmask
+        # IOS XE 17.15 cli uses 255.255.255.255 as netmask for both
+        (ipaddress.IPv4Network("224.0.0.0/3"), "255.255.255.255"),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if not self.mask:
+            ip = ipaddress.IPv4Address(self.number)
+            for class_cidr, default_netmask in self.CLASSFUL_NETWORKS:
+                if ip in class_cidr:
+                    self.mask = default_netmask
+                    break
+            else:
+                self.mask = "255.255.255.255"
 
 
 class NetworkV6(NyBase):

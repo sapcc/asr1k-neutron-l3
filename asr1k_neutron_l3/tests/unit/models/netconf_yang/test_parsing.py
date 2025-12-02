@@ -307,6 +307,81 @@ class ParsingTest(base.BaseTestCase):
         self.assertEqual("test123", bgp_af6_dict['vrf']['ipv6-unicast']['redistribute-v6']['connected']['route-map'])
         self.assertEqual("test456", bgp_af6_dict['vrf']['ipv6-unicast']['redistribute-v6']['static']['route-map'])
 
+    def test_bgp_parsing_without_netmask(self):
+        bgp_xml = """
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <data>
+    <native xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-native">
+      <router>
+        <bgp xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-bgp">
+          <id>65123</id>
+          <address-family>
+            <with-vrf>
+              <ipv4>
+                <af-name>unicast</af-name>
+                <vrf>
+                  <name>1ccc4863d8bc4c82affa0cb198e8d5d1</name>
+                  <ipv4-unicast>
+                    <network>
+                      <with-mask>
+                        <number>0.0.0.0</number>
+                        <mask>128.0.0.0</mask>
+                      </with-mask>
+                      <with-mask>
+                        <number>10.180.7.0</number>
+                        <mask>255.255.255.0</mask>
+                      </with-mask>
+                      <with-mask>
+                        <number>10.192.23.128</number>
+                        <mask>255.255.255.128</mask>
+                        <route-map>RM-DAP-EXTRA-ROUTES</route-map>
+                      </with-mask>
+                      <with-mask>
+                        <number>172.16.0.0</number>
+                        <mask>255.240.0.0</mask>
+                      </with-mask>
+                      <no-mask>
+                        <number>10.0.0.0</number>
+                      </no-mask>
+                      <no-mask>
+                        <number>147.204.0.0</number>
+                      </no-mask>
+                      <no-mask>
+                        <number>192.168.23.0</number>
+                        <route-map>meow</route-map>
+                      </no-mask>
+                    </network>
+                  </ipv4-unicast>
+                </vrf>
+              </ipv4>
+            </with-vrf>
+          </address-family>
+        </bgp>
+      </router>
+    </native>
+  </data>
+</rpc-reply>
+"""
+
+        expected_networks = (
+            ("0.0.0.0", "128.0.0.0", None),
+            ("10.180.7.0", "255.255.255.0", None),
+            ("10.192.23.128", "255.255.255.128", "RM-DAP-EXTRA-ROUTES"),
+            ("172.16.0.0", "255.240.0.0", None),
+            ("10.0.0.0", "255.0.0.0", None),
+            ("147.204.0.0", "255.255.0.0", None),
+            ("192.168.23.0", "255.255.255.0", "meow"),
+        )
+
+        context = FakeASR1KContext()
+        bgp_af = bgp.AddressFamilyV4.from_xml(bgp_xml, context)
+        parsed_nets = [
+            (n['number'], n['mask'], n.get('route-map'))
+            for n in bgp_af.to_dict(context)['vrf']['ipv4-unicast']['network']['with-mask']
+        ]
+        self.assertEqual(sorted(expected_networks),
+                         sorted(parsed_nets))
+
     def test_static_nat_parsing(self):
         xml = """
 <rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0"
