@@ -349,6 +349,8 @@ class CryptoSerialization(base.BaseTestCase):
         self.assertEqual("42.42.42.42", peer.ipv4_address)
         self.assertEqual("1.3.93.77", peer.identity)
 
+        self.assertEqual("ug-thak", kr.to_dict(context)['keyring']['peer'][0]['pre-shared-key']['key'])
+
     def test_ikev2_keyring_parsing_multi_peers(self):
         xml = """
 <rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
