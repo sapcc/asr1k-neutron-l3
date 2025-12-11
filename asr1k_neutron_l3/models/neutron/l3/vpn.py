@@ -100,7 +100,7 @@ class IKEv2Keyring(base.Base):
         extra_args = {}
         if sitecon['peer_address']:
             extra_args['ipv4_address'] = sitecon['peer_address']
-            extra_args['ipv4_address'] = sitecon['peer_id'] or sitecon['peer_address']
+            extra_args['identity'] = sitecon['peer_id'] or sitecon['peer_address']
 
         self.keyring_peer = crypto.IKEv2KeyringPeer(name=self.PEER_NAME, psk=sitecon['psk'], **extra_args)
         self._rest_definition = crypto.IKEv2Keyring(name=uuid_to_vrf_id(sitecon['id']), peer=[self.keyring_peer])
