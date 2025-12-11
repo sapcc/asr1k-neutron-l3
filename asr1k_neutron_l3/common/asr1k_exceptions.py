@@ -159,7 +159,7 @@ class InvalidExternalGatewayIPDefinition(nexception.BadRequest):
 
 
 class InvalidVPNaaSIPSecSiteConnectionConfig(nexception.BadRequest):
-    message = ("Cannot use IPSecSiteConnection, invalid %(obj)s: "
+    message = ("Cannot create/update IPSecSiteConnection, invalid %(obj)s: "
                "%(key)s value %(value)s not supported (supported values: %(supported_values)s)")
 
 
