@@ -413,6 +413,10 @@ class IKEv2KeyringPeer(NyBase):
             peer[CryptoConstants.IDENTITY] = {
                 CryptoConstants.ADDRESS_TYPE: self.identity
             }
+        if self.psk:
+            peer[CryptoConstants.PRE_SHARED_KEY] = {
+                CryptoConstants.KEY: self.psk
+            }
         return peer
 
 

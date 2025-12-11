@@ -139,6 +139,7 @@ class TestRouterClassWithVPN(RouterWithSyncDataTestCase):
         sc_objs = self._make_sitecon_related_objs(ipsec_args={"encapsulation_mode": "tunnel"})
         self._create_ipsec_site_connection("json",
             vpnservice_id=vpn["vpnservice"]["id"],
+            psk="supercilium",
             **sc_objs,
         )
         dev_router = self._get_ny_router(router['router']['id'])
@@ -149,6 +150,8 @@ class TestRouterClassWithVPN(RouterWithSyncDataTestCase):
         self.assertEqual({"0.0.0.0", "193.175.214.0"}, {r.destination for r in dev_router.routes[4].routes})
         iface = self._find_entry("TunnelInterface", dev_router.vpnaas_conf)._rest_definition
         self.assertFalse(iface.shutdown)
+        ike_keyring = self._find_entry("IKEv2Keyring", dev_router.vpnaas_conf)._rest_definition
+        self.assertEqual("supercilium", ike_keyring.peers[0].psk)
 
     def test_router_with_vpn_transport_conf(self):
         router = self._make_vpn_ready_router()
