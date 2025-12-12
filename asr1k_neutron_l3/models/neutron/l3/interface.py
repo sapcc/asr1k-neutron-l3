@@ -21,7 +21,7 @@ from asr1k_neutron_l3.common import utils
 from asr1k_neutron_l3.models.neutron.l3 import base
 from asr1k_neutron_l3.models.neutron.l3.firewall import Zone
 from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface, BDPrimaryIpAddress, BDSecondaryIpAddress, \
-    BDIpv6Address, TrafficFilter
+    IfaceIpv6Address, TrafficFilter
 from asr1k_neutron_l3.models.netconf_yang.l3_interface_state import BDInterfaceState
 
 LOG = logging.getLogger(__name__)
@@ -152,7 +152,7 @@ class Interface(base.Base):
         for n_fixed_ip in self.router_port.get('fixed_ips', []):
             if utils.get_ip_version(n_fixed_ip['ip_address']) == 6:
                 self._primary_v6_subnet_id = n_fixed_ip.get('subnet_id')
-                ipv6_addrs.append(BDIpv6Address(prefix=f"{n_fixed_ip['ip_address']}/{n_fixed_ip['prefixlen']}"))
+                ipv6_addrs.append(IfaceIpv6Address(prefix=f"{n_fixed_ip['ip_address']}/{n_fixed_ip['prefixlen']}"))
         return ipv6_addrs
 
     def _set_gateway_ips(self):

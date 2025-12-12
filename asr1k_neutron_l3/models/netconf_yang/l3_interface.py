@@ -155,7 +155,8 @@ class BDInterface(NyBase):
             {'key': 'ip_address', 'yang-path': 'ip/address', 'yang-key': "primary", 'type': BDPrimaryIpAddress},
             {'key': 'secondary_ip_addresses', 'yang-path': 'ip/address', 'yang-key': "secondary",
              'type': [BDSecondaryIpAddress], 'default': [], 'validate': False},
-            {'key': 'ipv6_addresses', 'yang-path': 'ipv6/address', 'yang-key': "prefix-list", 'type': [BDIpv6Address]},
+            {'key': 'ipv6_addresses', 'yang-path': 'ipv6/address', 'yang-key': "prefix-list",
+             'type': [IfaceIpv6Address]},
             {'key': 'nat_inside', 'yang-key': 'inside', 'yang-path': 'ip/nat', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'nat_outside', 'yang-key': 'outside', 'yang-path': 'ip/nat', 'default': False,
@@ -490,7 +491,7 @@ class BDPrimaryIpAddress(NyBase):
         return ip
 
 
-class BDIpv6Address(NyBase):
+class IfaceIpv6Address(NyBase):
     ITEM_KEY = L3Constants.PREFIX
     LIST_KEY = L3Constants.PREFIX_LIST
 
@@ -571,7 +572,8 @@ class TunnelInterface(NyBase):
 
             {'key': 'ipv4_address', 'yang-key': 'address', 'yang-path': 'ip/address/primary'},
             {'key': 'ipv4_netmask', 'yang-key': 'mask', 'yang-path': 'ip/address/primary'},
-            {'key': 'ipv6_prefix', 'yang-key': 'prefix', 'yang-path': 'ipv6/address/prefix-list'},
+            {'key': 'ipv6_addresses', 'yang-path': 'ipv6/address', 'yang-key': "prefix-list",
+             'type': [IfaceIpv6Address]},
 
             {'key': 'tunnel_src', 'yang-key': 'source', 'yang-path': 'tunnel'},
             {'key': 'tunnel_dest_ipv4', 'yang-key': 'ipv4', 'yang-path': 'tunnel/destination-config'},
@@ -628,8 +630,13 @@ class TunnelInterface(NyBase):
             iface[L3Constants.IP] = ip
 
         ipv6 = {}
-        if self.ipv6_prefix:
-            ipv6[L3Constants.ADDRESS] = {L3Constants.PREFIX_LIST: {L3Constants.PREFIX: self.ipv6_prefix}}
+        if self.ipv6_addresses:
+            ipv6[L3Constants.ADDRESS] = {
+                xml_utils.OPERATION: NC_OPERATION.PUT,
+                L3Constants.PREFIX_LIST: [
+                    addr.to_dict(context) for addr in self.ipv6_addresses
+                ]
+            }
         if self.ipv6_tcp_mss:
             ipv6[L3Constants.TCP] = {L3Constants.ADJUST_MSS: self.ipv6_tcp_mss}
         if self.ipv6_mtu:

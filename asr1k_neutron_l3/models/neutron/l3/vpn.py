@@ -265,7 +265,7 @@ class TunnelInterface(base.Base):
 
             ipv4_address=str(local_cidr_v4.ip),
             ipv4_netmask=str(local_cidr_v4.netmask),
-            ipv6_prefix=str(local_cidr_v6),
+            ipv6_addresses=[l3_interface.IfaceIpv6Address(prefix=str(local_cidr_v6))],
             path_mtu_discovery=True,
 
             ipsec_profile=uuid_to_ipsec_short_id(sitecon['id']),

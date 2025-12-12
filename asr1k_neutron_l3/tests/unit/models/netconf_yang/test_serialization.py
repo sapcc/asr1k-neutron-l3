@@ -17,7 +17,7 @@ import xmltodict
 from neutron.tests import base
 
 from asr1k_neutron_l3.models.asr1k_pair import FakeASR1KContext
-from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface, BDIpv6Address
+from asr1k_neutron_l3.models.netconf_yang.l3_interface import BDInterface, IfaceIpv6Address
 from asr1k_neutron_l3.models.netconf_yang.nat import NATConstants, StaticNat
 
 
@@ -77,7 +77,7 @@ class SerializationTest(base.BaseTestCase):
     def test_bdvif_ipv6(self):
         ipv6_addresses = ["fd00::/64", "fd00::256/64"]
         bdvif = {
-            'ipv6_addresses': [BDIpv6Address(prefix=ip) for ip in ipv6_addresses]
+            'ipv6_addresses': [IfaceIpv6Address(prefix=ip) for ip in ipv6_addresses]
         }
         iface = BDInterface(**bdvif)
         context = FakeASR1KContext()
