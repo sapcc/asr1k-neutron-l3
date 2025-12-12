@@ -48,6 +48,13 @@ class TestL3Interface(base.BaseTestCase):
             </tcp>
             <mtu>8950</mtu>
           </ip>
+          <ipv6>
+            <address>
+              <prefix-list>
+                <prefix>FD86:CB3C:C988:28C:C2B:597A:B88C:AC85/126</prefix>
+              </prefix-list>
+            </address>
+          </ipv6>
           <tunnel xmlns="http://cisco.com/ns/yang/Cisco-IOS-XE-tunnel">
             <source>4.5.6.7</source>
             <destination-config>
@@ -95,6 +102,10 @@ class TestL3Interface(base.BaseTestCase):
         self.assertEqual("8950", iface.mtu)
         self.assertEqual("169.254.169.254", iface.ipv4_address)
         self.assertEqual("255.255.255.252", iface.ipv4_netmask)
+        self.assertEqual(1, len(iface.ipv6_addresses))
+        self.assertEqual("fd86:cb3c:c988:28c:c2b:597a:b88c:ac85/126", iface.ipv6_addresses[0].prefix.lower())
+        self.assertEqual("fd86:cb3c:c988:28c:c2b:597a:b88c:ac85/126",
+                         iface.to_dict(context)['Tunnel']['ipv6']['address']['prefix-list'][0]['prefix'])
         self.assertEqual("4.5.6.7", iface.tunnel_src)
         self.assertEqual("3.141.59.26", iface.tunnel_dest_ipv4)
         self.assertTrue(iface.tunnel_mode_ipsec_ipv4)
