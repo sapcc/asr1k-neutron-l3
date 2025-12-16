@@ -185,8 +185,9 @@ class Interface(base.Base):
 
 class GatewayInterface(Interface):
 
-    def __init__(self, router_id, router_port, extra_atts, dynamic_nat_pool):
+    def __init__(self, router_id, router_port, extra_atts, dynamic_nat_pool, nat_outside=True):
         self.dynamic_nat_pool = dynamic_nat_pool
+        self.nat_outside = nat_outside
         super().__init__(router_id, router_port, extra_atts)
 
         # annotate details about the router to the interface description so this can be picked up by SNMP
@@ -199,7 +200,7 @@ class GatewayInterface(Interface):
         interface_args = dict(name=self.bridge_domain, description=description,
                               mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                               ip_address=self.ipv4_address, ipv6_addresses=self.ipv6_addresses,
-                              secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=True,
+                              secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=self.nat_outside,
                               redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS',
                               ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout)
 

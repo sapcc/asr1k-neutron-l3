@@ -41,6 +41,7 @@ class TestRouterClass(RouterWithSyncDataTestCase):
         self.assertFalse(dev_router.bgp_address_family[6].enable_bgp)
         self.assertIsNotNone(dev_router.vrf._rest_definition.address_family_ipv4)
         self.assertIsNone(dev_router.vrf._rest_definition.address_family_ipv6)
+        self.assertTrue(dev_router.gateway_interface._rest_definition.nat_outside)
 
     def test_router_with_dapnet_v4(self):
         with self.address_scope(name="the-open-sea") as addr_scope, \
@@ -152,6 +153,7 @@ class TestRouterClassWithVPN(RouterWithSyncDataTestCase):
         self.assertFalse(iface.shutdown)
         ike_keyring = self._find_entry("IKEv2Keyring", dev_router.vpnaas_conf)._rest_definition
         self.assertEqual("supercilium", ike_keyring.peers[0].psk)
+        self.assertFalse(dev_router.gateway_interface._rest_definition.nat_outside)
 
     def test_router_with_vpn_transport_conf(self):
         router = self._make_vpn_ready_router()

@@ -134,6 +134,11 @@ class Router(Base):
         return any(iface.ipv6_addresses for iface in self.interfaces.all_interfaces) or \
                 bool(self.router_info.get('vpn'))
 
+    @property
+    def is_vpnaas_only(self):
+        """Router has VPNs and no internal subnets"""
+        return bool(self.router_info.get('vpn') and not self.router_info.get('_interfaces'))
+
     def _get_fwaas_acls_by_port(self):
         """
         This method retrieves the ACLs associated with each port for the router.
@@ -164,13 +169,14 @@ class Router(Base):
 
         gw_port = self.router_info.get('gw_port')
         if gw_port is not None:
+            # don't enable nat on gw interface if we have VPNs and no internal subnets
             self.gateway_interface = l3_interface.GatewayInterface(self.router_id, gw_port,
                                                                    self._port_extra_atts(gw_port),
-                                                                   self.router_atts.get('dynamic_nat_pool'))
+                                                                   self.router_atts.get('dynamic_nat_pool'),
+                                                                   nat_outside=not self.is_vpnaas_only)
             interfaces.append(self.gateway_interface)
 
         inf_ports = self.router_info.get('_interfaces', [])
-
         fwaas_acls = self._get_fwaas_acls_by_port()
         for inf_port in inf_ports or []:
             interfaces.append(
