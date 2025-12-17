@@ -82,6 +82,11 @@ class AccessList(NyBase):
     LIST_KEY = ACLConstants.ACCESS_LIST
     ITEM_KEY = ACLConstants.EXTENDED
 
+    KNOWN_PREFIXES = [
+        'NAT-', 'PBR-',
+        'ACL-NO-SPOOF-V4-',
+    ]
+
     @classmethod
     def __parameters__(cls):
         return [
@@ -115,8 +120,16 @@ class AccessList(NyBase):
 
     @property
     def neutron_router_id(self):
-        if self.name is not None and (self.name.startswith('NAT-') or self.name.startswith('PBR-')):
-            return utils.vrf_id_to_uuid(self.name[4:])
+        if not self.name:
+            return None
+
+        for prefix in self.KNOWN_PREFIXES:
+            if self.name.startswith(prefix):
+                break
+        else:
+            return None
+
+        return utils.vrf_id_to_uuid(self.name[len(prefix):])
 
     @property
     def policy_id(self):
@@ -158,13 +171,12 @@ class AccessList(NyBase):
             return self.policy_id not in all_fwaas_policies
         return False
 
-    def is_orphan(self, context, *args, **kwargs):
+    def is_orphan(self, *args, **kwargs):
         # Back out if we were called from the router cleanup loop and we are a FWAAS-ACL
         if self.policy_id:
             return False
 
-        return (self.name.startswith("PBR-") and self.neutron_router_id is not None) or \
-            super(AccessList, self).is_orphan(*args, context=context, **kwargs)
+        return super(AccessList, self).is_orphan(*args, **kwargs)
 
 
 class ACLRule(NyBase):

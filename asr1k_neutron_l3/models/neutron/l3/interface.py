@@ -185,8 +185,10 @@ class Interface(base.Base):
 
 class GatewayInterface(Interface):
 
-    def __init__(self, router_id, router_port, extra_atts, dynamic_nat_pool, nat_outside=True):
+    def __init__(self, router_id, router_port, extra_atts, dynamic_nat_pool, nat_outside=True,
+                 drop_int_traffic=False):
         self.dynamic_nat_pool = dynamic_nat_pool
+        self.drop_int_traffic = drop_int_traffic
         self.nat_outside = nat_outside
         super().__init__(router_id, router_port, extra_atts)
 
@@ -197,11 +199,12 @@ class GatewayInterface(Interface):
         description = (f'type:gw;router:{self.router_id};network:{self.router_port["network_id"]};'
                        f'subnet:{self._primary_v4_subnet_id or self._primary_v6_subnet_id}')
 
+        acl_out_v4 = 'EXT-TOS' if not self.drop_int_traffic else f'ACL-NO-SPOOF-V4-{self.vrf}'
         interface_args = dict(name=self.bridge_domain, description=description,
                               mac_address=self.mac_address, mtu=self.mtu, vrf=self.vrf,
                               ip_address=self.ipv4_address, ipv6_addresses=self.ipv6_addresses,
                               secondary_ip_addresses=self.secondary_ip_addresses, nat_outside=self.nat_outside,
-                              redundancy_group=None, route_map='EXT-TOS', access_group_out='EXT-TOS',
+                              redundancy_group=None, route_map='EXT-TOS', access_group_out=acl_out_v4,
                               ntp_disable=True, arp_timeout=cfg.CONF.asr1k_l3.external_iface_arp_timeout)
 
         if self.ipv6_addresses:
