@@ -275,7 +275,7 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             host_router_ids = self.db.get_all_router_ids(context, host)
             router_ids = [r for r in router_ids if r in host_router_ids]
 
-        if not bool(router_ids):
+        if not router_ids:
             return []
 
         extra_atts = self._get_extra_atts(context, router_ids, host)
@@ -288,19 +288,16 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
             time.sleep(.25)
             routers = super(ASR1KPluginBase, self).get_sync_data(context, router_ids=router_ids, active=active)
 
-        if not bool(routers):
-            routers = []
-            for router_id in router_ids:
-                routers.append({'id': router_id, constants.ASR1K_ROUTER_ATTS_KEY: router_atts.get(router_id, {})})
+        if not routers:
+            # neutron doesn't seem to know about the routers anymore
+            return []
 
+        sync_routers = []
         for router in routers:
             extra_att = extra_atts.get(router['id'])
-            if extra_atts is None:
-                if host is None:
-                    LOG.debug("Not including router {} in sync its extra atts are missing.".format(router['id']))
-                else:
-                    LOG.debug("Not including router {} in sync its extra atts are missing for host {}."
-                              "".format(router['id'], host))
+            if extra_att is None:
+                LOG.warning("Not including router %s in sync, it's extra atts are missing (probably got deleted) - "
+                            "filter host was %s", router['id'], host)
                 continue
 
             router[constants.ASR1K_EXTRA_ATTS_KEY] = extra_att
@@ -373,7 +370,9 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                 # only routers with an attached flavor can have VPNs
                 router["vpn"] = self.get_vpnaas_objects(context, router["id"], host)
 
-        return routers
+            sync_routers.append(router)
+
+        return sync_routers
 
     def get_vpnaas_objects(self, context, router_id, host):
         vpns = self.vpn_plugin.get_vpnservices(context, filters={'router_id': [router_id]})
