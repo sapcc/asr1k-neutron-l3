@@ -294,13 +294,8 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
         sync_routers = []
         for router in routers:
-            extra_att = extra_atts.get(router['id'])
-            if extra_att is None:
-                LOG.warning("Not including router %s in sync, it's extra atts are missing (probably got deleted) - "
-                            "filter host was %s", router['id'], host)
-                continue
-
-            router[constants.ASR1K_EXTRA_ATTS_KEY] = extra_att
+            # on create the extra atts might be None, in this case they'll be creates elsewhere
+            router[constants.ASR1K_EXTRA_ATTS_KEY] = extra_atts.get(router['id'])
 
             router_att = router_atts.get(router['id'], {})
             router[constants.ASR1K_ROUTER_ATTS_KEY] = router_att
