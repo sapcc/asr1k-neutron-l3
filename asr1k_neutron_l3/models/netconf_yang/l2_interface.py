@@ -48,7 +48,9 @@ class L2Constants(object):
     SECOND_DOT1Q = "second-dot1q"
     INGRESS = "ingress"
     TAG = "tag"
+    TAG_CONFIG = "tag-config"
     POP = "pop"
+    POP_OP = "pop-op"
     REWRITE = "rewrite"
     REWRITE_WAY = "way"
     REWRITE_MODE = "mode"
@@ -297,8 +299,8 @@ class ServiceInstance(NyBase):
             {"key": "bridge_domain", 'yang-path': 'bridge-domain', 'yang-key': 'bridge-id'},
             {"key": "dot1q", 'yang-path': 'encapsulation/dot1q', 'yang-key': 'id'},
             {"key": "second_dot1q", 'yang-path': 'encapsulation/dot1q', 'yang-key': 'second-dot1q'},
-            {"key": "way", 'yang-path': 'rewrite/ingress/tag/pop'},
-            {"key": "mode", 'yang-path': 'rewrite/ingress/tag/pop'}
+            {"key": "way", 'yang-path': 'rewrite/ingress/tag-config/pop-op'},
+            {"key": "mode", 'yang-path': 'rewrite/ingress/tag-config/pop-op'}
         ]
 
     @classmethod
@@ -375,12 +377,12 @@ class ServiceInstance(NyBase):
         rewrite = OrderedDict()
         rewrite[L2Constants.INGRESS] = OrderedDict()
 
-        rewrite[L2Constants.INGRESS][L2Constants.TAG] = OrderedDict()
+        rewrite[L2Constants.INGRESS][L2Constants.TAG_CONFIG] = tag_config = {}
         if self.way is not None and self.mode is not None:
-            rewrite[L2Constants.INGRESS][L2Constants.TAG][L2Constants.POP] = OrderedDict()
-            rewrite[L2Constants.INGRESS][L2Constants.TAG][L2Constants.POP][
-                L2Constants.REWRITE_WAY] = self.way
-            rewrite[L2Constants.INGRESS][L2Constants.TAG][L2Constants.POP][L2Constants.REWRITE_MODE] = self.mode
+            tag_config[L2Constants.POP_OP] = {
+                L2Constants.REWRITE_WAY: self.way,
+                L2Constants.REWRITE_MODE: self.mode
+            }
 
         instance = OrderedDict()
         instance[L2Constants.ID] = "{}".format(str(self.id))
