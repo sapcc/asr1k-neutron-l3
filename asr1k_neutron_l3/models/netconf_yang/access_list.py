@@ -37,12 +37,14 @@ class ACLConstants(object):
     ANY = 'any'
     DST_ANY = 'dst-any'
     SOURCE_HOST = 'host'
+    SOURCE_HOST_ADDR = 'host-address'
     SOURCE_IP = 'ipv4-address'
     SOURCE_MASK = 'mask'
     SOURCE_EQ = 'src-eq'
     SOURCE_RANGE_START = 'src-range1'
     SOURCE_RANGE_END = 'src-range2'
     DEST_HOST = 'dst-host'
+    DEST_HOST_ADDR = 'dst-host-address'
     DEST_IP = 'dest-ipv4-address'
     DEST_MASK = 'dest-mask'
     DEST_EQ = 'dst-eq'
@@ -212,14 +214,14 @@ class ACERule(NyBase):
             {'key': 'action', 'id': True},
             {'key': 'protocol'},
             {'key': 'any', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
-            {'key': 'host'},
+            {'key': 'host', 'yang-key': ACLConstants.SOURCE_HOST_ADDR},
             {'key': 'ipv4_address'},
             {'key': 'mask'},
             {'key': 'src_eq'},
             {'key': 'src_range1'},
             {'key': 'src_range2'},
             {'key': 'dst_any', 'default': False, 'yang-type': YANG_TYPE.EMPTY},
-            {'key': 'dst_host'},
+            {'key': 'dst_host', 'yang-key': ACLConstants.DEST_HOST_ADDR},
             {'key': 'dest_ipv4_address'},
             {'key': 'dest_mask'},
             {'key': 'dst_eq'},
@@ -240,7 +242,7 @@ class ACERule(NyBase):
         if self.ipv4_address is None and self.host is None:
             ace_rule[ACLConstants.ANY] = ""
         elif self.host:
-            ace_rule[ACLConstants.SOURCE_HOST] = self.host
+            ace_rule[ACLConstants.SOURCE_HOST_ADDR] = self.host
         else:
             ace_rule[ACLConstants.SOURCE_IP] = self.ipv4_address
             ace_rule[ACLConstants.SOURCE_MASK] = self.mask
@@ -255,7 +257,7 @@ class ACERule(NyBase):
         if self.dest_ipv4_address is None and self.dst_host is None:
             ace_rule[ACLConstants.DST_ANY] = ""
         elif self.dst_host:
-            ace_rule[ACLConstants.DEST_HOST] = self.dst_host
+            ace_rule[ACLConstants.DEST_HOST_ADDR] = self.dst_host
         else:
             ace_rule[ACLConstants.DEST_IP] = self.dest_ipv4_address
             ace_rule[ACLConstants.DEST_MASK] = self.dest_mask

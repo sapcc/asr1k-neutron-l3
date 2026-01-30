@@ -42,6 +42,7 @@ class RouteMapConstants(object):
     ADDRESS = "address"
     ASN = "asn-nn"
     PREFIX_LIST = "prefix-list"
+    PREFIX_LIST_ORDERED = "prefix-list-ordered"
     ACCESS_LIST = "access-list"
     PRECEDENCE = "precedence"
     PRECEDENCE_FIELDS = "precedence-fields"
@@ -141,7 +142,7 @@ class MapSequence(NyBase):
             {'key': 'next_hop', 'yang-key': 'address', 'yang-path': 'set/ip/next-hop/next-hop-addr'},
             {'key': 'force', 'yang-path': 'set/ip/next-hop/next-hop-addr', 'default': False,
              'yang-type': YANG_TYPE.EMPTY},
-            {'key': 'prefix_list', 'yang-key': 'prefix-list', 'yang-path': 'match/ip/address'},
+            {'key': 'prefix_list', 'yang-key': 'prefix-list-ordered', 'yang-path': 'match/ip/address'},
             {'key': 'prefix_list_v6', 'yang-key': 'prefix-list', 'yang-path': 'match/ipv6/address'},
             {'key': 'access_list', 'yang-key': 'access-list', 'yang-path': 'match/ip/address'},
             {'key': 'ip_precedence', 'yang-path': 'set/ip/precedence', 'yang-key': 'precedence-fields'},
@@ -201,7 +202,7 @@ class MapSequence(NyBase):
             entry = seq.setdefault(RouteMapConstants.MATCH, {})
             if self.prefix_list:
                 entry[RouteMapConstants.IP] = {
-                    RouteMapConstants.ADDRESS: {RouteMapConstants.PREFIX_LIST: self.prefix_list}}
+                    RouteMapConstants.ADDRESS: {RouteMapConstants.PREFIX_LIST_ORDERED: self.prefix_list}}
             if self.prefix_list_v6:
                 entry[RouteMapConstants.IPV6] = {
                     RouteMapConstants.ADDRESS: {RouteMapConstants.PREFIX_LIST: self.prefix_list_v6}}
