@@ -63,7 +63,6 @@ class TestL3Interface(base.BaseTestCase):
             <mode>
               <ipsec>
                 <ipv4-mode/>
-                <ipv4/>
               </ipsec>
             </mode>
             <path-mtu-discovery/>
@@ -143,7 +142,7 @@ class TestL3Interface(base.BaseTestCase):
                 '@xmlns': 'http://cisco.com/ns/yang/Cisco-IOS-XE-tunnel',
                 'source': '1.1.1.1',
                 'destination-config': {'ipv4': '1.1.1.2'},
-                'mode': {'ipsec': {'ipv4': ''}},
+                'mode': {'ipsec': {'ipv4-mode': ''}},
                 'path-mtu-discovery': '',
                 'protection': {'ipsec': {
                     '@xmlns': 'http://cisco.com/ns/yang/Cisco-IOS-XE-crypto',

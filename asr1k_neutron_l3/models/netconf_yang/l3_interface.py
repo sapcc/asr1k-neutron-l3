@@ -88,7 +88,10 @@ class L3Constants(object):
     TCP = "tcp"
     SOURCE = "source"
     IPV4 = "ipv4"
+    IPV4_MODE = "ipv4-mode"
+    IPV6_MODE = "ipv6-mode"
     DUAL_OVERLAY = "dual-overlay"
+    DUAL_OVERLAY_MODE = "dual-overlay-mode"
     DESTINATION_CONFIG = "destination-config"
     IPSEC = "ipsec"
     MODE = "mode"
@@ -579,11 +582,11 @@ class TunnelInterface(NyBase):
             {'key': 'tunnel_dest_ipv4', 'yang-key': 'ipv4', 'yang-path': 'tunnel/destination-config'},
             {'key': 'tunnel_dest_ipv6', 'yang-key': 'ipv6', 'yang-path': 'tunnel/destination-config'},
 
-            {'key': 'tunnel_mode_ipsec_ipv4', 'yang-key': 'ipv4', 'yang-path': 'tunnel/mode/ipsec',
+            {'key': 'tunnel_mode_ipsec_ipv4', 'yang-key': 'ipv4-mode', 'yang-path': 'tunnel/mode/ipsec',
              'yang-type': YANG_TYPE.EMPTY},
-            {'key': 'tunnel_mode_ipsec_ipv6', 'yang-key': 'ipv6', 'yang-path': 'tunnel/mode/ipsec',
+            {'key': 'tunnel_mode_ipsec_ipv6', 'yang-key': 'ipv6-mode', 'yang-path': 'tunnel/mode/ipsec',
              'yang-type': YANG_TYPE.EMPTY},
-            {'key': 'tunnel_mode_ipsec_dual_overlay', 'yang-key': 'dual-overlay', 'yang-path': 'tunnel/mode/ipsec',
+            {'key': 'tunnel_mode_ipsec_dual_overlay', 'yang-key': 'dual-overlay-mode', 'yang-path': 'tunnel/mode/ipsec',
              'yang-type': YANG_TYPE.EMPTY},
             {'key': 'path_mtu_discovery', 'yang-path': 'tunnel', 'yang-type': YANG_TYPE.EMPTY},
 
@@ -663,11 +666,11 @@ class TunnelInterface(NyBase):
                 dest_config[L3Constants.IPV6] = self.tunnel_dest_ipv6
             tun[L3Constants.DESTINATION_CONFIG] = dest_config
         if self.tunnel_mode_ipsec_ipv4:
-            tun[L3Constants.MODE] = {L3Constants.IPSEC: {L3Constants.IPV4: ""}}
+            tun[L3Constants.MODE] = {L3Constants.IPSEC: {L3Constants.IPV4_MODE: ""}}
         if self.tunnel_mode_ipsec_ipv6:
-            tun[L3Constants.MODE] = {L3Constants.IPSEC: {L3Constants.IPV6: ""}}
+            tun[L3Constants.MODE] = {L3Constants.IPSEC: {L3Constants.IPV6_MODE: ""}}
         if self.tunnel_mode_ipsec_dual_overlay:
-            tun[L3Constants.MODE] = {L3Constants.IPSEC: {L3Constants.DUAL_OVERLAY: ""}}
+            tun[L3Constants.MODE] = {L3Constants.IPSEC: {L3Constants.DUAL_OVERLAY_MODE: ""}}
         if self.path_mtu_discovery:
             tun[L3Constants.PATH_MTU_DISCOVERY] = ""
 

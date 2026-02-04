@@ -116,7 +116,6 @@ class IPSecProfile(NyBase):
             {'key': 'transform_set', 'yang-path': 'set'},
             {'key': 'pfs', 'yang-key': 'group', 'yang-path': 'set/pfs'},
 
-            {'key': 'sa_lifetime_sec', 'yang-key': 'seconds', 'yang-path': 'set/security-association/lifetime'},
             {'key': 'sa_lifetime_sec_case', 'yang-key': 'seconds-case',
              'yang-path': 'set/security-association/lifetime'},
             {'key': 'sa_lifetime_kb', 'yang-key': 'kilobytes', 'yang-path': 'set/security-association/lifetime'},
@@ -138,12 +137,11 @@ class IPSecProfile(NyBase):
         if self.pfs:
             p_set[CryptoConstants.PFS] = {CryptoConstants.GROUP: self.pfs}
 
-        if self.sa_lifetime_sec or self.sa_lifetime_sec_case or self.sa_lifetime_kb:
+        if self.sa_lifetime_sec_case or self.sa_lifetime_kb:
             p_set[CryptoConstants.SECURITY_ASSOCIATION] = {
                 CryptoConstants.LIFETIME: {
                     CryptoConstants.SECONDS_CASE: self.sa_lifetime_sec_case,
                     CryptoConstants.KILOBYTES: self.sa_lifetime_kb,
-                    CryptoConstants.SECONDS: self.sa_lifetime_sec,
                 }
             }
 

@@ -39,7 +39,6 @@ class CryptoSerialization(base.BaseTestCase):
                 <lifetime>
                   <seconds-case>1338</seconds-case>
                   <kilobytes>disable</kilobytes>
-                  <seconds>1337</seconds>
                 </lifetime>
               </security-association>
             </set>
@@ -58,7 +57,6 @@ class CryptoSerialization(base.BaseTestCase):
         self.assertEqual("AES256_SHA512_Tunnel", prof.transform_set)
         self.assertEqual("my-very-first-profile", prof.ikev2_profile)
         self.assertEqual("group21", prof.pfs)
-        self.assertEqual("1337", prof.sa_lifetime_sec)
         self.assertEqual("1338", prof.sa_lifetime_sec_case)
         self.assertEqual("disable", prof.sa_lifetime_kb)
         self.assertEqual("group21", prof.pfs)
@@ -69,7 +67,7 @@ class CryptoSerialization(base.BaseTestCase):
         context = FakeASR1KContext()
         prof = crypto.IPSecProfile(name="no-crypto-just-meowmeow", reverse_route=True,
                                    transform_set="from-here-to-there", ikev2_profile="itsa-meeee",
-                                   pfs="group9999", sa_lifetime_sec=1337,
+                                   pfs="group9999",
                                    sa_lifetime_sec_case=1338,
                                    sa_lifetime_kb="disable",)
         self.assertEqual({
@@ -81,7 +79,6 @@ class CryptoSerialization(base.BaseTestCase):
                     'security-association': {
                         'lifetime': {
                             'kilobytes': 'disable',
-                            'seconds': '1337',
                             'seconds-case': '1338'}
                     },
                     'transform-set': 'from-here-to-there'
