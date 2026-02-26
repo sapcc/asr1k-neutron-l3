@@ -432,6 +432,11 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
     def get_deleted_router_atts(self, context):
         return self.db.get_deleted_router_atts(context)
 
+    def get_address_scope_config(self, context):
+        scopes_cfg = asr1k_config.create_address_scope_dict()
+        scopes_db = self.db.get_address_scopes(context, filters={"name": list(scopes_cfg.keys())})
+        return {scope['id']: scopes_cfg[scope['name']] for scope in scopes_db}
+
     def get_flavor_metainfo_entries(self, context, flavor_id):
         """Fetch the metainfo of all service profiles referenced by a flavor"""
 
