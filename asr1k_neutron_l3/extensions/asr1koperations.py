@@ -215,6 +215,7 @@ class ConfigController(wsgi.Controller):
             if not data:
                 raise exceptions.HTTPNotFound(detail=f'No router found for uuid "{id}"')
             data = jsonutils.to_primitive(data[0], convert_instances=True)
+            data[const.ADDRESS_SCOPE_CONFIG] = self.plugin.get_address_scope_config(request.context)
             return {"config": data}
         except BaseException as e:
             raise exceptions.HTTPInternalServerError(detail=str(e))
