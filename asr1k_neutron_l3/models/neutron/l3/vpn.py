@@ -18,7 +18,7 @@ import ipaddress
 
 from oslo_log import log as logging
 
-from asr1k_neutron_l3.common.utils import uuid_to_ipsec_short_id, uuid_to_vrf_id
+from asr1k_neutron_l3.common.utils import uuid_to_ipsec_short_id, uuid_to_vrf_id, vrf_id_to_uuid
 from asr1k_neutron_l3.models.neutron.l3 import access_list, base
 from asr1k_neutron_l3.models.netconf_yang import crypto, l3_interface
 
@@ -223,6 +223,10 @@ class TunnelInterface(base.Base):
     def __init__(self, vrf, sitecon, external_v4_ip, external_v6_ip, vpn_service_up=True):
         super().__init__()
 
+        # this description has a 200 char limit in netconf-yaxng
+        self.description = (f"type:vpn;project:{sitecon['project_id']};router:{vrf_id_to_uuid(vrf)};"
+                            f"sitecon:{sitecon['id']};profile:{uuid_to_ipsec_short_id(sitecon['id'])}")
+
         self.vrf = vrf
         self.external_v4_ip = external_v4_ip
         self.external_v6_ip = external_v6_ip
@@ -253,10 +257,10 @@ class TunnelInterface(base.Base):
 
         self._rest_definition = l3_interface.TunnelInterface(
             name=self.tunnel_id,
+            description=self.description,
             shutdown=self.shutdown,
             vrf=vrf,
             tunnel_vrf=vrf,
-            description=sitecon['id'],
             mtu=sitecon['mtu'],
             # tcp mss = mtu - (20 bytes ip header + 20 bytes tcp header)
             tcp_mss=sitecon['mtu'] - 40,
