@@ -722,9 +722,9 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     @db_api.CONTEXT_READER
     def get_vpn_internal_tunnel_ips(self, context, ipsec_sitecon_ids=None, vpnservice_id=None):
         query = context.session.query(asr1k_models.ASR1KInternalTunnelIp)
-        if ipsec_sitecon_ids:
+        if ipsec_sitecon_ids is not None:
             query = query.filter(asr1k_models.ASR1KInternalTunnelIp.ipsec_site_connection_id.in_(ipsec_sitecon_ids))
-        if vpnservice_id:
+        if vpnservice_id is not None:
             query = query.join(vpn_models.IPsecSiteConnection,
                                asr1k_models.ASR1KInternalTunnelIp.ipsec_site_connection_id ==
                                vpn_models.IPsecSiteConnection.id)
@@ -779,7 +779,7 @@ class DBPlugin(db_base_plugin_v2.NeutronDbPluginV2,
     def get_vpn_tunnel_ids(self, context, ipsec_site_connection_ids=None, agent_host=None):
         query = context.session.query(asr1k_models.ASR1KTunnelId)
 
-        if ipsec_site_connection_ids:
+        if ipsec_site_connection_ids is not None:
             query = query.filter(asr1k_models.ASR1KTunnelId.ipsec_site_connection_id.in_(ipsec_site_connection_ids))
         if agent_host:
             query = query.filter(asr1k_models.ASR1KTunnelId.agent_host == agent_host)
