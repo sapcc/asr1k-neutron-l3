@@ -522,7 +522,10 @@ class IKEv2Proposal(NyBase):
         for enc in cls.ENCRYPTION_ALGOS:
             params.append({'key': enc, 'yang-path': 'encryption', 'yang-type': YANG_TYPE.EMPTY, 'default': False})
         for hashalgo in cls.HASHES:
-            params.append({'key': hashalgo, 'yang-path': 'integrity', 'yang-type': YANG_TYPE.EMPTY, 'default': False})
+            params.append({'key': f'int_{hashalgo}', 'yang-key': hashalgo, 'yang-path': 'integrity',
+                           'yang-type': YANG_TYPE.EMPTY, 'default': False})
+            params.append({'key': f'prf_{hashalgo}', 'yang-key': hashalgo, 'yang-path': 'prf',
+                           'yang-type': YANG_TYPE.EMPTY, 'default': False})
 
         return params
 
@@ -531,12 +534,17 @@ class IKEv2Proposal(NyBase):
             CryptoConstants.NAME: self.name,
         }
 
-        for (key, values) in ((CryptoConstants.ENCRYPTION, self.ENCRYPTION_ALGOS), (CryptoConstants.GROUP, self.GROUPS),
-                              (CryptoConstants.INTEGRITY, self.HASHES)):
+        for (key, values) in ((CryptoConstants.ENCRYPTION, self.ENCRYPTION_ALGOS), (CryptoConstants.GROUP, self.GROUPS)):
             for value in values:
                 if getattr(self, value):
                     # transform to yang-key
                     value = value.replace("_", "-")
                     prop.setdefault(key, {})[value] = ""
+
+        for hashalgo in self.HASHES:
+            if getattr(self, f'int_{hashalgo}'):
+                prop.setdefault(CryptoConstants.INTEGRITY, {})[hashalgo] = ""
+            if getattr(self, f'prf_{hashalgo}'):
+                prop.setdefault(CryptoConstants.PRF, {})[hashalgo] = ""
 
         return {CryptoConstants.PROPOSAL: prop}

@@ -46,12 +46,20 @@ class IKEv2Proposal(base.Base):
         if enc in ('aes-128', 'aes-256'):
             parts = enc.split("-")
             enc = f"{parts[0]}-cbc-{parts[1]}"
+        elif enc in ('aes-128-gcm-16', 'aes-256-gcm-16'):
+            parts = enc.split("-")
+            enc = f"{parts[0]}-gcm-{parts[1]}"
         enc = enc.replace("-", "_")
         extra_args[enc] = True
 
         # hash algo
         if hash_algo := ikepolicy['auth_algorithm']:
-            extra_args[hash_algo] = True
+            if '-gcm-' in ikepolicy['encryption_algorithm']:
+                # gcm uses prf instead of integrity
+                hash_key = f'prf_{hash_algo}'
+            else:
+                hash_key = f'int_{hash_algo}'
+            extra_args[hash_key] = True
 
         # dh
         if dh := ikepolicy['pfs']:

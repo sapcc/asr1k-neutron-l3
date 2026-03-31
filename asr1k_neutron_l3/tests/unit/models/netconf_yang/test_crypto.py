@@ -479,6 +479,9 @@ class CryptoSerialization(base.BaseTestCase):
             <integrity>
               <sha256/>
             </integrity>
+            <prf>
+              <sha512/>
+            </prf>
           </proposal>
         </ikev2>
       </crypto>
@@ -505,21 +508,37 @@ class CryptoSerialization(base.BaseTestCase):
         self.assertFalse(prop.aes_gcm_128)
         self.assertFalse(prop.aes_gcm_256)
 
-        self.assertTrue(prop.sha256)
-        self.assertFalse(prop.sha384)
-        self.assertFalse(prop.sha512)
+        self.assertTrue(prop.int_sha256)
+        self.assertFalse(prop.int_sha384)
+        self.assertFalse(prop.int_sha512)
+
+        self.assertFalse(prop.prf_sha256)
+        self.assertFalse(prop.prf_sha384)
+        self.assertTrue(prop.prf_sha512)
+
+        self.assertEqual({"name": "eurasian-starling",
+                          "encryption": {"aes-cbc-256": ""},
+                          "group": {"nineteen": "", "twenty-one": ""},
+                          "integrity": {"sha256": ""},
+                          "prf": {"sha512": ""}},
+                         prop.to_dict(context)["proposal"])
+
+    def test_ikev2_proposal_serialization(self):
+        context = FakeASR1KContext()
+        prop = crypto.IKEv2Proposal(name="eurasian-starling", nineteen=True, twenty_one=True,
+                                    aes_cbc_256=True, int_sha256=True)
         self.assertEqual({"name": "eurasian-starling",
                           "encryption": {"aes-cbc-256": ""},
                           "group": {"nineteen": "", "twenty-one": ""},
                           "integrity": {"sha256": ""}},
                          prop.to_dict(context)["proposal"])
 
-    def test_ikev2_proposal_serialization(self):
+    def test_ikev2_proposal_serialization_prf(self):
         context = FakeASR1KContext()
         prop = crypto.IKEv2Proposal(name="eurasian-starling", nineteen=True, twenty_one=True,
-                                    aes_cbc_256=True, sha256=True)
+                                    aes_gcm_256=True, prf_sha256=True)
         self.assertEqual({"name": "eurasian-starling",
-                          "encryption": {"aes-cbc-256": ""},
+                          "encryption": {"aes-gcm-256": ""},
                           "group": {"nineteen": "", "twenty-one": ""},
-                          "integrity": {"sha256": ""}},
+                          "prf": {"sha256": ""}},
                          prop.to_dict(context)["proposal"])

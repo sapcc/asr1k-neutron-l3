@@ -239,3 +239,27 @@ class TestRouterClassWithVPN(RouterWithSyncDataTestCase):
         dev_router = self._get_ny_router(router['router']['id'])
         iface = self._find_entry("TunnelInterface", dev_router.vpnaas_conf)._rest_definition
         self.assertTrue(iface.shutdown)
+
+    def test_router_with_aes_gcm(self):
+        router = self._make_vpn_ready_router()
+        vpn = self._create_vpnservice("json", "vpn1", True, router['router']['id'], None, as_admin=True)
+        self._create_ipsec_site_connection("json",
+            vpnservice_id=vpn["vpnservice"]["id"],
+            **self._make_sitecon_related_objs(peer_eps=["193.175.214.0/24"],
+                                              ike_args={"encryption_algorithm": "aes-256-gcm-16",
+                                                        "auth_algorithm": "sha512"},
+                                              ipsec_args={"encryption_algorithm": "aes-256-gcm-16",
+                                                          "auth_algorithm": "sha512"})
+        )
+        dev_router = self._get_ny_router(router['router']['id'])
+
+        # make sure prf_$hash is set, but $hash is not
+        ike_prop = self._find_entry("IKEv2Proposal", dev_router.vpnaas_conf)._rest_definition
+        self.assertTrue(ike_prop.aes_gcm_256)
+        self.assertTrue(ike_prop.prf_sha512)
+        self.assertFalse(ike_prop.int_sha512)
+        self.assertTrue(ike_prop.fifteen)
+        self.assertIn('sha512', ike_prop.to_dict(context)['proposal']['prf'])
+
+        ipsec_ts = self._find_entry("IPSecTransformSet", dev_router.vpnaas_conf)._rest_definition
+        self.assertIsNone(ipsec_ts.esp_hmac)
