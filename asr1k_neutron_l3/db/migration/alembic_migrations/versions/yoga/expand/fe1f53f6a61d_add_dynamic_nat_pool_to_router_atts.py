@@ -16,14 +16,14 @@
 """Add dynamic nat pool to router atts
 
 Revision ID: fe1f53f6a61d
-Revises: 5678db342f9
+Revises: 6777c66483ab
 Create Date: 2024-02-28 14:31:08.477571
 
 """
 
 # revision identifiers, used by Alembic.
 revision = 'fe1f53f6a61d'
-down_revision = '5678db342f9'
+down_revision = '6777c66483ab'
 
 from alembic import op
 import sqlalchemy as sa
