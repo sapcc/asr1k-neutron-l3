@@ -16,7 +16,7 @@
 
 """ASRK1 BOOKKEEPING
 
-Revision ID: 6777c66483ab
+Revision ID: 80f6e3f77cd2
 Revises: 5678db342f9
 Create Date: 2020-01-29 14:25:39.157776
 
@@ -26,7 +26,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = '6777c66483ab'
+revision = '80f6e3f77cd2'
 down_revision = '5678db342f9'
 
 
