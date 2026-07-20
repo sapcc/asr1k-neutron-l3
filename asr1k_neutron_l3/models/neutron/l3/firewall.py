@@ -120,7 +120,7 @@ class ServicePolicy(FirewallPolicyMixin, base.Base):
         classes = [
             ncServicePolicyClass(id=ClassMap.get_id_by_policy_id(self.policy_id),
                                  type='inspect', policy_action='inspect'),
-            ncServicePolicyClass(id='class-default', policy_action='drop', log=True)
+            ncServicePolicyClass(id='class-default', policy_action='drop', log=False)
         ]
         return ncServicePolicy(id=self.id, type='inspect', classes=classes)
 
