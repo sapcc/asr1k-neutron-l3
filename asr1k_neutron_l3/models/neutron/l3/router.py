@@ -97,6 +97,7 @@ class Router(Base):
 
         self.route_maps = self._build_route_maps()
         self.nat_acl = self._build_nat_acl()
+        self.vpnaas_antispoof_acl_v4 = self._build_vpnaas_antispoof_acl()
 
         self.bgp_address_family = self._build_bgp_address_family()
 
@@ -173,7 +174,8 @@ class Router(Base):
             self.gateway_interface = l3_interface.GatewayInterface(self.router_id, gw_port,
                                                                    self._port_extra_atts(gw_port),
                                                                    self.router_atts.get('dynamic_nat_pool'),
-                                                                   nat_outside=not self.is_vpnaas_only)
+                                                                   nat_outside=not self.is_vpnaas_only,
+                                                                   drop_int_traffic=self.is_vpnaas_only)
             interfaces.append(self.gateway_interface)
 
         inf_ports = self.router_info.get('_interfaces', [])
@@ -257,6 +259,17 @@ class Router(Base):
         else:
             acl.append_rule(access_list.Rule())
         return acl
+
+    def _build_vpnaas_antispoof_acl(self):
+        vrf_id = utils.uuid_to_vrf_id(self.router_id)
+
+        acl_v4 = access_list.AccessList(f"ACL-NO-SPOOF-V4-{vrf_id}", )
+        if self.gateway_interface and self.gateway_interface.ipv4_address:
+            rule = access_list.Rule(action='permit', source=self.gateway_interface.ipv4_address.address)
+            acl_v4.append_rule(rule)
+        acl_v4.append_rule(access_list.Rule(action='deny'))
+
+        return acl_v4
 
     def _route_has_connected_interface(self, l3_route):
         all_networks = (
@@ -557,6 +570,11 @@ class Router(Base):
         if self.nat_acl:
             results.append(self.nat_acl.update())
 
+        if self.is_vpnaas_only:
+            self.vpnaas_antispoof_acl_v4.update()
+        else:
+            self.vpnaas_antispoof_acl_v4.delete()
+
         # a router object will take care of creation of firewall acls and related objects,
         # it will also update firewall acls
         for obj in self.fwaas_conf:
@@ -634,6 +652,7 @@ class Router(Base):
         results.append(self.nat_pool.delete())
 
         results.append(self.nat_acl.delete())
+        results.append(self.vpnaas_antispoof_acl_v4.delete())
         results.append(self.bgp_address_family[4].delete())
         results.append(self.bgp_address_family[6].delete())
 
@@ -720,6 +739,10 @@ class Router(Base):
         nat_acl_diff = self.nat_acl.diff()
         if not nat_acl_diff.valid:
             diff_results['nat_acl'] = nat_acl_diff.to_dict()
+
+        spoof_acl_diff = self.vpnaas_antispoof_acl_v4.diff(should_be_none=not self.is_vpnaas_only)
+        if not spoof_acl_diff.valid:
+            diff_results['anti_spoof_acl_v4'] = spoof_acl_diff.to_dict()
 
         for obj in self.fwaas_conf:
             d = obj.diff()
