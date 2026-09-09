@@ -13,7 +13,7 @@ tenacity>=6.0.0 # Apache-2.0
 prometheus_client>=0.0.19
 bs4>=0.0.1
 ncclient
-neutron @ git+https://github.com/sapcc/neutron@stable/2024.1-m3
-networking-bgpvpn @ git+https://github.com/sapcc/networking-bgpvpn@stable/2024.1-m3
-neutron-fwaas @ git+https://github.com/sapcc/neutron-fwaas@stable/2024.1-m3
-neutron-vpnaas @ git+https://github.com/sapcc/neutron-vpnaas@stable/2024.1-m3
+neutron @ git+https://github.com/sapcc/neutron@stable/2026.1-m3
+networking-bgpvpn @ git+https://github.com/sapcc/networking-bgpvpn@stable/2026.1-m3
+neutron-fwaas @ git+https://github.com/sapcc/neutron-fwaas@stable/2026.1-m3
+neutron-vpnaas @ git+https://github.com/sapcc/neutron-vpnaas@stable/2026.1-m3
