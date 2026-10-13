@@ -571,7 +571,7 @@ class NyBase(BulkOperations):
                         for path_item in path:
                             if bool(values):
                                 values = values.get(path_item)
-                                if isinstance(values, list):
+                                if isinstance(values, list) and path_item != path[-1]:
                                     LOG.error("Unexpected list found for %s path %s values %s",
                                               cls.__name__, yang_path, values)
                                 if bool(values) is None:
