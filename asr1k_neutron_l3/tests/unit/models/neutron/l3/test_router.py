@@ -42,6 +42,8 @@ class TestRouterClass(RouterWithSyncDataTestCase):
         self.assertIsNotNone(dev_router.vrf._rest_definition.address_family_ipv4)
         self.assertIsNone(dev_router.vrf._rest_definition.address_family_ipv6)
         self.assertTrue(dev_router.gateway_interface._rest_definition.nat_outside)
+        self.assertIsNone(dev_router.gateway_interface._rest_definition.access_group_in)
+        self.assertEqual("EXT-TOS", dev_router.gateway_interface._rest_definition.access_group_out)
 
     def test_router_with_dapnet_v4(self):
         with self.address_scope(name="the-open-sea") as addr_scope, \
@@ -154,6 +156,9 @@ class TestRouterClassWithVPN(RouterWithSyncDataTestCase):
         ike_keyring = self._find_entry("IKEv2Keyring", dev_router.vpnaas_conf)._rest_definition
         self.assertEqual("supercilium", ike_keyring.peers[0].psk)
         self.assertFalse(dev_router.gateway_interface._rest_definition.nat_outside)
+        self.assertIsNone(dev_router.gateway_interface._rest_definition.access_group_in)
+        self.assertEqual(f"ACL-NO-SPOOF-V4-{dev_router.router_id.replace('-', '')}",
+                         dev_router.gateway_interface._rest_definition.access_group_out)
 
     def test_router_with_vpn_transport_conf(self):
         router = self._make_vpn_ready_router()
