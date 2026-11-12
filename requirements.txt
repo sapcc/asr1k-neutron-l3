@@ -17,3 +17,5 @@ neutron @ git+https://github.com/sapcc/neutron@stable/2024.1-m3
 networking-bgpvpn @ git+https://github.com/sapcc/networking-bgpvpn@stable/2024.1-m3
 neutron-fwaas @ git+https://github.com/sapcc/neutron-fwaas@stable/2024.1-m3
 neutron-vpnaas @ git+https://github.com/sapcc/neutron-vpnaas@stable/2024.1-m3
+# FIXME(seba): upstream this
+# neutron-bgpaas-sci @ git+https://github.com/sapcc/neutron-bgpaas-sci@stable/2024.1-m3

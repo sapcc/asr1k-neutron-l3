@@ -30,6 +30,7 @@ from neutron.services.flavors import flavors_plugin
 from neutron.tests.common import helpers
 from neutron.tests.unit.extensions import test_l3, test_address_scope
 from neutron_vpnaas.extensions import vpnaas as ext_vpnaas
+from neutron_bgpaas_sci.extensions import bgpaas_sci as ext_bgpaas_sci
 from oslo_config import cfg
 from oslo_serialization import jsonutils
 from oslo_utils import uuidutils
@@ -41,10 +42,12 @@ from asr1k_neutron_l3.models.neutron.l3.router import Router
 from asr1k_neutron_l3.plugins.db import asr1k_db
 from asr1k_neutron_l3.plugins.l3.service_plugins.l3_extension_adapter import ASR1KPluginBase
 from asr1k_neutron_l3.tests.common.vpnaas import ASR1KVPNaaSMixin
+from asr1k_neutron_l3.tests.common.bgpaas_sci import ASR1KBGPaaSSCIMixin
 from asr1k_neutron_l3.tests.common.flavor import FlavorSchedulingMixin
 
 
 DB_VPN_PLUGIN_KLASS = "neutron_vpnaas.services.vpn.asr1k_plugin.VPNASR1KDriverPlugin"
+BGPAAS_SCI_PLUGIN_KLASS = "neutron_bgpaas_sci.services.bgpaas_sci.plugin.BGPaaSSCIPlugin"
 
 
 class FakeASR1KPair:
@@ -58,7 +61,7 @@ class FakeASR1KPair:
 
 class ASR1KTestL3NatIntPlugin(test_l3.TestL3NatIntPlugin, address_scope_db.AddressScopeDbMixin):
     supported_extension_aliases = test_l3.TestL3NatIntPlugin.supported_extension_aliases + [
-        'availability_zone', 'agent', 'address-scope', 'flavors', 'vpnaas',
+        'availability_zone', 'agent', 'address-scope', 'flavors', 'vpnaas', 'bgpaas-sci',
     ]
 
 
@@ -66,7 +69,8 @@ class ASR1KTestExtensionManager:
     def get_resources(self):
         return (l3.L3.get_resources() +
                 ext_address_scope.Address_scope.get_resources() +
-                ext_vpnaas.Vpnaas.get_resources())
+                ext_vpnaas.Vpnaas.get_resources() +
+                ext_bgpaas_sci.Bgpaas_sci.get_resources())
 
     def get_actions(self):
         return []
@@ -78,15 +82,19 @@ class ASR1KTestExtensionManager:
 @mock.patch.object(asr1k_db.DBPlugin, 'get_network_port_count_per_agent', new=mock.Mock(return_value={'fake-agent': 0}))
 class RouterWithSyncDataTestCase(test_address_scope.AddressScopeTestCase,
                                  test_l3.L3BaseForIntTests, test_l3.L3NatTestCaseMixin,
-                                 FlavorSchedulingMixin, ASR1KVPNaaSMixin):
+                                 FlavorSchedulingMixin, ASR1KVPNaaSMixin, ASR1KBGPaaSSCIMixin):
     def setUp(self):
         l3_plugin = 'asr1k_l3_routing'
-        service_plugins = {'l3_plugin_name': l3_plugin, 'vpnaas': DB_VPN_PLUGIN_KLASS}
+        service_plugins = {'l3_plugin_name': l3_plugin, 'vpnaas': DB_VPN_PLUGIN_KLASS,
+                           'bgpaas-sci': BGPAAS_SCI_PLUGIN_KLASS}
 
         self.node_driver = "asr1k_neutron_l3.neutron.services.service_providers.asr1k_router.ASR1KRouterDriver"
         vpn_driver = 'asr1k_neutron_l3.neutron.services.service_drivers.asr1k.vpnaas_driver.ASR1KIPSecVPNaaSDriver'
+        bgpaas_sci_driver = ('asr1k_neutron_l3.neutron.services.service_drivers.asr1k.'
+                             'bgpaas_sci_driver.ASR1KBGPaaSSCIDriver')
         cfg.CONF.set_override('service_provider', [f'L3_ROUTER_NAT:asr1k:{self.node_driver}:default',
-                                                   f'VPN:cisco_ipsec:{vpn_driver}:default'],
+                                                   f'VPN:cisco_ipsec:{vpn_driver}:default',
+                                                   f'BGPAAS_SCI:asr1k:{bgpaas_sci_driver}:default'],
                               group='service_providers')
         cfg.CONF.set_override("router_scheduler_driver",
                               "asr1k_neutron_l3.plugins.l3.schedulers.simple_asr1k_scheduler.SimpleASR1KScheduler")
