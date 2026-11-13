@@ -213,6 +213,7 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
 
         self.db = asr1k_db.get_db_plugin()
         self._vpn_plugin = None
+        self._bgpaas_sci_plugin = None
         self._refresh_flavor_quotas_loop = loopingcall.FixedIntervalLoopingCall(self._refresh_flavor_qutotas)
         if cfg.CONF.asr1k.flavor_quota_refresh_interval > 0:
             self._refresh_flavor_quotas_loop.start(interval=cfg.CONF.asr1k.flavor_quota_refresh_interval,
@@ -223,6 +224,12 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
         if self._vpn_plugin is None:
             self._vpn_plugin = directory.get_plugin("VPN")
         return self._vpn_plugin
+
+    @property
+    def bgpaas_sci_plugin(self):
+        if self._bgpaas_sci_plugin is None:
+            self._bgpaas_sci_plugin = directory.get_plugin("bgpaas-sci")
+        return self._bgpaas_sci_plugin
 
     def get_agent_for_router(self, context, router_id):
         """Returns all hosts to send notification about router update"""
@@ -365,9 +372,16 @@ class ASR1KPluginBase(l3_db.L3_NAT_db_mixin,
                 # only routers with an attached flavor can have VPNs
                 router["vpn"] = self.get_vpnaas_objects(context, router["id"], host)
 
+            router["bgp_peers"] = []
+            if utils.is_bgpaas_sci_enabled():
+                router["bgp_peers"] = self.get_bgpaas_sci_objects(context, router["id"])
+
             sync_routers.append(router)
 
         return sync_routers
+
+    def get_bgpaas_sci_objects(self, context, router_id):
+        return self.bgpaas_sci_plugin.get_bgp_peers(context, filters={'router_id': [router_id]})
 
     def get_vpnaas_objects(self, context, router_id, host):
         vpns = self.vpn_plugin.get_vpnservices(context, filters={'router_id': [router_id]})

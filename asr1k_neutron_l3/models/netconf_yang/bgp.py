@@ -18,7 +18,7 @@ from collections import OrderedDict
 import ipaddress
 
 from asr1k_neutron_l3.common.utils import from_cidr, to_cidr
-from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION
+from asr1k_neutron_l3.models.netconf_yang.ny_base import NyBase, execute_on_pair, NC_OPERATION, YANG_TYPE
 from asr1k_neutron_l3.models.netconf_yang import xml_utils
 
 
@@ -49,6 +49,90 @@ class BGPConstants(object):
     MASK = "mask"
     ROUTE_MAP = "route-map"
     DEFAULT = "default"
+    ROUTE_MAP_NAME = "route-map-name"
+    INOUT = "inout"
+    NEIGHBOR = "neighbor"
+    REMOTE_AS = "remote-as"
+    ACTIVATE = "activate"
+    LOCAL_AS = "local-as"
+    AS_NO = "as-no"
+    MAXIMUM_PREFIX = "maximum-prefix"
+    MAX_PREFIX_NO = "max-prefix-no"
+    THRESHOLD = "threshold"
+    RESTART = "restart"
+    PASSWORD = "password"
+    ENCTYPE = "enctype"
+    TEXT = "text"
+    SOFT_RECONFIGURATION = "soft-reconfiguration"
+
+
+class NeighborRouteMap(NyBase):
+    @classmethod
+    def __parameters__(cls):
+        return [
+            {'key': 'route_map_name', 'id': True},
+            {'key': 'inout'},
+        ]
+
+    def to_dict(self, context):
+        return {
+            BGPConstants.INOUT: self.inout,
+            BGPConstants.ROUTE_MAP_NAME: self.route_map_name,
+        }
+
+
+class Neighbor(NyBase):
+    @classmethod
+    def __parameters__(cls):
+        return [
+            # id, remote-as, activate, local-as --> as-no, maximum-prefix (max-prefix-no, threshold, restart), password (enctype, text)
+            # route-map (inout / route_map)
+            {'key': 'remote_ip', 'id': True, 'yang-key': 'id'},
+            {'key': 'remote_as'},
+            {'key': 'activate', 'yang-type': YANG_TYPE.EMPTY, 'default': False},
+            {'key': 'local_as', 'yang-path': 'local-as', 'yang-key': 'as-no'},
+            {'key': 'soft_reconfiguration', 'default': 'inbound'},
+            {'key': 'password_enctype', 'yang-path': 'password', 'yang-key': 'enctype'},
+            {'key': 'password_text', 'yang-path': 'password', 'yang-key': 'text'},
+
+            {'key': 'max_prefix_no', 'yang-path': 'maximum-prefix', 'yang-key': 'max-prefix-no'},
+            {'key': 'max_prefix_thres', 'yang-path': 'maximum-prefix', 'yang-key': 'threshold'},
+            {'key': 'max_prefix_restart', 'yang-path': 'maximum-prefix', 'yang-key': 'restart'},
+
+            {'key': 'route_maps', 'yang-key': BGPConstants.ROUTE_MAP,
+             'type': [NeighborRouteMap], 'default': []},
+        ]
+
+    def to_dict(self, context):
+        neigh = {
+            BGPConstants.ID: self.remote_ip,
+            BGPConstants.REMOTE_AS: self.remote_as,
+            BGPConstants.LOCAL_AS: {BGPConstants.AS_NO: self.local_as},
+        }
+
+        if self.max_prefix_no or self.max_prefix_thres or self.max_prefix_restart:
+            neigh[BGPConstants.MAXIMUM_PREFIX] = {
+                BGPConstants.MAX_PREFIX_NO: self.max_prefix_no,
+                BGPConstants.THRESHOLD: self.max_prefix_thres,
+                BGPConstants.RESTART: self.max_prefix_restart,
+            }
+
+        if self.activate:
+            neigh[BGPConstants.ACTIVATE] = ''
+
+        if self.password_enctype or self.password_text:
+            neigh[BGPConstants.PASSWORD] = {
+                BGPConstants.ENCTYPE: self.password_enctype,
+                BGPConstants.TEXT: self.password_text,
+            }
+
+        if self.route_maps:
+            neigh[BGPConstants.ROUTE_MAP] = [rm.to_dict(context) for rm in self.route_maps]
+
+        if self.soft_reconfiguration:
+            neigh[BGPConstants.SOFT_RECONFIGURATION] = self.soft_reconfiguration
+
+        return neigh
 
 
 class AddressFamilyBase(NyBase):
@@ -181,6 +265,8 @@ class AddressFamilyV4(AddressFamilyBase):
         return [
             {'key': 'asn', 'id': True, 'yang-key': 'id'},
             {'key': 'vrf', 'yang-key': 'name'},
+            {'key': 'neighbors', 'yang-path': 'ipv4-unicast', 'yang-key': BGPConstants.NEIGHBOR,
+             'type': [Neighbor], 'default': []},
             {'key': 'networks', 'yang-path': 'ipv4-unicast/network', 'yang-key': BGPConstants.WITH_MASK,
              'type': [NetworkV4], 'default': []},
             {'key': 'networks_no_mask', 'yang-path': 'ipv4-unicast/network', 'yang-key': BGPConstants.NO_MASK,
@@ -203,6 +289,7 @@ class AddressFamilyV4(AddressFamilyBase):
                                                            key=lambda x: (x.number, x.mask))
                 ],
             },
+            BGPConstants.NEIGHBOR: [n.to_dict(context) for n in self.neighbors],
         }
         if self.redistribute_connected_with_rm or self.redistribute_static_with_rm:
             redist = {}
@@ -253,6 +340,8 @@ class AddressFamilyV6(AddressFamilyBase):
         return [
             {'key': 'asn', 'id': True, 'yang-key': 'id'},
             {'key': 'vrf', 'yang-key': 'name'},
+            {'key': 'neighbors', 'yang-path': BGPConstants.IPV6_UNICAST, 'yang-key': BGPConstants.NEIGHBOR,
+             'type': [Neighbor], 'default': []},
             {'key': 'networks', 'yang-path': BGPConstants.IPV6_UNICAST, 'yang-key': BGPConstants.NETWORK,
              'type': [NetworkV6], 'default': []},
             {'key': 'redistribute_connected_with_rm', 'yang-key': 'route-map',
@@ -270,6 +359,7 @@ class AddressFamilyV6(AddressFamilyBase):
             BGPConstants.NETWORK: [
                 net.to_dict(context) for net in sorted(self.networks, key=lambda x: x.number)
             ],
+            BGPConstants.NEIGHBOR: [n.to_dict(context) for n in self.neighbors],
         }
         if self.redistribute_connected_with_rm or self.redistribute_static_with_rm:
             redist = {}

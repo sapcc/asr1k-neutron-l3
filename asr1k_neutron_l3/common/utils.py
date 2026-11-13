@@ -202,3 +202,11 @@ def is_vpnaas_enabled():
                                           'asr1k-vpnaas',
                                           'neutron_vpnaas.services.vpn.asr1k_plugin.VPNASR1KDriverPlugin'))
     return _VPNAAS_ENABLED
+
+
+_BGPAAS_SCI_ENABLED = None
+def is_bgpaas_sci_enabled():
+    global _BGPAAS_SCI_ENABLED
+    if _BGPAAS_SCI_ENABLED is None:
+        _BGPAAS_SCI_ENABLED = 'bgpaas-sci' in cfg.CONF.service_plugins
+    return _BGPAAS_SCI_ENABLED
